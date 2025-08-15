@@ -572,9 +572,7 @@ export default function App() {
               Finalizar pelo WhatsApp
             </a>
 
-            <button onClick={() => pagarComPix(subtotal)} className="w-full rounded-lg px-4 py-3 bg-teal-400 hover:bg-teal-300 text-black font-semibold">
-              Pagar com Pix
-            </button>
+
           </div>
         </aside>
       </div>
