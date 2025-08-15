@@ -18,11 +18,12 @@ const brand = {
 };
 
 /**
- * COMO CONFIGURAR ESCALAS E PREÇOS
- * - Para cada produto, edite o array "variants".
- * - Cada variant tem: { label: "1/7", price: 500 }
- * - "defaultVariant" define a escala inicial do card.
- * - status: "estoque" (aparece na seção Em estoque) ou "catalogo".
+ * COMO CONFIGURAR ESCALAS, PREÇOS E GRUPOS (ANIME/FILME)
+ *
+ * - status: "estoque" ou "catalogo"
+ * - tags: array de grupos a que o item pertence (ex.: ["Naruto"], ["DBZ"], ["Baldur's Gate"], ["Filmes"])
+ * - variants: [{ label: "1/7", price: 500 }, ...]
+ * - defaultVariant: escala inicial selecionada
  */
 const produtos = [
   {
@@ -31,6 +32,7 @@ const produtos = [
     img: "/images/prod1.jpg",
     model: "/models/mintharaviewer.glb",
     status: "estoque",
+    tags: ["Baldur's Gate", "Games"],
     defaultVariant: "1/7",
     variants: [
       { label: "1/9", price: 420 },
@@ -43,6 +45,7 @@ const produtos = [
     nome: "Majin Boo (DBZ)",
     img: "/images/prod2.jpg",
     status: "catalogo",
+    tags: ["DBZ", "Animes"],
     defaultVariant: "1/4",
     variants: [
       { label: "1/6", price: 260 },
@@ -55,6 +58,7 @@ const produtos = [
     nome: "Konan (Naruto)",
     img: "/images/prod3.jpg",
     status: "catalogo",
+    tags: ["Naruto", "Animes"],
     defaultVariant: "1/9",
     variants: [
       { label: "1/10", price: 110 },
@@ -67,6 +71,7 @@ const produtos = [
     nome: "Arlequina (DC)",
     img: "/images/prod4.jpg",
     status: "catalogo",
+    tags: ["DC", "Filmes", "HQs"],
     defaultVariant: "1/7",
     variants: [
       { label: "1/8", price: 260 },
@@ -76,9 +81,10 @@ const produtos = [
   },
   {
     id: "p5",
-    nome: "Naruto Classico(Naruto)",
+    nome: "Naruto Clássico (Naruto)",
     img: "/images/prod5.jpg",
     status: "catalogo",
+    tags: ["Naruto", "Animes"],
     defaultVariant: "1/7",
     variants: [
       { label: "1/8", price: 260 },
@@ -88,9 +94,10 @@ const produtos = [
   },
   {
     id: "p6",
-    nome: "Naruto Hokage(Naruto)",
+    nome: "Naruto Hokage (Naruto)",
     img: "/images/prod6.jpg",
     status: "catalogo",
+    tags: ["Naruto", "Animes"],
     defaultVariant: "1/7",
     variants: [
       { label: "1/8", price: 260 },
@@ -103,6 +110,7 @@ const produtos = [
     nome: "Orochimaru (Naruto)",
     img: "/images/prod7.jpg",
     status: "catalogo",
+    tags: ["Naruto", "Animes"],
     defaultVariant: "1/7",
     variants: [
       { label: "1/8", price: 260 },
@@ -112,9 +120,10 @@ const produtos = [
   },
   {
     id: "p8",
-    nome: "Jiraya Modo Sanin(Naruto)",
+    nome: "Jiraiya Modo Sábio (Naruto)",
     img: "/images/prod8.jpg",
     status: "catalogo",
+    tags: ["Naruto", "Animes"],
     defaultVariant: "1/7",
     variants: [
       { label: "1/8", price: 260 },
@@ -127,6 +136,7 @@ const produtos = [
     nome: "Hinata (Naruto)",
     img: "/images/prod9.jpg",
     status: "catalogo",
+    tags: ["Naruto", "Animes"],
     defaultVariant: "1/7",
     variants: [
       { label: "1/8", price: 260 },
@@ -136,18 +146,20 @@ const produtos = [
   },
 ];
 
-
 // ==========================
 // HELPERS
 // ==========================
 const fmtBRL = (n) =>
-  typeof n === "number" && isFinite(n) ? n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—";
+  typeof n === "number" && isFinite(n)
+    ? n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+    : "—";
 
 function Toast({ open, children }) {
   return (
     <div
-      className={`fixed top-3 left-1/2 -translate-x-1/2 z-[80] transition-all duration-300 ${open ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-3 pointer-events-none"
-        }`}
+      className={`fixed top-3 left-1/2 -translate-x-1/2 z-[80] transition-all duration-300 ${
+        open ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-3 pointer-events-none"
+      }`}
     >
       <div className="rounded-full bg-emerald-500 text-black font-semibold px-4 py-2 shadow-lg ring-4 ring-emerald-400/30">
         {children}
@@ -192,7 +204,6 @@ function ProductCard({ p, addToCart, buyNow, openViewer }) {
       <div className="p-4">
         <h3 className="font-bold tracking-tight text-center lg:text-left">{p.nome}</h3>
 
-        {/* Seletor de escala (se houver variants) */}
         {hasVariants && (
           <div className="mt-3">
             <label className="text-xs text-slate-400">Escala / Preço</label>
@@ -207,7 +218,6 @@ function ProductCard({ p, addToCart, buyNow, openViewer }) {
                 </option>
               ))}
             </select>
-            {/* Texto pedido: apenas esta linha abaixo do seletor */}
             <p className="mt-2 text-xs text-slate-300">Resina Premium</p>
           </div>
         )}
@@ -215,8 +225,9 @@ function ProductCard({ p, addToCart, buyNow, openViewer }) {
         <div className="mt-4 grid grid-cols-2 gap-2">
           <button
             onClick={handleAdd}
-            className={`rounded-lg px-3 py-2 font-semibold ring-4 ring-teal-400/20 ${addedFlash ? "bg-emerald-400 text-black" : "bg-teal-400 text-black"
-              } transition`}
+            className={`rounded-lg px-3 py-2 font-semibold ring-4 ring-teal-400/20 ${
+              addedFlash ? "bg-emerald-400 text-black" : "bg-teal-400 text-black"
+            } transition`}
             title="Adicionar ao carrinho"
           >
             {addedFlash ? "Adicionado!" : "Adicionar"}
@@ -249,10 +260,9 @@ export default function App() {
   // Carrinho
   const [cartOpen, setCartOpen] = React.useState(false);
   const [cart, setCart] = React.useState([]);
-  const [cartBounce, setCartBounce] = React.useState(false); // animação do ícone
-  const [toastOpen, setToastOpen] = React.useState(false); // toast “Adicionado!”
+  const [cartBounce, setCartBounce] = React.useState(false);
+  const [toastOpen, setToastOpen] = React.useState(false);
 
-  // ✅ Agora esta função SÓ adiciona (não abre o carrinho)
   function addToCart(p, { escala, unitPrice } = {}) {
     const price = typeof unitPrice === "number" ? unitPrice : p.preco || 0;
     const scale = escala || p.escala || "";
@@ -269,19 +279,16 @@ export default function App() {
       return [...prev, { ...p, qty: 1, unitPrice: price, escala: scale }];
     });
 
-    // mimos: bounce do carrinho + toast
     setCartBounce(true);
     setTimeout(() => setCartBounce(false), 800);
     setToastOpen(true);
     setTimeout(() => setToastOpen(false), 1400);
   }
 
-  // ✅ Abre o carrinho
   function openCart() {
     setCartOpen(true);
   }
 
-  // ✅ Comprar: adiciona e abre o carrinho
   function buyNow(p, { escala, unitPrice } = {}) {
     const price = typeof unitPrice === "number" ? unitPrice : p.preco || 0;
     const scale = escala || p.escala || "";
@@ -300,19 +307,19 @@ export default function App() {
         .filter((i) => i.qty > 0)
     );
   }
-
   function removeItem(id, escala, unitPrice) {
     setCart((prev) => prev.filter((i) => !(i.id === id && i.escala === escala && i.unitPrice === unitPrice)));
   }
 
   const subtotal = cart.reduce((s, i) => s + (i.unitPrice || i.preco || 0) * i.qty, 0);
-
   const waMsg = React.useMemo(() => {
     const linhas = cart.map(
       (i) => `• ${i.nome}${i.escala ? ` (${i.escala})` : ""} x${i.qty} — ${fmtBRL((i.unitPrice || i.preco || 0) * i.qty)}`
     );
     const totalTxt = subtotal > 0 ? `\nTotal: ${fmtBRL(subtotal)}` : "";
-    return encodeURIComponent(`Olá! Quero finalizar meu pedido:\n${linhas.join("\n")}${totalTxt}\n\nPagamento: Pix ou Cartão.`);
+    return encodeURIComponent(
+      `Olá! Quero finalizar meu pedido:\n${linhas.join("\n")}${totalTxt}\n\nPagamento: combinar via WhatsApp.`
+    );
   }, [cart, subtotal]);
 
   // Visualizador 3D
@@ -324,41 +331,29 @@ export default function App() {
     setViewerOpen(true);
   }
 
-  // PIX (QR via servidor local /api/pix/create)
-  const [pixOpen, setPixOpen] = React.useState(false);
-  const [pixData, setPixData] = React.useState({ qrDataUrl: "", payload: "", txid: "" });
-
-  async function pagarComPix(total) {
-    if (!total || total <= 0) {
-      alert("Defina os preços ou adicione itens antes de pagar com Pix.");
-      return;
-    }
-    try {
-      const resp = await fetch("/api/pix/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          amount: Number(total.toFixed(2)),
-          description: "Pedido Cubo Criativo",
-        }),
-      });
-      const data = await resp.json();
-      if (data?.ok) {
-        setPixData(data);
-        setPixOpen(true);
-      } else {
-        console.error(data);
-        alert("Falha ao gerar Pix");
-      }
-    } catch (e) {
-      console.error(e);
-      alert("Erro de conexão com servidor Pix (cd server && npm run dev).");
-    }
-  }
-
   // listas separadas
   const emEstoque = produtos.filter((p) => p.status === "estoque");
   const catalogo = produtos.filter((p) => p.status !== "estoque");
+
+  // ======== FILTROS DO CATÁLOGO ========
+  // gera lista de tags únicas a partir do catálogo
+  const allTags = React.useMemo(() => {
+    const set = new Set();
+    catalogo.forEach((p) => (p.tags || []).forEach((t) => set.add(t)));
+    return ["Todos", ...Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR"))];
+  }, [catalogo]);
+
+  const [selectedTag, setSelectedTag] = React.useState("Todos");
+  const [query, setQuery] = React.useState("");
+
+  const catalogoFiltrado = React.useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return catalogo.filter((p) => {
+      const matchTag = selectedTag === "Todos" || (p.tags || []).includes(selectedTag);
+      const matchName = q === "" || p.nome.toLowerCase().includes(q);
+      return matchTag && matchName;
+    });
+  }, [catalogo, selectedTag, query]);
 
   return (
     <div className="min-h-screen w-full overflow-x-clip flex flex-col bg-gradient-to-b from-slate-900 via-slate-950 to-black text-slate-100">
@@ -383,8 +378,7 @@ export default function App() {
             <div className="flex items-center gap-2">
               <button
                 onClick={openCart}
-                className={`relative rounded-lg p-2 ring-1 ring-white/15 hover:bg-white/5 ${cartBounce ? "animate-bounce" : ""
-                  }`}
+                className={`relative rounded-lg p-2 ring-1 ring-white/15 hover:bg-white/5 ${cartBounce ? "animate-bounce" : ""}`}
                 title="Carrinho"
                 aria-label="Abrir carrinho"
               >
@@ -450,48 +444,28 @@ export default function App() {
               </div>
             </div>
 
-            {/* Carrossel no banner */}
-            {/* PROMOÇÕES – destaque */}
+            {/* PROMOÇÕES */}
             <div className="relative">
-              {/* Moldura com brilho */}
               <div className="rounded-3xl p-4 sm:p-5 bg-gradient-to-br from-fuchsia-500/20 via-teal-500/15 to-indigo-500/20 ring-1 ring-white/10">
-                {/* Título */}
                 <div className="flex items-center justify-between mb-3 sm:mb-4">
                   <div className="flex items-center gap-2">
                     <span className="inline-flex items-center px-3 py-1 rounded-full text-xs sm:text-sm font-bold bg-amber-400 text-black">
                       Promoções
                     </span>
-                    <span className="hidden sm:inline text-slate-300 text-sm">
-                      Ofertas selecionadas da semana
-                    </span>
+                    <span className="hidden sm:inline text-slate-300 text-sm">Ofertas selecionadas da semana</span>
                   </div>
-                  <span className="hidden sm:inline text-emerald-300 text-xs font-semibold">
-                    ⚡ até 30% OFF
-                  </span>
+                  <span className="hidden sm:inline text-emerald-300 text-xs font-semibold">⚡ até 30% OFF</span>
                 </div>
-
-                {/* Carrossel */}
                 <div className="rounded-2xl overflow-hidden ring-1 ring-white/10 bg-slate-900/60">
-                  <CarrosselPromo
-                    images={[
-                      "/images/promo.jpg",
-                      "/images/promo1.jpg",
-                      "/images/promo2.jpg",
-                      
-                    ]}
-                    fit="cover"
-                  />
+                  <CarrosselPromo images={["/images/promo.jpg", "/images/promo1.jpg", "/images/promo2.jpg"]} fit="cover" />
                 </div>
               </div>
-
-              {/* Selo flutuante */}
               <div className="absolute -top-3 -right-2 sm:-right-3">
                 <div className="animate-pulse rounded-full px-3 py-1 text-xs font-bold bg-emerald-400 text-black ring-4 ring-emerald-400/30 shadow-lg">
                   Só esta semana
                 </div>
               </div>
             </div>
-
           </div>
         </section>
 
@@ -501,12 +475,12 @@ export default function App() {
             <div className="lg:col-span-2 text-center lg:text-left">
               <h2 className="text-2xl sm:text-3xl font-extrabold">Sobre a {brand.name}</h2>
               <p className="mt-4 text-slate-300 leading-relaxed">
-                Estúdio gamer/nerd focado em impressão 3D em resina, pintura artística e modelagem sob medida. Do conceito ao acabamento final, trabalhamos com alto padrão e prazos justos.
+                Estúdio gamer/nerd focado em impressão 3D em resina, pintura artística e modelagem sob medida.
               </p>
               <ul className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm text-slate-300 justify-items-center lg:justify-items-start">
                 <li className="rounded-xl p-3 bg-white/5 ring-1 ring-white/10">Atendimento via WhatsApp</li>
                 <li className="rounded-xl p-3 bg-white/5 ring-1 ring-white/10">Envio para todo o Brasil</li>
-                <li className="rounded-xl p-3 bg-white/5 ring-1 ring-white/10">Pagamento: Pix e cartão</li>
+                <li className="rounded-xl p-3 bg-white/5 ring-1 ring-white/10">Pagamento combinado</li>
               </ul>
             </div>
             <div className="rounded-2xl p-6 ring-1 ring-white/10 bg-gradient-to-b from-slate-800/80 to-slate-900/80">
@@ -525,34 +499,64 @@ export default function App() {
         <section id="estoque" className="mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14" style={{ maxWidth: "var(--container-max, 1200px)" }}>
           <div className="flex items-end justify-between gap-4">
             <h2 className="text-2xl sm:text-3xl font-extrabold">Em estoque</h2>
-            <span className="text-xs sm:text-sm text-slate-400">
-              {produtos.filter((p) => p.status === "estoque").length} item(ns) prontos para envio
-            </span>
+            <span className="text-xs sm:text-sm text-slate-400">{emEstoque.length} item(ns) prontos para envio</span>
           </div>
           <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 justify-items-center">
-            {produtos
-              .filter((p) => p.status === "estoque")
-              .map((p) => (
-                <ProductCard key={p.id} p={p} addToCart={addToCart} buyNow={buyNow} openViewer={openViewer} />
-              ))}
+            {emEstoque.map((p) => (
+              <ProductCard key={p.id} p={p} addToCart={addToCart} buyNow={buyNow} openViewer={openViewer} />
+            ))}
           </div>
         </section>
 
-        {/* CATÁLOGO */}
+        {/* CATÁLOGO + FILTROS */}
         <section id="catalogo" className="mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16" style={{ maxWidth: "var(--container-max, 1200px)" }}>
-          <div className="flex items-end justify-between gap-4">
+          <div className="flex items-end justify-between gap-4 flex-wrap">
             <h2 className="text-2xl sm:text-3xl font-extrabold">Catálogo</h2>
-            <span className="text-xs sm:text-sm text-slate-400">
-              {produtos.filter((p) => p.status !== "estoque").length} modelo(s)
-            </span>
+            <span className="text-xs sm:text-sm text-slate-400">{catalogoFiltrado.length} modelo(s)</span>
+          </div>
+
+          {/* Barra de filtros: chips de tags + busca */}
+          <div className="mt-5 flex flex-col lg:flex-row items-stretch lg:items-center gap-3">
+            <div className="flex-1 overflow-x-auto">
+              <div className="flex gap-2 min-w-max">
+                {allTags.map((tag) => {
+                  const active = selectedTag === tag;
+                  return (
+                    <button
+                      key={tag}
+                      onClick={() => setSelectedTag(tag)}
+                      className={`px-3 py-1 rounded-full text-sm whitespace-nowrap ring-1 ring-white/10 ${
+                        active ? "bg-teal-400 text-black font-semibold" : "bg-slate-800/60 hover:bg-white/5"
+                      }`}
+                    >
+                      {tag}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="w-full lg:w-72">
+              <input
+                type="search"
+                placeholder="Buscar por nome…"
+                className="w-full rounded-lg bg-slate-800/60 ring-1 ring-white/10 px-3 py-2 text-sm placeholder:text-slate-400"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+            </div>
           </div>
 
           <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 justify-items-center">
-            {produtos
-              .filter((p) => p.status !== "estoque")
-              .map((p) => (
-                <ProductCard key={p.id} p={p} addToCart={addToCart} buyNow={buyNow} openViewer={openViewer} />
-              ))}
+            {catalogoFiltrado.map((p) => (
+              <ProductCard key={p.id} p={p} addToCart={addToCart} buyNow={buyNow} openViewer={openViewer} />
+            ))}
+
+            {catalogoFiltrado.length === 0 && (
+              <div className="col-span-full text-center text-slate-400 text-sm">
+                Nenhum item encontrado para “{selectedTag}” {query && `+ "${query}"`}.
+              </div>
+            )}
           </div>
         </section>
       </main>
@@ -567,8 +571,7 @@ export default function App() {
           <div>
             <p className="font-bold">Pagamento</p>
             <ul className="mt-2 text-slate-300 space-y-1">
-              <li>• Pix</li>
-              <li>• Cartão (crédito/débito)</li>
+              <li>• Finalização pelo WhatsApp</li>
             </ul>
           </div>
           <div>
@@ -626,11 +629,13 @@ export default function App() {
               <span className="font-semibold">{subtotal > 0 ? fmtBRL(subtotal) : "Definir preços"}</span>
             </div>
 
-            <a href={`https://wa.me/${brand.whatsapp}?text=${waMsg}`} target="_blank" className="block text-center rounded-lg px-4 py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-semibold">
+            <a
+              href={`https://wa.me/${brand.whatsapp}?text=${waMsg}`}
+              target="_blank"
+              className="block text-center rounded-lg px-4 py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-semibold"
+            >
               Finalizar pelo WhatsApp
             </a>
-
-
           </div>
         </aside>
       </div>
@@ -639,36 +644,6 @@ export default function App() {
       <Modal open={viewerOpen} onClose={() => setViewerOpen(false)} title={`Visualizador 3D — ${viewerModel.title}`}>
         {viewerModel.src ? <ModelViewer3D src={viewerModel.src} /> : <div className="text-slate-400 text-sm">Selecione um produto com modelo 3D.</div>}
       </Modal>
-
-      {/* MODAL QR PIX */}
-      {pixOpen && (
-        <div className="fixed inset-0 z-[70]">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setPixOpen(false)} />
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[92vw] max-w-[560px] bg-slate-900 ring-1 ring-white/10 rounded-2xl p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-bold">Pix — Cubo Criativo</h3>
-              <button onClick={() => setPixOpen(false)} className="rounded p-2 ring-1 ring-white/15">
-                <span className="material-icons">close</span>
-              </button>
-            </div>
-
-            {pixData.qrDataUrl ? (
-              <div className="grid place-items-center gap-3">
-                <img src={pixData.qrDataUrl} alt="QR Pix" className="w-64 h-64" />
-                <div className="text-xs text-slate-300 break-all text-center">{pixData.payload}</div>
-                <button
-                  onClick={() => navigator.clipboard.writeText(pixData.payload)}
-                  className="mt-2 rounded px-3 py-2 ring-1 ring-white/15 hover:bg-white/5 text-sm"
-                >
-                  Copiar código Pix (copia e cola)
-                </button>
-              </div>
-            ) : (
-              <p className="text-slate-400">Gerando QR…</p>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
