@@ -3,7 +3,6 @@ import React from "react";
 import Modal from "./components/Modal.jsx";
 import ModelViewer3D from "./components/ModelViewer3D.jsx";
 import CarrosselPromo from "./components/CarrosselPromo.jsx";
-import SideCubes from "./components/SideCubes.jsx";
 
 // ==========================
 // CONFIG
