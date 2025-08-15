@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="pt-br">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cubo Criativo</title>
+
+    <!-- Ícone da guia (troque o arquivo se quiser) -->
+    <link rel="icon" href="/favicon.png" type="image/png" />
+
+    <!-- Material Icons (ícones de menu/carrinho se quiser usar) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+
+    <!-- Tailwind via CDN (sem configuração) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Bloqueia overflow lateral e aplica resets básicos -->
+    <style>
+      html, body, #root { height:100%; margin:0; overflow-x:hidden; }
+      *, *::before, *::after { box-sizing: border-box; }
+      img, video, canvas, svg { max-width: 100%; height: auto; display: block; }
+    </style>
+  </head>
+  <body class="bg-black">
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

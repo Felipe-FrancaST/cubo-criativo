@@ -1,0 +1,9 @@
+/* Opcional: seus ajustes globais */
+:root {
+  /* você pode brincar com esses valores se quiser */
+  --container-max: 1200px;
+}
+
+html, body {
+  background: #000;
+}
