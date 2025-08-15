@@ -77,7 +77,73 @@ const produtos = [
       { label: "1/6", price: 360 },
     ],
   },
+  {
+    id: "p5",
+    nome: "Naruto Classico(Naruto)",
+    img: "/images/prod5.jpg",
+    model: "/models/beru.glb",
+    status: "catalogo",
+    defaultVariant: "1/7",
+    variants: [
+      { label: "1/8", price: 260 },
+      { label: "1/7", price: 300 },
+      { label: "1/6", price: 360 },
+    ],
+  },
+  {
+    id: "p5",
+    nome: "Naruto Hokage(Naruto)",
+    img: "/images/prod6.jpg",
+    model: "/models/beru.glb",
+    status: "catalogo",
+    defaultVariant: "1/7",
+    variants: [
+      { label: "1/8", price: 260 },
+      { label: "1/7", price: 300 },
+      { label: "1/6", price: 360 },
+    ],
+  },
+  {
+    id: "p5",
+    nome: "Orochimaru (Naruto)",
+    img: "/images/prod7.jpg",
+    model: "/models/beru.glb",
+    status: "catalogo",
+    defaultVariant: "1/7",
+    variants: [
+      { label: "1/8", price: 260 },
+      { label: "1/7", price: 300 },
+      { label: "1/6", price: 360 },
+    ],
+  },
+  {
+    id: "p5",
+    nome: "Jiraya Modo Sanin(Naruto)",
+    img: "/images/prod8.jpg",
+    model: "/models/beru.glb",
+    status: "catalogo",
+    defaultVariant: "1/7",
+    variants: [
+      { label: "1/8", price: 260 },
+      { label: "1/7", price: 300 },
+      { label: "1/6", price: 360 },
+    ],
+  },
+  {
+    id: "p5",
+    nome: "Hinata (Naruto)",
+    img: "/images/prod9.jpg",
+    model: "/models/beru.glb",
+    status: "catalogo",
+    defaultVariant: "1/7",
+    variants: [
+      { label: "1/8", price: 260 },
+      { label: "1/7", price: 300 },
+      { label: "1/6", price: 360 },
+    ],
+  },
 ];
+
 
 // ==========================
 // HELPERS
