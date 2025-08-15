@@ -267,37 +267,6 @@ export default function App() {
     setViewerOpen(true);
   }
 
-  // PIX (QR via servidor local /api/pix/create)
-  const [pixOpen, setPixOpen] = React.useState(false);
-  const [pixData, setPixData] = React.useState({ qrDataUrl: "", payload: "", txid: "" });
-
-  async function pagarComPix(total) {
-    if (!total || total <= 0) {
-      alert("Defina os preços ou adicione itens antes de pagar com Pix.");
-      return;
-    }
-    try {
-      const resp = await fetch("/api/pix/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          amount: Number(total.toFixed(2)),
-          description: "Pedido Cubo Criativo",
-        }),
-      });
-      const data = await resp.json();
-      if (data?.ok) {
-        setPixData(data);
-        setPixOpen(true);
-      } else {
-        console.error(data);
-        alert("Falha ao gerar Pix");
-      }
-    } catch (e) {
-      console.error(e);
-      alert("Erro de conexão com servidor Pix (cd server && npm run dev).");
-    }
-  }
 
   // listas separadas
   const emEstoque = produtos.filter((p) => p.status === "estoque");
