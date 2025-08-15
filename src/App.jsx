@@ -42,7 +42,6 @@ const produtos = [
     id: "p2",
     nome: "Majin Boo (DBZ)",
     img: "/images/prod2.jpg",
-    model: "/models/beru.glb",
     status: "catalogo",
     defaultVariant: "1/4",
     variants: [
@@ -55,7 +54,6 @@ const produtos = [
     id: "p3",
     nome: "Konan (Naruto)",
     img: "/images/prod3.jpg",
-    model: "/models/beru.glb",
     status: "catalogo",
     defaultVariant: "1/9",
     variants: [
@@ -68,7 +66,6 @@ const produtos = [
     id: "p4",
     nome: "Arlequina (DC)",
     img: "/images/prod4.jpg",
-    model: "/models/beru.glb",
     status: "catalogo",
     defaultVariant: "1/7",
     variants: [
@@ -81,7 +78,6 @@ const produtos = [
     id: "p5",
     nome: "Naruto Classico(Naruto)",
     img: "/images/prod5.jpg",
-    model: "/models/beru.glb",
     status: "catalogo",
     defaultVariant: "1/7",
     variants: [
@@ -91,10 +87,9 @@ const produtos = [
     ],
   },
   {
-    id: "p5",
+    id: "p6",
     nome: "Naruto Hokage(Naruto)",
     img: "/images/prod6.jpg",
-    model: "/models/beru.glb",
     status: "catalogo",
     defaultVariant: "1/7",
     variants: [
@@ -104,10 +99,9 @@ const produtos = [
     ],
   },
   {
-    id: "p5",
+    id: "p7",
     nome: "Orochimaru (Naruto)",
     img: "/images/prod7.jpg",
-    model: "/models/beru.glb",
     status: "catalogo",
     defaultVariant: "1/7",
     variants: [
@@ -117,10 +111,9 @@ const produtos = [
     ],
   },
   {
-    id: "p5",
+    id: "p8",
     nome: "Jiraya Modo Sanin(Naruto)",
     img: "/images/prod8.jpg",
-    model: "/models/beru.glb",
     status: "catalogo",
     defaultVariant: "1/7",
     variants: [
@@ -130,10 +123,9 @@ const produtos = [
     ],
   },
   {
-    id: "p5",
+    id: "p9",
     nome: "Hinata (Naruto)",
     img: "/images/prod9.jpg",
-    model: "/models/beru.glb",
     status: "catalogo",
     defaultVariant: "1/7",
     variants: [
