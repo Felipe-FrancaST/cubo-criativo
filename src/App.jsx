@@ -308,10 +308,6 @@ export default function App() {
       {/* TOAST */}
       <Toast open={toastOpen}>Adicionado ao carrinho!</Toast>
 
-      {/* Animação lateral de cubos (sutil) */}
-      <SideCubes side="left" width={72} density={28} speed={1.4} />
-      <SideCubes side="right" width={72} density={28} speed={1.4} />
-
       {/* HEADER */}
       <header className="sticky top-0 z-50 bg-slate-900/85 backdrop-blur border-b border-white/10">
         <div className="mx-auto w-full" style={{ maxWidth: "var(--container-max, 1200px)" }}>
