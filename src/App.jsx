@@ -361,63 +361,155 @@ export default function App() {
       <Toast open={toastOpen}>Adicionado ao carrinho!</Toast>
 
       {/* HEADER */}
-      <header className="sticky top-0 z-50 bg-slate-900/85 backdrop-blur border-b border-white/10">
-        <div className="mx-auto w-full" style={{ maxWidth: "var(--container-max, 1200px)" }}>
-          <div className="px-4 sm:px-6 lg:px-8 py-2 flex items-center justify-between">
-            <a href="#" className="flex items-center gap-2">
-              <img src={brand.logo} alt={brand.name} className="h-16 sm:h-20 w-auto object-contain" />
+     {/* HEADER – elegante */}
+<header className="sticky top-0 z-50">
+  {/* glow sutil sob o header */}
+  <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-400/50 to-transparent" />
+  <div className="backdrop-blur supports-[backdrop-filter]:bg-slate-900/70 bg-slate-900/90 border-b border-white/10">
+    <div className="mx-auto w-full" style={{ maxWidth: "var(--container-max, 1200px)" }}>
+      <div className="px-4 sm:px-6 lg:px-8 py-2.5 flex items-center justify-between">
+        {/* Logo + nome */}
+        <a href="#" className="flex items-center gap-3 group">
+          <span className="relative isolate">
+            <img
+              src={brand.logo}
+              alt={brand.name}
+              className="h-12 sm:h-14 w-auto object-contain rounded-lg ring-1 ring-white/10"
+            />
+            {/* brilho atrás do logo */}
+            <span className="pointer-events-none absolute -inset-1 -z-10 rounded-xl bg-gradient-to-tr from-teal-500/15 via-fuchsia-500/10 to-indigo-500/15 blur-md opacity-80 group-hover:opacity-100 transition" />
+          </span>
+          <div className="hidden sm:flex flex-col leading-tight">
+            <span className="font-extrabold tracking-tight">{brand.name}</span>
+            <span className="text-xs text-slate-400">{brand.slogan}</span>
+          </div>
+        </a>
+
+        {/* Navegação desktop */}
+        <nav className="hidden md:flex items-center gap-1 text-sm">
+          {[
+            { href: "#sobre", label: "Sobre" },
+            { href: "#estoque", label: "Em estoque" },
+            { href: "#catalogo", label: "Catálogo" },
+            { href: "#contato", label: "Contato" },
+          ].map((link) => (
+            <a
+              key={link.href}
+              href={link.href}
+              className="relative px-3 py-2 rounded-lg text-slate-300 hover:text-white transition group"
+            >
+              {link.label}
+              {/* underline animado */}
+              <span className="pointer-events-none absolute left-3 right-3 -bottom-[2px] h-px bg-gradient-to-r from-transparent via-emerald-400 to-transparent scale-x-0 group-hover:scale-x-100 origin-center transition-transform duration-300" />
             </a>
+          ))}
+        </nav>
 
-            <nav className="hidden md:flex items-center gap-6 text-sm text-slate-300">
-              <a href="#sobre" className="hover:text-white">Sobre</a>
-              <a href="#estoque" className="hover:text-white">Em estoque</a>
-              <a href="#catalogo" className="hover:text-white">Catálogo</a>
-              <a href="#contato" className="hover:text-white">Contato</a>
-            </nav>
+        {/* Ações */}
+        <div className="flex items-center gap-2">
+          {/* Botão Instagram / TikTok discretos */}
+          <a
+            href="https://instagram.com/_cubocriativo_"
+            target="_blank"
+            className="hidden sm:inline-flex items-center rounded-full px-3 py-2 ring-1 ring-white/10 hover:bg-white/5 text-sm"
+            title="Instagram"
+          >
+            <img src="/icons/instagram.svg" alt="" className="h-4 w-4 mr-2" />
+            Instagram
+          </a>
+          <a
+            href="https://tiktok.com/@cubo.criativo"
+            target="_blank"
+            className="hidden sm:inline-flex items-center rounded-full px-3 py-2 ring-1 ring-white/10 hover:bg-white/5 text-sm"
+            title="TikTok"
+          >
+            <img src="/icons/tiktok.svg" alt="" className="h-4 w-4 mr-2" />
+            TikTok
+          </a>
 
-            <div className="flex items-center gap-2">
-              <button
-                onClick={openCart}
-                className={`relative rounded-lg p-2 ring-1 ring-white/15 hover:bg-white/5 ${cartBounce ? "animate-bounce" : ""}`}
-                title="Carrinho"
-                aria-label="Abrir carrinho"
-              >
-                <span className="material-icons">shopping_cart</span>
-                {cart.length > 0 && (
-                  <span className="absolute -top-1 -right-1 text-xs bg-teal-400 text-black font-bold rounded-full px-1.5">
-                    {cart.reduce((s, i) => s + i.qty, 0)}
-                  </span>
-                )}
-              </button>
+          {/* WhatsApp CTA */}
+          <a
+            href={`https://wa.me/${brand.whatsapp}`}
+            target="_blank"
+            className="hidden lg:inline-flex items-center gap-2 rounded-full px-4 py-2 bg-emerald-400 hover:bg-emerald-300 text-black font-semibold shadow-sm ring-4 ring-emerald-400/25 transition"
+          >
+            <span className="material-icons text-[18px]">chat</span>
+            WhatsApp
+          </a>
 
-              <a
-                href={`https://wa.me/${brand.whatsapp}`}
-                target="_blank"
-                className="hidden sm:inline-block rounded-lg px-3 py-2 bg-emerald-500 hover:bg-emerald-400 text-black font-semibold"
-              >
-                WhatsApp
-              </a>
-              <button className="md:hidden rounded-lg p-2 ring-1 ring-white/15" onClick={() => setMenuOpen((v) => !v)} aria-label="Abrir menu">
-                <span className="material-icons">{menuOpen ? "close" : "menu"}</span>
-              </button>
-            </div>
-          </div>
+          {/* Carrinho */}
+          <button
+            onClick={openCart}
+            className={`relative rounded-full p-2.5 ring-1 ring-white/15 hover:bg-white/5 transition ${
+              cartBounce ? "animate-bounce" : ""
+            }`}
+            title="Carrinho"
+            aria-label="Abrir carrinho"
+          >
+            <span className="material-icons">shopping_cart</span>
+            {cart.length > 0 && (
+              <span className="absolute -top-1 -right-1 text-[10px] bg-teal-400 text-black font-bold rounded-full px-1.5 py-0.5 shadow">
+                {cart.reduce((s, i) => s + i.qty, 0)}
+              </span>
+            )}
+          </button>
+
+          {/* Menu Mobile */}
+          <button
+            className="md:hidden rounded-full p-2.5 ring-1 ring-white/15 hover:bg-white/5"
+            onClick={() => setMenuOpen((v) => !v)}
+            aria-label="Abrir menu"
+          >
+            <span className="material-icons">{menuOpen ? "close" : "menu"}</span>
+          </button>
         </div>
+      </div>
+    </div>
 
-        {menuOpen && (
-          <div className="md:hidden border-t border-white/10 bg-slate-900/95">
-            <nav className="mx-auto w-full px-4 sm:px-6 py-3 flex flex-col gap-3 text-sm" style={{ maxWidth: "var(--container-max, 1200px)" }}>
-              <a onClick={() => setMenuOpen(false)} href="#sobre" className="py-2">Sobre</a>
-              <a onClick={() => setMenuOpen(false)} href="#estoque" className="py-2">Em estoque</a>
-              <a onClick={() => setMenuOpen(false)} href="#catalogo" className="py-2">Catálogo</a>
-              <a onClick={() => setMenuOpen(false)} href="#contato" className="py-2">Contato</a>
-              <a href={`https://wa.me/${brand.whatsapp}`} target="_blank" className="mt-2 rounded-lg px-3 py-2 bg-emerald-500 text-black font-semibold text-center">
-                WhatsApp
-              </a>
-            </nav>
+    {/* Mobile drawer */}
+    {menuOpen && (
+      <div className="md:hidden border-t border-white/10 bg-slate-900/95">
+        <nav
+          className="mx-auto w-full px-4 sm:px-6 py-3 flex flex-col gap-2 text-sm"
+          style={{ maxWidth: "var(--container-max, 1200px)" }}
+        >
+          {[
+            { href: "#sobre", label: "Sobre" },
+            { href: "#estoque", label: "Em estoque" },
+            { href: "#catalogo", label: "Catálogo" },
+            { href: "#contato", label: "Contato" },
+          ].map((link) => (
+            <a
+              key={link.href}
+              onClick={() => setMenuOpen(false)}
+              href={link.href}
+              className="py-2 px-2 rounded-lg hover:bg-white/5"
+            >
+              {link.label}
+            </a>
+          ))}
+
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <a
+              href={`https://wa.me/${brand.whatsapp}`}
+              target="_blank"
+              className="rounded-lg px-3 py-2 bg-emerald-400 text-black font-semibold text-center"
+            >
+              WhatsApp
+            </a>
+            <a
+              href="https://instagram.com/_cubocriativo_"
+              target="_blank"
+              className="rounded-lg px-3 py-2 ring-1 ring-white/10 text-center hover:bg-white/5"
+            >
+              Instagram
+            </a>
           </div>
-        )}
-      </header>
+        </nav>
+      </div>
+    )}
+  </div>
+</header>
 
       <main className="flex-1">
         {/* HERO */}
