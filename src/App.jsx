@@ -1,8 +1,10 @@
 // src/App.jsx
+import { Analytics } from "@vercel/analytics/next";
 import React from "react";
 import Modal from "./components/Modal.jsx";
 import ModelViewer3D from "./components/ModelViewer3D.jsx";
 import CarrosselPromo from "./components/CarrosselPromo.jsx";
+
 
 /* ==========================
    CONFIG DA MARCA
