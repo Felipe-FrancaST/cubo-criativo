@@ -4,9 +4,9 @@ import Modal from "./components/Modal.jsx";
 import ModelViewer3D from "./components/ModelViewer3D.jsx";
 import CarrosselPromo from "./components/CarrosselPromo.jsx";
 
-// ==========================
-// CONFIG
-// ==========================
+/* ==========================
+   CONFIG DA MARCA
+   ========================== */
 const brand = {
   name: "Cubo Criativo",
   slogan: "Miniaturas em resina • Pintura artística • Modelagem 3D",
@@ -17,22 +17,25 @@ const brand = {
   logo: "/images/logo.png",
 };
 
-/**
- * COMO CONFIGURAR ESCALAS, PREÇOS E GRUPOS (ANIME/FILME)
- *
- * - status: "estoque" ou "catalogo"
- * - tags: array de grupos a que o item pertence (ex.: ["Naruto"], ["DBZ"], ["Baldur's Gate"], ["Filmes"])
- * - variants: [{ label: "1/7", price: 500 }, ...]
- * - defaultVariant: escala inicial selecionada
- */
+/* =============================================================================
+   PRODUTOS
+   - status: "estoque" ou "catalogo"
+   - tags: grupos/categorias (ex.: ["Naruto"], ["DBZ"], ["RPG"], ["Filmes"])
+   - variants: [{ label: "1/7", price: 500 }, ...]
+   - defaultVariant: escala inicial
+   - imgs: (opcional) array de imagens extras para a galeria. A PRIMEIRA pode
+           ser igual à "img" principal, ou você deixa que eu uso p.img como base.
+   >>> PARA ADICIONAR FOTOS EXTRAS: coloque caminhos em p.imgs abaixo.
+   ============================================================================ */
 const produtos = [
   {
     id: "p1",
     nome: "Minthara (Baldur's Gate)",
     img: "/images/prod1.jpg",
+    imgs: ["/images/prod1.jpg", "/images/prod1b.jpg", "/images/prod1c.jpg"], // << EDITE/ADICIONE
     model: "/models/mintharaviewer.glb",
     status: "estoque",
-    tags: ["Baldur's Gate", "Games"],
+    tags: ["Baldur's Gate", "Games", "RPG"],
     defaultVariant: "1/7",
     variants: [
       { label: "1/9", price: 420 },
@@ -44,6 +47,7 @@ const produtos = [
     id: "p2",
     nome: "Majin Boo (DBZ)",
     img: "/images/prod2.jpg",
+    imgs: ["/images/prod2.jpg", "/images/prod2-1.jpg"], // << opcional
     status: "catalogo",
     tags: ["DBZ", "Animes"],
     defaultVariant: "1/4",
@@ -57,6 +61,7 @@ const produtos = [
     id: "p3",
     nome: "Konan (Naruto)",
     img: "/images/prod3.jpg",
+    imgs: ["/images/prod3.jpg", "/images/prod3-1.jpg"], // << opcional
     status: "catalogo",
     tags: ["Naruto", "Animes"],
     defaultVariant: "1/9",
@@ -83,6 +88,7 @@ const produtos = [
     id: "p5",
     nome: "Naruto Clássico (Naruto)",
     img: "/images/prod5.jpg",
+    imgs: ["/images/prod5.jpg", "/images/prod5-1.jpg",],
     status: "catalogo",
     tags: ["Naruto", "Animes"],
     defaultVariant: "1/7",
@@ -96,6 +102,7 @@ const produtos = [
     id: "p6",
     nome: "Naruto Hokage (Naruto)",
     img: "/images/prod6.jpg",
+    imgs: ["/images/prod6.jpg", ],
     status: "catalogo",
     tags: ["Naruto", "Animes"],
     defaultVariant: "1/7",
@@ -135,6 +142,77 @@ const produtos = [
     id: "p9",
     nome: "Hinata (Naruto)",
     img: "/images/prod9.jpg",
+    imgs: ["/images/prod9.jpg", "/images/prod9-1.jpg"], // << opcional
+    status: "catalogo",
+    tags: ["Naruto", "Animes"],
+    defaultVariant: "1/7",
+    variants: [
+      { label: "1/8", price: 260 },
+      { label: "1/7", price: 300 },
+      { label: "1/6", price: 360 },
+    ],
+  },
+  {
+    id: "p10",
+    nome: "Goku Ssj 4 (DBZ)",
+    img: "/images/prod10.jpg",
+    imgs: ["/images/prod10.jpg", "/images/prod10-1.jpg"], // << opcional
+    status: "catalogo",
+    tags: ["DBZ", "Animes"],
+    defaultVariant: "1/4",
+    variants: [
+      { label: "1/6", price: 260 },
+      { label: "1/5", price: 310 },
+      { label: "1/4", price: 380 },
+    ],
+  },
+  {
+    id: "p11",
+    nome: "Sr. Kaioh (DBZ)",
+    img: "/images/prod11.jpg",
+    imgs: ["/images/prod11.jpg", "/images/prod11-1.jpg"], // << opcional
+    status: "catalogo",
+    tags: ["DBZ", "Animes"],
+    defaultVariant: "1/4",
+    variants: [
+      { label: "1/6", price: 260 },
+      { label: "1/5", price: 310 },
+      { label: "1/4", price: 380 },
+    ],
+  },
+  {
+    id: "p12",
+    nome: "Android 18 (DBZ)",
+    img: "/images/prod12.jpg",
+    imgs: ["/images/prod12.jpg", "/images/prod12-1.jpg"], // << opcional
+    status: "catalogo",
+    tags: ["DBZ", "Animes"],
+    defaultVariant: "1/4",
+    variants: [
+      { label: "1/6", price: 260 },
+      { label: "1/5", price: 310 },
+      { label: "1/4", price: 380 },
+    ],
+  },
+  {
+    id: "p13",
+    nome: "Naruto Modo Sanin (Naruto)",
+    img: "/images/prod13.jpg",
+    imgs: ["/images/prod13.jpg", "/images/prod13-1.jpg"], // << opcional
+    status: "catalogo",
+    tags: ["Naruto", "Animes"],
+    defaultVariant: "1/7",
+    variants: [
+      { label: "1/8", price: 260 },
+      { label: "1/7", price: 300 },
+      { label: "1/6", price: 360 },
+    ],
+  },
+  {
+    id: "p14",
+    nome: "Naruto Modo Sanin Rasengan (Naruto)",
+    img: "/images/prod14.jpg",
+    imgs: ["/images/prod14.jpg", "/images/prod14-1.jpg"], // << opcional
     status: "catalogo",
     tags: ["Naruto", "Animes"],
     defaultVariant: "1/7",
@@ -146,9 +224,9 @@ const produtos = [
   },
 ];
 
-// ==========================
-// HELPERS
-// ==========================
+/* ==========================
+   HELPERS
+   ========================== */
 const fmtBRL = (n) =>
   typeof n === "number" && isFinite(n)
     ? n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
@@ -168,8 +246,10 @@ function Toast({ open, children }) {
   );
 }
 
-// Card de produto com seleção de escala/valor
-function ProductCard({ p, addToCart, buyNow, openViewer }) {
+/* ==========================
+   CARD DE PRODUTO
+   ========================== */
+function ProductCard({ p, addToCart, buyNow, openViewer, openGallery }) {
   const defaultIndex = Math.max(0, p.variants?.findIndex((v) => v.label === p.defaultVariant));
   const [selIndex, setSelIndex] = React.useState(defaultIndex);
   const [addedFlash, setAddedFlash] = React.useState(false);
@@ -187,7 +267,13 @@ function ProductCard({ p, addToCart, buyNow, openViewer }) {
 
   return (
     <article className="w-full max-w-[320px] group rounded-2xl overflow-hidden ring-1 ring-white/10 bg-slate-900/60 hover:ring-teal-400/30 transition">
-      <div className="aspect-[4/5] bg-slate-800/60 grid place-items-center overflow-hidden">
+      {/* Imagem clicável -> abre galeria */}
+      <button
+        type="button"
+        className="aspect-[4/5] bg-slate-800/60 grid place-items-center overflow-hidden w-full relative"
+        onClick={() => openGallery(p)}
+        title="Ver mais fotos"
+      >
         <img
           src={p.img}
           alt={p.nome}
@@ -200,7 +286,11 @@ function ProductCard({ p, addToCart, buyNow, openViewer }) {
               `<div class="text-slate-300 text-xs px-3 text-center">Imagem não encontrada.<br/>Coloque em <b>public/images</b>.</div>`;
           }}
         />
-      </div>
+        <span className="absolute bottom-2 right-2 text-[10px] px-2 py-0.5 rounded-full bg-black/50 ring-1 ring-white/20">
+          ver fotos
+        </span>
+      </button>
+
       <div className="p-4">
         <h3 className="font-bold tracking-tight text-center lg:text-left">{p.nome}</h3>
 
@@ -254,6 +344,9 @@ function ProductCard({ p, addToCart, buyNow, openViewer }) {
   );
 }
 
+/* ==========================
+   APP
+   ========================== */
 export default function App() {
   const [menuOpen, setMenuOpen] = React.useState(false);
 
@@ -285,9 +378,7 @@ export default function App() {
     setTimeout(() => setToastOpen(false), 1400);
   }
 
-  function openCart() {
-    setCartOpen(true);
-  }
+  function openCart() { setCartOpen(true); }
 
   function buyNow(p, { escala, unitPrice } = {}) {
     const price = typeof unitPrice === "number" ? unitPrice : p.preco || 0;
@@ -331,12 +422,29 @@ export default function App() {
     setViewerOpen(true);
   }
 
-  // listas separadas
+  // ======== GALERIA (miniaturas + imagem principal sem corte) ========
+  const [galleryOpen, setGalleryOpen] = React.useState(false);
+  const [galleryData, setGalleryData] = React.useState({ title: "", imgs: [] });
+  const [galleryIndex, setGalleryIndex] = React.useState(0);
+
+  function openGallery(p) {
+    const imgs = Array.isArray(p.imgs) && p.imgs.length > 0 ? p.imgs : [p.img];
+    setGalleryData({ title: p.nome, imgs });
+    setGalleryIndex(0);
+    setGalleryOpen(true);
+  }
+  function prevImage() {
+    setGalleryIndex((i) => (i - 1 + galleryData.imgs.length) % galleryData.imgs.length);
+  }
+  function nextImage() {
+    setGalleryIndex((i) => (i + 1) % galleryData.imgs.length);
+  }
+
+  // Listas separadas
   const emEstoque = produtos.filter((p) => p.status === "estoque");
   const catalogo = produtos.filter((p) => p.status !== "estoque");
 
-  // ======== FILTROS DO CATÁLOGO ========
-  // gera lista de tags únicas a partir do catálogo
+  // Filtros do catálogo
   const allTags = React.useMemo(() => {
     const set = new Set();
     catalogo.forEach((p) => (p.tags || []).forEach((t) => set.add(t)));
@@ -360,156 +468,148 @@ export default function App() {
       {/* TOAST */}
       <Toast open={toastOpen}>Adicionado ao carrinho!</Toast>
 
-      {/* HEADER */}
-     {/* HEADER – elegante */}
-<header className="sticky top-0 z-50">
-  {/* glow sutil sob o header */}
-  <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-400/50 to-transparent" />
-  <div className="backdrop-blur supports-[backdrop-filter]:bg-slate-900/70 bg-slate-900/90 border-b border-white/10">
-    <div className="mx-auto w-full" style={{ maxWidth: "var(--container-max, 1200px)" }}>
-      <div className="px-4 sm:px-6 lg:px-8 py-2.5 flex items-center justify-between">
-        {/* Logo + nome */}
-        <a href="#" className="flex items-center gap-3 group">
-          <span className="relative isolate">
-            <img
-              src={brand.logo}
-              alt={brand.name}
-              className="h-12 sm:h-14 w-auto object-contain rounded-lg ring-1 ring-white/10"
-            />
-            {/* brilho atrás do logo */}
-            <span className="pointer-events-none absolute -inset-1 -z-10 rounded-xl bg-gradient-to-tr from-teal-500/15 via-fuchsia-500/10 to-indigo-500/15 blur-md opacity-80 group-hover:opacity-100 transition" />
-          </span>
-          <div className="hidden sm:flex flex-col leading-tight">
-            <span className="font-extrabold tracking-tight">{brand.name}</span>
-            <span className="text-xs text-slate-400">{brand.slogan}</span>
+      {/* HEADER – elegante */}
+      <header className="sticky top-0 z-50">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-400/50 to-transparent" />
+        <div className="backdrop-blur supports-[backdrop-filter]:bg-slate-900/70 bg-slate-900/90 border-b border-white/10">
+          <div className="mx-auto w-full" style={{ maxWidth: "var(--container-max, 1200px)" }}>
+            <div className="px-4 sm:px-6 lg:px-8 py-2.5 flex items-center justify-between">
+              {/* Logo + nome */}
+              <a href="#" className="flex items-center gap-3 group">
+                <span className="relative isolate">
+                  <img
+                    src={brand.logo}
+                    alt={brand.name}
+                    className="h-12 sm:h-14 w-auto object-contain rounded-lg ring-1 ring-white/10"
+                  />
+                  <span className="pointer-events-none absolute -inset-1 -z-10 rounded-xl bg-gradient-to-tr from-teal-500/15 via-fuchsia-500/10 to-indigo-500/15 blur-md opacity-80 group-hover:opacity-100 transition" />
+                </span>
+                <div className="hidden sm:flex flex-col leading-tight">
+                  <span className="font-extrabold tracking-tight">{brand.name}</span>
+                  <span className="text-xs text-slate-400">{brand.slogan}</span>
+                </div>
+              </a>
+
+              {/* Navegação desktop */}
+              <nav className="hidden md:flex items-center gap-1 text-sm">
+                {[
+                  { href: "#sobre", label: "Sobre" },
+                  { href: "#estoque", label: "Em estoque" },
+                  { href: "#catalogo", label: "Catálogo" },
+                  { href: "#contato", label: "Contato" },
+                ].map((link) => (
+                  <a
+                    key={link.href}
+                    href={link.href}
+                    className="relative px-3 py-2 rounded-lg text-slate-300 hover:text-white transition group"
+                  >
+                    {link.label}
+                    <span className="pointer-events-none absolute left-3 right-3 -bottom-[2px] h-px bg-gradient-to-r from-transparent via-emerald-400 to-transparent scale-x-0 group-hover:scale-x-100 origin-center transition-transform duration-300" />
+                  </a>
+                ))}
+              </nav>
+
+              {/* Ações */}
+              <div className="flex items-center gap-2">
+                <a
+                  href="https://instagram.com/_cubocriativo_"
+                  target="_blank"
+                  className="hidden sm:inline-flex items-center rounded-full px-3 py-2 ring-1 ring-white/10 hover:bg-white/5 text-sm"
+                  title="Instagram"
+                >
+                  <img src="/icons/instagram.svg" alt="" className="h-4 w-4 mr-2" />
+                  Instagram
+                </a>
+                <a
+                  href="https://tiktok.com/@cubo.criativo"
+                  target="_blank"
+                  className="hidden sm:inline-flex items-center rounded-full px-3 py-2 ring-1 ring-white/10 hover:bg-white/5 text-sm"
+                  title="TikTok"
+                >
+                  <img src="/icons/tiktok.svg" alt="" className="h-4 w-4 mr-2" />
+                  TikTok
+                </a>
+
+                <a
+                  href={`https://wa.me/${brand.whatsapp}`}
+                  target="_blank"
+                  className="hidden lg:inline-flex items-center gap-2 rounded-full px-4 py-2 bg-emerald-400 hover:bg-emerald-300 text-black font-semibold shadow-sm ring-4 ring-emerald-400/25 transition"
+                >
+                  <span className="material-icons text-[18px]">chat</span>
+                  WhatsApp
+                </a>
+
+                <button
+                  onClick={openCart}
+                  className={`relative rounded-full p-2.5 ring-1 ring-white/15 hover:bg-white/5 transition ${
+                    cartBounce ? "animate-bounce" : ""
+                  }`}
+                  title="Carrinho"
+                  aria-label="Abrir carrinho"
+                >
+                  <span className="material-icons">shopping_cart</span>
+                  {cart.length > 0 && (
+                    <span className="absolute -top-1 -right-1 text-[10px] bg-teal-400 text-black font-bold rounded-full px-1.5 py-0.5 shadow">
+                      {cart.reduce((s, i) => s + i.qty, 0)}
+                    </span>
+                  )}
+                </button>
+
+                <button
+                  className="md:hidden rounded-full p-2.5 ring-1 ring-white/15 hover:bg-white/5"
+                  onClick={() => setMenuOpen((v) => !v)}
+                  aria-label="Abrir menu"
+                >
+                  <span className="material-icons">{menuOpen ? "close" : "menu"}</span>
+                </button>
+              </div>
+            </div>
           </div>
-        </a>
 
-        {/* Navegação desktop */}
-        <nav className="hidden md:flex items-center gap-1 text-sm">
-          {[
-            { href: "#sobre", label: "Sobre" },
-            { href: "#estoque", label: "Em estoque" },
-            { href: "#catalogo", label: "Catálogo" },
-            { href: "#contato", label: "Contato" },
-          ].map((link) => (
-            <a
-              key={link.href}
-              href={link.href}
-              className="relative px-3 py-2 rounded-lg text-slate-300 hover:text-white transition group"
-            >
-              {link.label}
-              {/* underline animado */}
-              <span className="pointer-events-none absolute left-3 right-3 -bottom-[2px] h-px bg-gradient-to-r from-transparent via-emerald-400 to-transparent scale-x-0 group-hover:scale-x-100 origin-center transition-transform duration-300" />
-            </a>
-          ))}
-        </nav>
+          {/* Mobile drawer */}
+          {menuOpen && (
+            <div className="md:hidden border-t border-white/10 bg-slate-900/95">
+              <nav
+                className="mx-auto w-full px-4 sm:px-6 py-3 flex flex-col gap-2 text-sm"
+                style={{ maxWidth: "var(--container-max, 1200px)" }}
+              >
+                {[
+                  { href: "#sobre", label: "Sobre" },
+                  { href: "#estoque", label: "Em estoque" },
+                  { href: "#catalogo", label: "Catálogo" },
+                  { href: "#contato", label: "Contato" },
+                ].map((link) => (
+                  <a
+                    key={link.href}
+                    onClick={() => setMenuOpen(false)}
+                    href={link.href}
+                    className="py-2 px-2 rounded-lg hover:bg-white/5"
+                  >
+                    {link.label}
+                  </a>
+                ))}
 
-        {/* Ações */}
-        <div className="flex items-center gap-2">
-          {/* Botão Instagram / TikTok discretos */}
-          <a
-            href="https://instagram.com/_cubocriativo_"
-            target="_blank"
-            className="hidden sm:inline-flex items-center rounded-full px-3 py-2 ring-1 ring-white/10 hover:bg-white/5 text-sm"
-            title="Instagram"
-          >
-            <img src="/icons/instagram.svg" alt="" className="h-4 w-4 mr-2" />
-            Instagram
-          </a>
-          <a
-            href="https://tiktok.com/@cubo.criativo"
-            target="_blank"
-            className="hidden sm:inline-flex items-center rounded-full px-3 py-2 ring-1 ring-white/10 hover:bg-white/5 text-sm"
-            title="TikTok"
-          >
-            <img src="/icons/tiktok.svg" alt="" className="h-4 w-4 mr-2" />
-            TikTok
-          </a>
-
-          {/* WhatsApp CTA */}
-          <a
-            href={`https://wa.me/${brand.whatsapp}`}
-            target="_blank"
-            className="hidden lg:inline-flex items-center gap-2 rounded-full px-4 py-2 bg-emerald-400 hover:bg-emerald-300 text-black font-semibold shadow-sm ring-4 ring-emerald-400/25 transition"
-          >
-            <span className="material-icons text-[18px]">chat</span>
-            WhatsApp
-          </a>
-
-          {/* Carrinho */}
-          <button
-            onClick={openCart}
-            className={`relative rounded-full p-2.5 ring-1 ring-white/15 hover:bg-white/5 transition ${
-              cartBounce ? "animate-bounce" : ""
-            }`}
-            title="Carrinho"
-            aria-label="Abrir carrinho"
-          >
-            <span className="material-icons">shopping_cart</span>
-            {cart.length > 0 && (
-              <span className="absolute -top-1 -right-1 text-[10px] bg-teal-400 text-black font-bold rounded-full px-1.5 py-0.5 shadow">
-                {cart.reduce((s, i) => s + i.qty, 0)}
-              </span>
-            )}
-          </button>
-
-          {/* Menu Mobile */}
-          <button
-            className="md:hidden rounded-full p-2.5 ring-1 ring-white/15 hover:bg-white/5"
-            onClick={() => setMenuOpen((v) => !v)}
-            aria-label="Abrir menu"
-          >
-            <span className="material-icons">{menuOpen ? "close" : "menu"}</span>
-          </button>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <a
+                    href={`https://wa.me/${brand.whatsapp}`}
+                    target="_blank"
+                    className="rounded-lg px-3 py-2 bg-emerald-400 text-black font-semibold text-center"
+                  >
+                    WhatsApp
+                  </a>
+                  <a
+                    href="https://instagram.com/_cubocriativo_"
+                    target="_blank"
+                    className="rounded-lg px-3 py-2 ring-1 ring-white/10 text-center hover:bg-white/5"
+                  >
+                    Instagram
+                  </a>
+                </div>
+              </nav>
+            </div>
+          )}
         </div>
-      </div>
-    </div>
-
-    {/* Mobile drawer */}
-    {menuOpen && (
-      <div className="md:hidden border-t border-white/10 bg-slate-900/95">
-        <nav
-          className="mx-auto w-full px-4 sm:px-6 py-3 flex flex-col gap-2 text-sm"
-          style={{ maxWidth: "var(--container-max, 1200px)" }}
-        >
-          {[
-            { href: "#sobre", label: "Sobre" },
-            { href: "#estoque", label: "Em estoque" },
-            { href: "#catalogo", label: "Catálogo" },
-            { href: "#contato", label: "Contato" },
-          ].map((link) => (
-            <a
-              key={link.href}
-              onClick={() => setMenuOpen(false)}
-              href={link.href}
-              className="py-2 px-2 rounded-lg hover:bg-white/5"
-            >
-              {link.label}
-            </a>
-          ))}
-
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            <a
-              href={`https://wa.me/${brand.whatsapp}`}
-              target="_blank"
-              className="rounded-lg px-3 py-2 bg-emerald-400 text-black font-semibold text-center"
-            >
-              WhatsApp
-            </a>
-            <a
-              href="https://instagram.com/_cubocriativo_"
-              target="_blank"
-              className="rounded-lg px-3 py-2 ring-1 ring-white/10 text-center hover:bg-white/5"
-            >
-              Instagram
-            </a>
-          </div>
-        </nav>
-      </div>
-    )}
-  </div>
-</header>
+      </header>
 
       <main className="flex-1">
         {/* HERO */}
@@ -595,7 +695,7 @@ export default function App() {
           </div>
           <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 justify-items-center">
             {emEstoque.map((p) => (
-              <ProductCard key={p.id} p={p} addToCart={addToCart} buyNow={buyNow} openViewer={openViewer} />
+              <ProductCard key={p.id} p={p} addToCart={addToCart} buyNow={buyNow} openViewer={openViewer} openGallery={openGallery} />
             ))}
           </div>
         </section>
@@ -641,7 +741,7 @@ export default function App() {
 
           <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 justify-items-center">
             {catalogoFiltrado.map((p) => (
-              <ProductCard key={p.id} p={p} addToCart={addToCart} buyNow={buyNow} openViewer={openViewer} />
+              <ProductCard key={p.id} p={p} addToCart={addToCart} buyNow={buyNow} openViewer={openViewer} openGallery={openGallery} />
             ))}
 
             {catalogoFiltrado.length === 0 && (
@@ -735,6 +835,65 @@ export default function App() {
       {/* MODAL 3D */}
       <Modal open={viewerOpen} onClose={() => setViewerOpen(false)} title={`Visualizador 3D — ${viewerModel.title}`}>
         {viewerModel.src ? <ModelViewer3D src={viewerModel.src} /> : <div className="text-slate-400 text-sm">Selecione um produto com modelo 3D.</div>}
+      </Modal>
+
+      {/* MODAL GALERIA (miniaturas + imagem principal sem corte) */}
+      <Modal open={galleryOpen} onClose={() => setGalleryOpen(false)} title={`Fotos — ${galleryData.title}`}>
+        {galleryOpen && (
+          <div className="relative">
+            {/* Imagem principal na proporção original */}
+            <div className="relative w-full grid place-items-center rounded-xl ring-1 ring-white/10 bg-slate-900/60 p-2">
+              <img
+                key={galleryIndex}
+                src={galleryData.imgs[galleryIndex]}
+                alt={`${galleryData.title} — ${galleryIndex + 1}`}
+                className="max-h-[70vh] w-auto h-auto object-contain rounded-md"
+                style={{ maxWidth: "100%" }}
+              />
+
+              {galleryData.imgs.length > 1 && (
+                <>
+                  <button
+                    onClick={prevImage}
+                    aria-label="Imagem anterior"
+                    className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full p-2 bg-black/40 hover:bg-black/60 ring-1 ring-white/20"
+                  >
+                    <span className="material-icons">chevron_left</span>
+                  </button>
+                  <button
+                    onClick={nextImage}
+                    aria-label="Próxima imagem"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-2 bg-black/40 hover:bg-black/60 ring-1 ring-white/20"
+                  >
+                    <span className="material-icons">chevron_right</span>
+                  </button>
+                </>
+              )}
+            </div>
+
+            {/* Miniaturas */}
+            {galleryData.imgs.length > 1 && (
+              <div className="mt-3 grid grid-cols-5 sm:grid-cols-6 md:grid-cols-8 gap-2">
+                {galleryData.imgs.map((src, idx) => {
+                  const active = idx === galleryIndex;
+                  return (
+                    <button
+                      key={idx}
+                      onClick={() => setGalleryIndex(idx)}
+                      className={`relative rounded-lg overflow-hidden ring-1 ${
+                        active ? "ring-teal-400" : "ring-white/10 hover:ring-white/20"
+                      }`}
+                      title={`Ver imagem ${idx + 1}`}
+                    >
+                      <img src={src} alt={`thumb ${idx + 1}`} className="h-16 w-full object-cover" />
+                      {active && <span className="absolute inset-0 ring-2 ring-teal-400 rounded-lg pointer-events-none" />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </Modal>
     </div>
   );

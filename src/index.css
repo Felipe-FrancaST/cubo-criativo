@@ -1,9 +1,138 @@
-/* Opcional: seus ajustes globais */
-:root {
-  /* você pode brincar com esses valores se quiser */
+/* src/index.css */
+
+/* Tailwind base */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =========================
+   DESIGN TOKENS / ROOT VARS
+   ========================= */
+:root{
   --container-max: 1200px;
+  --bg: #0f141b;         /* fundo geral neutro, ajuda a destacar a logo */
+  --card: rgba(16,20,27,.72);
+  --ring: rgba(255,255,255,.10);
+  --muted: #94a3b8;      /* slate-400 */
+  --text: #e2e8f0;       /* slate-200 */
+  --brand: #34d399;      /* emerald-400 */
 }
 
-html, body {
-  background: #000;
+/* ===============
+   BASE / RESETS
+   =============== */
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+body{
+  margin: 0;
+  color: var(--text);
+  background: var(--bg); /* fallback se o wrapper não carregar */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* seleção de texto mais elegante */
+::selection{
+  background: color-mix(in oklab, var(--brand) 30%, transparent);
+  color: #0b0f14;
+}
+
+/* ============
+   SCROLLBAR
+   ============ */
+/* WebKit */
+*::-webkit-scrollbar{
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track{
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb{
+  background: linear-gradient(180deg, rgba(255,255,255,.18), rgba(255,255,255,.08));
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  border-radius: 999px;
+}
+*::-webkit-scrollbar-thumb:hover{
+  background: linear-gradient(180deg, rgba(255,255,255,.28), rgba(255,255,255,.14));
+}
+
+/* Firefox */
+*{
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,.18) transparent;
+}
+
+/* =====================
+   FOCUS / ACESSIBILIDADE
+   ===================== */
+:focus-visible{
+  outline: 2px solid color-mix(in oklab, var(--brand) 80%, white 10%);
+  outline-offset: 2px;
+  border-radius: .5rem;
+}
+
+/* =====================
+   UTILS ESTÉTICAS
+   ===================== */
+.glass{
+  background: var(--card);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--ring);
+}
+
+.shadow-soft{
+  box-shadow:
+    0 1px 1px rgba(0,0,0,.04),
+    0 10px 25px rgba(0,0,0,.25),
+    0 2px 0 rgba(255,255,255,.02) inset;
+}
+
+.ring-soft{
+  border: 1px solid var(--ring);
+}
+
+/* chips para filtros (se quiser usar fora do Tailwind) */
+.chip{
+  display:inline-flex; align-items:center; gap:.4rem;
+  padding:.35rem .75rem; border-radius:999px; font-size:.85rem;
+  background: rgba(255,255,255,.04); border:1px solid var(--ring);
+  transition: background .2s ease, border-color .2s ease, transform .1s ease;
+}
+.chip:hover{ background: rgba(255,255,255,.07); }
+.chip.is-active{
+  background: var(--brand);
+  color:#0b0f14;
+  border-color: color-mix(in oklab, var(--brand) 80%, black 10%);
+}
+
+/* botões “ghost” discretos */
+.btn-ghost{
+  display:inline-flex; align-items:center; gap:.5rem;
+  padding:.5rem .75rem; border-radius:.75rem;
+  border:1px solid var(--ring);
+  background: rgba(255,255,255,.03);
+  transition: background .2s ease, transform .05s ease;
+}
+.btn-ghost:hover{ background: rgba(255,255,255,.06); }
+.btn-ghost:active{ transform: translateY(1px); }
+
+/* classe para containers centralizados com o mesmo maxWidth do app */
+.container-cc{ max-width: var(--container-max); margin-inline:auto; }
+
+/* imagens: comportamento padrão mais nítido */
+img{ image-rendering: auto; }
+
+/* reduz motion para quem prefere (combina com seu carrossel) */
+@media (prefers-reduced-motion: reduce){
+  *{ animation: none !important; transition: none !important; }
 }
