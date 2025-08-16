@@ -75,6 +75,7 @@ const produtos = [
     id: "p4",
     nome: "Arlequina (DC)",
     img: "/images/prod4.jpg",
+    imgs: ["/images/prod4.jpg", "/images/prod4-1.jpg"], // << opcional
     status: "catalogo",
     tags: ["DC", "Filmes", "HQs"],
     defaultVariant: "1/7",
@@ -215,6 +216,34 @@ const produtos = [
     imgs: ["/images/prod14.jpg", "/images/prod14-1.jpg"], // << opcional
     status: "catalogo",
     tags: ["Naruto", "Animes"],
+    defaultVariant: "1/7",
+    variants: [
+      { label: "1/8", price: 260 },
+      { label: "1/7", price: 300 },
+      { label: "1/6", price: 360 },
+    ],
+  },
+  {
+    id: "p15",
+    nome: "Superman (DC)",
+    img: "/images/prod15.jpg",
+    imgs: ["/images/prod15.jpg", "/images/prod15-1.jpg", "/images/prod15-2.jpg"], // << opcional
+    status: "catalogo",
+    tags: ["DC", "Filmes", "HQs"],
+    defaultVariant: "1/7",
+    variants: [
+      { label: "1/8", price: 260 },
+      { label: "1/7", price: 300 },
+      { label: "1/6", price: 360 },
+    ],
+  },
+  {
+    id: "p16",
+    nome: "Arlequina (DC)",
+    img: "/images/prod16.jpg",
+    imgs: ["/images/prod16.jpg", "/images/prod16-1.jpg"], // << opcional
+    status: "catalogo",
+    tags: ["DC", "Filmes", "HQs"],
     defaultVariant: "1/7",
     variants: [
       { label: "1/8", price: 260 },
