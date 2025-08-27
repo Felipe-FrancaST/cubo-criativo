@@ -46,7 +46,7 @@ const produtos = [
   },
   {
     id: "p2",
-    nome: "Majin Boo (DBZ)",
+    nome: "Majin Boo",
     img: "/images/prod2.jpg",
     imgs: ["/images/prod2.jpg", "/images/prod2-1.jpg"], // << opcional
     status: "catalogo",
@@ -60,7 +60,7 @@ const produtos = [
   },
   {
     id: "p3",
-    nome: "Konan (Naruto)",
+    nome: "Konan",
     img: "/images/prod3.jpg",
     imgs: ["/images/prod3.jpg", "/images/prod3-1.jpg"], // << opcional
     status: "catalogo",
@@ -74,11 +74,11 @@ const produtos = [
   },
   {
     id: "p4",
-    nome: "Arlequina (DC)",
+    nome: "Arlequina (NFSW)",
     img: "/images/prod4.jpg",
     imgs: ["/images/prod4.jpg", "/images/prod4-1.jpg"], // << opcional
     status: "catalogo",
-    tags: ["DC", "Filmes", "HQs"],
+    tags: ["DC", "Filmes", "HQs", "NFSW"],
     defaultVariant: "1/7",
     variants: [
       { label: "1/8", price: 260 },
@@ -88,7 +88,7 @@ const produtos = [
   },
   {
     id: "p5",
-    nome: "Naruto Clássico (Naruto)",
+    nome: "Naruto (Clássico)",
     img: "/images/prod5.jpg",
     imgs: ["/images/prod5.jpg", "/images/prod5-1.jpg",],
     status: "catalogo",
@@ -102,7 +102,7 @@ const produtos = [
   },
   {
     id: "p6",
-    nome: "Naruto Hokage (Naruto)",
+    nome: "Naruto (Hokage)",
     img: "/images/prod6.jpg",
     imgs: ["/images/prod6.jpg", ],
     status: "catalogo",
@@ -116,7 +116,7 @@ const produtos = [
   },
   {
     id: "p7",
-    nome: "Orochimaru (Naruto)",
+    nome: "Orochimaru",
     img: "/images/prod7.jpg",
     status: "catalogo",
     tags: ["Naruto", "Animes"],
@@ -129,7 +129,7 @@ const produtos = [
   },
   {
     id: "p8",
-    nome: "Jiraiya Modo Sábio (Naruto)",
+    nome: "Jiraiya (Modo Sábio)",
     img: "/images/prod8.jpg",
     status: "catalogo",
     tags: ["Naruto", "Animes"],
@@ -142,7 +142,7 @@ const produtos = [
   },
   {
     id: "p9",
-    nome: "Hinata (Naruto)",
+    nome: "Hinata",
     img: "/images/prod9.jpg",
     imgs: ["/images/prod9.jpg", "/images/prod9-1.jpg"], // << opcional
     status: "catalogo",
@@ -156,7 +156,7 @@ const produtos = [
   },
   {
     id: "p10",
-    nome: "Goku Ssj 4 (DBZ)",
+    nome: "Goku (Ssj 4)",
     img: "/images/prod10.jpg",
     imgs: ["/images/prod10.jpg", "/images/prod10-1.jpg"], // << opcional
     status: "catalogo",
@@ -170,7 +170,7 @@ const produtos = [
   },
   {
     id: "p11",
-    nome: "Sr. Kaioh (DBZ)",
+    nome: "Sr. Kaioh",
     img: "/images/prod11.jpg",
     imgs: ["/images/prod11.jpg", "/images/prod11-1.jpg"], // << opcional
     status: "catalogo",
@@ -184,7 +184,7 @@ const produtos = [
   },
   {
     id: "p12",
-    nome: "Android 18 (DBZ)",
+    nome: "Android 18",
     img: "/images/prod12.jpg",
     imgs: ["/images/prod12.jpg", "/images/prod12-1.jpg"], // << opcional
     status: "catalogo",
@@ -198,7 +198,7 @@ const produtos = [
   },
   {
     id: "p13",
-    nome: "Naruto Modo Sanin (Naruto)",
+    nome: "Naruto (Modo Sanin)",
     img: "/images/prod13.jpg",
     imgs: ["/images/prod13.jpg", "/images/prod13-1.jpg"], // << opcional
     status: "catalogo",
@@ -212,7 +212,7 @@ const produtos = [
   },
   {
     id: "p14",
-    nome: "Naruto Modo Sanin Rasengan (Naruto)",
+    nome: "Naruto (Modo Sanin - Rasengan)",
     img: "/images/prod14.jpg",
     imgs: ["/images/prod14.jpg", "/images/prod14-1.jpg"], // << opcional
     status: "catalogo",
@@ -226,7 +226,7 @@ const produtos = [
   },
   {
     id: "p15",
-    nome: "Superman (DC)",
+    nome: "Superman",
     img: "/images/prod15.jpg",
     imgs: ["/images/prod15.jpg", "/images/prod15-1.jpg", "/images/prod15-2.jpg"], // << opcional
     status: "catalogo",
@@ -240,11 +240,417 @@ const produtos = [
   },
   {
     id: "p16",
-    nome: "Arlequina (DC)",
+    nome: "Arlequina",
     img: "/images/prod16.jpg",
     imgs: ["/images/prod16.jpg", "/images/prod16-1.jpg"], // << opcional
     status: "catalogo",
     tags: ["DC", "Filmes", "HQs"],
+    defaultVariant: "1/7",
+    variants: [
+      { label: "1/8", price: 260 },
+      { label: "1/7", price: 300 },
+      { label: "1/6", price: 360 },
+    ],
+  },
+   {
+    id: "p17",
+    nome: "Beru",
+    img: "/images/prod17.jpg",
+    imgs: ["/images/prod17.jpg", "/images/prod17-1.jpg"], // << opcional
+    status: "catalogo",
+    tags: ["Solo Leveling", "Animes",],
+    defaultVariant: "1/7",
+    variants: [
+      { label: "1/8", price: 260 },
+      { label: "1/7", price: 300 },
+      { label: "1/6", price: 360 },
+    ],
+  },
+  {
+    id: "p18",
+    nome: "Cha Hae-in",
+    img: "/images/prod18.jpg",
+    imgs: ["/images/prod18.jpg", "/images/prod18-1.jpg"], // << opcional
+    status: "catalogo",
+    tags: ["Solo Leveling", "Animes",],
+    defaultVariant: "1/7",
+    variants: [
+      { label: "1/8", price: 260 },
+      { label: "1/7", price: 300 },
+      { label: "1/6", price: 360 },
+    ],
+  },
+  {
+    id: "p19",
+    nome: "Sung Jinwoo",
+    img: "/images/prod19.jpg",
+    imgs: ["/images/prod19.jpg"], // << opcional
+    status: "catalogo",
+    tags: ["Solo Leveling", "Animes",],
+    defaultVariant: "1/7",
+    variants: [
+      { label: "1/8", price: 260 },
+      { label: "1/7", price: 300 },
+      { label: "1/6", price: 360 },
+    ],
+  },
+  {
+    id: "p20",
+    nome: "Sung Jinwoo (Shadow Armor)",
+    img: "/images/prod20.jpg",
+    imgs: ["/images/prod20.jpg","/images/prod20-1.jpg"],
+    status: "catalogo",
+    tags: ["Solo Leveling", "Animes",],
+    defaultVariant: "1/7",
+    variants: [
+      { label: "1/8", price: 260 },
+      { label: "1/7", price: 300 },
+      { label: "1/6", price: 360 },
+    ],
+  },
+  {
+    id: "p21",
+    nome: "Sung Jinwoo (Sword)",
+    img: "/images/prod21.jpg",
+    imgs: ["/images/prod21.jpg"], // << opcional
+    status: "catalogo",
+    tags: ["Solo Leveling", "Animes",],
+    defaultVariant: "1/7",
+    variants: [
+      { label: "1/8", price: 260 },
+      { label: "1/7", price: 300 },
+      { label: "1/6", price: 360 },
+    ],
+  },
+  {
+    id: "p22",
+    nome: "Beru, Jinwoo & Igris (Diorama)",
+    img: "/images/prod22.jpg",
+    imgs: ["/images/prod22.jpg"], // << opcional
+    status: "catalogo",
+    tags: ["Solo Leveling", "Animes",],
+    defaultVariant: "1/7",
+    variants: [
+      { label: "1/8", price: 260 },
+      { label: "1/7", price: 300 },
+      { label: "1/6", price: 360 },
+    ],
+  },
+  {
+    id: "p23",
+    nome: "Jinwoo & Beru (Diorama)",
+    img: "/images/prod23.jpg",
+    imgs: ["/images/prod23.jpg", "/images/prod23-1.jpg", "/images/prod23-2.jpg"], // << opcional
+    status: "catalogo",
+    tags: ["Solo Leveling", "Animes"],
+    defaultVariant: "1/7",
+    variants: [
+      { label: "1/8", price: 260 },
+      { label: "1/7", price: 300 },
+      { label: "1/6", price: 360 },
+    ],
+  },
+  {
+    id: "p24",
+    nome: "Sung Jinwoo (Sword)",
+    img: "/images/prod24.jpg",
+    imgs: ["/images/prod24.jpg"], // << opcional
+    status: "catalogo",
+    tags: ["Solo Leveling", "Animes",],
+    defaultVariant: "1/7",
+    variants: [
+      { label: "1/8", price: 260 },
+      { label: "1/7", price: 300 },
+      { label: "1/6", price: 360 },
+    ],
+  },
+  {
+    id: "p25",
+    nome: "Nami (NFSW)",
+    img: "/images/prod25.jpg",
+    imgs: ["/images/prod25.jpg", "/images/prod25-1.jpg"], // << opcional
+    status: "catalogo",
+    tags: ["One Piece", "Animes", "NFSW"],
+    defaultVariant: "1/7",
+    variants: [
+      { label: "1/8", price: 260 },
+      { label: "1/7", price: 300 },
+      { label: "1/6", price: 360 },
+    ],
+  },
+  {
+    id: "p26",
+    nome: "Luffy",
+    img: "/images/prod26.jpg",
+    imgs: ["/images/prod26.jpg", "/images/prod26-1.jpg"], // << opcional
+    status: "catalogo",
+    tags: ["One Piece", "Animes"],
+    defaultVariant: "1/7",
+    variants: [
+      { label: "1/8", price: 260 },
+      { label: "1/7", price: 300 },
+      { label: "1/6", price: 360 },
+    ],
+  },
+  {
+    id: "p27",
+    nome: "Law",
+    img: "/images/prod27.jpg",
+    imgs: ["/images/prod27.jpg", "/images/prod27-1.jpg"], // << opcional
+    status: "catalogo",
+    tags: ["One Piece", "Animes"],
+    defaultVariant: "1/7",
+    variants: [
+      { label: "1/8", price: 260 },
+      { label: "1/7", price: 300 },
+      { label: "1/6", price: 360 },
+    ],
+  },
+  {
+    id: "p28",
+    nome: "Luffy (Diorama - Piratas)",
+    img: "/images/prod28.jpg",
+    imgs: ["/images/prod28.jpg"], // << opcional
+    status: "catalogo",
+    tags: ["One Piece", "Animes"],
+    defaultVariant: "1/7",
+    variants: [
+      { label: "1/8", price: 260 },
+      { label: "1/7", price: 300 },
+      { label: "1/6", price: 360 },
+    ],
+  },
+  {
+    id: "p29",
+    nome: "Luffy (Onigashima)",
+    img: "/images/prod29.jpg",
+    imgs: ["/images/prod29.jpg"], // << opcional
+    status: "catalogo",
+    tags: ["One Piece", "Animes"],
+    defaultVariant: "1/7",
+    variants: [
+      { label: "1/8", price: 260 },
+      { label: "1/7", price: 300 },
+      { label: "1/6", price: 360 },
+    ],
+  },
+  {
+    id: "p30",
+    nome: "Nami",
+    img: "/images/prod30.jpg",
+    imgs: ["/images/prod30.jpg"], // << opcional
+    status: "catalogo",
+    tags: ["One Piece", "Animes"],
+    defaultVariant: "1/7",
+    variants: [
+      { label: "1/8", price: 260 },
+      { label: "1/7", price: 300 },
+      { label: "1/6", price: 360 },
+    ],
+  },
+  {
+    id: "p31",
+    nome: "Marshall D. Teach",
+    img: "/images/prod31.jpg",
+    imgs: ["/images/prod31.jpg"], // << opcional
+    status: "catalogo",
+    tags: ["One Piece", "Animes"],
+    defaultVariant: "1/7",
+    variants: [
+      { label: "1/8", price: 260 },
+      { label: "1/7", price: 300 },
+      { label: "1/6", price: 360 },
+    ],
+  },
+  {
+    id: "p32",
+    nome: "Boa Hancock (Diorama)",
+    img: "/images/prod32.jpg",
+    imgs: ["/images/prod32.jpg"], // << opcional
+    status: "catalogo",
+    tags: ["One Piece", "Animes"],
+    defaultVariant: "1/7",
+    variants: [
+      { label: "1/8", price: 260 },
+      { label: "1/7", price: 300 },
+      { label: "1/6", price: 360 },
+    ],
+  },
+  {
+    id: "p33",
+    nome: "Nico Robin (NFSW)",
+    img: "/images/prod33.jpg",
+    imgs: ["/images/prod33.jpg", "/images/prod33-1.jpg"], // << opcional
+    status: "catalogo",
+    tags: ["One Piece", "Animes", "NFSW"],
+    defaultVariant: "1/7",
+    variants: [
+      { label: "1/8", price: 260 },
+      { label: "1/7", price: 300 },
+      { label: "1/6", price: 360 },
+    ],
+  },
+  {
+    id: "p34",
+    nome: "Nami",
+    img: "/images/prod34.jpg",
+    imgs: ["/images/prod34.jpg", "/images/prod34-1.jpg"], // << opcional
+    status: "catalogo",
+    tags: ["One Piece", "Animes"],
+    defaultVariant: "1/7",
+    variants: [
+      { label: "1/8", price: 260 },
+      { label: "1/7", price: 300 },
+      { label: "1/6", price: 360 },
+    ],
+  },
+  {
+    id: "p35",
+    nome: "Carrot",
+    img: "/images/prod35.jpg",
+    imgs: ["/images/prod35.jpg"], // << opcional
+    status: "catalogo",
+    tags: ["One Piece", "Animes"],
+    defaultVariant: "1/7",
+    variants: [
+      { label: "1/8", price: 260 },
+      { label: "1/7", price: 300 },
+      { label: "1/6", price: 360 },
+    ],
+  },
+  {
+    id: "p36",
+    nome: "Nami (Hallowen - NFSW)",
+    img: "/images/prod36.jpg",
+    imgs: ["/images/prod36.jpg"], // << opcional
+    status: "catalogo",
+    tags: ["One Piece", "Animes", "NFSW "],
+    defaultVariant: "1/7",
+    variants: [
+      { label: "1/8", price: 260 },
+      { label: "1/7", price: 300 },
+      { label: "1/6", price: 360 },
+    ],
+  },
+  {
+    id: "p37",
+    nome: "Yamato",
+    img: "/images/prod37.jpg",
+    imgs: ["/images/prod37.jpg", "/images/prod37-1.jpg"], // << opcional
+    status: "catalogo",
+    tags: ["One Piece", "Animes"],
+    defaultVariant: "1/7",
+    variants: [
+      { label: "1/8", price: 260 },
+      { label: "1/7", price: 300 },
+      { label: "1/6", price: 360 },
+    ],
+  },
+  {
+    id: "p38",
+    nome: "Kuzan Aokiji",
+    img: "/images/prod38.jpg",
+    imgs: ["/images/prod38.jpg"], // << opcional
+    status: "catalogo",
+    tags: ["One Piece", "Animes"],
+    defaultVariant: "1/7",
+    variants: [
+      { label: "1/8", price: 260 },
+      { label: "1/7", price: 300 },
+      { label: "1/6", price: 360 },
+    ],
+  },
+  {
+    id: "p39",
+    nome: "Sakazuki Akainu",
+    img: "/images/prod39.jpg",
+    imgs: ["/images/prod39.jpg"], // << opcional
+    status: "catalogo",
+    tags: ["One Piece", "Animes"],
+    defaultVariant: "1/7",
+    variants: [
+      { label: "1/8", price: 260 },
+      { label: "1/7", price: 300 },
+      { label: "1/6", price: 360 },
+    ],
+  },
+  {
+    id: "p40",
+    nome: "Kizaru Borsalino",
+    img: "/images/prod40.jpg",
+    imgs: ["/images/prod40.jpg"], // << opcional
+    status: "catalogo",
+    tags: ["One Piece", "Animes"],
+    defaultVariant: "1/7",
+    variants: [
+      { label: "1/8", price: 260 },
+      { label: "1/7", price: 300 },
+      { label: "1/6", price: 360 },
+    ],
+  },
+  {
+    id: "p41",
+    nome: "Crocodile",
+    img: "/images/prod41.jpg",
+    imgs: ["/images/prod41.jpg"], // << opcional
+    status: "catalogo",
+    tags: ["One Piece", "Animes"],
+    defaultVariant: "1/7",
+    variants: [
+      { label: "1/8", price: 260 },
+      { label: "1/7", price: 300 },
+      { label: "1/6", price: 360 },
+    ],
+  },
+  {
+    id: "p42",
+    nome: "Trafalgar Law",
+    img: "/images/prod42.jpg",
+    imgs: ["/images/prod42.jpg","/images/prod42-1.jpg"], // << opcional
+    status: "catalogo",
+    tags: ["One Piece", "Animes"],
+    defaultVariant: "1/7",
+    variants: [
+      { label: "1/8", price: 260 },
+      { label: "1/7", price: 300 },
+      { label: "1/6", price: 360 },
+    ],
+  },
+   {
+    id: "p43",
+    nome: "Zoro vs Mihawk (Diorama)",
+    img: "/images/prod43.jpg",
+    imgs: ["/images/prod43.jpg"], // << opcional
+    status: "catalogo",
+    tags: ["One Piece", "Animes"],
+    defaultVariant: "1/7",
+    variants: [
+      { label: "1/8", price: 260 },
+      { label: "1/7", price: 300 },
+      { label: "1/6", price: 360 },
+    ],
+  },
+   {
+    id: "p44",
+    nome: "Luffy, Ace & Sabo (Diorama)",
+    img: "/images/prod44.jpg",
+    imgs: ["/images/prod44.jpg"], // << opcional
+    status: "catalogo",
+    tags: ["One Piece", "Animes"],
+    defaultVariant: "1/7",
+    variants: [
+      { label: "1/8", price: 260 },
+      { label: "1/7", price: 300 },
+      { label: "1/6", price: 360 },
+    ],
+  },
+   {
+    id: "p45",
+    nome: "Roronoa Zoro (Wano)",
+    img: "/images/prod45.jpg",
+    imgs: ["/images/prod45.jpg","/images/prod45-1.jpg"], // << opcional
+    status: "catalogo",
+    tags: ["One Piece", "Animes"],
     defaultVariant: "1/7",
     variants: [
       { label: "1/8", price: 260 },
