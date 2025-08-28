@@ -39,9 +39,7 @@ const produtos = [
     tags: ["Baldur's Gate", "Games", "RPG"],
     defaultVariant: "1/7",
     variants: [
-      { label: "1/9", price: 420 },
       { label: "1/7", price: 500 },
-      { label: "1/6", price: 580 },
     ],
   },
   {
