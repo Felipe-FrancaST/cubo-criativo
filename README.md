@@ -1,12 +1,42 @@
-# React + Vite
+# 🧊 Cubo Criativo – Loja Online
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Bem-vindo ao **Cubo Criativo**, uma loja virtual focada em:
+- Miniaturas em resina de alta qualidade
+- Pintura artística detalhada
+- Modelagem e impressão 3D sob medida
 
-Currently, two official plugins are available:
+Este repositório contém o código-fonte do site oficial, desenvolvido com **React + Vite + TailwindCSS** e hospedado na **Vercel**.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+---
 
-## Expanding the ESLint configuration
+## 🚀 Tecnologias Utilizadas
+- [React](https://react.dev/) – UI declarativa e componentizada
+- [Vite](https://vitejs.dev/) – Build tool rápida e moderna
+- [TailwindCSS](https://tailwindcss.com/) – Estilização ágil e responsiva
+- [Vercel](https://vercel.com/) – Deploy contínuo e hospedagem
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+---
+
+## 📦 Funcionalidades
+✔️ Catálogo organizado por categorias (anime, HQs, filmes, games)  
+✔️ Visualização em 3D dos modelos (`.glb`)  
+✔️ Galeria de imagens com múltiplas perspectivas  
+✔️ Filtros e barra de busca no catálogo  
+✔️ Carrinho de compras dinâmico  
+✔️ Finalização rápida pelo **WhatsApp**  
+✔️ Layout moderno e responsivo  
+
+---
+
+## 🖼️ Prévia
+![Preview do Site](public/images/promo.jpg)
+
+---
+
+## 🔧 Como Rodar Localmente
+Clone este repositório e instale as dependências:
+
+```bash
+git clone https://github.com/seu-usuario/cubo-criativo.git
+cd cubo-criativo
+npm install
