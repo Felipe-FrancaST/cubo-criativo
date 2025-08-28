@@ -656,6 +656,34 @@ const produtos = [
       { label: "1/6", price: 360 },
     ],
   },
+   {
+    id: "p46",
+    nome: "Rin Toosaka",
+    img: "/images/prod46.jpg",
+    imgs: ["/images/prod46.jpg","/images/prod46-1.jpg","/images/prod46-2.jpg"], // << opcional
+    status: "catalogo",
+    tags: ["Fate", "Animes"],
+    defaultVariant: "1/7",
+    variants: [
+      { label: "1/8", price: 260 },
+      { label: "1/7", price: 300 },
+      { label: "1/6", price: 360 },
+    ],
+  },
+    {
+    id: "p47",
+    nome: "Saber",
+    img: "/images/prod47.jpg",
+    imgs: ["/images/prod47.jpg","/images/prod47-1.jpg","/images/prod47-2.jpg","/images/prod47-3.jpg"], // << opcional
+    status: "catalogo",
+    tags: ["Fate", "Animes"],
+    defaultVariant: "1/7",
+    variants: [
+      { label: "1/8", price: 260 },
+      { label: "1/7", price: 300 },
+      { label: "1/6", price: 360 },
+    ],
+  },
 ];
 
 /* ==========================
