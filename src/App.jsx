@@ -140,11 +140,11 @@ const produtos = [
   },
   {
     id: "p9",
-    nome: "Hinata",
+    nome: "Hinata (NFSW)",
     img: "/images/prod9.jpg",
     imgs: ["/images/prod9.jpg", "/images/prod9-1.jpg"], // << opcional
     status: "catalogo",
-    tags: ["Naruto", "Animes"],
+    tags: ["Naruto", "Animes", "NFSW"],
     defaultVariant: "1/7",
     variants: [
       { label: "1/8", price: 260 },
@@ -522,7 +522,7 @@ const produtos = [
     img: "/images/prod36.jpg",
     imgs: ["/images/prod36.jpg"], // << opcional
     status: "catalogo",
-    tags: ["One Piece", "Animes", "NFSW "],
+    tags: ["One Piece", "Animes", "NFSW"],
     defaultVariant: "1/7",
     variants: [
       { label: "1/8", price: 260 },
