@@ -684,6 +684,104 @@ const produtos = [
       { label: "1/6", price: 360 },
     ],
   },
+   {
+    id: "p48",
+    nome: "Seiko Ayase (NFSW)",
+    img: "/images/prod48.jpg",
+    imgs: ["/images/prod48.jpg","/images/prod48-1.jpg"], // << opcional
+    status: "catalogo",
+    tags: ["Dandandan", "Animes", "NFSW"],
+    defaultVariant: "1/7",
+    variants: [
+      { label: "1/8", price: 260 },
+      { label: "1/7", price: 300 },
+      { label: "1/6", price: 360 },
+    ],
+  },
+   {
+    id: "p49",
+    nome: "Okarun",
+    img: "/images/prod49.jpg",
+    imgs: ["/images/prod49.jpg","/images/prod49-1.jpg","/images/prod49-2.jpg"], // << opcional
+    status: "catalogo",
+    tags: ["Dandandan", "Animes"],
+    defaultVariant: "1/7",
+    variants: [
+      { label: "1/8", price: 260 },
+      { label: "1/7", price: 300 },
+      { label: "1/6", price: 360 },
+    ],
+  },
+   {
+    id: "p50",
+    nome: "Jinx",
+    img: "/images/prod50.jpg",
+    imgs: ["/images/prod50.jpg","/images/prod50-1.jpg"], // << opcional
+    status: "catalogo",
+    tags: ["Arcane", "Lol"],
+    defaultVariant: "1/7",
+    variants: [
+      { label: "1/8", price: 260 },
+      { label: "1/7", price: 300 },
+      { label: "1/6", price: 360 },
+    ],
+  },
+   {
+    id: "p51",
+    nome: "Viktor",
+    img: "/images/prod51.jpg",
+    imgs: ["/images/prod51.jpg","/images/prod51-1.jpg"], // << opcional
+    status: "catalogo",
+    tags: ["Arcane", "Lol"],
+    defaultVariant: "1/7",
+    variants: [
+      { label: "1/8", price: 260 },
+      { label: "1/7", price: 300 },
+      { label: "1/6", price: 360 },
+    ],
+  },
+   {
+    id: "p52",
+    nome: "Heimerdinger",
+    img: "/images/prod52.jpg",
+    imgs: ["/images/prod52.jpg","/images/prod52-1.jpg"], // << opcional
+    status: "catalogo",
+    tags: ["Arcane", "Lol"],
+    defaultVariant: "1/7",
+    variants: [
+      { label: "1/8", price: 260 },
+      { label: "1/7", price: 300 },
+      { label: "1/6", price: 360 },
+    ],
+  },
+   {
+    id: "p53",
+    nome: "Jayce",
+    img: "/images/prod53.jpg",
+    imgs: ["/images/prod53.jpg","/images/prod53-1.jpg"], // << opcional
+    status: "catalogo",
+    tags: ["Arcane", "Lol"],
+    defaultVariant: "1/7",
+    variants: [
+      { label: "1/8", price: 260 },
+      { label: "1/7", price: 300 },
+      { label: "1/6", price: 360 },
+    ],
+  },
+   {
+    id: "p54",
+    nome: "Caitlyn",
+    img: "/images/prod54.jpg",
+    imgs: ["/images/prod54.jpg","/images/prod54-1.jpg"], // << opcional
+    status: "catalogo",
+    tags: ["Arcane", "Lol"],
+    defaultVariant: "1/7",
+    variants: [
+      { label: "1/8", price: 260 },
+      { label: "1/7", price: 300 },
+      { label: "1/6", price: 360 },
+    ],
+  },
 ];
 
 /* ==========================
