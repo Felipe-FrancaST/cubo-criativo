@@ -41,7 +41,7 @@ function Toast({ open, children }) {
    ======================================================================== */
 export default function App() {
   const [menuOpen, setMenuOpen] = React.useState(false);
-  const [rpgMode, setRpgMode] = React.useState(false); // << Modo RPG
+  const [rpgMode, setRpgMode] = React.useState(false);
 
   // ===== Carrinho =====
   const [cartOpen, setCartOpen] = React.useState(false);
@@ -71,8 +71,9 @@ export default function App() {
     setTimeout(() => setToastOpen(false), 1400);
   }
 
+  // >>> Toggle para abrir/fechar pelo botão
   function openCart() {
-    setCartOpen(true);
+    setCartOpen((v) => !v);
   }
 
   function buyNow(p, { escala, unitPrice } = {}) {
@@ -165,10 +166,13 @@ export default function App() {
 
   return (
     <div className="min-h-screen w-full overflow-x-clip flex flex-col bg-gradient-to-b from-slate-900 via-slate-950 to-black text-slate-100">
+      {/* Pequeno override para garantir que o drawer fique por cima do RPG */}
+      <style>{`.force-top{z-index:120 !important;}`}</style>
+
       {/* TOAST */}
       <Toast open={toastOpen}>Adicionado ao carrinho!</Toast>
 
-      {/* HEADER */}
+      {/* HEADER (z-index alto para ficar acima do overlay do RPG) */}
       <header className="sticky top-0 z-[90]">
         <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-400/50 to-transparent" />
         <div className="backdrop-blur supports-[backdrop-filter]:bg-slate-900/70 bg-slate-900/90 border-b border-white/10">
@@ -213,7 +217,7 @@ export default function App() {
 
               {/* Ações (desktop) */}
               <div className="hidden md:flex items-center gap-2">
-                {/* Instagram / TikTok ícones (somente ícones no desktop) */}
+                {/* Instagram / TikTok ícones */}
                 <a
                   href="https://instagram.com/_cubocriativo_"
                   target="_blank"
@@ -231,14 +235,14 @@ export default function App() {
                   <img src="/icons/tiktok.svg" alt="TikTok" className="h-4 w-4" />
                 </a>
 
-                {/* Botão Modo RPG (ícone de dado) */}
+                {/* Botão Modo RPG */}
                 {!rpgMode ? (
                   <button
                     onClick={() => setRpgMode(true)}
                     className="inline-flex items-center gap-2 rounded-full px-3 py-2 ring-1 ring-white/10 hover:bg-white/5 text-sm"
                     title="Modo RPG"
                   >
-                    <img src="/icons/dado.svg" alt="" className="h-4 w-4" />
+                    <img src="/icons/dice.svg" alt="" className="h-4 w-4" />
                     Modo RPG
                   </button>
                 ) : (
@@ -252,7 +256,7 @@ export default function App() {
                   </button>
                 )}
 
-                {/* WhatsApp (desktop mostra rótulo) */}
+                {/* WhatsApp */}
                 <a
                   href={`https://wa.me/${brand.whatsapp}`}
                   target="_blank"
@@ -282,7 +286,7 @@ export default function App() {
 
               {/* Botões topo (mobile) */}
               <div className="md:hidden flex items-center gap-2">
-                {/* Botão Modo RPG / Sair (ícone de dado no entrar) */}
+                {/* Botão Modo RPG / Sair */}
                 {!rpgMode ? (
                   <button
                     onClick={() => setRpgMode(true)}
@@ -290,7 +294,7 @@ export default function App() {
                     aria-label="Modo RPG"
                     title="Modo RPG"
                   >
-                    <img src="/icons/dado.svg" alt="" className="h-5 w-5" />
+                    <img src="/icons/dice.svg" alt="" className="h-5 w-5" />
                   </button>
                 ) : (
                   <button
@@ -314,13 +318,21 @@ export default function App() {
                   <img src="/icons/whatsapp.svg" alt="" className="h-5 w-5" />
                 </a>
 
-                {/* Carrinho */}
+                {/* Carrinho (com badge + bounce no mobile também) */}
                 <button
-                  className="rounded-full p-2.5 ring-1 ring-white/15 hover:bg-white/5"
+                  className={`relative rounded-full p-2.5 ring-1 ring-white/15 hover:bg-white/5 ${
+                    cartBounce ? "animate-bounce" : ""
+                  }`}
                   onClick={openCart}
                   aria-label="Abrir carrinho"
+                  title="Carrinho"
                 >
                   <span className="material-icons">shopping_cart</span>
+                  {cart.length > 0 && (
+                    <span className="absolute -top-1 -right-1 text-[10px] bg-teal-400 text-black font-bold rounded-full px-1.5 py-0.5 shadow">
+                      {cart.reduce((s, i) => s + i.qty, 0)}
+                    </span>
+                  )}
                 </button>
 
                 {/* Menu */}
@@ -362,16 +374,8 @@ export default function App() {
                   </>
                 )}
 
-                {/* Ações sociais no mobile (com ícones + rótulo estreito) */}
-                <div className="mt-3 grid grid-cols-3 gap-2">
-                  <a
-                    href={`https://wa.me/${brand.whatsapp}`}
-                    target="_blank"
-                    className="inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 bg-emerald-400 text-black font-semibold ring-4 ring-emerald-400/20"
-                  >
-                    <img src="/icons/whatsapp.svg" alt="" className="h-4 w-4" />
-                    <span className="truncate">WhatsApp</span>
-                  </a>
+                {/* Ações sociais no mobile — sem WhatsApp aqui */}
+                <div className="mt-3 grid grid-cols-2 gap-2">
                   <a
                     href="https://instagram.com/_cubocriativo_"
                     target="_blank"
@@ -395,15 +399,12 @@ export default function App() {
         </div>
       </header>
 
-      {/* Se o modo RPG estiver ativo, renderiza a página RPG como overlay */}
+      {/* Overlay RPG */}
       {rpgMode && (
-        <RPGPage
-          onClose={() => setRpgMode(false)}
-          addToCart={addToCart} // mantém carrinho funcionando no RPG
-        />
+        <RPGPage onClose={() => setRpgMode(false)} addToCart={addToCart} />
       )}
 
-      {/* Conteúdo principal (só aparece quando NÃO está no modo RPG) */}
+      {/* Conteúdo principal (só quando NÃO está no RPG) */}
       {!rpgMode && (
         <main className="flex-1">
           {/* HERO */}
@@ -626,7 +627,7 @@ export default function App() {
         </footer>
       )}
 
-      {/* DRAWER CARRINHO (funciona em ambos os modos) */}
+      {/* DRAWER CARRINHO — forçado a ficar no topo */}
       <CartDrawer
         open={cartOpen}
         onClose={() => setCartOpen(false)}
@@ -636,6 +637,7 @@ export default function App() {
         subtotal={subtotal}
         brand={brand}
         waMsg={waMsg}
+        className="force-top"
       />
 
       {/* MODAL 3D */}
@@ -651,7 +653,7 @@ export default function App() {
         )}
       </Modal>
 
-      {/* MODAL GALERIA (miniaturas + imagem original) */}
+      {/* MODAL GALERIA */}
       <Modal
         open={galleryOpen}
         onClose={() => setGalleryOpen(false)}
