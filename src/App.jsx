@@ -1,792 +1,17 @@
 // src/App.jsx
 import React from "react";
+import brand from "./data/config";
+import { produtos } from "./data/produtos";
 import Modal from "./components/Modal.jsx";
 import ModelViewer3D from "./components/ModelViewer3D.jsx";
 import CarrosselPromo from "./components/CarrosselPromo.jsx";
+import ProductCard from "./components/ProductCard.jsx";
+import CartDrawer from "./components/CartDrawer.jsx";
+import GalleryModal from "./components/GalleryModal.jsx";
 
-
-/* ==========================
-   CONFIG DA MARCA
-   ========================== */
-const brand = {
-  name: "Cubo Criativo",
-  slogan: "Miniaturas em resina • Pintura artística • Modelagem 3D",
-  whatsapp: "5577998211169",
-  email: "cubocriativox0@gmail.com",
-  insta: "@_cubocriativo_",
-  city: "Barreiras - BA",
-  logo: "/images/logo.png",
-};
-
-/* =============================================================================
-   PRODUTOS
-   - status: "estoque" ou "catalogo"
-   - tags: grupos/categorias (ex.: ["Naruto"], ["DBZ"], ["RPG"], ["Filmes"])
-   - variants: [{ label: "1/7", price: 500 }, ...]
-   - defaultVariant: escala inicial
-   - imgs: (opcional) array de imagens extras para a galeria. A PRIMEIRA pode
-           ser igual à "img" principal, ou você deixa que eu uso p.img como base.
-   >>> PARA ADICIONAR FOTOS EXTRAS: coloque caminhos em p.imgs abaixo.
-   ============================================================================ */
-const produtos = [
-  {
-    id: "p1",
-    nome: "Minthara (Baldur's Gate)",
-    img: "/images/prod1.jpg",
-    imgs: ["/images/prod1.jpg", "/images/prod1b.jpg", "/images/prod1c.jpg"], // << EDITE/ADICIONE
-    model: "/models/mintharaviewer.glb",
-    status: "estoque",
-    tags: ["Baldur's Gate", "Games", "RPG"],
-    defaultVariant: "1/7",
-    variants: [
-      { label: "1/7", price: 500 },
-    ],
-  },
-  {
-    id: "p2",
-    nome: "Majin Boo",
-    img: "/images/prod2.jpg",
-    imgs: ["/images/prod2.jpg", "/images/prod2-1.jpg"], // << opcional
-    status: "catalogo",
-    tags: ["DBZ", "Animes"],
-    defaultVariant: "1/4",
-    variants: [
-      { label: "1/6", price: 260 },
-      { label: "1/5", price: 310 },
-      { label: "1/4", price: 380 },
-    ],
-  },
-  {
-    id: "p3",
-    nome: "Konan",
-    img: "/images/prod3.jpg",
-    imgs: ["/images/prod3.jpg", "/images/prod3-1.jpg"], // << opcional
-    status: "catalogo",
-    tags: ["Naruto", "Animes"],
-    defaultVariant: "1/9",
-    variants: [
-      { label: "1/10", price: 110 },
-      { label: "1/9", price: 120 },
-      { label: "1/8", price: 140 },
-    ],
-  },
-  {
-    id: "p4",
-    nome: "Arlequina (NFSW)",
-    img: "/images/prod4.jpg",
-    imgs: ["/images/prod4.jpg", "/images/prod4-1.jpg"], // << opcional
-    status: "catalogo",
-    tags: ["DC", "Filmes", "HQs", "NFSW"],
-    defaultVariant: "1/7",
-    variants: [
-      { label: "1/8", price: 260 },
-      { label: "1/7", price: 300 },
-      { label: "1/6", price: 360 },
-    ],
-  },
-  {
-    id: "p5",
-    nome: "Naruto (Clássico)",
-    img: "/images/prod5.jpg",
-    imgs: ["/images/prod5.jpg", "/images/prod5-1.jpg",],
-    status: "catalogo",
-    tags: ["Naruto", "Animes"],
-    defaultVariant: "1/7",
-    variants: [
-      { label: "1/8", price: 260 },
-      { label: "1/7", price: 300 },
-      { label: "1/6", price: 360 },
-    ],
-  },
-  {
-    id: "p6",
-    nome: "Naruto (Hokage)",
-    img: "/images/prod6.jpg",
-    imgs: ["/images/prod6.jpg", ],
-    status: "catalogo",
-    tags: ["Naruto", "Animes"],
-    defaultVariant: "1/7",
-    variants: [
-      { label: "1/8", price: 260 },
-      { label: "1/7", price: 300 },
-      { label: "1/6", price: 360 },
-    ],
-  },
-  {
-    id: "p7",
-    nome: "Orochimaru",
-    img: "/images/prod7.jpg",
-    status: "catalogo",
-    tags: ["Naruto", "Animes"],
-    defaultVariant: "1/7",
-    variants: [
-      { label: "1/8", price: 260 },
-      { label: "1/7", price: 300 },
-      { label: "1/6", price: 360 },
-    ],
-  },
-  {
-    id: "p8",
-    nome: "Jiraiya (Modo Sábio)",
-    img: "/images/prod8.jpg",
-    status: "catalogo",
-    tags: ["Naruto", "Animes"],
-    defaultVariant: "1/7",
-    variants: [
-      { label: "1/8", price: 260 },
-      { label: "1/7", price: 300 },
-      { label: "1/6", price: 360 },
-    ],
-  },
-  {
-    id: "p9",
-    nome: "Hinata (NFSW)",
-    img: "/images/prod9.jpg",
-    imgs: ["/images/prod9.jpg", "/images/prod9-1.jpg"], // << opcional
-    status: "catalogo",
-    tags: ["Naruto", "Animes", "NFSW"],
-    defaultVariant: "1/7",
-    variants: [
-      { label: "1/8", price: 260 },
-      { label: "1/7", price: 300 },
-      { label: "1/6", price: 360 },
-    ],
-  },
-  {
-    id: "p10",
-    nome: "Goku (Ssj 4)",
-    img: "/images/prod10.jpg",
-    imgs: ["/images/prod10.jpg", "/images/prod10-1.jpg"], // << opcional
-    status: "catalogo",
-    tags: ["DBZ", "Animes"],
-    defaultVariant: "1/4",
-    variants: [
-      { label: "1/6", price: 260 },
-      { label: "1/5", price: 310 },
-      { label: "1/4", price: 380 },
-    ],
-  },
-  {
-    id: "p11",
-    nome: "Sr. Kaioh",
-    img: "/images/prod11.jpg",
-    imgs: ["/images/prod11.jpg", "/images/prod11-1.jpg"], // << opcional
-    status: "catalogo",
-    tags: ["DBZ", "Animes"],
-    defaultVariant: "1/4",
-    variants: [
-      { label: "1/6", price: 260 },
-      { label: "1/5", price: 310 },
-      { label: "1/4", price: 380 },
-    ],
-  },
-  {
-    id: "p12",
-    nome: "Android 18",
-    img: "/images/prod12.jpg",
-    imgs: ["/images/prod12.jpg", "/images/prod12-1.jpg"], // << opcional
-    status: "catalogo",
-    tags: ["DBZ", "Animes"],
-    defaultVariant: "1/4",
-    variants: [
-      { label: "1/6", price: 260 },
-      { label: "1/5", price: 310 },
-      { label: "1/4", price: 380 },
-    ],
-  },
-  {
-    id: "p13",
-    nome: "Naruto (Modo Sanin)",
-    img: "/images/prod13.jpg",
-    imgs: ["/images/prod13.jpg", "/images/prod13-1.jpg"], // << opcional
-    status: "catalogo",
-    tags: ["Naruto", "Animes"],
-    defaultVariant: "1/7",
-    variants: [
-      { label: "1/8", price: 260 },
-      { label: "1/7", price: 300 },
-      { label: "1/6", price: 360 },
-    ],
-  },
-  {
-    id: "p14",
-    nome: "Naruto (Modo Sanin - Rasengan)",
-    img: "/images/prod14.jpg",
-    imgs: ["/images/prod14.jpg", "/images/prod14-1.jpg"], // << opcional
-    status: "catalogo",
-    tags: ["Naruto", "Animes"],
-    defaultVariant: "1/7",
-    variants: [
-      { label: "1/8", price: 260 },
-      { label: "1/7", price: 300 },
-      { label: "1/6", price: 360 },
-    ],
-  },
-  {
-    id: "p15",
-    nome: "Superman",
-    img: "/images/prod15.jpg",
-    imgs: ["/images/prod15.jpg", "/images/prod15-1.jpg", "/images/prod15-2.jpg"], // << opcional
-    status: "catalogo",
-    tags: ["DC", "Filmes", "HQs"],
-    defaultVariant: "1/7",
-    variants: [
-      { label: "1/8", price: 260 },
-      { label: "1/7", price: 300 },
-      { label: "1/6", price: 360 },
-    ],
-  },
-  {
-    id: "p16",
-    nome: "Arlequina",
-    img: "/images/prod16.jpg",
-    imgs: ["/images/prod16.jpg", "/images/prod16-1.jpg"], // << opcional
-    status: "catalogo",
-    tags: ["DC", "Filmes", "HQs"],
-    defaultVariant: "1/7",
-    variants: [
-      { label: "1/8", price: 260 },
-      { label: "1/7", price: 300 },
-      { label: "1/6", price: 360 },
-    ],
-  },
-   {
-    id: "p17",
-    nome: "Beru",
-    img: "/images/prod17.jpg",
-    imgs: ["/images/prod17.jpg", "/images/prod17-1.jpg"], // << opcional
-    status: "catalogo",
-    tags: ["Solo Leveling", "Animes",],
-    defaultVariant: "1/7",
-    variants: [
-      { label: "1/8", price: 260 },
-      { label: "1/7", price: 300 },
-      { label: "1/6", price: 360 },
-    ],
-  },
-  {
-    id: "p18",
-    nome: "Cha Hae-in",
-    img: "/images/prod18.jpg",
-    imgs: ["/images/prod18.jpg", "/images/prod18-1.jpg"], // << opcional
-    status: "catalogo",
-    tags: ["Solo Leveling", "Animes",],
-    defaultVariant: "1/7",
-    variants: [
-      { label: "1/8", price: 260 },
-      { label: "1/7", price: 300 },
-      { label: "1/6", price: 360 },
-    ],
-  },
-  {
-    id: "p19",
-    nome: "Sung Jinwoo",
-    img: "/images/prod19.jpg",
-    imgs: ["/images/prod19.jpg"], // << opcional
-    status: "catalogo",
-    tags: ["Solo Leveling", "Animes",],
-    defaultVariant: "1/7",
-    variants: [
-      { label: "1/8", price: 260 },
-      { label: "1/7", price: 300 },
-      { label: "1/6", price: 360 },
-    ],
-  },
-  {
-    id: "p20",
-    nome: "Sung Jinwoo (Shadow Armor)",
-    img: "/images/prod20.jpg",
-    imgs: ["/images/prod20.jpg","/images/prod20-1.jpg"],
-    status: "catalogo",
-    tags: ["Solo Leveling", "Animes",],
-    defaultVariant: "1/7",
-    variants: [
-      { label: "1/8", price: 260 },
-      { label: "1/7", price: 300 },
-      { label: "1/6", price: 360 },
-    ],
-  },
-  {
-    id: "p21",
-    nome: "Sung Jinwoo (Sword)",
-    img: "/images/prod21.jpg",
-    imgs: ["/images/prod21.jpg"], // << opcional
-    status: "catalogo",
-    tags: ["Solo Leveling", "Animes",],
-    defaultVariant: "1/7",
-    variants: [
-      { label: "1/8", price: 260 },
-      { label: "1/7", price: 300 },
-      { label: "1/6", price: 360 },
-    ],
-  },
-  {
-    id: "p22",
-    nome: "Beru, Jinwoo & Igris (Diorama)",
-    img: "/images/prod22.jpg",
-    imgs: ["/images/prod22.jpg"], // << opcional
-    status: "catalogo",
-    tags: ["Solo Leveling", "Animes",],
-    defaultVariant: "1/7",
-    variants: [
-      { label: "1/8", price: 260 },
-      { label: "1/7", price: 300 },
-      { label: "1/6", price: 360 },
-    ],
-  },
-  {
-    id: "p23",
-    nome: "Jinwoo & Beru (Diorama)",
-    img: "/images/prod23.jpg",
-    imgs: ["/images/prod23.jpg", "/images/prod23-1.jpg", "/images/prod23-2.jpg"], // << opcional
-    status: "catalogo",
-    tags: ["Solo Leveling", "Animes"],
-    defaultVariant: "1/7",
-    variants: [
-      { label: "1/8", price: 260 },
-      { label: "1/7", price: 300 },
-      { label: "1/6", price: 360 },
-    ],
-  },
-  {
-    id: "p24",
-    nome: "Sung Jinwoo (Sword)",
-    img: "/images/prod24.jpg",
-    imgs: ["/images/prod24.jpg"], // << opcional
-    status: "catalogo",
-    tags: ["Solo Leveling", "Animes",],
-    defaultVariant: "1/7",
-    variants: [
-      { label: "1/8", price: 260 },
-      { label: "1/7", price: 300 },
-      { label: "1/6", price: 360 },
-    ],
-  },
-  {
-    id: "p25",
-    nome: "Nami (NFSW)",
-    img: "/images/prod25.jpg",
-    imgs: ["/images/prod25.jpg", "/images/prod25-1.jpg"], // << opcional
-    status: "catalogo",
-    tags: ["One Piece", "Animes", "NFSW"],
-    defaultVariant: "1/7",
-    variants: [
-      { label: "1/8", price: 260 },
-      { label: "1/7", price: 300 },
-      { label: "1/6", price: 360 },
-    ],
-  },
-  {
-    id: "p26",
-    nome: "Luffy",
-    img: "/images/prod26.jpg",
-    imgs: ["/images/prod26.jpg", "/images/prod26-1.jpg"], // << opcional
-    status: "catalogo",
-    tags: ["One Piece", "Animes"],
-    defaultVariant: "1/7",
-    variants: [
-      { label: "1/8", price: 260 },
-      { label: "1/7", price: 300 },
-      { label: "1/6", price: 360 },
-    ],
-  },
-  {
-    id: "p27",
-    nome: "Law",
-    img: "/images/prod27.jpg",
-    imgs: ["/images/prod27.jpg", "/images/prod27-1.jpg"], // << opcional
-    status: "catalogo",
-    tags: ["One Piece", "Animes"],
-    defaultVariant: "1/7",
-    variants: [
-      { label: "1/8", price: 260 },
-      { label: "1/7", price: 300 },
-      { label: "1/6", price: 360 },
-    ],
-  },
-  {
-    id: "p28",
-    nome: "Luffy (Diorama - Piratas)",
-    img: "/images/prod28.jpg",
-    imgs: ["/images/prod28.jpg"], // << opcional
-    status: "catalogo",
-    tags: ["One Piece", "Animes"],
-    defaultVariant: "1/7",
-    variants: [
-      { label: "1/8", price: 260 },
-      { label: "1/7", price: 300 },
-      { label: "1/6", price: 360 },
-    ],
-  },
-  {
-    id: "p29",
-    nome: "Luffy (Onigashima)",
-    img: "/images/prod29.jpg",
-    imgs: ["/images/prod29.jpg"], // << opcional
-    status: "catalogo",
-    tags: ["One Piece", "Animes"],
-    defaultVariant: "1/7",
-    variants: [
-      { label: "1/8", price: 260 },
-      { label: "1/7", price: 300 },
-      { label: "1/6", price: 360 },
-    ],
-  },
-  {
-    id: "p30",
-    nome: "Nami",
-    img: "/images/prod30.jpg",
-    imgs: ["/images/prod30.jpg"], // << opcional
-    status: "catalogo",
-    tags: ["One Piece", "Animes"],
-    defaultVariant: "1/7",
-    variants: [
-      { label: "1/8", price: 260 },
-      { label: "1/7", price: 300 },
-      { label: "1/6", price: 360 },
-    ],
-  },
-  {
-    id: "p31",
-    nome: "Marshall D. Teach",
-    img: "/images/prod31.jpg",
-    imgs: ["/images/prod31.jpg"], // << opcional
-    status: "catalogo",
-    tags: ["One Piece", "Animes"],
-    defaultVariant: "1/7",
-    variants: [
-      { label: "1/8", price: 260 },
-      { label: "1/7", price: 300 },
-      { label: "1/6", price: 360 },
-    ],
-  },
-  {
-    id: "p32",
-    nome: "Boa Hancock (Diorama)",
-    img: "/images/prod32.jpg",
-    imgs: ["/images/prod32.jpg"], // << opcional
-    status: "catalogo",
-    tags: ["One Piece", "Animes"],
-    defaultVariant: "1/7",
-    variants: [
-      { label: "1/8", price: 260 },
-      { label: "1/7", price: 300 },
-      { label: "1/6", price: 360 },
-    ],
-  },
-  {
-    id: "p33",
-    nome: "Nico Robin (NFSW)",
-    img: "/images/prod33.jpg",
-    imgs: ["/images/prod33.jpg", "/images/prod33-1.jpg"], // << opcional
-    status: "catalogo",
-    tags: ["One Piece", "Animes", "NFSW"],
-    defaultVariant: "1/7",
-    variants: [
-      { label: "1/8", price: 260 },
-      { label: "1/7", price: 300 },
-      { label: "1/6", price: 360 },
-    ],
-  },
-  {
-    id: "p34",
-    nome: "Nami",
-    img: "/images/prod34.jpg",
-    imgs: ["/images/prod34.jpg", "/images/prod34-1.jpg"], // << opcional
-    status: "catalogo",
-    tags: ["One Piece", "Animes"],
-    defaultVariant: "1/7",
-    variants: [
-      { label: "1/8", price: 260 },
-      { label: "1/7", price: 300 },
-      { label: "1/6", price: 360 },
-    ],
-  },
-  {
-    id: "p35",
-    nome: "Carrot",
-    img: "/images/prod35.jpg",
-    imgs: ["/images/prod35.jpg"], // << opcional
-    status: "catalogo",
-    tags: ["One Piece", "Animes"],
-    defaultVariant: "1/7",
-    variants: [
-      { label: "1/8", price: 260 },
-      { label: "1/7", price: 300 },
-      { label: "1/6", price: 360 },
-    ],
-  },
-  {
-    id: "p36",
-    nome: "Nami (Hallowen - NFSW)",
-    img: "/images/prod36.jpg",
-    imgs: ["/images/prod36.jpg"], // << opcional
-    status: "catalogo",
-    tags: ["One Piece", "Animes", "NFSW"],
-    defaultVariant: "1/7",
-    variants: [
-      { label: "1/8", price: 260 },
-      { label: "1/7", price: 300 },
-      { label: "1/6", price: 360 },
-    ],
-  },
-  {
-    id: "p37",
-    nome: "Yamato",
-    img: "/images/prod37.jpg",
-    imgs: ["/images/prod37.jpg", "/images/prod37-1.jpg"], // << opcional
-    status: "catalogo",
-    tags: ["One Piece", "Animes"],
-    defaultVariant: "1/7",
-    variants: [
-      { label: "1/8", price: 260 },
-      { label: "1/7", price: 300 },
-      { label: "1/6", price: 360 },
-    ],
-  },
-  {
-    id: "p38",
-    nome: "Kuzan Aokiji",
-    img: "/images/prod38.jpg",
-    imgs: ["/images/prod38.jpg"], // << opcional
-    status: "catalogo",
-    tags: ["One Piece", "Animes"],
-    defaultVariant: "1/7",
-    variants: [
-      { label: "1/8", price: 260 },
-      { label: "1/7", price: 300 },
-      { label: "1/6", price: 360 },
-    ],
-  },
-  {
-    id: "p39",
-    nome: "Sakazuki Akainu",
-    img: "/images/prod39.jpg",
-    imgs: ["/images/prod39.jpg"], // << opcional
-    status: "catalogo",
-    tags: ["One Piece", "Animes"],
-    defaultVariant: "1/7",
-    variants: [
-      { label: "1/8", price: 260 },
-      { label: "1/7", price: 300 },
-      { label: "1/6", price: 360 },
-    ],
-  },
-  {
-    id: "p40",
-    nome: "Kizaru Borsalino",
-    img: "/images/prod40.jpg",
-    imgs: ["/images/prod40.jpg"], // << opcional
-    status: "catalogo",
-    tags: ["One Piece", "Animes"],
-    defaultVariant: "1/7",
-    variants: [
-      { label: "1/8", price: 260 },
-      { label: "1/7", price: 300 },
-      { label: "1/6", price: 360 },
-    ],
-  },
-  {
-    id: "p41",
-    nome: "Crocodile",
-    img: "/images/prod41.jpg",
-    imgs: ["/images/prod41.jpg"], // << opcional
-    status: "catalogo",
-    tags: ["One Piece", "Animes"],
-    defaultVariant: "1/7",
-    variants: [
-      { label: "1/8", price: 260 },
-      { label: "1/7", price: 300 },
-      { label: "1/6", price: 360 },
-    ],
-  },
-  {
-    id: "p42",
-    nome: "Trafalgar Law",
-    img: "/images/prod42.jpg",
-    imgs: ["/images/prod42.jpg","/images/prod42-1.jpg"], // << opcional
-    status: "catalogo",
-    tags: ["One Piece", "Animes"],
-    defaultVariant: "1/7",
-    variants: [
-      { label: "1/8", price: 260 },
-      { label: "1/7", price: 300 },
-      { label: "1/6", price: 360 },
-    ],
-  },
-   {
-    id: "p43",
-    nome: "Zoro vs Mihawk (Diorama)",
-    img: "/images/prod43.jpg",
-    imgs: ["/images/prod43.jpg"], // << opcional
-    status: "catalogo",
-    tags: ["One Piece", "Animes"],
-    defaultVariant: "1/7",
-    variants: [
-      { label: "1/8", price: 260 },
-      { label: "1/7", price: 300 },
-      { label: "1/6", price: 360 },
-    ],
-  },
-   {
-    id: "p44",
-    nome: "Luffy, Ace & Sabo (Diorama)",
-    img: "/images/prod44.jpg",
-    imgs: ["/images/prod44.jpg"], // << opcional
-    status: "catalogo",
-    tags: ["One Piece", "Animes"],
-    defaultVariant: "1/7",
-    variants: [
-      { label: "1/8", price: 260 },
-      { label: "1/7", price: 300 },
-      { label: "1/6", price: 360 },
-    ],
-  },
-   {
-    id: "p45",
-    nome: "Roronoa Zoro (Wano)",
-    img: "/images/prod45.jpg",
-    imgs: ["/images/prod45.jpg","/images/prod45-1.jpg"], // << opcional
-    status: "catalogo",
-    tags: ["One Piece", "Animes"],
-    defaultVariant: "1/7",
-    variants: [
-      { label: "1/8", price: 260 },
-      { label: "1/7", price: 300 },
-      { label: "1/6", price: 360 },
-    ],
-  },
-   {
-    id: "p46",
-    nome: "Rin Toosaka",
-    img: "/images/prod46.jpg",
-    imgs: ["/images/prod46.jpg","/images/prod46-1.jpg","/images/prod46-2.jpg"], // << opcional
-    status: "catalogo",
-    tags: ["Fate", "Animes"],
-    defaultVariant: "1/7",
-    variants: [
-      { label: "1/8", price: 260 },
-      { label: "1/7", price: 300 },
-      { label: "1/6", price: 360 },
-    ],
-  },
-    {
-    id: "p47",
-    nome: "Saber",
-    img: "/images/prod47.jpg",
-    imgs: ["/images/prod47.jpg","/images/prod47-1.jpg","/images/prod47-2.jpg","/images/prod47-3.jpg"], // << opcional
-    status: "catalogo",
-    tags: ["Fate", "Animes"],
-    defaultVariant: "1/7",
-    variants: [
-      { label: "1/8", price: 260 },
-      { label: "1/7", price: 300 },
-      { label: "1/6", price: 360 },
-    ],
-  },
-   {
-    id: "p48",
-    nome: "Seiko Ayase (NFSW)",
-    img: "/images/prod48.jpg",
-    imgs: ["/images/prod48.jpg","/images/prod48-1.jpg"], // << opcional
-    status: "catalogo",
-    tags: ["Dandandan", "Animes", "NFSW"],
-    defaultVariant: "1/7",
-    variants: [
-      { label: "1/8", price: 260 },
-      { label: "1/7", price: 300 },
-      { label: "1/6", price: 360 },
-    ],
-  },
-   {
-    id: "p49",
-    nome: "Okarun",
-    img: "/images/prod49.jpg",
-    imgs: ["/images/prod49.jpg","/images/prod49-1.jpg","/images/prod49-2.jpg"], // << opcional
-    status: "catalogo",
-    tags: ["Dandandan", "Animes"],
-    defaultVariant: "1/7",
-    variants: [
-      { label: "1/8", price: 260 },
-      { label: "1/7", price: 300 },
-      { label: "1/6", price: 360 },
-    ],
-  },
-   {
-    id: "p50",
-    nome: "Jinx",
-    img: "/images/prod50.jpg",
-    imgs: ["/images/prod50.jpg","/images/prod50-1.jpg"], // << opcional
-    status: "catalogo",
-    tags: ["Arcane", "Lol"],
-    defaultVariant: "1/7",
-    variants: [
-      { label: "1/8", price: 260 },
-      { label: "1/7", price: 300 },
-      { label: "1/6", price: 360 },
-    ],
-  },
-   {
-    id: "p51",
-    nome: "Viktor",
-    img: "/images/prod51.jpg",
-    imgs: ["/images/prod51.jpg","/images/prod51-1.jpg"], // << opcional
-    status: "catalogo",
-    tags: ["Arcane", "Lol"],
-    defaultVariant: "1/7",
-    variants: [
-      { label: "1/8", price: 260 },
-      { label: "1/7", price: 300 },
-      { label: "1/6", price: 360 },
-    ],
-  },
-   {
-    id: "p52",
-    nome: "Heimerdinger",
-    img: "/images/prod52.jpg",
-    imgs: ["/images/prod52.jpg","/images/prod52-1.jpg"], // << opcional
-    status: "catalogo",
-    tags: ["Arcane", "Lol"],
-    defaultVariant: "1/7",
-    variants: [
-      { label: "1/8", price: 260 },
-      { label: "1/7", price: 300 },
-      { label: "1/6", price: 360 },
-    ],
-  },
-   {
-    id: "p53",
-    nome: "Jayce",
-    img: "/images/prod53.jpg",
-    imgs: ["/images/prod53.jpg","/images/prod53-1.jpg"], // << opcional
-    status: "catalogo",
-    tags: ["Arcane", "Lol"],
-    defaultVariant: "1/7",
-    variants: [
-      { label: "1/8", price: 260 },
-      { label: "1/7", price: 300 },
-      { label: "1/6", price: 360 },
-    ],
-  },
-   {
-    id: "p54",
-    nome: "Caitlyn",
-    img: "/images/prod54.jpg",
-    imgs: ["/images/prod54.jpg","/images/prod54-1.jpg"], // << opcional
-    status: "catalogo",
-    tags: ["Arcane", "Lol"],
-    defaultVariant: "1/7",
-    variants: [
-      { label: "1/8", price: 260 },
-      { label: "1/7", price: 300 },
-      { label: "1/6", price: 360 },
-    ],
-  },
-];
-
-/* ==========================
-   HELPERS
-   ========================== */
+/* ========================================================================
+   HELPERS LOCAIS
+   ======================================================================== */
 const fmtBRL = (n) =>
   typeof n === "number" && isFinite(n)
     ? n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
@@ -806,111 +31,13 @@ function Toast({ open, children }) {
   );
 }
 
-/* ==========================
-   CARD DE PRODUTO
-   ========================== */
-function ProductCard({ p, addToCart, buyNow, openViewer, openGallery }) {
-  const defaultIndex = Math.max(0, p.variants?.findIndex((v) => v.label === p.defaultVariant));
-  const [selIndex, setSelIndex] = React.useState(defaultIndex);
-  const [addedFlash, setAddedFlash] = React.useState(false);
-
-  const hasVariants = Array.isArray(p.variants) && p.variants.length > 0;
-  const sel = hasVariants ? p.variants[selIndex] : null;
-  const price = sel?.price ?? p.preco ?? 0;
-  const escala = sel?.label ?? p.escala ?? "";
-
-  function handleAdd() {
-    addToCart(p, { escala, unitPrice: price });
-    setAddedFlash(true);
-    setTimeout(() => setAddedFlash(false), 900);
-  }
-
-  return (
-    <article className="w-full max-w-[320px] group rounded-2xl overflow-hidden ring-1 ring-white/10 bg-slate-900/60 hover:ring-teal-400/30 transition">
-      {/* Imagem clicável -> abre galeria */}
-      <button
-        type="button"
-        className="aspect-[4/5] bg-slate-800/60 grid place-items-center overflow-hidden w-full relative"
-        onClick={() => openGallery(p)}
-        title="Ver mais fotos"
-      >
-        <img
-          src={p.img}
-          alt={p.nome}
-          loading="lazy"
-          className="object-cover w-full h-full group-hover:scale-[1.02] transition"
-          onError={(e) => {
-            e.currentTarget.style.display = "none";
-            e.currentTarget.parentElement?.classList.add("bg-slate-700");
-            e.currentTarget.parentElement.innerHTML =
-              `<div class="text-slate-300 text-xs px-3 text-center">Imagem não encontrada.<br/>Coloque em <b>public/images</b>.</div>`;
-          }}
-        />
-        <span className="absolute bottom-2 right-2 text-[10px] px-2 py-0.5 rounded-full bg-black/50 ring-1 ring-white/20">
-          ver fotos
-        </span>
-      </button>
-
-      <div className="p-4">
-        <h3 className="font-bold tracking-tight text-center lg:text-left">{p.nome}</h3>
-
-        {hasVariants && (
-          <div className="mt-3">
-            <label className="text-xs text-slate-400">Escala / Preço</label>
-            <select
-              className="mt-1 w-full rounded-lg bg-slate-800/60 ring-1 ring-white/10 px-3 py-2 text-sm"
-              value={selIndex}
-              onChange={(e) => setSelIndex(Number(e.target.value))}
-            >
-              {p.variants.map((v, i) => (
-                <option key={v.label} value={i}>
-                  {v.label} — {fmtBRL(v.price)}
-                </option>
-              ))}
-            </select>
-            <p className="mt-2 text-xs text-slate-300">Resina Premium</p>
-          </div>
-        )}
-
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <button
-            onClick={handleAdd}
-            className={`rounded-lg px-3 py-2 font-semibold ring-4 ring-teal-400/20 ${
-              addedFlash ? "bg-emerald-400 text-black" : "bg-teal-400 text-black"
-            } transition`}
-            title="Adicionar ao carrinho"
-          >
-            {addedFlash ? "Adicionado!" : "Adicionar"}
-          </button>
-          <button
-            onClick={() => buyNow(p, { escala, unitPrice: price })}
-            className="rounded-lg px-3 py-2 ring-1 ring-white/15 hover:bg-white/5"
-            title="Comprar agora"
-          >
-            Comprar
-          </button>
-        </div>
-
-        {p.model && (
-          <button
-            onClick={() => openViewer(p.model, p.nome)}
-            className="mt-2 w-full rounded-lg px-3 py-2 ring-1 ring-white/15 hover:bg-white/5 text-sm"
-          >
-            Ver em 3D
-          </button>
-        )}
-      </div>
-    </article>
-  );
-}
-
-/* ==========================
+/* ========================================================================
    APP
-   ========================== */
+   ======================================================================== */
 export default function App() {
   const [menuOpen, setMenuOpen] = React.useState(false);
 
-  // Carrinho
+  // ===== Carrinho =====
   const [cartOpen, setCartOpen] = React.useState(false);
   const [cart, setCart] = React.useState([]);
   const [cartBounce, setCartBounce] = React.useState(false);
@@ -938,7 +65,9 @@ export default function App() {
     setTimeout(() => setToastOpen(false), 1400);
   }
 
-  function openCart() { setCartOpen(true); }
+  function openCart() {
+    setCartOpen(true);
+  }
 
   function buyNow(p, { escala, unitPrice } = {}) {
     const price = typeof unitPrice === "number" ? unitPrice : p.preco || 0;
@@ -973,7 +102,7 @@ export default function App() {
     );
   }, [cart, subtotal]);
 
-  // Visualizador 3D
+  // ===== Visualizador 3D =====
   const [viewerOpen, setViewerOpen] = React.useState(false);
   const [viewerModel, setViewerModel] = React.useState({ src: "", title: "" });
   function openViewer(modelSrc, title) {
@@ -982,7 +111,7 @@ export default function App() {
     setViewerOpen(true);
   }
 
-  // ======== GALERIA (miniaturas + imagem principal sem corte) ========
+  // ===== Galeria (miniaturas + imagem original) =====
   const [galleryOpen, setGalleryOpen] = React.useState(false);
   const [galleryData, setGalleryData] = React.useState({ title: "", imgs: [] });
   const [galleryIndex, setGalleryIndex] = React.useState(0);
@@ -1000,11 +129,11 @@ export default function App() {
     setGalleryIndex((i) => (i + 1) % galleryData.imgs.length);
   }
 
-  // Listas separadas
+  // ===== Listas =====
   const emEstoque = produtos.filter((p) => p.status === "estoque");
   const catalogo = produtos.filter((p) => p.status !== "estoque");
 
-  // Filtros do catálogo
+  // ===== Filtros do catálogo =====
   const allTags = React.useMemo(() => {
     const set = new Set();
     catalogo.forEach((p) => (p.tags || []).forEach((t) => set.add(t)));
@@ -1128,46 +257,63 @@ export default function App() {
 
           {/* Mobile drawer */}
           {menuOpen && (
-            <div className="md:hidden border-t border-white/10 bg-slate-900/95">
-              <nav
-                className="mx-auto w-full px-4 sm:px-6 py-3 flex flex-col gap-2 text-sm"
-                style={{ maxWidth: "var(--container-max, 1200px)" }}
-              >
-                {[
-                  { href: "#sobre", label: "Sobre" },
-                  { href: "#estoque", label: "Em estoque" },
-                  { href: "#catalogo", label: "Catálogo" },
-                  { href: "#contato", label: "Contato" },
-                ].map((link) => (
-                  <a
-                    key={link.href}
-                    onClick={() => setMenuOpen(false)}
-                    href={link.href}
-                    className="py-2 px-2 rounded-lg hover:bg-white/5"
-                  >
-                    {link.label}
-                  </a>
-                ))}
+  <div className="md:hidden border-t border-white/10 bg-slate-900/95">
+    <nav
+      className="mx-auto w-full px-4 sm:px-6 py-3 flex flex-col gap-2 text-sm"
+      style={{ maxWidth: "var(--container-max, 1200px)" }}
+    >
+      {[
+        { href: "#sobre", label: "Sobre" },
+        { href: "#estoque", label: "Em estoque" },
+        { href: "#catalogo", label: "Catálogo" },
+        { href: "#contato", label: "Contato" },
+      ].map((link) => (
+        <a
+          key={link.href}
+          onClick={() => setMenuOpen(false)}
+          href={link.href}
+          className="py-2 px-2 rounded-lg hover:bg-white/5"
+        >
+          {link.label}
+        </a>
+      ))}
 
-                <div className="mt-2 grid grid-cols-2 gap-2">
-                  <a
-                    href={`https://wa.me/${brand.whatsapp}`}
-                    target="_blank"
-                    className="rounded-lg px-3 py-2 bg-emerald-400 text-black font-semibold text-center"
-                  >
-                    WhatsApp
-                  </a>
-                  <a
-                    href="https://instagram.com/_cubocriativo_"
-                    target="_blank"
-                    className="rounded-lg px-3 py-2 ring-1 ring-white/10 text-center hover:bg-white/5"
-                  >
-                    Instagram
-                  </a>
-                </div>
-              </nav>
-            </div>
-          )}
+      {/* Ações sociais no mobile (com ícones) */}
+      <div className="mt-3 grid grid-cols-3 gap-2">
+        {/* WhatsApp */}
+        <a
+          href={`https://wa.me/${brand.whatsapp}`}
+          target="_blank"
+          className="inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 bg-emerald-400 text-black font-semibold ring-4 ring-emerald-400/20"
+        >
+          <img src="/icons/whatsapp.svg" alt="" className="h-4 w-4" />
+          <span className="truncate">WhatsApp</span>
+        </a>
+
+        {/* Instagram */}
+        <a
+          href="https://instagram.com/_cubocriativo_"
+          target="_blank"
+          className="inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 ring-1 ring-white/10 hover:bg-white/5"
+        >
+          <img src="/icons/instagram.svg" alt="" className="h-4 w-4" />
+          <span className="truncate">Instagram</span>
+        </a>
+
+        {/* TikTok */}
+        <a
+          href="https://tiktok.com/@cubo.criativo"
+          target="_blank"
+          className="inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 ring-1 ring-white/10 hover:bg-white/5"
+        >
+          <img src="/icons/tiktok.svg" alt="" className="h-4 w-4" />
+          <span className="truncate">TikTok</span>
+        </a>
+      </div>
+    </nav>
+  </div>
+)}
+
         </div>
       </header>
 
@@ -1255,7 +401,14 @@ export default function App() {
           </div>
           <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 justify-items-center">
             {emEstoque.map((p) => (
-              <ProductCard key={p.id} p={p} addToCart={addToCart} buyNow={buyNow} openViewer={openViewer} openGallery={openGallery} />
+              <ProductCard
+                key={p.id}
+                p={p}
+                addToCart={addToCart}
+                buyNow={buyNow}
+                openViewer={openViewer}
+                openGallery={openGallery}
+              />
             ))}
           </div>
         </section>
@@ -1267,7 +420,7 @@ export default function App() {
             <span className="text-xs sm:text-sm text-slate-400">{catalogoFiltrado.length} modelo(s)</span>
           </div>
 
-          {/* Barra de filtros: chips de tags + busca */}
+          {/* Barra de filtros */}
           <div className="mt-5 flex flex-col lg:flex-row items-stretch lg:items-center gap-3">
             <div className="flex-1 overflow-x-auto">
               <div className="flex gap-2 min-w-max">
@@ -1301,7 +454,14 @@ export default function App() {
 
           <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 justify-items-center">
             {catalogoFiltrado.map((p) => (
-              <ProductCard key={p.id} p={p} addToCart={addToCart} buyNow={buyNow} openViewer={openViewer} openGallery={openGallery} />
+              <ProductCard
+                key={p.id}
+                p={p}
+                addToCart={addToCart}
+                buyNow={buyNow}
+                openViewer={openViewer}
+                openGallery={openGallery}
+              />
             ))}
 
             {catalogoFiltrado.length === 0 && (
@@ -1331,7 +491,7 @@ export default function App() {
             <ul className="mt-2 text-slate-300 space-y-1">
               <li>WhatsApp: (77) 99821-1169</li>
               <li>E-mail: {brand.email}</li>
-              <li>Instagram: {brand.insta}</li>
+              <li>Instagram: @_cubocriativo_</li>
               <li>Cidade/UF: {brand.city}</li>
             </ul>
           </div>
@@ -1342,119 +502,33 @@ export default function App() {
       </footer>
 
       {/* DRAWER CARRINHO */}
-      <div className={`fixed inset-0 z-[60] ${cartOpen ? "visible" : "invisible"}`}>
-        <div className={`absolute inset-0 bg-black/50 transition-opacity ${cartOpen ? "opacity-100" : "opacity-0"}`} onClick={() => setCartOpen(false)} />
-        <aside className={`absolute right-0 top-0 h-full w-[92vw] sm:w-[420px] bg-slate-900 shadow-xl ring-1 ring-white/10 transition-transform duration-300 ${cartOpen ? "translate-x-0" : "translate-x-full"}`}>
-          <div className="p-4 flex items-center justify-between border-b border-white/10">
-            <h3 className="font-bold">Seu carrinho</h3>
-            <button onClick={() => setCartOpen(false)} className="rounded-lg p-2 ring-1 ring-white/15">
-              <span className="material-icons">close</span>
-            </button>
-          </div>
-
-          <div className="p-4 space-y-3 max-h-[60vh] overflow-y-auto">
-            {cart.length === 0 && <p className="text-slate-400 text-sm">Seu carrinho está vazio.</p>}
-            {cart.map((item) => (
-              <div key={`${item.id}-${item.escala}-${item.unitPrice}`} className="flex gap-3 items-center rounded-lg p-3 ring-1 ring-white/10 bg-slate-800/40">
-                <img src={item.img} alt={item.nome} className="h-16 w-16 object-cover rounded-md" />
-                <div className="flex-1">
-                  <p className="font-semibold text-sm leading-tight">{item.nome}</p>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    {item.escala ? `Escala: ${item.escala}` : ""} {item.unitPrice ? `• ${fmtBRL(item.unitPrice)}` : ""}
-                  </p>
-                  <div className="mt-2 flex items-center gap-2">
-                    <button onClick={() => updateQty(item.id, -1, item.escala, item.unitPrice)} className="rounded px-2 ring-1 ring-white/15">-</button>
-                    <span className="min-w-[2ch] text-center">{item.qty}</span>
-                    <button onClick={() => updateQty(item.id, 1, item.escala, item.unitPrice)} className="rounded px-2 ring-1 ring-white/15">+</button>
-                  </div>
-                </div>
-                <button onClick={() => removeItem(item.id, item.escala, item.unitPrice)} className="text-slate-400 hover:text-white">
-                  <span className="material-icons">delete</span>
-                </button>
-              </div>
-            ))}
-          </div>
-
-          <div className="p-4 border-t border-white/10 space-y-3">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-slate-400">Subtotal</span>
-              <span className="font-semibold">{subtotal > 0 ? fmtBRL(subtotal) : "Definir preços"}</span>
-            </div>
-
-            <a
-              href={`https://wa.me/${brand.whatsapp}?text=${waMsg}`}
-              target="_blank"
-              className="block text-center rounded-lg px-4 py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-semibold"
-            >
-              Finalizar pelo WhatsApp
-            </a>
-          </div>
-        </aside>
-      </div>
+      <CartDrawer
+        open={cartOpen}
+        onClose={() => setCartOpen(false)}
+        cart={cart}
+        updateQty={updateQty}
+        removeItem={removeItem}
+        subtotal={subtotal}
+        brand={brand}
+        waMsg={waMsg}
+      />
 
       {/* MODAL 3D */}
       <Modal open={viewerOpen} onClose={() => setViewerOpen(false)} title={`Visualizador 3D — ${viewerModel.title}`}>
         {viewerModel.src ? <ModelViewer3D src={viewerModel.src} /> : <div className="text-slate-400 text-sm">Selecione um produto com modelo 3D.</div>}
       </Modal>
 
-      {/* MODAL GALERIA (miniaturas + imagem principal sem corte) */}
-      <Modal open={galleryOpen} onClose={() => setGalleryOpen(false)} title={`Fotos — ${galleryData.title}`}>
-        {galleryOpen && (
-          <div className="relative">
-            {/* Imagem principal na proporção original */}
-            <div className="relative w-full grid place-items-center rounded-xl ring-1 ring-white/10 bg-slate-900/60 p-2">
-              <img
-                key={galleryIndex}
-                src={galleryData.imgs[galleryIndex]}
-                alt={`${galleryData.title} — ${galleryIndex + 1}`}
-                className="max-h-[70vh] w-auto h-auto object-contain rounded-md"
-                style={{ maxWidth: "100%" }}
-              />
-
-              {galleryData.imgs.length > 1 && (
-                <>
-                  <button
-                    onClick={prevImage}
-                    aria-label="Imagem anterior"
-                    className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full p-2 bg-black/40 hover:bg-black/60 ring-1 ring-white/20"
-                  >
-                    <span className="material-icons">chevron_left</span>
-                  </button>
-                  <button
-                    onClick={nextImage}
-                    aria-label="Próxima imagem"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-2 bg-black/40 hover:bg-black/60 ring-1 ring-white/20"
-                  >
-                    <span className="material-icons">chevron_right</span>
-                  </button>
-                </>
-              )}
-            </div>
-
-            {/* Miniaturas */}
-            {galleryData.imgs.length > 1 && (
-              <div className="mt-3 grid grid-cols-5 sm:grid-cols-6 md:grid-cols-8 gap-2">
-                {galleryData.imgs.map((src, idx) => {
-                  const active = idx === galleryIndex;
-                  return (
-                    <button
-                      key={idx}
-                      onClick={() => setGalleryIndex(idx)}
-                      className={`relative rounded-lg overflow-hidden ring-1 ${
-                        active ? "ring-teal-400" : "ring-white/10 hover:ring-white/20"
-                      }`}
-                      title={`Ver imagem ${idx + 1}`}
-                    >
-                      <img src={src} alt={`thumb ${idx + 1}`} className="h-16 w-full object-cover" />
-                      {active && <span className="absolute inset-0 ring-2 ring-teal-400 rounded-lg pointer-events-none" />}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-      </Modal>
+      {/* MODAL GALERIA */}
+      <GalleryModal
+        open={galleryOpen}
+        onClose={() => setGalleryOpen(false)}
+        title={galleryData.title}
+        imgs={galleryData.imgs}
+        index={galleryIndex}
+        onPrev={prevImage}
+        onNext={nextImage}
+        onSelect={(i) => setGalleryIndex(i)}
+      />
     </div>
   );
 }
