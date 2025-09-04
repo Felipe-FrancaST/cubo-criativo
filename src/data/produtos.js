@@ -18,8 +18,9 @@ export const produtos = [
     model: "/models/mintharaviewer.glb",
     status: "estoque",
     tags: ["Baldur's Gate", "Games", "RPG"],
-    defaultVariant: "1/7",
-    variants: [{ label: "1/7", price: 500 }],
+    defaultVariant: "1/7 - 24 cm",
+    variants: [
+      { label: "1/7 - 24 cm", price: 500 }],
   },
   {
     id: "p2",
@@ -28,11 +29,9 @@ export const produtos = [
     imgs: ["/images/prod2.jpg", "/images/prod2-1.jpg"],
     status: "catalogo",
     tags: ["DBZ", "Animes"],
-    defaultVariant: "1/4",
+    defaultVariant: "1/8",
     variants: [
-      { label: "1/6", price: 260 },
-      { label: "1/5", price: 310 },
-      { label: "1/4", price: 380 },
+      { label: "1/8 - 30 cm", price: 260 },
     ],
   },
   {
@@ -42,25 +41,21 @@ export const produtos = [
     imgs: ["/images/prod3.jpg", "/images/prod3-1.jpg"],
     status: "catalogo",
     tags: ["Naruto", "Animes"],
-    defaultVariant: "1/9",
+    defaultVariant: "1/9 - 26 cm",
     variants: [
-      { label: "1/10", price: 110 },
-      { label: "1/9", price: 120 },
-      { label: "1/8", price: 140 },
+      { label: "1/9 - 26 cm", price: 120 },
     ],
   },
   {
     id: "p4",
     nome: "Arlequina (NFSW)",
     img: "/images/prod4.jpg",
-    imgs: ["/images/prod4.jpg", "/images/prod4-1.jpg"],
+    imgs: ["/images/prod4.jpg", "/images/prod4-1.jpg", "/images/prod4-2.jpg"],
     status: "catalogo",
     tags: ["DC", "Filmes", "HQs", "NFSW"],
-    defaultVariant: "1/7",
+    defaultVariant: "1/6 - 33 cm",
     variants: [
-      { label: "1/8", price: 260 },
-      { label: "1/7", price: 300 },
-      { label: "1/6", price: 360 },
+      { label: "1/6 - 33 cm", price: 260 },
     ],
   },
   {
