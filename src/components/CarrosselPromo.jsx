@@ -2,7 +2,7 @@
 import * as React from "react";
 
 export default function CarrosselPromo({
-  images = ["/images/prod1.jpg", "/images/prod2.jpg", "/images/prod3.jpg"],
+  images = ["/images/promo.jpg", "/images/promo1.jpg", "/images/promo2.jpg"],
   interval = 3500,
   fit = "cover", // "cover" | "contain"
   className = "",
