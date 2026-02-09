@@ -52,6 +52,8 @@ export default function App() {
     // Timeouts (evita acumular timers e warnings ao desmontar)
   const bounceT = React.useRef(null);
   const toastT = React.useRef(null);
+  const [logoAnimate, setLogoAnimate] = React.useState(false);
+
 
   React.useEffect(() => {
     return () => {
@@ -93,6 +95,12 @@ export default function App() {
   function openCart() {
     setCartOpen((v) => !v);
   }
+  
+  function handleLogoClick() {
+  setLogoAnimate(true);
+  setTimeout(() => setLogoAnimate(false), 400);
+}
+
 
   function buyNow(p, { escala, unitPrice } = {}) {
     const price = typeof unitPrice === "number" ? unitPrice : p.preco || 0;
@@ -206,7 +214,13 @@ export default function App() {
               {/* Logo + nome */}
               <a href="#" className="flex items-center gap-3 group">
                 <span className="relative isolate">
-                  <div className="bg-white rounded-2xl p-3 shadow-lg">
+                  <div
+  onClick={handleLogoClick}
+  className={`bg-white rounded-2xl p-3 shadow-lg cursor-pointer transition-transform duration-300 ${
+    logoAnimate ? "scale-110 rotate-3" : "scale-100"
+  }`}
+>
+
   <img
     src={brand.logo}
     alt={brand.name}
