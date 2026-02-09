@@ -83,6 +83,45 @@ export const produtos = [
 
     ],
   },
+  {
+    id: "p7",
+    nome: "Jinbe",
+    img: "/images/prod7.jpg",
+    imgs: ["/images/prod7.jpg","/images/prod7-1.jpg","/images/prod7-2.jpg"],
+    status: "catalogo",
+    tags: ["One Piece", "Animes"],
+    defaultVariant: "1/20",
+    variants: [
+      { label: "1/20 - 15 cm", price: 400 },
+
+    ],
+  },
+  {
+    id: "p8",
+    nome: "Zoe",
+    img: "/images/prod8.jpg",
+    imgs: ["/images/prod8.jpg","/images/prod8-1.jpg","/images/prod8-2.jpg"],
+    status: "catalogo",
+    tags: ["League of Legends", "Jogos"],
+    defaultVariant: "1/13",
+    variants: [
+      { label: "1/13 - 12 cm", price: 220 },
+
+    ],
+  },
+  {
+    id: "p9",
+    nome: "Sung Jin Woo",
+    img: "/images/prod57.jpg",
+    imgs: ["/images/prod57.jpg","/images/prod57-1.jpg","/images/prod57-2.jpg"],
+    status: "catalogo",
+    tags: ["Solo Leveling", "Animes"],
+    defaultVariant: "1/13",
+    variants: [
+      { label: "1/13 - 12 cm", price: 220 },
+
+    ],
+  },
 
   {
     id: "p56",
