@@ -5,14 +5,15 @@ import { produtos } from "./data/produtos";
 
 // Componentes
 import Modal from "./components/Modal.jsx";
-import ModelViewer3D from "./components/ModelViewer3D.jsx";
 import CarrosselPromo from "./components/CarrosselPromo.jsx";
 import ProductCard from "./components/ProductCard.jsx";
 import CartDrawer from "./components/CartDrawer.jsx";
 import GalleryModal from "./components/GalleryModal.jsx"; // (opcional, não usado aqui)
 
-// RPG (overlay de página)
-import RPGPage from "./rpg/RPGPage.jsx";
+// Lazy-load (carrega só quando abrir)
+const ModelViewer3D = React.lazy(() => import("./components/ModelViewer3D.jsx"));
+const RPGPage = React.lazy(() => import("./rpg/RPGPage.jsx"));
+
 
 /* ========================================================================
    HELPERS
@@ -426,10 +427,18 @@ export default function App() {
         </div>
       </header>
 
-      {/* Overlay RPG */}
       {rpgMode && (
-        <RPGPage onClose={() => setRpgMode(false)} addToCart={addToCart} />
-      )}
+  <React.Suspense
+    fallback={
+      <div className="fixed inset-0 z-[140] grid place-items-center bg-black/60 text-slate-200">
+        Carregando RPG…
+      </div>
+    }
+  >
+    <RPGPage onClose={() => setRpgMode(false)} addToCart={addToCart} />
+  </React.Suspense>
+)}
+
 
       {/* Conteúdo principal (só quando NÃO está no RPG) */}
       {!rpgMode && (
@@ -672,11 +681,14 @@ export default function App() {
         onClose={() => setViewerOpen(false)}
         title={`Visualizador 3D — ${viewerModel.title}`}
       >
-        {viewerModel.src ? (
-          <ModelViewer3D src={viewerModel.src} />
-        ) : (
-          <div className="text-slate-400 text-sm">Selecione um produto com modelo 3D.</div>
-        )}
+        {viewerOpen && viewerModel.src ? (
+  <React.Suspense fallback={<div className="p-6 text-slate-300">Carregando 3D…</div>}>
+    <ModelViewer3D src={viewerModel.src} />
+  </React.Suspense>
+) : (
+  <div className="text-slate-400 text-sm">Selecione um produto com modelo 3D.</div>
+)}
+
       </Modal>
 
       {/* MODAL GALERIA */}
