@@ -27,7 +27,7 @@ export default function CartDrawer({
   waMsg,
 }) {
   return (
-    <div className={`fixed inset-0 z-[60] ${open ? "visible" : "invisible"}`}>
+    <div className={`fixed inset-0 z-[90] ${open ? "visible" : "invisible"}`}>
       <div className={`absolute inset-0 bg-black/50 transition-opacity ${open ? "opacity-100" : "opacity-0"}`} onClick={onClose} />
       <aside className={`absolute right-0 top-0 h-full w-[92vw] sm:w-[420px] bg-slate-900 shadow-xl ring-1 ring-white/10 transition-transform duration-300 ${open ? "translate-x-0" : "translate-x-full"}`}>
         <div className="p-4 flex items-center justify-between border-b border-white/10">

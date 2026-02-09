@@ -122,17 +122,4 @@ export const produtos = [
 
     ],
   },
-
-  {
-    id: "p56",
-    nome: "Dobby (Harry Pooter)",
-    img: "/images/prod56.jpg",
-    imgs: ["/images/prod56.jpg"],
-    status: "estoque",
-    tags: ["Harry Pooter", "Filmes"],
-    defaultVariant: "1/7",
-    variants: [
-      { label: "1/7 - 15 cm", price: 150 },
-    ],
-  },
 ];

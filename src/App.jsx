@@ -21,11 +21,10 @@ const fmtBRL = (n) =>
   typeof n === "number" && isFinite(n)
     ? n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
     : "—";
-
 function Toast({ open, children }) {
   return (
     <div
-      className={`fixed top-3 left-1/2 -translate-x-1/2 z-[80] transition-all duration-300 ${
+      className={`fixed top-12 left-1/2 -translate-x-1/2 z-[200] transition-all duration-300 ${
         open ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-3 pointer-events-none"
       }`}
     >
@@ -35,6 +34,7 @@ function Toast({ open, children }) {
     </div>
   );
 }
+
 
 /* ========================================================================
    APP
@@ -181,11 +181,14 @@ export default function App() {
               {/* Logo + nome */}
               <a href="#" className="flex items-center gap-3 group">
                 <span className="relative isolate">
-                  <img
-                    src={brand.logo}
-                    alt={brand.name}
-                    className="h-12 sm:h-14 w-auto object-contain rounded-lg ring-1 ring-white/10"
-                  />
+                  <div className="bg-white rounded-2xl p-3 shadow-lg">
+  <img
+    src={brand.logo}
+    alt={brand.name}
+    className="h-12 sm:h-14 w-auto object-contain"
+  />
+</div>
+
                   <span className="pointer-events-none absolute -inset-1 -z-10 rounded-xl bg-gradient-to-tr from-teal-500/15 via-fuchsia-500/10 to-indigo-500/15 blur-md opacity-80 group-hover:opacity-100 transition" />
                 </span>
                 <div className="hidden sm:flex flex-col leading-tight">
@@ -272,10 +275,10 @@ export default function App() {
                   className={`relative rounded-full p-2.5 ring-1 ring-white/15 hover:bg-white/5 transition ${
                     cartBounce ? "animate-bounce" : ""
                   }`}
-                  title="Carrinho"
-                  aria-label="Abrir carrinho"
+                  title={cartOpen ? "Fechar" : "Carrinho"}
+                  aria-label={cartOpen ? "Fechar carrinho" : "Abrir carrinho"}
                 >
-                  <span className="material-icons">shopping_cart</span>
+                 <span className="material-icons">{cartOpen ? "close" : "shopping_cart"}</span>
                   {cart.length > 0 && (
                     <span className="absolute -top-1 -right-1 text-[10px] bg-teal-400 text-black font-bold rounded-full px-1.5 py-0.5 shadow">
                       {cart.reduce((s, i) => s + i.qty, 0)}
@@ -324,10 +327,10 @@ export default function App() {
                     cartBounce ? "animate-bounce" : ""
                   }`}
                   onClick={openCart}
-                  aria-label="Abrir carrinho"
-                  title="Carrinho"
+                  aria-label={cartOpen ? "Fechar carrinho" : "Abrir carrinho"}
+                  title={cartOpen ? "Fechar" : "Carrinho"}
                 >
-                  <span className="material-icons">shopping_cart</span>
+                  <span className="material-icons">{cartOpen ? "close" : "shopping_cart"}</span>
                   {cart.length > 0 && (
                     <span className="absolute -top-1 -right-1 text-[10px] bg-teal-400 text-black font-bold rounded-full px-1.5 py-0.5 shadow">
                       {cart.reduce((s, i) => s + i.qty, 0)}
