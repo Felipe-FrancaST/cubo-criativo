@@ -24,7 +24,7 @@ const fmtBRL = (n) =>
 function Toast({ open, children }) {
   return (
     <div
-      className={`fixed top-12 left-1/2 -translate-x-1/2 z-[200] transition-all duration-300 ${
+      className={`fixed top-20 left-1/2 -translate-x-1/2 z-[200] transition-all duration-300 ${
         open ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-3 pointer-events-none"
       }`}
     >
@@ -48,8 +48,19 @@ export default function App() {
   const [cart, setCart] = React.useState([]);
   const [cartBounce, setCartBounce] = React.useState(false);
   const [toastOpen, setToastOpen] = React.useState(false);
+    // Timeouts (evita acumular timers e warnings ao desmontar)
+  const bounceT = React.useRef(null);
+  const toastT = React.useRef(null);
 
-  function addToCart(p, { escala, unitPrice } = {}) {
+  React.useEffect(() => {
+    return () => {
+      clearTimeout(bounceT.current);
+      clearTimeout(toastT.current);
+    };
+  }, []);
+
+
+   function addToCart(p, { escala, unitPrice } = {}) {
     const price = typeof unitPrice === "number" ? unitPrice : p.preco || 0;
     const scale = escala || p.escala || "";
 
@@ -65,11 +76,17 @@ export default function App() {
       return [...prev, { ...p, qty: 1, unitPrice: price, escala: scale }];
     });
 
+    // bounce (limpa timeout anterior)
+    clearTimeout(bounceT.current);
     setCartBounce(true);
-    setTimeout(() => setCartBounce(false), 800);
+    bounceT.current = setTimeout(() => setCartBounce(false), 800);
+
+    // toast (limpa timeout anterior)
+    clearTimeout(toastT.current);
     setToastOpen(true);
-    setTimeout(() => setToastOpen(false), 1400);
+    toastT.current = setTimeout(() => setToastOpen(false), 1400);
   }
+
 
   // >>> Toggle para abrir/fechar pelo botão
   function openCart() {
@@ -140,6 +157,15 @@ export default function App() {
   function nextImage() {
     setGalleryIndex((i) => (i + 1) % galleryData.imgs.length);
   }
+    // Bloqueia scroll do body quando overlays estão abertos
+  React.useEffect(() => {
+    const anyOverlayOpen = cartOpen || viewerOpen || galleryOpen || rpgMode;
+    document.body.style.overflow = anyOverlayOpen ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [cartOpen, viewerOpen, galleryOpen, rpgMode]);
+
 
   // ===== Listas =====
   const emEstoque = produtos.filter((p) => p.status === "estoque");
@@ -166,8 +192,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen w-full overflow-x-clip flex flex-col bg-gradient-to-b from-slate-900 via-slate-950 to-black text-slate-100">
-      {/* Pequeno override para garantir que o drawer fique por cima do RPG */}
-      <style>{`.force-top{z-index:120 !important;}`}</style>
 
       {/* TOAST */}
       <Toast open={toastOpen}>Adicionado!</Toast>
@@ -640,7 +664,6 @@ export default function App() {
         subtotal={subtotal}
         brand={brand}
         waMsg={waMsg}
-        className="force-top"
       />
 
       {/* MODAL 3D */}

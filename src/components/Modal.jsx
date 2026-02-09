@@ -1,8 +1,17 @@
 import * as React from "react";
 
 export default function Modal({ open, onClose, title, children }) {
+    React.useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => {
+      if (e.key === "Escape") onClose?.();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
   return (
-    <div className={`fixed inset-0 z-[70] ${open ? "visible" : "invisible"}`}>
+    <div className={`fixed inset-0 z-[150] ${open ? "visible" : "invisible"}`}>
       {/* backdrop */}
       <div
         className={`absolute inset-0 bg-black/60 transition-opacity ${open ? "opacity-100" : "opacity-0"}`}

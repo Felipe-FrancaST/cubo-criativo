@@ -18,6 +18,11 @@ export default function ProductCard({ p, addToCart, buyNow, openViewer, openGall
   const defaultIndex = Math.max(0, p.variants?.findIndex((v) => v.label === p.defaultVariant));
   const [selIndex, setSelIndex] = React.useState(defaultIndex);
   const [addedFlash, setAddedFlash] = React.useState(false);
+    const flashT = React.useRef(null);
+
+  React.useEffect(() => {
+    return () => clearTimeout(flashT.current);
+  }, []);
 
   const hasVariants = Array.isArray(p.variants) && p.variants.length > 0;
   const sel = hasVariants ? p.variants[selIndex] : null;
@@ -27,8 +32,10 @@ export default function ProductCard({ p, addToCart, buyNow, openViewer, openGall
   function handleAdd() {
     addToCart(p, { escala, unitPrice: price });
     setAddedFlash(true);
-    setTimeout(() => setAddedFlash(false), 900);
+    clearTimeout(flashT.current);
+    flashT.current = setTimeout(() => setAddedFlash(false), 900);
   }
+
 
   return (
     <article className="w-full max-w-[320px] group rounded-2xl overflow-hidden ring-1 ring-white/10 bg-slate-900/60 hover:ring-teal-400/30 transition">
@@ -40,10 +47,11 @@ export default function ProductCard({ p, addToCart, buyNow, openViewer, openGall
         title="Ver mais fotos"
       >
         <img
-          src={p.img}
-          alt={p.nome}
-          loading="lazy"
-          className="object-cover w-full h-full group-hover:scale-[1.02] transition"
+         src={p.img}
+  alt={p.nome}
+  loading="lazy"
+  decoding="async"
+  className="object-cover w-full h-full group-hover:scale-[1.02] transition"
           onError={(e) => {
             e.currentTarget.style.display = "none";
             e.currentTarget.parentElement?.classList.add("bg-slate-700");
