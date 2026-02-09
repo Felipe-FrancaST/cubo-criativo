@@ -170,7 +170,7 @@ export default function App() {
       <style>{`.force-top{z-index:120 !important;}`}</style>
 
       {/* TOAST */}
-      <Toast open={toastOpen}>Adicionado ao carrinho!</Toast>
+      <Toast open={toastOpen}>Adicionado!</Toast>
 
       {/* HEADER (z-index alto para ficar acima do overlay do RPG) */}
       <header className="sticky top-0 z-[90]">
