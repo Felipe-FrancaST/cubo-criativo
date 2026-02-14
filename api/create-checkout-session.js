@@ -1,3 +1,5 @@
+export const config = { runtime: "nodejs" };
+
 /**
  * Vercel Serverless Function
  * Route: /api/create-checkout-session
@@ -27,7 +29,7 @@ function add(params, key, value) {
   params.append(key, String(value));
 }
 
-module.exports = async (req, res) => {
+export default async function handler(req, res) {
   try {
     if (req.method !== "POST") {
       return res.status(405).json({ error: "Method not allowed. Use POST." });
@@ -131,4 +133,4 @@ module.exports = async (req, res) => {
       details: err?.message || String(err),
     });
   }
-};
+}
