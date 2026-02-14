@@ -3,6 +3,13 @@ import { MercadoPagoConfig, Payment } from "mercadopago";
 
 export const config = { runtime: "nodejs" };
 
+function maskToken(t) {
+  if (!t) return "(missing)";
+  const s = String(t);
+  // mostra só prefixo e final pra debug (não vaza segredo)
+  return `${s.slice(0, 12)}...${s.slice(-6)}`;
+}
+
 const mpClient = new MercadoPagoConfig({
   accessToken: process.env.MP_ACCESS_TOKEN,
 });
@@ -15,6 +22,9 @@ function toNumberBRL(value) {
 
 export async function POST(request) {
   try {
+    // ✅ Debug seguro: confirma qual token a Vercel está lendo
+    console.log("MP_ACCESS_TOKEN:", maskToken(process.env.MP_ACCESS_TOKEN));
+
     const body = await request.json();
     const amount = toNumberBRL(body.amount);
     const email = String(body.email || "").trim();
@@ -22,10 +32,20 @@ export async function POST(request) {
 
     if (!email) return new Response("Missing payer email", { status: 400 });
 
-    // Você pode mandar seu carrinho pra cá e guardar no metadata (sem DB)
     const items = Array.isArray(body.items) ? body.items : [];
 
     const payment = new Payment(mpClient);
+
+    const origin = String(body.origin || "").trim();
+    const notificationUrl = origin ? `${origin}/api/mp-webhook` : undefined;
+
+    console.log("Pix create:", {
+      amount,
+      email,
+      hasOrigin: Boolean(origin),
+      notificationUrl,
+      itemsCount: items.length,
+    });
 
     const result = await payment.create({
       body: {
@@ -41,8 +61,7 @@ export async function POST(request) {
         metadata: {
           items_json: JSON.stringify(items).slice(0, 4500),
         },
-        // Se você quiser que o MP chame seu webhook:
-        notification_url: `${body.origin || ""}/api/mp-webhook`,
+        ...(notificationUrl ? { notification_url: notificationUrl } : {}),
       },
       requestOptions: {
         idempotencyKey: crypto.randomUUID(),
@@ -51,15 +70,31 @@ export async function POST(request) {
 
     const tx = result.point_of_interaction?.transaction_data;
 
+    console.log("Pix created:", {
+      id: result.id,
+      status: result.status,
+      hasQr: Boolean(tx?.qr_code),
+      hasQrBase64: Boolean(tx?.qr_code_base64),
+    });
+
     return Response.json({
       id: String(result.id),
-      status: result.status, // normalmente "pending"
-      qr_code: tx?.qr_code || null, // copia e cola
-      qr_code_base64: tx?.qr_code_base64 || null, // imagem
+      status: result.status,
+      qr_code: tx?.qr_code || null,
+      qr_code_base64: tx?.qr_code_base64 || null,
       ticket_url: tx?.ticket_url || null,
       external_reference: result.external_reference || null,
     });
   } catch (err) {
-    return new Response(`Pix error: ${err.message}`, { status: 500 });
+    // ✅ log detalhado no servidor
+    console.error("Pix error full:", err);
+
+    // ✅ mensagem mais útil pro front
+    const msg =
+      err?.message ||
+      err?.cause?.message ||
+      "Erro desconhecido ao criar Pix";
+
+    return new Response(`Pix error: ${msg}`, { status: 500 });
   }
 }
