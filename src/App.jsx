@@ -49,10 +49,14 @@ export default function App() {
   const [cart, setCart] = React.useState([]);
   const [cartBounce, setCartBounce] = React.useState(false);
   const [toastOpen, setToastOpen] = React.useState(false);
+  const [toastMsg, setToastMsg] = React.useState("Adicionado!");
     // Timeouts (evita acumular timers e warnings ao desmontar)
   const bounceT = React.useRef(null);
   const toastT = React.useRef(null);
   const [logoAnimate, setLogoAnimate] = React.useState(false);
+
+  // ===== Pagamento (Stripe Checkout) =====
+  const [paying, setPaying] = React.useState(false);
 
 
   React.useEffect(() => {
@@ -86,8 +90,79 @@ export default function App() {
 
     // toast (limpa timeout anterior)
     clearTimeout(toastT.current);
+    setToastMsg("Adicionado!");
     setToastOpen(true);
     toastT.current = setTimeout(() => setToastOpen(false), 1400);
+  }
+
+  // Detecta retorno do Stripe (success/cancel) e mostra feedback
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const payment = params.get("payment");
+    if (!payment) return;
+
+    if (payment === "success") {
+      setToastMsg("✅ Pagamento confirmado!");
+      setToastOpen(true);
+      setCart([]);
+      setCartOpen(false);
+    }
+    if (payment === "cancel") {
+      setToastMsg("Pagamento cancelado.");
+      setToastOpen(true);
+    }
+
+    // remove parâmetros da URL sem recarregar
+    params.delete("payment");
+    params.delete("session_id");
+    const next = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ""}${window.location.hash || ""}`;
+    window.history.replaceState({}, "", next);
+
+    clearTimeout(toastT.current);
+    toastT.current = setTimeout(() => setToastOpen(false), 2200);
+  }, []);
+
+  async function startCheckout() {
+    if (!cart.length) return;
+    if (!(subtotal > 0)) {
+      setToastMsg("Defina os preços antes de pagar.");
+      setToastOpen(true);
+      clearTimeout(toastT.current);
+      toastT.current = setTimeout(() => setToastOpen(false), 2200);
+      return;
+    }
+
+    try {
+      setPaying(true);
+      const resp = await fetch("/api/create-checkout-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: cart.map((i) => ({
+            id: i.id,
+            nome: i.nome,
+            escala: i.escala,
+            qty: i.qty,
+            unitPrice: i.unitPrice || i.preco || 0,
+            img: i.img,
+          })),
+        }),
+      });
+
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok || !data?.url) {
+        throw new Error(data?.error || "Não foi possível iniciar o pagamento.");
+      }
+      window.location.href = data.url;
+    } catch (e) {
+      console.error(e);
+      setToastMsg(e?.message || "Erro ao iniciar pagamento.");
+      setToastOpen(true);
+      clearTimeout(toastT.current);
+      toastT.current = setTimeout(() => setToastOpen(false), 2600);
+    } finally {
+      setPaying(false);
+    }
   }
 
 
@@ -203,7 +278,7 @@ export default function App() {
     <div className="min-h-screen w-full overflow-x-clip flex flex-col bg-gradient-to-b from-slate-900 via-slate-950 to-black text-slate-100">
 
       {/* TOAST */}
-      <Toast open={toastOpen}>Adicionado!</Toast>
+      <Toast open={toastOpen}>{toastMsg}</Toast>
 
       {/* HEADER (z-index alto para ficar acima do overlay do RPG) */}
       <header className="sticky top-0 z-[90]">
@@ -687,6 +762,8 @@ export default function App() {
         subtotal={subtotal}
         brand={brand}
         waMsg={waMsg}
+        onPay={startCheckout}
+        paying={paying}
       />
 
       {/* MODAL 3D */}

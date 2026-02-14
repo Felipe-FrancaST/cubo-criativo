@@ -24,6 +24,7 @@ Este repositório contém o código-fonte do site oficial, desenvolvido com **Re
 ✔️ Filtros e barra de busca no catálogo  
 ✔️ Carrinho de compras dinâmico  
 ✔️ Finalização rápida pelo **WhatsApp**  
+✔️ Pagamento por cartão via **Stripe Checkout**  
 ✔️ Layout moderno e responsivo  
 
 ---
@@ -40,3 +41,32 @@ Clone este repositório e instale as dependências:
 git clone https://github.com/seu-usuario/cubo-criativo.git
 cd cubo-criativo
 npm install
+cp .env.example .env
+# abra o .env e coloque sua STRIPE_SECRET_KEY
+npm run dev
+```
+
+---
+
+## 💳 Pagamento (Stripe Checkout)
+
+O botão **“Pagar com cartão”** no carrinho chama uma função serverless da Vercel em `api/create-checkout-session.cjs`.
+
+### Configurar na Vercel
+1. Crie sua conta na Stripe e pegue sua chave em **Developers → API keys**.
+2. Na Vercel (Project → Settings → Environment Variables), adicione:
+   - `STRIPE_SECRET_KEY` = `sk_live_...` (produção) ou `sk_test_...` (teste)
+3. Faça um novo deploy.
+
+### Como funciona
+- O site redireciona para o **Stripe Checkout**.
+- Ao concluir ou cancelar, volta para o seu site com `?payment=success` ou `?payment=cancel`.
+
+---
+
+## 🏗️ Build
+
+```bash
+npm run build
+npm run preview
+```

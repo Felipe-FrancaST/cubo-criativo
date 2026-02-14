@@ -25,6 +25,8 @@ export default function CartDrawer({
   subtotal,
   brand,
   waMsg,
+  onPay,
+  paying,
 }) {
     React.useEffect(() => {
     if (!open) return;
@@ -74,6 +76,18 @@ export default function CartDrawer({
             <span className="text-slate-400">Subtotal</span>
             <span className="font-semibold">{subtotal > 0 ? fmtBRL(subtotal) : "Definir preços"}</span>
           </div>
+
+          <button
+            onClick={onPay}
+            disabled={paying || cart.length === 0 || !(subtotal > 0)}
+            className={`w-full text-center rounded-lg px-4 py-3 font-semibold ring-1 ring-white/10 transition \
+              ${paying || cart.length === 0 || !(subtotal > 0)
+                ? "bg-slate-700/50 text-slate-300 cursor-not-allowed"
+                : "bg-indigo-500 hover:bg-indigo-400 text-white"}`}
+            title={!(subtotal > 0) ? "Defina os preços dos produtos antes de pagar." : ""}
+          >
+            {paying ? "Abrindo pagamento…" : "Pagar com cartão"}
+          </button>
 
           <a
             href={`https://wa.me/${brand.whatsapp}?text=${waMsg}`}
