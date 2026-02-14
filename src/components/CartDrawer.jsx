@@ -57,8 +57,7 @@ export default function CartDrawer({
     try {
       if (!(subtotal > 0) || cart.length === 0) return;
 
-      const payerEmail = "test@testuser.com";
-
+      const payerEmail = window.prompt("Digite seu e-mail para receber o comprovante:");
       if (!payerEmail) return;
 
       setPixLoading(true);
