@@ -1,100 +1,151 @@
+/**
+ * Vercel Serverless Function
+ * Route: /api/create-pix-payment
+ *
+ * Mercado Pago PIX (via HTTP, sem SDK).
+ *
+ * Configure na Vercel (Project Settings -> Environment Variables):
+ * - MP_ACCESS_TOKEN=... (test ou prod)
+ *
+ * Opcional (recomendado em testes):
+ * - MP_MODE=test  (força payer.email = test@testuser.com)
+ */
+
 import crypto from "crypto";
-import { MercadoPagoConfig, Payment } from "mercadopago";
 
 export const config = { runtime: "nodejs" };
+
+function getBaseUrl(req) {
+  const origin = req.headers.origin;
+  if (origin) return origin;
+  const proto = req.headers["x-forwarded-proto"] || "https";
+  const host = req.headers["x-forwarded-host"] || req.headers.host;
+  return `${proto}://${host}`;
+}
+
+function toNumberBRL(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return Number(n.toFixed(2));
+}
+
+function safeBody(req) {
+  // Vercel geralmente entrega req.body como objeto, mas pode vir string.
+  if (!req.body) return {};
+  if (typeof req.body === "string") {
+    try {
+      return JSON.parse(req.body);
+    } catch {
+      return {};
+    }
+  }
+  return req.body;
+}
 
 function maskToken(t) {
   if (!t) return "(missing)";
   const s = String(t);
-  // mostra só prefixo e final pra debug (não vaza segredo)
   return `${s.slice(0, 12)}...${s.slice(-6)}`;
 }
 
-const mpClient = new MercadoPagoConfig({
-  accessToken: process.env.MP_ACCESS_TOKEN,
-});
-
-function toNumberBRL(value) {
-  const n = Number(value);
-  if (!Number.isFinite(n) || n <= 0) throw new Error("Valor inválido");
-  return Number(n.toFixed(2));
-}
-
-export async function POST(request) {
+export default async function handler(req, res) {
   try {
-    // ✅ Debug seguro: confirma qual token a Vercel está lendo
-    console.log("MP_ACCESS_TOKEN:", maskToken(process.env.MP_ACCESS_TOKEN));
+    if (req.method !== "POST") {
+      return res.status(405).json({ error: "Method not allowed. Use POST." });
+    }
 
-    const body = await request.json();
+    const token = process.env.MP_ACCESS_TOKEN;
+    if (!token) {
+      return res.status(500).json({
+        error:
+          "Missing MP_ACCESS_TOKEN. Add it in Vercel -> Project Settings -> Environment Variables.",
+      });
+    }
+
+    const body = safeBody(req);
+
     const amount = toNumberBRL(body.amount);
-    const email = String(body.email || "").trim();
+    if (!amount) return res.status(400).json({ error: "Valor inválido" });
+
+    const base = String(body.origin || "").trim() || getBaseUrl(req);
+
+    // Em modo de teste, o Mercado Pago pode bloquear emails "reais".
+    // Força um email de teste para evitar "Unauthorized use of live credentials".
+    const mode = String(process.env.MP_MODE || "").toLowerCase();
+    const emailFromBody = String(body.email || "").trim();
+    const payerEmail = mode === "test" ? "test@testuser.com" : emailFromBody;
+
+    if (!payerEmail) {
+      return res.status(400).json({ error: "Missing payer email" });
+    }
+
     const name = String(body.name || "").trim();
-
-    if (!email) return new Response("Missing payer email", { status: 400 });
-
     const items = Array.isArray(body.items) ? body.items : [];
 
-    const payment = new Payment(mpClient);
+    const idempotencyKey = crypto.randomUUID();
 
-    const origin = String(body.origin || "").trim();
-    const notificationUrl = origin ? `${origin}/api/mp-webhook` : undefined;
-
-    console.log("Pix create:", {
+    console.log("[MP] create pix", {
+      token: maskToken(token),
+      mode,
       amount,
-      email,
-      hasOrigin: Boolean(origin),
-      notificationUrl,
+      payerEmail: payerEmail ? "(set)" : "(missing)",
+      hasOrigin: Boolean(body.origin),
+      base,
       itemsCount: items.length,
     });
 
-    const result = await payment.create({
-      body: {
+    const mpResp = await fetch("https://api.mercadopago.com/v1/payments", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        "X-Idempotency-Key": idempotencyKey,
+      },
+      body: JSON.stringify({
         transaction_amount: amount,
         description: body.description || "Pagamento via Pix",
         payment_method_id: "pix",
         payer: {
-          email,
+          email: payerEmail,
           first_name: name.split(" ")[0] || "",
           last_name: name.split(" ").slice(1).join(" ") || "",
         },
         external_reference: body.orderId || crypto.randomUUID(),
         metadata: {
           items_json: JSON.stringify(items).slice(0, 4500),
+          source: "cubo-criativo",
         },
-        ...(notificationUrl ? { notification_url: notificationUrl } : {}),
-      },
-      requestOptions: {
-        idempotencyKey: crypto.randomUUID(),
-      },
+        notification_url: `${base}/api/mp-webhook`,
+      }),
     });
 
-    const tx = result.point_of_interaction?.transaction_data;
+    const data = await mpResp.json().catch(() => ({}));
 
-    console.log("Pix created:", {
-      id: result.id,
-      status: result.status,
-      hasQr: Boolean(tx?.qr_code),
-      hasQrBase64: Boolean(tx?.qr_code_base64),
-    });
+    if (!mpResp.ok) {
+      const msg =
+        data?.message ||
+        data?.error ||
+        data?.cause?.[0]?.description ||
+        "Erro ao criar Pix";
+      console.error("[MP] create pix error", { msg, details: data });
+      return res.status(500).json({ error: msg, details: data });
+    }
 
-    return Response.json({
-      id: String(result.id),
-      status: result.status,
-      qr_code: tx?.qr_code || null,
-      qr_code_base64: tx?.qr_code_base64 || null,
-      ticket_url: tx?.ticket_url || null,
-      external_reference: result.external_reference || null,
+    const tx = data?.point_of_interaction?.transaction_data || {};
+
+    return res.status(200).json({
+      id: String(data.id),
+      status: data.status,
+      qr_code: tx.qr_code || null,
+      qr_code_base64: tx.qr_code_base64 || null,
+      ticket_url: tx.ticket_url || null,
+      external_reference: data.external_reference || null,
     });
   } catch (err) {
-    // ✅ log detalhado no servidor
-    console.error("Pix error full:", err);
-
-    // ✅ mensagem mais útil pro front
-    const msg =
-      err?.message ||
-      err?.cause?.message ||
-      "Erro desconhecido ao criar Pix";
-
-    return new Response(`Pix error: ${msg}`, { status: 500 });
+    console.error("[MP] create pix unexpected error:", err);
+    return res.status(500).json({
+      error: "Pix error",
+      details: err?.message || String(err),
+    });
   }
 }

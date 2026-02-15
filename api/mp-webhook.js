@@ -1,68 +1,178 @@
-import { MercadoPagoConfig, Payment } from "mercadopago";
-import { Resend } from "resend";
+/**
+ * Vercel Serverless Function
+ * Route: /api/mp-webhook
+ *
+ * Webhook do Mercado Pago.
+ * - Busca o pagamento e, quando estiver APPROVED, envia email via Resend.
+ * - Faz uma tentativa de idempotência marcando metadata.email_sent=1 no pagamento.
+ *
+ * Env vars (Vercel):
+ * - MP_ACCESS_TOKEN=...
+ * - RESEND_API_KEY=re_...
+ * - RESEND_FROM="Sua Loja <onboarding@resend.dev>" (em teste) ou "Sua Loja <vendas@seudominio.com>" (domínio verificado)
+ * - ORDER_EMAIL_TO=seuemail@...
+ */
 
-export const config = { runtime: "nodejs" };
+function safeBody(req) {
+  if (!req.body) return {};
+  if (typeof req.body === "string") {
+    try {
+      return JSON.parse(req.body);
+    } catch {
+      return {};
+    }
+  }
+  return req.body;
+}
 
-const mpClient = new MercadoPagoConfig({
-  accessToken: process.env.MP_ACCESS_TOKEN,
-});
-const paymentApi = new Payment(mpClient);
+async function mpFetch(token, url, opts = {}) {
+  const resp = await fetch(url, {
+    ...opts,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      ...(opts.headers || {}),
+    },
+  });
+  const data = await resp.json().catch(() => ({}));
+  return { ok: resp.ok, status: resp.status, data };
+}
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+async function sendResendEmail({ apiKey, from, to, subject, html }) {
+  const resp = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from,
+      to: Array.isArray(to) ? to : [to],
+      subject,
+      html,
+    }),
+  });
+  const data = await resp.json().catch(() => ({}));
+  return { ok: resp.ok, status: resp.status, data };
+}
 
-export async function POST(request) {
+export default async function handler(req, res) {
   try {
-    const payload = await request.json();
-
-    // Normalmente vem algo como: { type: "payment", data: { id: "..." } }
-    const paymentId = payload?.data?.id;
-    if (!paymentId) return new Response("No payment id", { status: 200 });
-
-    const p = await paymentApi.get({ id: paymentId });
-
-    // status "approved" = pago
-    if (p.status === "approved") {
-      const to = (process.env.ORDER_EMAIL_TO || "").trim();
-      const from = (process.env.RESEND_FROM || "").trim();
-      if (!to || !from) return new Response("Missing email env vars", { status: 500 });
-
-      const items = (() => {
-        try {
-          return JSON.parse(p.metadata?.items_json || "[]");
-        } catch {
-          return [];
-        }
-      })();
-
-      const itemsHtml = items
-        .map((it) => `<li>${it.qty ?? 1}× ${it.name ?? "Item"} — R$ ${Number(it.price ?? 0).toFixed(2)}</li>`)
-        .join("");
-
-      const html = `
-        <h2>Pix confirmado ✅</h2>
-        <p><b>Pagamento ID:</b> ${p.id}</p>
-        <p><b>Status:</b> ${p.status}</p>
-        <p><b>Valor:</b> R$ ${Number(p.transaction_amount ?? 0).toFixed(2)}</p>
-        <p><b>Email:</b> ${p.payer?.email || "-"}</p>
-        <p><b>Pedido:</b> ${p.external_reference || "-"}</p>
-        <h3>Itens</h3>
-        <ul>${itemsHtml || "<li>(sem itens no metadata)</li>"}</ul>
-      `;
-
-      const result = await resend.emails.send({
-        from,
-        to: [to],
-        subject: `Pix confirmado — R$ ${Number(p.transaction_amount ?? 0).toFixed(2)}`,
-        html,
-      });
-
-      if (result.error) {
-        return new Response(`Email error: ${result.error.message}`, { status: 500 });
-      }
+    if (req.method !== "POST") {
+      return res.status(405).json({ error: "Method not allowed. Use POST." });
     }
 
-    return new Response("ok", { status: 200 });
+    const token = String(process.env.MP_ACCESS_TOKEN || "").trim();
+    if (!token) {
+      // responde 200 pra evitar retry infinito
+      return res.status(200).json({ ok: true, ignored: "missing MP_ACCESS_TOKEN" });
+    }
+
+    const body = safeBody(req);
+    // Formatos comuns:
+    // { type: "payment", data: { id: "123" } }
+    // { id: "123" }
+    const paymentId = body?.data?.id || body?.id || null;
+
+    if (!paymentId) {
+      return res.status(200).json({ ok: true, ignored: "no payment id" });
+    }
+
+    const paymentResp = await mpFetch(
+      token,
+      `https://api.mercadopago.com/v1/payments/${encodeURIComponent(paymentId)}`
+    );
+
+    if (!paymentResp.ok) {
+      // acknowledge to avoid retries storm
+      return res.status(200).json({ ok: true, ignored: "cannot fetch payment" });
+    }
+
+    const payment = paymentResp.data;
+    const status = payment?.status;
+
+    // Só age quando aprovado
+    if (status !== "approved") {
+      return res.status(200).json({ ok: true, status });
+    }
+
+    // Idempotência: se já enviou, não envia de novo
+    const alreadySent =
+      payment?.metadata?.email_sent === 1 ||
+      payment?.metadata?.email_sent === "1" ||
+      payment?.metadata?.email_sent === true;
+
+    if (alreadySent) {
+      return res.status(200).json({ ok: true, status: "approved", email: "skipped" });
+    }
+
+    const apiKey = String(process.env.RESEND_API_KEY || "").trim();
+    const to = String(process.env.ORDER_EMAIL_TO || "").trim();
+    const from = String(process.env.RESEND_FROM || "").trim();
+
+    if (!apiKey || !to || !from) {
+      // Mesmo sem email, tente marcar como enviado? Não.
+      return res.status(200).json({ ok: true, status: "approved", email: "skipped (missing resend env)" });
+    }
+
+    let items = [];
+    try {
+      items = JSON.parse(payment?.metadata?.items_json || "[]") || [];
+    } catch {
+      items = [];
+    }
+
+    const itemsHtml = items
+      .map((it) => {
+        const name = it?.name || it?.nome || "Item";
+        const qty = Number(it?.qty) || 1;
+        const price = Number(it?.price) || 0;
+        const total = (qty * price).toFixed(2);
+        return `<li>${qty}× ${name} — R$ ${total}</li>`;
+      })
+      .join("");
+
+    const payerEmail = payment?.payer?.email || "(sem email)";
+    const amount = (Number(payment?.transaction_amount) || 0).toFixed(2);
+
+    const subject = `Novo pedido Pix aprovado — R$ ${amount} — ${payerEmail}`;
+    const html = `
+      <h2>Novo pedido Pix aprovado ✅</h2>
+      <p><b>Payment ID:</b> ${payment.id}</p>
+      <p><b>Valor:</b> R$ ${amount}</p>
+      <p><b>Status:</b> ${payment.status}</p>
+      <p><b>Email do pagador:</b> ${payerEmail}</p>
+      <p><b>Pedido:</b> ${payment.external_reference || "-"}</p>
+      <h3>Itens</h3>
+      <ul>${itemsHtml || "<li>(sem itens)</li>"}</ul>
+    `;
+
+    const emailResp = await sendResendEmail({ apiKey, from, to, subject, html });
+
+    if (!emailResp.ok) {
+      // acknowledge webhook anyway
+      return res.status(200).json({ ok: true, email: "error", details: emailResp.data });
+    }
+
+    // Marca como enviado (best-effort)
+    await mpFetch(
+      token,
+      `https://api.mercadopago.com/v1/payments/${encodeURIComponent(paymentId)}`,
+      {
+        method: "PUT",
+        body: JSON.stringify({
+          metadata: {
+            ...(payment?.metadata || {}),
+            email_sent: "1",
+          },
+        }),
+      }
+    );
+
+    return res.status(200).json({ ok: true, email: "sent" });
   } catch (err) {
-    return new Response(`Webhook error: ${err.message}`, { status: 500 });
+    console.error("mp-webhook error:", err);
+    // Sempre 200 pra não gerar retry infinito
+    return res.status(200).json({ ok: true, error: err?.message || String(err) });
   }
 }
