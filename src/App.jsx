@@ -9,6 +9,9 @@ import CarrosselPromo from "./components/CarrosselPromo.jsx";
 import ProductCard from "./components/ProductCard.jsx";
 import CartDrawer from "./components/CartDrawer.jsx";
 import GalleryModal from "./components/GalleryModal.jsx"; // (opcional, não usado aqui)
+import AuthModal from "./components/AuthModal.jsx";
+import OrdersModal from "./components/OrdersModal.jsx";
+import { useAuth } from "./auth/AuthProvider.jsx";
 
 // Lazy-load (carrega só quando abrir)
 const ModelViewer3D = React.lazy(() => import("./components/ModelViewer3D.jsx"));
@@ -41,8 +44,14 @@ function Toast({ open, children }) {
    APP
    ======================================================================== */
 export default function App() {
+  const { user, session, signOut } = useAuth();
+  const accessToken = session?.access_token || "";
+
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [rpgMode, setRpgMode] = React.useState(false);
+
+  const [authOpen, setAuthOpen] = React.useState(false);
+  const [ordersOpen, setOrdersOpen] = React.useState(false);
 
   // ===== Carrinho =====
   const [cartOpen, setCartOpen] = React.useState(false);
@@ -123,6 +132,14 @@ export default function App() {
   }, []);
 
   async function startCheckout() {
+    if (!user) {
+      setToastMsg("Faça login para pagar.");
+      setToastOpen(true);
+      setAuthOpen(true);
+      clearTimeout(toastT.current);
+      toastT.current = setTimeout(() => setToastOpen(false), 2400);
+      return;
+    }
     if (!cart.length) return;
     if (!(subtotal > 0)) {
       setToastMsg("Defina os preços antes de pagar.");
@@ -136,14 +153,17 @@ export default function App() {
       setPaying(true);
       const resp = await fetch("/api/create-checkout-session", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
         body: JSON.stringify({
           items: cart.map((i) => ({
             id: i.id,
-            nome: i.nome,
-            escala: i.escala,
+            name: i.nome,
+            scale: i.escala,
             qty: i.qty,
-            unitPrice: i.unitPrice || i.preco || 0,
+            price: i.unitPrice || i.preco || 0,
             img: i.img,
           })),
         }),
@@ -373,6 +393,37 @@ export default function App() {
                   </button>
                 )}
 
+                {/* Conta / Pedidos */}
+                {!user ? (
+                  <button
+                    onClick={() => setAuthOpen(true)}
+                    className="inline-flex items-center gap-2 rounded-full px-3 py-2 ring-1 ring-white/10 hover:bg-white/5 text-sm"
+                    title="Entrar"
+                  >
+                    <span className="material-icons text-[18px]">person</span>
+                    Entrar
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => setOrdersOpen(true)}
+                      className="inline-flex items-center gap-2 rounded-full px-3 py-2 ring-1 ring-white/10 hover:bg-white/5 text-sm"
+                      title="Meus pedidos"
+                    >
+                      <span className="material-icons text-[18px]">receipt_long</span>
+                      Pedidos
+                    </button>
+                    <button
+                      onClick={() => signOut()}
+                      className="inline-flex items-center gap-2 rounded-full px-3 py-2 ring-1 ring-white/10 hover:bg-white/5 text-sm"
+                      title={user.email || "Sair"}
+                    >
+                      <span className="material-icons text-[18px]">logout</span>
+                      Sair
+                    </button>
+                  </>
+                )}
+
                 {/* WhatsApp */}
                 <a
                   href={`https://wa.me/${brand.whatsapp}`}
@@ -451,6 +502,27 @@ export default function App() {
                     </span>
                   )}
                 </button>
+
+                {/* Conta (mobile) */}
+                {!user ? (
+                  <button
+                    className="rounded-full p-2.5 ring-1 ring-white/15 hover:bg-white/5"
+                    onClick={() => setAuthOpen(true)}
+                    aria-label="Entrar"
+                    title="Entrar"
+                  >
+                    <span className="material-icons">person</span>
+                  </button>
+                ) : (
+                  <button
+                    className="rounded-full p-2.5 ring-1 ring-white/15 hover:bg-white/5"
+                    onClick={() => setOrdersOpen(true)}
+                    aria-label="Meus pedidos"
+                    title="Meus pedidos"
+                  >
+                    <span className="material-icons">receipt_long</span>
+                  </button>
+                )}
 
                 {/* Menu */}
                 <button
@@ -764,6 +836,19 @@ export default function App() {
         waMsg={waMsg}
         onPay={startCheckout}
         paying={paying}
+        authToken={accessToken}
+        userEmail={user?.email || ""}
+        onRequireLogin={() => setAuthOpen(true)}
+      />
+
+      <AuthModal
+        open={authOpen}
+        onClose={() => setAuthOpen(false)}
+      />
+
+      <OrdersModal
+        open={ordersOpen}
+        onClose={() => setOrdersOpen(false)}
       />
 
       {/* MODAL 3D */}

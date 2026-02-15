@@ -2,35 +2,22 @@
  * Vercel Serverless Function
  * Route: /api/create-pix-payment
  *
- * Mercado Pago PIX (via HTTP, sem SDK).
+ * Gera um pagamento Pix no Mercado Pago e grava o pedido no Supabase.
  *
- * Configure na Vercel (Project Settings -> Environment Variables):
- * - MP_ACCESS_TOKEN=... (test ou prod)
- *
- * Opcional (recomendado em testes):
- * - MP_MODE=test  (força payer.email = test@testuser.com)
+ * Env vars (Vercel):
+ * - MP_ACCESS_TOKEN=...
+ * - MP_MODE=test|production (opcional; default=production)
+ * - SUPABASE_URL=...
+ * - SUPABASE_ANON_KEY=...
+ * - SUPABASE_SERVICE_ROLE_KEY=...
  */
 
 import crypto from "crypto";
+import { getUserFromAuthHeader, supabaseAdmin } from "./_supabase.js";
 
 export const config = { runtime: "nodejs" };
 
-function getBaseUrl(req) {
-  const origin = req.headers.origin;
-  if (origin) return origin;
-  const proto = req.headers["x-forwarded-proto"] || "https";
-  const host = req.headers["x-forwarded-host"] || req.headers.host;
-  return `${proto}://${host}`;
-}
-
-function toNumberBRL(value) {
-  const n = Number(value);
-  if (!Number.isFinite(n) || n <= 0) return null;
-  return Number(n.toFixed(2));
-}
-
 function safeBody(req) {
-  // Vercel geralmente entrega req.body como objeto, mas pode vir string.
   if (!req.body) return {};
   if (typeof req.body === "string") {
     try {
@@ -42,10 +29,31 @@ function safeBody(req) {
   return req.body;
 }
 
-function maskToken(t) {
-  if (!t) return "(missing)";
-  const s = String(t);
-  return `${s.slice(0, 12)}...${s.slice(-6)}`;
+function getBaseUrl(req) {
+  const origin = req.headers.origin;
+  if (origin) return origin;
+  const proto = req.headers["x-forwarded-proto"] || "https";
+  const host = req.headers["x-forwarded-host"] || req.headers.host;
+  return `${proto}://${host}`;
+}
+
+function toNumberBRL(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) throw new Error("Valor inválido");
+  return Number(n.toFixed(2));
+}
+
+async function mpFetch(token, url, opts = {}) {
+  const resp = await fetch(url, {
+    ...opts,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      ...(opts.headers || {}),
+    },
+  });
+  const data = await resp.json().catch(() => ({}));
+  return { ok: resp.ok, status: resp.status, data };
 }
 
 export default async function handler(req, res) {
@@ -54,98 +62,116 @@ export default async function handler(req, res) {
       return res.status(405).json({ error: "Method not allowed. Use POST." });
     }
 
-    const token = process.env.MP_ACCESS_TOKEN;
-    if (!token) {
-      return res.status(500).json({
-        error:
-          "Missing MP_ACCESS_TOKEN. Add it in Vercel -> Project Settings -> Environment Variables.",
-      });
-    }
+    const token = String(process.env.MP_ACCESS_TOKEN || "").trim();
+    if (!token) return res.status(500).json({ error: "Missing MP_ACCESS_TOKEN" });
+
+    const user = await getUserFromAuthHeader(req);
+    if (!user) return res.status(401).json({ error: "Faça login para gerar Pix." });
 
     const body = safeBody(req);
+    const mode = String(process.env.MP_MODE || "production").trim().toLowerCase();
 
     const amount = toNumberBRL(body.amount);
-    if (!amount) return res.status(400).json({ error: "Valor inválido" });
+    const origin = String(body.origin || "").trim() || getBaseUrl(req);
 
-    const base = String(body.origin || "").trim() || getBaseUrl(req);
+    // Em sandbox, o Mercado Pago exige test users/emails.
+    // Mantemos a regra aqui para facilitar o teste.
+    let payerEmail = String(body.email || user.email || "").trim();
+    if (!payerEmail) return res.status(400).json({ error: "Missing payer email" });
 
-    // Em modo de teste, o Mercado Pago pode bloquear emails "reais".
-    // Força um email de teste para evitar "Unauthorized use of live credentials".
-    const mode = String(process.env.MP_MODE || "").toLowerCase();
-    const emailFromBody = String(body.email || "").trim();
-    const payerEmail = mode === "test" ? "test@testuser.com" : emailFromBody;
-
-    if (!payerEmail) {
-      return res.status(400).json({ error: "Missing payer email" });
+    if (mode === "test") {
+      // Use um comprador de teste (criado no painel) OU emails aceitos no ambiente de teste.
+      payerEmail = payerEmail || "test@testuser.com";
     }
 
-    const name = String(body.name || "").trim();
     const items = Array.isArray(body.items) ? body.items : [];
 
-    const idempotencyKey = crypto.randomUUID();
+    // 1) Cria pedido no Supabase
+    const sb = supabaseAdmin();
+    const orderId = crypto.randomUUID();
 
-    console.log("[MP] create pix", {
-      token: maskToken(token),
-      mode,
-      amount,
-      payerEmail: payerEmail ? "(set)" : "(missing)",
-      hasOrigin: Boolean(body.origin),
-      base,
-      itemsCount: items.length,
+    const { error: orderErr } = await sb.from("orders").insert({
+      id: orderId,
+      user_id: user.id,
+      status: "pending",
+      currency: "BRL",
+      total: amount,
+      payment_provider: "mercado_pago",
     });
+    if (orderErr) {
+      console.error("supabase order insert error", orderErr);
+      return res.status(500).json({ error: "Não foi possível criar o pedido." });
+    }
 
-    const mpResp = await fetch("https://api.mercadopago.com/v1/payments", {
+    const orderItems = items
+      .filter((it) => (Number(it.qty) || 0) > 0 && (Number(it.price) || 0) > 0)
+      .map((it) => ({
+        order_id: orderId,
+        product_id: String(it.id || ""),
+        name: String(it.name || it.nome || "Item").trim(),
+        scale: String(it.scale || it.escala || "").trim(),
+        qty: Number(it.qty) || 1,
+        unit_price: Number(Number(it.price).toFixed(2)),
+        img: String(it.img || ""),
+      }));
+
+    if (orderItems.length) {
+      const { error: itemsErr } = await sb.from("order_items").insert(orderItems);
+      if (itemsErr) console.error("supabase order_items insert error", itemsErr);
+    }
+
+    // 2) Cria pagamento Pix
+    const idempotencyKey = crypto.randomUUID();
+    const paymentResp = await mpFetch(token, "https://api.mercadopago.com/v1/payments", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
         "X-Idempotency-Key": idempotencyKey,
       },
       body: JSON.stringify({
         transaction_amount: amount,
-        description: body.description || "Pagamento via Pix",
+        description: String(body.description || "Pagamento via Pix").slice(0, 120),
         payment_method_id: "pix",
         payer: {
           email: payerEmail,
-          first_name: name.split(" ")[0] || "",
-          last_name: name.split(" ").slice(1).join(" ") || "",
         },
-        external_reference: body.orderId || crypto.randomUUID(),
+        external_reference: orderId,
         metadata: {
+          order_id: orderId,
+          user_id: user.id,
           items_json: JSON.stringify(items).slice(0, 4500),
-          source: "cubo-criativo",
         },
-        notification_url: `${base}/api/mp-webhook`,
+        notification_url: `${origin}/api/mp-webhook`,
       }),
     });
 
-    const data = await mpResp.json().catch(() => ({}));
-
-    if (!mpResp.ok) {
-      const msg =
-        data?.message ||
-        data?.error ||
-        data?.cause?.[0]?.description ||
-        "Erro ao criar Pix";
-      console.error("[MP] create pix error", { msg, details: data });
-      return res.status(500).json({ error: msg, details: data });
+    if (!paymentResp.ok) {
+      console.error("mp create payment error", paymentResp.data);
+      await sb.from("orders").update({ status: "failed" }).eq("id", orderId);
+      return res.status(paymentResp.status || 500).json({
+        error: paymentResp.data || { message: "Mercado Pago error" },
+      });
     }
 
-    const tx = data?.point_of_interaction?.transaction_data || {};
+    const payment = paymentResp.data || {};
+    const tx = payment.point_of_interaction?.transaction_data || {};
+
+    // grava id do pagamento
+    await sb
+      .from("orders")
+      .update({ provider_payment_id: String(payment.id || "") })
+      .eq("id", orderId);
 
     return res.status(200).json({
-      id: String(data.id),
-      status: data.status,
+      order_id: orderId,
+      id: String(payment.id),
+      status: payment.status, // normalmente "pending"
       qr_code: tx.qr_code || null,
       qr_code_base64: tx.qr_code_base64 || null,
       ticket_url: tx.ticket_url || null,
-      external_reference: data.external_reference || null,
+      external_reference: payment.external_reference || null,
     });
   } catch (err) {
-    console.error("[MP] create pix unexpected error:", err);
-    return res.status(500).json({
-      error: "Pix error",
-      details: err?.message || String(err),
-    });
+    console.error("create-pix-payment error", err);
+    return res.status(500).json({ error: err?.message || String(err) });
   }
 }

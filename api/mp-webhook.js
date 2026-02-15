@@ -13,6 +13,8 @@
  * - ORDER_EMAIL_TO=seuemail@...
  */
 
+import { supabaseAdmin } from "./_supabase.js";
+
 function safeBody(req) {
   if (!req.body) return {};
   if (typeof req.body === "string") {
@@ -94,6 +96,25 @@ export default async function handler(req, res) {
     // Só age quando aprovado
     if (status !== "approved") {
       return res.status(200).json({ ok: true, status });
+    }
+
+    // Atualiza pedido no Supabase (best-effort)
+    const orderId = payment?.external_reference || payment?.metadata?.order_id || null;
+    if (orderId) {
+      try {
+        const sb = supabaseAdmin();
+        await sb
+          .from("orders")
+          .update({
+            status: "paid",
+            payment_provider: "mercado_pago",
+            provider_payment_id: String(payment.id || ""),
+            customer_email: payment?.payer?.email || null,
+          })
+          .eq("id", orderId);
+      } catch (e) {
+        console.error("supabase update order error", e);
+      }
     }
 
     // Idempotência: se já enviou, não envia de novo

@@ -50,7 +50,7 @@ npm run dev
 
 ## 💳 Pagamento (Stripe Checkout)
 
-O botão **“Pagar com cartão”** no carrinho chama uma função serverless da Vercel em `api/create-checkout-session.cjs`.
+O botão **“Pagar com cartão”** no carrinho chama uma função serverless da Vercel em `api/create-checkout-session.js`.
 
 ### Configurar na Vercel
 1. Crie sua conta na Stripe e pegue sua chave em **Developers → API keys**.
@@ -61,6 +61,43 @@ O botão **“Pagar com cartão”** no carrinho chama uma função serverless d
 ### Como funciona
 - O site redireciona para o **Stripe Checkout**.
 - Ao concluir ou cancelar, volta para o seu site com `?payment=success` ou `?payment=cancel`.
+
+---
+
+## 🔐 Login + Banco de Dados (Supabase)
+
+O projeto agora usa **Supabase Auth (email/senha)** e salva pedidos no **Supabase Database**.
+
+### 1) Criar o projeto no Supabase
+1. Crie um projeto.
+2. Em **Project Settings → API**, copie:
+   - **Project URL**
+   - **anon public** key
+   - **service_role** key (mantenha em segredo: só no backend!)
+
+### 2) Criar as tabelas
+No Supabase, abra **SQL Editor** e rode o arquivo `SUPABASE_SCHEMA.sql` (está na raiz do repositório).
+
+### 3) Configurar Auth
+No Supabase, em **Authentication → URL Configuration**:
+1. Adicione sua URL de produção da Vercel em **Site URL**.
+2. Adicione também (se usar) o endereço local: `http://localhost:5173`.
+
+### 4) Variáveis de ambiente
+Configure na Vercel (Project → Settings → Environment Variables) e também no seu `.env` local:
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+
+---
+
+## ⚡ Pix (Mercado Pago)
+
+O botão **“Pagar com Pix”** chama `api/create-pix-payment.js` e o webhook é `api/mp-webhook.js`.
+
+> Observação importante: se você ver o erro `Unauthorized use of live credentials`, normalmente significa que o token é de produção e sua conta ainda não está habilitada para usar credenciais live (ou o app/credencial não tem permissão). Nesse caso, finalize a ativação da sua conta no Mercado Pago ou use um token de teste/sandbox compatível com Pix.
 
 ---
 

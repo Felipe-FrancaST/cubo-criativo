@@ -13,6 +13,7 @@
  */
 
 import crypto from "crypto";
+import { supabaseAdmin } from "./_supabase.js";
 
 export const config = { runtime: "nodejs" };
 
@@ -145,6 +146,29 @@ export default async function handler(req, res) {
     );
 
     const items = Array.isArray(itemsResp.data?.data) ? itemsResp.data.data : [];
+
+    // Tenta localizar o pedido criado no checkout
+    const orderId = session?.client_reference_id || session?.metadata?.order_id || null;
+
+    // Atualiza o pedido no Supabase (best-effort)
+    if (orderId) {
+      try {
+        const sb = supabaseAdmin();
+        await sb
+          .from("orders")
+          .update({
+            status: "paid",
+            payment_provider: "stripe",
+            provider_payment_id: sessionId,
+            customer_email: session?.customer_details?.email || session?.customer_email || null,
+            customer_name: session?.customer_details?.name || null,
+            customer_phone: session?.customer_details?.phone || null,
+          })
+          .eq("id", orderId);
+      } catch (e) {
+        console.error("supabase update order error", e);
+      }
+    }
 
     const customerEmail = session?.customer_details?.email || session?.customer_email || "(sem email)";
     const customerName = session?.customer_details?.name || "(sem nome)";

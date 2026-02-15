@@ -27,6 +27,9 @@ export default function CartDrawer({
   waMsg,
   onPay,
   paying,
+  authToken,
+  userEmail,
+  onRequireLogin,
 }) {
   // Pix state
   const [pix, setPix] = React.useState(null);
@@ -55,16 +58,26 @@ export default function CartDrawer({
     try {
       if (pixLoading || cart.length === 0 || !(subtotal > 0)) return;
 
-      const payerEmail = window.prompt(
-        "Digite seu e-mail para receber o comprovante (para testes, use: test@testuser.com)"
-      );
+      if (!authToken) {
+        onRequireLogin?.();
+        alert("Faça login para gerar o Pix.");
+        return;
+      }
+
+      const payerEmail = String(userEmail || "").trim() ||
+        window.prompt(
+          "Digite seu e-mail para receber o comprovante (para testes, use: test@testuser.com)"
+        );
       if (!payerEmail) return;
 
       setPixLoading(true);
 
       const res = await fetch("/api/create-pix-payment", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${authToken}`,
+        },
         body: JSON.stringify({
           origin: window.location.origin,
           amount: Number(Number(subtotal).toFixed(2)),
@@ -74,6 +87,9 @@ export default function CartDrawer({
             name: i.nome,
             qty: i.qty,
             price: i.unitPrice,
+            scale: i.escala || "",
+            img: i.img || "",
+            id: i.id,
           })),
           description: "Pagamento via Pix",
         }),
