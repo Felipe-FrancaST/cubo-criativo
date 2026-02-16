@@ -17,6 +17,7 @@ export const produtos = [
     imgs: ["/images/prod1.jpg"],
     model: "/models/mintharaviewer.glb",
     status: "estoque",
+    featured: true,
     tags: ["Baldur's Gate", "Games", "RPG"],
     defaultVariant: "1/7 - 24 cm",
     variants: [
@@ -24,6 +25,7 @@ export const produtos = [
   },
   {
     id: "p2",
+    featured: true,
     nome: "Majin Boo",
     img: "/images/prod2.jpg",
     imgs: ["/images/prod2.jpg", "/images/prod2-1.jpg"],
@@ -36,6 +38,7 @@ export const produtos = [
   },
   {
     id: "p3",
+    featured: true,
     nome: "Konan",
     img: "/images/prod3.jpg",
     imgs: ["/images/prod3.jpg", "/images/prod3-1.jpg"],

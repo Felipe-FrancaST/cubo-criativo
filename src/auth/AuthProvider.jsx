@@ -31,11 +31,26 @@ export function AuthProvider({ children }) {
   }, []);
 
   async function signUp({ email, password }) {
-    return supabase.auth.signUp({ email, password });
+    const emailRedirectTo =
+      typeof window !== "undefined" ? window.location.origin : undefined;
+
+    // Se a confirmação por e-mail estiver habilitada no Supabase,
+    // esse redirect evita links quebrados em produção.
+    return supabase.auth.signUp({
+      email,
+      password,
+      options: emailRedirectTo ? { emailRedirectTo } : undefined,
+    });
   }
 
   async function signIn({ email, password }) {
     return supabase.auth.signInWithPassword({ email, password });
+  }
+
+  async function resetPassword({ email }) {
+    const redirectTo =
+      typeof window !== "undefined" ? window.location.origin : undefined;
+    return supabase.auth.resetPasswordForEmail(email, redirectTo ? { redirectTo } : undefined);
   }
 
   async function signOut() {
@@ -43,7 +58,7 @@ export function AuthProvider({ children }) {
   }
 
   const value = React.useMemo(
-    () => ({ session, user, loading, signUp, signIn, signOut }),
+    () => ({ session, user, loading, signUp, signIn, resetPassword, signOut }),
     [session, user, loading]
   );
 
