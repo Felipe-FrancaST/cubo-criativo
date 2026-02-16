@@ -23,22 +23,49 @@ export default function OrdersModal({ open, onClose }) {
         setLoading(true);
         setError("");
 
-        const { data, error: err } = await supabase
+        // 1) Carrega pedidos (sem join) para evitar erro de relationship no schema cache
+        const { data: ordersData, error: ordersErr } = await supabase
           .from("orders")
-          .select("id, status, total, payment_provider, provider_payment_id, created_at, order_items (name, qty, unit_price, scale)")
+          .select("id, status, total, payment_provider, provider_payment_id, created_at")
           .eq("user_id", user.id)
           .order("created_at", { ascending: false });
 
-        if (err) throw err;
-        if (!cancel) setOrders(Array.isArray(data) ? data : []);
+        if (ordersErr) throw ordersErr;
+
+        const list = Array.isArray(ordersData) ? ordersData : [];
+        if (list.length === 0) {
+          if (!cancel) setOrders([]);
+          return;
+        }
+
+        // 2) Carrega itens em batch
+        const ids = list.map((o) => o.id);
+        const { data: itemsData, error: itemsErr } = await supabase
+          .from("order_items")
+          .select("order_id, name, qty, unit_price, scale, img")
+          .in("order_id", ids);
+
+        if (itemsErr) throw itemsErr;
+
+        const byOrder = new Map();
+        (itemsData || []).forEach((it) => {
+          const k = it.order_id;
+          if (!byOrder.has(k)) byOrder.set(k, []);
+          byOrder.get(k).push(it);
+        });
+
+        const merged = list.map((o) => ({
+          ...o,
+          order_items: byOrder.get(o.id) || [],
+        }));
+
+        if (!cancel) setOrders(merged);
       } catch (e) {
         if (!cancel) setError(e?.message || "Não foi possível carregar seus pedidos.");
       } finally {
         if (!cancel) setLoading(false);
       }
-    }
-
-    run();
+    }    run();
     return () => {
       cancel = true;
     };

@@ -1,4 +1,5 @@
 import React from "react";
+import { supabase } from "../lib/supabaseClient";
 
 const fmtBRL = (n) =>
   typeof n === "number" && isFinite(n)
@@ -29,12 +30,16 @@ export default function CartDrawer({
   paying,
   authToken,
   userEmail,
-  onRequireLogin
+  onRequireLogin,
+  onOpenOrders
 }) {
   // Pix state
   const [pix, setPix] = React.useState(null);
   const [pixOpen, setPixOpen] = React.useState(false);
   const [pixLoading, setPixLoading] = React.useState(false);
+  const [pixStatus, setPixStatus] = React.useState("pending");
+  const [pixMessage, setPixMessage] = React.useState("");
+  const [checkingPix, setCheckingPix] = React.useState(false);
 
   React.useEffect(() => {
     if (!open) return;
@@ -53,6 +58,26 @@ export default function CartDrawer({
       setPixLoading(false);
     }
   }, [open]);
+
+  // enquanto o modal do Pix estiver aberto, verifica automaticamente o status do pedido
+  React.useEffect(() => {
+    if (!pixOpen || !pix?.order_id) return;
+    let stopped = false;
+
+    // checa já ao abrir
+    checkPixStatus({ forceVerify: false });
+
+    const t = setInterval(() => {
+      if (stopped) return;
+      checkPixStatus({ forceVerify: false });
+    }, 6000);
+
+    return () => {
+      stopped = true;
+      clearInterval(t);
+    };
+  }, [pixOpen, pix?.order_id]);
+
 
   async function handlePix() {
     try {
@@ -103,11 +128,63 @@ export default function CartDrawer({
       }
 
       setPix(data);
+      setPixStatus(data?.status ? (data.status === 'approved' ? 'paid' : 'pending') : 'pending');
+      setPixMessage('');
       setPixOpen(true);
     } catch (e) {
       alert("Não foi possível gerar o Pix: " + (e?.message || String(e)));
     } finally {
       setPixLoading(false);
+    }
+  }
+
+
+  async function checkPixStatus({ forceVerify = false } = {}) {
+    try {
+      if (!pix?.order_id) return;
+      setCheckingPix(true);
+      setPixMessage("");
+
+      // 1) Checa no Supabase (rápido)
+      const { data: orderRow, error: orderErr } = await supabase
+        .from("orders")
+        .select("status")
+        .eq("id", pix.order_id)
+        .maybeSingle();
+
+      if (!orderErr && orderRow?.status) {
+        setPixStatus(orderRow.status);
+        if (orderRow.status === "paid") {
+          setPixMessage("Pagamento confirmado! Pedido finalizado ✅");
+          return;
+        }
+      }
+
+      if (!forceVerify) return;
+
+      // 2) Força verificação no Mercado Pago (caso o webhook ainda não tenha atualizado)
+      const res = await fetch("/api/verify-pix-payment", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({ order_id: pix.order_id }),
+      });
+
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg = payload?.error?.message || payload?.error || "Não foi possível verificar o Pix.";
+        throw new Error(typeof msg === "string" ? msg : JSON.stringify(msg));
+      }
+
+      if (payload?.status) setPixStatus(payload.status);
+      if (payload?.paid) setPixMessage("Pagamento confirmado! Pedido finalizado ✅");
+      else setPixMessage("Ainda não consta como pago. Se você acabou de pagar, aguarde alguns instantes e tente novamente.");
+    } catch (e) {
+      setPixMessage(e?.message || "Não foi possível verificar o Pix.");
+    } finally {
+      setCheckingPix(false);
     }
   }
 
@@ -200,7 +277,7 @@ export default function CartDrawer({
               <div className="flex items-center justify-between">
                 <h4 className="font-bold">Pague com Pix</h4>
                 <button
-                  onClick={() => setPixOpen(false)}
+                  onClick={() => { setPixOpen(false); setPixMessage(''); }}
                   className="rounded-lg p-2 ring-1 ring-white/15"
                   title="Fechar"
                 >
@@ -251,7 +328,71 @@ export default function CartDrawer({
                 </a>
               )}
 
-              <p className="text-xs text-slate-400 mt-3">
+              
+              <div className="mt-3 rounded-lg ring-1 ring-white/10 bg-white/5 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs text-slate-400">Status do pedido</p>
+                  <span className={`text-xs rounded-full px-2 py-1 ring-1 ${
+                    pixStatus === "paid"
+                      ? "bg-emerald-400/15 text-emerald-200 ring-emerald-400/30"
+                      : pixStatus === "failed"
+                      ? "bg-red-500/15 text-red-200 ring-red-500/30"
+                      : "bg-white/5 text-slate-200 ring-white/10"
+                  }`}>
+                    {pixStatus === "paid" ? "Pago" : pixStatus === "failed" ? "Falhou" : "Pendente"}
+                  </span>
+                </div>
+
+                {pix?.order_id && (
+                  <p className="mt-2 text-[11px] text-slate-400 break-all">
+                    Pedido: <span className="font-mono text-slate-200">{pix.order_id}</span>
+                  </p>
+                )}
+
+                {pixMessage && (
+                  <p className={`mt-2 text-sm ${
+                    pixStatus === "paid" ? "text-emerald-200" : "text-slate-200"
+                  }`}>
+                    {pixMessage}
+                  </p>
+                )}
+
+                <div className="mt-3 flex gap-2">
+                  <button
+                    className="flex-1 rounded-lg px-4 py-2 bg-white/10 ring-1 ring-white/15 hover:bg-white/15 text-white text-sm disabled:opacity-50"
+                    onClick={() => checkPixStatus({ forceVerify: true })}
+                    disabled={checkingPix || !authToken || !pix?.order_id || pixStatus === "paid"}
+                  >
+                    {checkingPix ? "Verificando..." : "Já paguei"}
+                  </button>
+
+                  <button
+                    className="rounded-lg px-4 py-2 bg-white/5 ring-1 ring-white/10 hover:bg-white/10 text-white text-sm disabled:opacity-50"
+                    onClick={() => checkPixStatus({ forceVerify: false })}
+                    disabled={checkingPix || !pix?.order_id}
+                    title="Atualizar status"
+                  >
+                    Atualizar
+                  </button>
+                </div>
+
+                {pixStatus === "paid" && (
+                  <button
+                    className="w-full mt-3 rounded-lg px-4 py-3 bg-emerald-400 hover:bg-emerald-300 text-black font-semibold"
+                    onClick={() => {
+                      setPixOpen(false);
+                      setPixMessage("");
+                      onClose?.();
+                      // abre meus pedidos se o pai passar o handler
+                      onOpenOrders?.();
+                    }}
+                  >
+                    Pedido finalizado ✅ Ver meus pedidos
+                  </button>
+                )}
+              </div>
+
+<p className="text-xs text-slate-400 mt-3">
                 Após o pagamento, a confirmação pode levar alguns instantes.
               </p>
             </div>

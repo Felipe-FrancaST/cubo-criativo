@@ -436,6 +436,7 @@ export default function App() {
         authToken={accessToken}
         userEmail={user?.email || ""}
         onRequireLogin={() => setAuthOpen(true)}
+        onOpenOrders={() => setOrdersOpen(true)}
       />
 
       <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />

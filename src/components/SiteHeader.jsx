@@ -68,8 +68,8 @@ export default function SiteHeader({
   return (
     <header className="sticky top-0 z-[90]">
       <div className="backdrop-blur supports-[backdrop-filter]:bg-slate-950/65 bg-slate-950/85 border-b border-white/10">
-        <div className="mx-auto w-full" style={{ maxWidth: "var(--container-max, 1200px)" }}>
-          <div className="px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-3">
+        <div className="mx-auto w-full" style={{ maxWidth: "var(--container-max, 1320px)" }}>
+          <div className="px-4 sm:px-6 lg:px-8 py-3 flex items-center gap-4">
             {/* Logo */}
             <button onClick={handleLogoClick} className="flex items-center gap-3 group">
               <span
@@ -87,7 +87,7 @@ export default function SiteHeader({
 
             {/* Nav desktop */}
             {!rpgMode && (
-              <nav className="hidden lg:flex items-center gap-1">
+              <nav className="hidden lg:flex flex-1 items-center justify-center gap-2">
                 {navItems.map((it) => (
                   <NavPill
                     key={it.key}
@@ -105,7 +105,7 @@ export default function SiteHeader({
             )}
 
             {/* Ações */}
-            <div className="flex items-center gap-2">
+            <div className="ml-auto flex items-center gap-2 shrink-0">
               {/* Social (desktop) */}
               <div className="hidden md:flex items-center gap-2">
                 <a
@@ -123,6 +123,16 @@ export default function SiteHeader({
                   title="TikTok"
                 >
                   <img src="/icons/tiktok.svg" alt="TikTok" className="h-4 w-4" />
+                </a>
+
+                <a
+                  href={`https://wa.me/${brand.whatsapp}`}
+                  target="_blank"
+                  className="inline-flex items-center justify-center rounded-full p-2 ring-1 ring-white/12 hover:bg-white/5"
+                  title="WhatsApp"
+                  rel="noreferrer"
+                >
+                  <img src="/icons/whatsapp.svg" alt="WhatsApp" className="h-4 w-4" />
                 </a>
               </div>
 
@@ -154,19 +164,7 @@ export default function SiteHeader({
                   </IconButton>
                 </>
               )}
-
-              {/* WhatsApp (compacto) */}
-              <a
-                href={`https://wa.me/${brand.whatsapp}`}
-                target="_blank"
-                className="hidden sm:inline-flex items-center gap-2 rounded-full px-4 py-2 bg-emerald-400 hover:bg-emerald-300 text-black font-semibold shadow-sm ring-4 ring-emerald-400/20 transition"
-                title="WhatsApp"
-              >
-                <img src="/icons/whatsapp.svg" alt="" className="h-4 w-4" />
-                WhatsApp
-              </a>
-
-              {/* Carrinho */}
+{/* Carrinho */}
               <IconButton title={cartOpen ? "Fechar carrinho" : "Carrinho"} onClick={onToggleCart} className="relative">
                 <span className="material-icons text-[20px]">{cartOpen ? "close" : "shopping_cart"}</span>
                 {cartCount > 0 && (
@@ -193,7 +191,7 @@ export default function SiteHeader({
           <div className="lg:hidden border-t border-white/10 bg-slate-950/90">
             <div
               className="mx-auto w-full px-4 sm:px-6 lg:px-8 py-3 grid gap-2"
-              style={{ maxWidth: "var(--container-max, 1200px)" }}
+              style={{ maxWidth: "var(--container-max, 1320px)" }}
             >
               {navItems.map((it) => (
                 <button

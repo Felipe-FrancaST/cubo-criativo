@@ -40,6 +40,14 @@ async function mpFetch(token, url, opts = {}) {
   return { ok: resp.ok, status: resp.status, data };
 }
 
+
+function mapOrderStatus(mpStatus) {
+  if (mpStatus === "approved") return "paid";
+  if (mpStatus === "rejected" || mpStatus === "cancelled" || mpStatus === "refunded" || mpStatus === "charged_back")
+    return "failed";
+  return "pending";
+}
+
 async function sendResendEmail({ apiKey, from, to, subject, html }) {
   const resp = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -93,25 +101,30 @@ export default async function handler(req, res) {
     const payment = paymentResp.data;
     const status = payment?.status;
 
-    // Só age quando aprovado
-    if (status !== "approved") {
-      return res.status(200).json({ ok: true, status });
-    }
-
     // Atualiza pedido no Supabase (best-effort)
     const orderId = payment?.external_reference || payment?.metadata?.order_id || null;
     if (orderId) {
       try {
         const sb = supabaseAdmin();
+        const mapped = mapOrderStatus(status);
         await sb
           .from("orders")
           .update({
-            status: "paid",
+            status: mapped,
             payment_provider: "mercado_pago",
             provider_payment_id: String(payment.id || ""),
             customer_email: payment?.payer?.email || null,
+            customer_name: payment?.payer?.first_name
+              ? `${payment.payer.first_name || ""} ${payment.payer.last_name || ""}`.trim()
+              : null,
+            customer_phone: payment?.payer?.phone?.number || null,
           })
           .eq("id", orderId);
+
+        // Se ainda não está aprovado, só atualiza e encerra (sem e-mail)
+        if (mapped !== "paid") {
+          return res.status(200).json({ ok: true, status, mapped });
+        }
       } catch (e) {
         console.error("supabase update order error", e);
       }
