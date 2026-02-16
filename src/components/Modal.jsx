@@ -1,6 +1,7 @@
 import * as React from "react";
 
 export default function Modal({ open, onClose, title, children }) {
+  const showHeader = typeof title === "string" && title.trim().length > 0;
     React.useEffect(() => {
     if (!open) return;
     const onKey = (e) => {
@@ -21,16 +22,20 @@ export default function Modal({ open, onClose, title, children }) {
       <div
         className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2
                     w-[94vw] sm:w-[90vw] lg:w-[70vw] max-w-[1100px]
+                    max-h-[92vh]
                     bg-slate-900 ring-1 ring-white/10 rounded-2xl
+                    overflow-hidden flex flex-col
                     transition-transform ${open ? "scale-100" : "scale-95"}`}
       >
-        <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-white/10">
-          <h3 className="font-bold">{title}</h3>
-          <button onClick={onClose} className="rounded-lg p-2 ring-1 ring-white/15">
-            <span className="material-icons">close</span>
-          </button>
-        </div>
-        <div className="p-3 sm:p-4">
+        {showHeader ? (
+          <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-white/10">
+            <h3 className="font-bold">{title}</h3>
+            <button onClick={onClose} className="rounded-lg p-2 ring-1 ring-white/15">
+              <span className="material-icons">close</span>
+            </button>
+          </div>
+        ) : null}
+        <div className={`p-3 sm:p-4 overflow-y-auto ${showHeader ? "" : "pt-4"}`}>
           {children}
         </div>
       </div>

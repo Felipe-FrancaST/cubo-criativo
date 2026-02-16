@@ -33,11 +33,14 @@ function NavPill({ active, children, onClick }) {
 export default function SiteHeader({
   route,
   user,
+  menuOpen,
+  onToggleMenu,
   cartCount,
   cartOpen,
   onToggleCart,
   onOpenAuth,
   onOpenOrders,
+  onOpenSettings,
   onSignOut,
   onToggleRpg,
   rpgMode,
@@ -45,7 +48,6 @@ export default function SiteHeader({
   onGoHomeSection,
 }) {
   const brand = brandConfig;
-  const [menuOpen, setMenuOpen] = React.useState(false);
   const [logoAnimate, setLogoAnimate] = React.useState(false);
 
   function handleLogoClick() {
@@ -54,22 +56,23 @@ export default function SiteHeader({
     onNavigate("/");
   }
 
-  // fecha menu quando troca rota
-  React.useEffect(() => setMenuOpen(false), [route]);
-
-  const navItems = [
-    { key: "home", label: "Início", onClick: () => onNavigate("/") },
-    { key: "promocoes", label: "Promoções", onClick: () => onGoHomeSection("promocoes") },
-    { key: "estoque", label: "Estoque", onClick: () => onNavigate("/estoque") },
-    { key: "catalogo", label: "Catálogo", onClick: () => onNavigate("/catalogo") },
-    { key: "contato", label: "Contato", onClick: () => onGoHomeSection("contato") },
-  ];
+  // nav foi movida para o menu lateral (MenuDrawer) para ganhar espaço no desktop
 
   return (
     <header className="sticky top-0 z-[90]">
       <div className="backdrop-blur supports-[backdrop-filter]:bg-slate-950/65 bg-slate-950/85 border-b border-white/10">
         <div className="mx-auto w-full" style={{ maxWidth: "var(--container-max, 1320px)" }}>
           <div className="px-4 sm:px-6 lg:px-8 py-3 flex items-center gap-4">
+            {/* Menu lateral */}
+            {!rpgMode && (
+              <IconButton
+                title={menuOpen ? "Fechar menu" : "Abrir menu"}
+                onClick={onToggleMenu}
+              >
+                <span className="material-icons text-[20px]">{menuOpen ? "close" : "menu"}</span>
+              </IconButton>
+            )}
+
             {/* Logo */}
             <button onClick={handleLogoClick} className="flex items-center gap-3 group">
               <span
@@ -85,24 +88,8 @@ export default function SiteHeader({
               </div>
             </button>
 
-            {/* Nav desktop */}
-            {!rpgMode && (
-              <nav className="hidden lg:flex flex-1 items-center justify-center gap-2">
-                {navItems.map((it) => (
-                  <NavPill
-                    key={it.key}
-                    active={
-                      (it.key === "home" && route === "/") ||
-                      (it.key === "estoque" && route === "/estoque") ||
-                      (it.key === "catalogo" && route === "/catalogo")
-                    }
-                    onClick={it.onClick}
-                  >
-                    {it.label}
-                  </NavPill>
-                ))}
-              </nav>
-            )}
+            {/* Espaçador */}
+            <div className="flex-1" />
 
             {/* Ações */}
             <div className="ml-auto flex items-center gap-2 shrink-0">
@@ -159,6 +146,9 @@ export default function SiteHeader({
                   <IconButton title="Meus pedidos" onClick={onOpenOrders}>
                     <span className="material-icons text-[20px]">receipt_long</span>
                   </IconButton>
+                  <IconButton title="Configurações" onClick={onOpenSettings}>
+                    <span className="material-icons text-[20px]">settings</span>
+                  </IconButton>
                   <IconButton title={user.email || "Sair"} onClick={onSignOut}>
                     <span className="material-icons text-[20px]">logout</span>
                   </IconButton>
@@ -173,66 +163,9 @@ export default function SiteHeader({
                   </span>
                 )}
               </IconButton>
-
-              {/* Menu mobile */}
-              <IconButton
-                title={menuOpen ? "Fechar menu" : "Abrir menu"}
-                onClick={() => setMenuOpen((v) => !v)}
-                className="lg:hidden"
-              >
-                <span className="material-icons text-[20px]">{menuOpen ? "close" : "menu"}</span>
-              </IconButton>
             </div>
           </div>
         </div>
-
-        {/* Drawer mobile */}
-        {menuOpen && !rpgMode && (
-          <div className="lg:hidden border-t border-white/10 bg-slate-950/90">
-            <div
-              className="mx-auto w-full px-4 sm:px-6 lg:px-8 py-3 grid gap-2"
-              style={{ maxWidth: "var(--container-max, 1320px)" }}
-            >
-              {navItems.map((it) => (
-                <button
-                  key={it.key}
-                  onClick={it.onClick}
-                  className="text-left rounded-xl px-4 py-3 ring-1 ring-white/10 hover:bg-white/5"
-                >
-                  {it.label}
-                </button>
-              ))}
-
-              <div className="grid grid-cols-2 gap-2 pt-2">
-                <a
-                  href="https://instagram.com/_cubocriativo_"
-                  target="_blank"
-                  className="inline-flex items-center justify-center gap-2 rounded-xl px-3 py-3 ring-1 ring-white/10 hover:bg-white/5"
-                >
-                  <img src="/icons/instagram.svg" alt="" className="h-4 w-4" />
-                  Instagram
-                </a>
-                <a
-                  href="https://tiktok.com/@cubo.criativo"
-                  target="_blank"
-                  className="inline-flex items-center justify-center gap-2 rounded-xl px-3 py-3 ring-1 ring-white/10 hover:bg-white/5"
-                >
-                  <img src="/icons/tiktok.svg" alt="" className="h-4 w-4" />
-                  TikTok
-                </a>
-              </div>
-
-              <a
-                href={`https://wa.me/${brand.whatsapp}`}
-                target="_blank"
-                className="mt-1 inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 bg-emerald-400 hover:bg-emerald-300 text-black font-semibold ring-4 ring-emerald-400/20"
-              >
-                <img src="/icons/whatsapp.svg" alt="" className="h-4 w-4" />
-                Falar no WhatsApp
-              </a>
-            </div>
-          </div>
-        )}
       </div>
     </header>
   );

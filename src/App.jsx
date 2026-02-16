@@ -8,6 +8,8 @@ import Modal from "./components/Modal.jsx";
 import CartDrawer from "./components/CartDrawer.jsx";
 import AuthModal from "./components/AuthModal.jsx";
 import OrdersModal from "./components/OrdersModal.jsx";
+import MenuDrawer from "./components/MenuDrawer.jsx";
+import ProfileSettingsModal from "./components/ProfileSettingsModal.jsx";
 import SiteHeader from "./components/SiteHeader.jsx";
 import { useAuth } from "./auth/AuthProvider.jsx";
 
@@ -104,6 +106,8 @@ export default function App() {
   const [rpgMode, setRpgMode] = React.useState(false);
   const [authOpen, setAuthOpen] = React.useState(false);
   const [ordersOpen, setOrdersOpen] = React.useState(false);
+  const [settingsOpen, setSettingsOpen] = React.useState(false);
+  const [menuDrawerOpen, setMenuDrawerOpen] = React.useState(false);
 
   // ===== Carrinho =====
   const [cartOpen, setCartOpen] = React.useState(false);
@@ -290,12 +294,17 @@ export default function App() {
 
   // Bloqueia scroll do body quando overlays estão abertos
   React.useEffect(() => {
-    const anyOverlayOpen = cartOpen || viewerOpen || galleryOpen || rpgMode;
+    const anyOverlayOpen = cartOpen || viewerOpen || galleryOpen || rpgMode || authOpen || ordersOpen || settingsOpen || menuDrawerOpen;
     document.body.style.overflow = anyOverlayOpen ? "hidden" : "";
     return () => {
       document.body.style.overflow = "";
     };
-  }, [cartOpen, viewerOpen, galleryOpen, rpgMode]);
+  }, [cartOpen, viewerOpen, galleryOpen, rpgMode, authOpen, ordersOpen, settingsOpen, menuDrawerOpen]);
+
+  // fecha menu lateral quando muda rota
+  React.useEffect(() => {
+    setMenuDrawerOpen(false);
+  }, [route]);
 
   // ===== Produtos =====
   const emEstoque = React.useMemo(() => produtos.filter((p) => p.status === "estoque"), []);
@@ -360,16 +369,34 @@ export default function App() {
       <SiteHeader
         route={route}
         user={user}
+        menuOpen={menuDrawerOpen}
+        onToggleMenu={() => setMenuDrawerOpen((v) => !v)}
         cartCount={cart.reduce((s, i) => s + i.qty, 0)}
         cartOpen={cartOpen}
         onToggleCart={() => setCartOpen((v) => !v)}
         onOpenAuth={() => setAuthOpen(true)}
         onOpenOrders={() => setOrdersOpen(true)}
+        onOpenSettings={() => setSettingsOpen(true)}
         onSignOut={() => signOut()}
         onToggleRpg={() => setRpgMode((v) => !v)}
         rpgMode={rpgMode}
         onNavigate={navigate}
         onGoHomeSection={goHomeSection}
+      />
+
+      <MenuDrawer
+        open={menuDrawerOpen}
+        onClose={() => setMenuDrawerOpen(false)}
+        route={route}
+        user={user}
+        onNavigate={navigate}
+        onGoHomeSection={goHomeSection}
+        onOpenAuth={() => setAuthOpen(true)}
+        onOpenOrders={() => setOrdersOpen(true)}
+        onOpenSettings={() => setSettingsOpen(true)}
+        onSignOut={() => signOut()}
+        onToggleRpg={() => setRpgMode((v) => !v)}
+        rpgMode={rpgMode}
       />
 
       {rpgMode && (
@@ -401,7 +428,7 @@ export default function App() {
             <div>
               <p className="font-bold">Pagamento</p>
               <ul className="mt-2 text-slate-300 space-y-1">
-                <li>• Checkout no site (Stripe)</li>
+                <li>• Checkout no site (Mercado Pago)</li>
                 <li>• Também finalizamos pelo WhatsApp</li>
               </ul>
             </div>
@@ -442,6 +469,8 @@ export default function App() {
       <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
 
       <OrdersModal open={ordersOpen} onClose={() => setOrdersOpen(false)} />
+
+      <ProfileSettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
 
       {/* MODAL 3D */}
       <Modal open={viewerOpen} onClose={() => setViewerOpen(false)} title={`Visualizador 3D — ${viewerModel.title}`}>

@@ -53,12 +53,11 @@ export function AuthProvider({ children }) {
     payload.id = userId;
 
     try {
-      const { error } = await supabase
-        .from("profiles")
-        .upsert(payload, { onConflict: "id" });
-      if (error) console.warn("profiles upsert error", error);
+      const { error } = await supabase.from("profiles").upsert(payload, { onConflict: "id" });
+      if (error) return { error };
+      return { error: null };
     } catch (e) {
-      console.warn("profiles upsert exception", e);
+      return { error: e };
     }
   }
 
@@ -78,7 +77,11 @@ export function AuthProvider({ children }) {
     // Salva os dados do perfil.
     if (resp?.data?.user?.id && profile) {
       if (resp?.data?.session) {
-        await saveProfile(resp.data.user.id, profile);
+        const saved = await saveProfile(resp.data.user.id, profile);
+        if (saved?.error) {
+          // não bloqueia criação de conta, mas avisa no console para debug
+          console.warn("profiles upsert error", saved.error);
+        }
       } else {
         // Sem session (email confirmation): guarda temporariamente
         try {
@@ -104,7 +107,8 @@ export function AuthProvider({ children }) {
       if (raw && resp?.data?.user?.id) {
         const parsed = JSON.parse(raw);
         if (parsed?.email === email && parsed?.profile) {
-          await saveProfile(resp.data.user.id, parsed.profile);
+          const saved = await saveProfile(resp.data.user.id, parsed.profile);
+          if (saved?.error) console.warn("profiles upsert error", saved.error);
           localStorage.removeItem("pending_profile");
         }
       }
