@@ -46,7 +46,7 @@ export const produtos = [
     tags: ["Naruto", "Animes"],
     defaultVariant: "1/9 - 26 cm",
     variants: [
-      { label: "1/9 - 26 cm", price: 1 },
+      { label: "1/9 - 26 cm", price: 500 },
     ],
   },
   {

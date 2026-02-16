@@ -39,11 +39,7 @@ export default function AccountPage({ onClose, onGoHome }) {
     if (mode === "signup") {
       if (!fullName.trim()) return setError("Informe seu nome.");
       if (!phone.trim()) return setError("Informe seu telefone.");
-      if (!addr1.trim()) return setError("Informe seu endereço.");
-      if (!city.trim()) return setError("Informe sua cidade.");
-      if (!stateUF.trim()) return setError("Informe seu estado (UF).");
-      if (!zip.trim()) return setError("Informe seu CEP.");
-    }
+      if (!addr1.trim()) return setError("Informe seu endereço.");    }
 
     try {
       setBusy(true);
@@ -185,99 +181,115 @@ export default function AccountPage({ onClose, onGoHome }) {
 
               <form onSubmit={handleSubmit} className="mt-5 space-y-3">
                 {mode === "signup" && (
-                  <div className="space-y-3">
-                    <Field label="Nome completo">
-                      <input
-                        value={fullName}
-                        onChange={(e) => setFullName(e.target.value)}
-                        type="text"
-                        autoComplete="name"
-                        className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
-                        placeholder="Seu nome"
-                      />
-                    </Field>
+  <div className="space-y-3">
+    <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
+      <p className="text-sm font-semibold text-slate-100">Dados para entrega</p>
+      <p className="mt-1 text-xs text-slate-400">
+        Preencha para facilitar o fechamento do pedido (você pode editar depois).
+      </p>
 
-                    <Field label="Telefone (WhatsApp)">
-                      <input
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                        type="tel"
-                        autoComplete="tel"
-                        className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
-                        placeholder="(11) 99999-9999"
-                      />
-                    </Field>
+      <div className="mt-4 space-y-3">
+        <Field label="Nome completo">
+          <input
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            type="text"
+            autoComplete="name"
+            className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+            placeholder="Seu nome"
+          />
+        </Field>
 
-                    <Field label="Endereço">
-                      <input
-                        value={addr1}
-                        onChange={(e) => setAddr1(e.target.value)}
-                        type="text"
-                        autoComplete="street-address"
-                        className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
-                        placeholder="Rua, número"
-                      />
-                    </Field>
+        <Field label="Telefone (WhatsApp)">
+          <input
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            type="tel"
+            autoComplete="tel"
+            className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+            placeholder="(11) 99999-9999"
+          />
+        </Field>
 
-                    <Field label="Complemento (opcional)">
-                      <input
-                        value={addr2}
-                        onChange={(e) => setAddr2(e.target.value)}
-                        type="text"
-                        autoComplete="address-line2"
-                        className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
-                        placeholder="Apartamento, bloco, etc"
-                      />
-                    </Field>
+        <Field label="Endereço completo">
+          <textarea
+            value={addr1}
+            onChange={(e) => setAddr1(e.target.value)}
+            rows={3}
+            autoComplete="street-address"
+            className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60 resize-none"
+            placeholder="Rua, número, bairro, cidade/UF, CEP (se tiver)"
+          />
+        </Field>
+      </div>
 
-                    <div className="grid grid-cols-2 gap-2">
-                      <Field label="Bairro">
-                        <input
-                          value={neighborhood}
-                          onChange={(e) => setNeighborhood(e.target.value)}
-                          type="text"
-                          autoComplete="address-level3"
-                          className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
-                          placeholder="Bairro"
-                        />
-                      </Field>
-                      <Field label="CEP">
-                        <input
-                          value={zip}
-                          onChange={(e) => setZip(e.target.value)}
-                          type="text"
-                          autoComplete="postal-code"
-                          className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
-                          placeholder="00000-000"
-                        />
-                      </Field>
-                    </div>
+      <details className="mt-3 rounded-xl bg-white/5 ring-1 ring-white/10 p-3">
+        <summary className="cursor-pointer text-sm text-slate-200 select-none">
+          Detalhes do endereço (opcional)
+        </summary>
+        <div className="mt-3 space-y-3">
+          <Field label="Complemento">
+            <input
+              value={addr2}
+              onChange={(e) => setAddr2(e.target.value)}
+              type="text"
+              autoComplete="address-line2"
+              className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+              placeholder="Apartamento, bloco, etc"
+            />
+          </Field>
 
-                    <div className="grid grid-cols-2 gap-2">
-                      <Field label="Cidade">
-                        <input
-                          value={city}
-                          onChange={(e) => setCity(e.target.value)}
-                          type="text"
-                          autoComplete="address-level2"
-                          className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
-                          placeholder="Cidade"
-                        />
-                      </Field>
-                      <Field label="Estado (UF)">
-                        <input
-                          value={stateUF}
-                          onChange={(e) => setStateUF(e.target.value)}
-                          type="text"
-                          autoComplete="address-level1"
-                          className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
-                          placeholder="SP"
-                          maxLength={2}
-                        />
-                      </Field>
-                    </div>
-                  </div>
-                )}
+          <div className="grid grid-cols-2 gap-2">
+            <Field label="Bairro">
+              <input
+                value={neighborhood}
+                onChange={(e) => setNeighborhood(e.target.value)}
+                type="text"
+                autoComplete="address-level3"
+                className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                placeholder="Bairro"
+              />
+            </Field>
+            <Field label="CEP">
+              <input
+                value={zip}
+                onChange={(e) => setZip(e.target.value)}
+                type="text"
+                autoComplete="postal-code"
+                className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                placeholder="00000-000"
+              />
+            </Field>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <Field label="Cidade">
+              <input
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                type="text"
+                autoComplete="address-level2"
+                className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                placeholder="Cidade"
+              />
+            </Field>
+            <Field label="Estado (UF)">
+              <input
+                value={stateUF}
+                onChange={(e) => setStateUF(e.target.value)}
+                type="text"
+                autoComplete="address-level1"
+                className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                placeholder="SP"
+                maxLength={2}
+              />
+            </Field>
+          </div>
+        </div>
+      </details>
+    </div>
+  </div>
+)}
                 <Field label="Email">
                   <input
                     value={email}
