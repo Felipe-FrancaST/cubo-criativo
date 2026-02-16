@@ -97,6 +97,9 @@ export default async function handler(req, res) {
       currency: "BRL",
       total: amount,
       payment_provider: "mercado_pago",
+      customer_email: payerEmail || null,
+      customer_name: String(body.name || "").trim() || null,
+      customer_phone: String(body.phone || "").trim() || null,
     });
     if (orderErr) {
       console.error("supabase order insert error", orderErr);
