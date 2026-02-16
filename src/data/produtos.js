@@ -33,7 +33,7 @@ export const produtos = [
     tags: ["DBZ", "Animes"],
     defaultVariant: "1/8",
     variants: [
-      { label: "1/8 - 30 cm", price: 1 },
+      { label: "1/8 - 30 cm", price: 600 },
     ],
   },
   {

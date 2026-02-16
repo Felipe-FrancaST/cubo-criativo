@@ -7,6 +7,12 @@ create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   full_name text,
   phone text,
+  address_line1 text,
+  address_line2 text,
+  neighborhood text,
+  city text,
+  state text,
+  zip text,
   created_at timestamptz not null default now()
 );
 

@@ -16,6 +16,14 @@ export default function AccountPage({ onClose, onGoHome }) {
   const [mode, setMode] = React.useState("login"); // login | signup
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
+  const [fullName, setFullName] = React.useState("");
+  const [phone, setPhone] = React.useState("");
+  const [addr1, setAddr1] = React.useState("");
+  const [addr2, setAddr2] = React.useState("");
+  const [neighborhood, setNeighborhood] = React.useState("");
+  const [city, setCity] = React.useState("");
+  const [stateUF, setStateUF] = React.useState("");
+  const [zip, setZip] = React.useState("");
   const [busy, setBusy] = React.useState(false);
 
   const [error, setError] = React.useState("");
@@ -28,11 +36,36 @@ export default function AccountPage({ onClose, onGoHome }) {
 
     if (!email) return setError("Informe seu e-mail.");
     if (!password) return setError("Informe sua senha.");
+    if (mode === "signup") {
+      if (!fullName.trim()) return setError("Informe seu nome.");
+      if (!phone.trim()) return setError("Informe seu telefone.");
+      if (!addr1.trim()) return setError("Informe seu endereço.");
+      if (!city.trim()) return setError("Informe sua cidade.");
+      if (!stateUF.trim()) return setError("Informe seu estado (UF).");
+      if (!zip.trim()) return setError("Informe seu CEP.");
+    }
 
     try {
       setBusy(true);
       const fn = mode === "login" ? signIn : signUp;
-      const { data, error: err } = await fn({ email, password });
+      const { data, error: err } = await fn(
+        mode === "login"
+          ? { email, password }
+          : {
+              email,
+              password,
+              profile: {
+                full_name: fullName.trim(),
+                phone: phone.trim(),
+                address_line1: addr1.trim(),
+                address_line2: addr2.trim(),
+                neighborhood: neighborhood.trim(),
+                city: city.trim(),
+                state: stateUF.trim(),
+                zip: zip.trim(),
+              },
+            }
+      );
       if (err) throw err;
 
       if (mode === "signup" && !data?.session) {
@@ -151,6 +184,100 @@ export default function AccountPage({ onClose, onGoHome }) {
               </div>
 
               <form onSubmit={handleSubmit} className="mt-5 space-y-3">
+                {mode === "signup" && (
+                  <div className="space-y-3">
+                    <Field label="Nome completo">
+                      <input
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                        type="text"
+                        autoComplete="name"
+                        className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                        placeholder="Seu nome"
+                      />
+                    </Field>
+
+                    <Field label="Telefone (WhatsApp)">
+                      <input
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        type="tel"
+                        autoComplete="tel"
+                        className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                        placeholder="(11) 99999-9999"
+                      />
+                    </Field>
+
+                    <Field label="Endereço">
+                      <input
+                        value={addr1}
+                        onChange={(e) => setAddr1(e.target.value)}
+                        type="text"
+                        autoComplete="street-address"
+                        className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                        placeholder="Rua, número"
+                      />
+                    </Field>
+
+                    <Field label="Complemento (opcional)">
+                      <input
+                        value={addr2}
+                        onChange={(e) => setAddr2(e.target.value)}
+                        type="text"
+                        autoComplete="address-line2"
+                        className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                        placeholder="Apartamento, bloco, etc"
+                      />
+                    </Field>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <Field label="Bairro">
+                        <input
+                          value={neighborhood}
+                          onChange={(e) => setNeighborhood(e.target.value)}
+                          type="text"
+                          autoComplete="address-level3"
+                          className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                          placeholder="Bairro"
+                        />
+                      </Field>
+                      <Field label="CEP">
+                        <input
+                          value={zip}
+                          onChange={(e) => setZip(e.target.value)}
+                          type="text"
+                          autoComplete="postal-code"
+                          className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                          placeholder="00000-000"
+                        />
+                      </Field>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <Field label="Cidade">
+                        <input
+                          value={city}
+                          onChange={(e) => setCity(e.target.value)}
+                          type="text"
+                          autoComplete="address-level2"
+                          className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                          placeholder="Cidade"
+                        />
+                      </Field>
+                      <Field label="Estado (UF)">
+                        <input
+                          value={stateUF}
+                          onChange={(e) => setStateUF(e.target.value)}
+                          type="text"
+                          autoComplete="address-level1"
+                          className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                          placeholder="SP"
+                          maxLength={2}
+                        />
+                      </Field>
+                    </div>
+                  </div>
+                )}
                 <Field label="Email">
                   <input
                     value={email}

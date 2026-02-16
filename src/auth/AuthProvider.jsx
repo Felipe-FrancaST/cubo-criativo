@@ -30,21 +30,89 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
-  async function signUp({ email, password }) {
+  async function saveProfile(userId, profile) {
+    if (!userId || !profile) return;
+    const payload = {
+      id: userId,
+      full_name: profile.full_name,
+      phone: profile.phone,
+      address_line1: profile.address_line1,
+      address_line2: profile.address_line2,
+      neighborhood: profile.neighborhood,
+      city: profile.city,
+      state: profile.state,
+      zip: profile.zip,
+    };
+
+    // remove campos vazios
+    Object.keys(payload).forEach((k) => {
+      if (payload[k] === undefined || payload[k] === null || payload[k] === "") delete payload[k];
+    });
+
+    // sempre mantém o id
+    payload.id = userId;
+
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .upsert(payload, { onConflict: "id" });
+      if (error) console.warn("profiles upsert error", error);
+    } catch (e) {
+      console.warn("profiles upsert exception", e);
+    }
+  }
+
+  async function signUp({ email, password, profile }) {
     const emailRedirectTo =
       typeof window !== "undefined" ? window.location.origin : undefined;
 
     // Se a confirmação por e-mail estiver habilitada no Supabase,
     // esse redirect evita links quebrados em produção.
-    return supabase.auth.signUp({
+    const resp = await supabase.auth.signUp({
       email,
       password,
       options: emailRedirectTo ? { emailRedirectTo } : undefined,
     });
+
+    // Se a confirmação por e-mail estiver desativada, já teremos session/user.
+    // Salva os dados do perfil.
+    if (resp?.data?.user?.id && profile) {
+      if (resp?.data?.session) {
+        await saveProfile(resp.data.user.id, profile);
+      } else {
+        // Sem session (email confirmation): guarda temporariamente
+        try {
+          localStorage.setItem(
+            "pending_profile",
+            JSON.stringify({ email, profile })
+          );
+        } catch {
+          // ignore
+        }
+      }
+    }
+
+    return resp;
   }
 
   async function signIn({ email, password }) {
-    return supabase.auth.signInWithPassword({ email, password });
+    const resp = await supabase.auth.signInWithPassword({ email, password });
+
+    // Se havia um profile pendente (signup com confirmação por e-mail), tenta salvar ao entrar
+    try {
+      const raw = localStorage.getItem("pending_profile");
+      if (raw && resp?.data?.user?.id) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.email === email && parsed?.profile) {
+          await saveProfile(resp.data.user.id, parsed.profile);
+          localStorage.removeItem("pending_profile");
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    return resp;
   }
 
   async function resetPassword({ email }) {

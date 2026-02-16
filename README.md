@@ -24,7 +24,7 @@ Este repositório contém o código-fonte do site oficial, desenvolvido com **Re
 ✔️ Filtros e barra de busca no catálogo  
 ✔️ Carrinho de compras dinâmico  
 ✔️ Finalização rápida pelo **WhatsApp**  
-✔️ Pagamento por cartão via **Stripe Checkout**  
+✔️ Pagamento por cartão via **Mercado Pago (Checkout Pro)**  
 ✔️ Layout moderno e responsivo  
 
 ---
@@ -42,25 +42,24 @@ git clone https://github.com/seu-usuario/cubo-criativo.git
 cd cubo-criativo
 npm install
 cp .env.example .env
-# abra o .env e coloque sua STRIPE_SECRET_KEY
 npm run dev
 ```
 
 ---
 
-## 💳 Pagamento (Stripe Checkout)
+## 💳 Pagamento (Mercado Pago – Checkout Pro)
 
-O botão **“Pagar com cartão”** no carrinho chama uma função serverless da Vercel em `api/create-checkout-session.js`.
+O botão **“Pagar com cartão”** no carrinho chama a função serverless da Vercel em `api/create-checkout-session.js`, que cria uma **preferência** no Mercado Pago e redireciona o cliente para o Checkout Pro.
 
 ### Configurar na Vercel
-1. Crie sua conta na Stripe e pegue sua chave em **Developers → API keys**.
-2. Na Vercel (Project → Settings → Environment Variables), adicione:
-   - `STRIPE_SECRET_KEY` = `sk_live_...` (produção) ou `sk_test_...` (teste)
-3. Faça um novo deploy.
+Na Vercel (Project → Settings → Environment Variables), adicione:
+- `MP_ACCESS_TOKEN` (produção: `APP_USR-...`)
+- `SITE_URL` (sua URL pública, ex: `https://cubo-criativo.vercel.app`)
 
 ### Como funciona
-- O site redireciona para o **Stripe Checkout**.
-- Ao concluir ou cancelar, volta para o seu site com `?payment=success` ou `?payment=cancel`.
+- O site redireciona para o **Checkout Pro** do Mercado Pago.
+- Ao aprovar, ele retorna para o seu site com `?payment=success`.
+- O webhook `api/mp-webhook.js` confirma e marca o pedido como **pago** no Supabase.
 
 ---
 

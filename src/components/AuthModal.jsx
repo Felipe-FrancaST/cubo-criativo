@@ -8,6 +8,14 @@ export default function AuthModal({ open, onClose, onSuccess }) {
   const [mode, setMode] = React.useState("login"); // login | signup
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
+  const [fullName, setFullName] = React.useState("");
+  const [phone, setPhone] = React.useState("");
+  const [addr1, setAddr1] = React.useState("");
+  const [addr2, setAddr2] = React.useState("");
+  const [neighborhood, setNeighborhood] = React.useState("");
+  const [city, setCity] = React.useState("");
+  const [stateUF, setStateUF] = React.useState("");
+  const [zip, setZip] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState("");
   const [info, setInfo] = React.useState("");
@@ -31,10 +39,36 @@ export default function AuthModal({ open, onClose, onSuccess }) {
       return;
     }
 
+    if (mode === "signup") {
+      if (!fullName.trim()) return setError("Informe seu nome.");
+      if (!phone.trim()) return setError("Informe seu telefone.");
+      if (!addr1.trim()) return setError("Informe seu endereço.");
+      if (!city.trim()) return setError("Informe sua cidade.");
+      if (!stateUF.trim()) return setError("Informe seu estado (UF).");
+      if (!zip.trim()) return setError("Informe seu CEP.");
+    }
+
     try {
       setBusy(true);
       const fn = mode === "login" ? signIn : signUp;
-      const { data, error: err } = await fn({ email, password });
+      const { data, error: err } = await fn(
+        mode === "login"
+          ? { email, password }
+          : {
+              email,
+              password,
+              profile: {
+                full_name: fullName.trim(),
+                phone: phone.trim(),
+                address_line1: addr1.trim(),
+                address_line2: addr2.trim(),
+                neighborhood: neighborhood.trim(),
+                city: city.trim(),
+                state: stateUF.trim(),
+                zip: zip.trim(),
+              },
+            }
+      );
       if (err) throw err;
 
       // Signup com confirmação por e-mail não retorna session
@@ -116,6 +150,108 @@ export default function AuthModal({ open, onClose, onSuccess }) {
         </div>
 
         <form onSubmit={submit} className="mt-4 space-y-3">
+          {mode === "signup" && (
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-slate-400">Nome completo</label>
+                <input
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  type="text"
+                  autoComplete="name"
+                  className="mt-1 w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                  placeholder="Seu nome"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs text-slate-400">Telefone (WhatsApp)</label>
+                <input
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  type="tel"
+                  autoComplete="tel"
+                  className="mt-1 w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                  placeholder="(11) 99999-9999"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs text-slate-400">Endereço</label>
+                <input
+                  value={addr1}
+                  onChange={(e) => setAddr1(e.target.value)}
+                  type="text"
+                  autoComplete="street-address"
+                  className="mt-1 w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                  placeholder="Rua, número"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs text-slate-400">Complemento (opcional)</label>
+                <input
+                  value={addr2}
+                  onChange={(e) => setAddr2(e.target.value)}
+                  type="text"
+                  autoComplete="address-line2"
+                  className="mt-1 w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                  placeholder="Apartamento, bloco, etc"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs text-slate-400">Bairro</label>
+                  <input
+                    value={neighborhood}
+                    onChange={(e) => setNeighborhood(e.target.value)}
+                    type="text"
+                    autoComplete="address-level3"
+                    className="mt-1 w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                    placeholder="Bairro"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-slate-400">CEP</label>
+                  <input
+                    value={zip}
+                    onChange={(e) => setZip(e.target.value)}
+                    type="text"
+                    autoComplete="postal-code"
+                    className="mt-1 w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                    placeholder="00000-000"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs text-slate-400">Cidade</label>
+                  <input
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    type="text"
+                    autoComplete="address-level2"
+                    className="mt-1 w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                    placeholder="Cidade"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-slate-400">Estado (UF)</label>
+                  <input
+                    value={stateUF}
+                    onChange={(e) => setStateUF(e.target.value)}
+                    type="text"
+                    autoComplete="address-level1"
+                    className="mt-1 w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                    placeholder="SP"
+                    maxLength={2}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
           <div>
             <label className="text-xs text-slate-400">Email</label>
             <input
