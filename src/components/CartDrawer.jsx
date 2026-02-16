@@ -1,5 +1,4 @@
 import React from "react";
-import { supabase } from "../lib/supabaseClient";
 
 const fmtBRL = (n) =>
   typeof n === "number" && isFinite(n)
@@ -30,15 +29,12 @@ export default function CartDrawer({
   paying,
   authToken,
   userEmail,
-  onRequireLogin,,
-  onOpenOrders,
+  onRequireLogin
 }) {
   // Pix state
   const [pix, setPix] = React.useState(null);
   const [pixOpen, setPixOpen] = React.useState(false);
   const [pixLoading, setPixLoading] = React.useState(false);
-  const [pixStatus, setPixStatus] = React.useState(null); // null | pending | paid | failed
-  const [pixStatusLoading, setPixStatusLoading] = React.useState(false);
 
   React.useEffect(() => {
     if (!open) return;
@@ -55,8 +51,6 @@ export default function CartDrawer({
       setPixOpen(false);
       setPix(null);
       setPixLoading(false);
-      setPixStatus(null);
-      setPixStatusLoading(false);
     }
   }, [open]);
 
@@ -109,63 +103,14 @@ export default function CartDrawer({
       }
 
       setPix(data);
-      setPixStatus("pending");
       setPixOpen(true);
     } catch (e) {
       alert("Não foi possível gerar o Pix: " + (e?.message || String(e)));
     } finally {
       setPixLoading(false);
-      setPixStatus(null);
-      setPixStatusLoading(false);
     }
   }
 
-
-  async function checkPixPaymentStatus({ silent = false } = {}) {
-    if (!pix?.order_id) return;
-    try {
-      if (!silent) setPixStatusLoading(true);
-      const { data, error } = await supabase
-        .from("orders")
-        .select("status")
-        .eq("id", pix.order_id)
-        .single();
-
-      if (error) throw error;
-      const s = String(data?.status || "").toLowerCase();
-      if (s) setPixStatus(s);
-      return s;
-    } catch (e) {
-      if (!silent) alert(e?.message || "Não foi possível verificar o status do pagamento.");
-      return null;
-    } finally {
-      if (!silent) setPixStatusLoading(false);
-    }
-  }
-
-  // Polling automático do status do Pix enquanto o modal estiver aberto
-  React.useEffect(() => {
-    if (!pixOpen || !pix?.order_id) return;
-
-    let alive = true;
-
-    // primeira checagem
-    checkPixPaymentStatus({ silent: true });
-
-    const t = setInterval(async () => {
-      if (!alive) return;
-      const s = await checkPixPaymentStatus({ silent: true });
-      if (s === "paid") {
-        clearInterval(t);
-      }
-    }, 5000);
-
-    return () => {
-      alive = false;
-      clearInterval(t);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pixOpen, pix?.order_id]);
   function copyPix() {
     const code = pix?.qr_code || "";
     if (!code) return;
@@ -275,44 +220,6 @@ export default function CartDrawer({
                 </p>
               )}
 
-
-              <div className="mt-3 rounded-lg ring-1 ring-white/10 bg-slate-800/30 p-3">
-                <p className="text-xs text-slate-400">Pedido</p>
-                <p className="font-mono text-xs text-slate-200 break-all">{pix?.order_id || "—"}</p>
-
-                <div className="mt-2 flex items-center justify-between gap-2">
-                  <div className="text-xs text-slate-400">
-                    Status:{" "}
-                    <span className="text-slate-200">
-                      {pixStatus === "paid"
-                        ? "pago ✅"
-                        : pixStatus === "failed"
-                          ? "falhou"
-                          : "aguardando pagamento"}
-                    </span>
-                  </div>
-
-                  <button
-                    onClick={() => checkPixPaymentStatus()}
-                    disabled={pixStatusLoading}
-                    className="rounded-md px-2 py-1 text-xs bg-white/10 ring-1 ring-white/15 hover:bg-white/15 disabled:opacity-60"
-                    title="Verificar agora"
-                  >
-                    {pixStatusLoading ? "Verificando..." : "Verificar"}
-                  </button>
-                </div>
-
-                {pixStatus === "paid" ? (
-                  <p className="mt-2 text-xs text-emerald-300">
-                    Pagamento confirmado! Você já pode ver em <b>Meus pedidos</b>.
-                  </p>
-                ) : (
-                  <p className="mt-2 text-xs text-slate-400">
-                    Após pagar, a confirmação pode levar alguns instantes (atualiza automaticamente).
-                  </p>
-                )}
-              </div>
-
               <button
                 className="w-full mt-3 rounded-lg px-4 py-3 bg-white/10 ring-1 ring-white/15 text-white"
                 onClick={copyPix}
@@ -344,31 +251,9 @@ export default function CartDrawer({
                 </a>
               )}
 
-
-              <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <button
-                  onClick={() => {
-                    setPixOpen(false);
-                    onClose?.();
-                    onOpenOrders?.();
-                  }}
-                  className="rounded-lg px-4 py-3 bg-white/10 ring-1 ring-white/15 text-white hover:bg-white/15"
-                >
-                  Ver meus pedidos
-                </button>
-
-                <button
-                  onClick={() => setPixOpen(false)}
-                  className="rounded-lg px-4 py-3 bg-white/10 ring-1 ring-white/15 text-white hover:bg-white/15"
-                >
-                  Continuar comprando
-                </button>
-              </div>
-
               <p className="text-xs text-slate-400 mt-3">
-                Se a confirmação não aparecer, clique em <b>Verificar</b> ou confira em <b>Meus pedidos</b>.
+                Após o pagamento, a confirmação pode levar alguns instantes.
               </p>
-
             </div>
           </div>
         )}

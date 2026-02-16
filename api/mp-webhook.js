@@ -93,29 +93,23 @@ export default async function handler(req, res) {
     const payment = paymentResp.data;
     const status = payment?.status;
 
+    // Só age quando aprovado
+    if (status !== "approved") {
+      return res.status(200).json({ ok: true, status });
+    }
+
     // Atualiza pedido no Supabase (best-effort)
     const orderId = payment?.external_reference || payment?.metadata?.order_id || null;
-
     if (orderId) {
       try {
         const sb = supabaseAdmin();
-        const next = String(status || "pending").toLowerCase();
-
-        // Normaliza statuses principais para o nosso schema
-        const mapped =
-          next === "approved" ? "paid"
-          : next === "rejected" || next === "cancelled" || next === "canceled" ? "failed"
-          : "pending";
-
         await sb
           .from("orders")
           .update({
-            status: mapped,
+            status: "paid",
             payment_provider: "mercado_pago",
             provider_payment_id: String(payment.id || ""),
             customer_email: payment?.payer?.email || null,
-            customer_name: payment?.payer?.first_name || null,
-            customer_phone: payment?.payer?.phone?.number || null,
           })
           .eq("id", orderId);
       } catch (e) {
@@ -123,13 +117,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // Só envia email quando aprovado
-    if (status !== "approved") {
-      return res.status(200).json({ ok: true, status });
-    }
-
     // Idempotência: se já enviou, não envia de novo
-// Idempotência: se já enviou, não envia de novo
     const alreadySent =
       payment?.metadata?.email_sent === 1 ||
       payment?.metadata?.email_sent === "1" ||

@@ -21,7 +21,7 @@ export const produtos = [
     tags: ["Baldur's Gate", "Games", "RPG"],
     defaultVariant: "1/7 - 24 cm",
     variants: [
-      { label: "1/7 - 24 cm", price: 1 }],
+      { label: "1/7 - 24 cm", price: 500 }],
   },
   {
     id: "p2",
