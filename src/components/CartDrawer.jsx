@@ -186,7 +186,7 @@ export default function CartDrawer({
           onPaymentConfirmed?.();
         }
       }
-      else    } catch (e) {    } finally {
+    } catch (e) {    } finally {
       setCheckingPix(false);
     }
   }
