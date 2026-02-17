@@ -155,6 +155,12 @@ export default function OrdersModal({ open, onClose }) {
               const date = dt.toLocaleDateString("pt-BR");
               const time = dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
               const first = Array.isArray(o.order_items) && o.order_items.length > 0 ? o.order_items[0] : null;
+              const thumbSrc = (() => {
+                const s = String(first?.img || "").trim();
+                if (!s) return "";
+                if (s.startsWith("http://") || s.startsWith("https://") || s.startsWith("data:")) return s;
+                return s.startsWith("/") ? s : `/${s}`;
+              })();
               const extraCount = Array.isArray(o.order_items) ? Math.max(0, o.order_items.length - 1) : 0;
               const isOpen = !!expanded[o.id];
 
@@ -164,7 +170,7 @@ export default function OrdersModal({ open, onClose }) {
                     <div className="flex items-center gap-3 min-w-0">
                       {first?.img ? (
                         <img
-                          src={first.img}
+                          src={thumbSrc}
                           alt={first.name || "Produto"}
                           className="h-12 w-12 rounded-xl object-cover ring-1 ring-white/10 bg-slate-800"
                           loading="lazy"

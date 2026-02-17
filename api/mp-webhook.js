@@ -184,15 +184,61 @@ export default async function handler(req, res) {
       return s.startsWith("/") ? `${siteUrl}${s}` : `${siteUrl}/${s}`;
     };
 
-    const items = (itemsData || []).map((it) => ({
-      name: it.name,
+    const pick = (...vals) => {
+      for (const v of vals) {
+        if (v === 0) return 0;
+        if (v === false) return false;
+        if (v === null || v === undefined) continue;
+        const s = String(v).trim();
+        if (s) return v;
+      }
+      return undefined;
+    };
+
+    const normalizeImg = (src) => {
+      const s = String(src || "").trim();
+      if (!s) return "";
+      if (s.startsWith("http://") || s.startsWith("https://") || s.startsWith("data:")) return s;
+      return toAbsImg(s);
+    };
+
+    let items = (itemsData || []).map((it) => ({
+      name: String(it.name || "Item").trim(),
       qty: Number(it.qty) || 1,
       unit_price: Number(it.unit_price) || 0,
-      img: toAbsImg(it.img),
+      img: normalizeImg(it.img),
       scale: it.scale || "",
     }));
 
-    const payerEmail = orderRow?.customer_email || payment?.payer?.email || "";
+    // Fallback: se não tiver itens no banco, tenta ler do metadata do pagamento
+    if (!items.length) {
+      try {
+        const raw = payment?.metadata?.items_json;
+        const parsed = raw ? JSON.parse(String(raw)) : [];
+        if (Array.isArray(parsed)) {
+          items = parsed
+            .map((it) => {
+              const name = String(pick(it?.name, it?.nome, it?.title, it?.produto) || "Item").trim();
+              const qty = Number(pick(it?.qty, it?.quantity, it?.quantidade) || 1) || 1;
+              const unit_price = Number(pick(it?.price, it?.unitPrice, it?.unit_price, it?.valor, it?.preco) || 0) || 0;
+              const img = normalizeImg(pick(it?.img, it?.image, it?.imagem, it?.photo, it?.foto) || "");
+              const scale = String(pick(it?.scale, it?.escala) || "").trim();
+              return { name, qty, unit_price, img, scale };
+            })
+            .filter((it) => (Number(it.qty) || 0) > 0);
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    const payerEmail =
+      orderRow?.customer_email ||
+      payment?.payer?.email ||
+      payment?.additional_info?.payer?.email ||
+      payment?.metadata?.payer_email ||
+      "";
+
     const customerName =
       orderRow?.customer_name ||
       profile?.full_name ||
@@ -205,7 +251,7 @@ export default async function handler(req, res) {
     const address = buildAddressFromProfile(profile);
 
     const total = Number(orderRow?.total ?? payment?.transaction_amount ?? 0) || 0;
-    const createdAt = orderRow?.created_at || new Date().toISOString();
+    const createdAt = orderRow?.created_at || payment?.date_created || new Date().toISOString();
 
     // Forma de pagamento (Pix, cartão etc.)
     const paymentMethod = (() => {

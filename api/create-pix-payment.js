@@ -90,6 +90,23 @@ export default async function handler(req, res) {
     const sb = supabaseAdmin();
     const orderId = crypto.randomUUID();
 
+    // Snapshot de dados do cliente (para email/produção)
+    let profile = null;
+    try {
+      const { data } = await sb
+        .from("profiles")
+        .select("full_name, phone, address_line1, address_line2, neighborhood, city, state, zip")
+        .eq("id", user.id)
+        .maybeSingle();
+      profile = data || null;
+    } catch {
+      profile = null;
+    }
+
+    const customerEmail = payerEmail || null;
+    const customerName = String(body.name || profile?.full_name || "").trim() || null;
+    const customerPhone = String(body.phone || profile?.phone || "").trim() || null;
+
     const { error: orderErr } = await sb.from("orders").insert({
       id: orderId,
       user_id: user.id,
@@ -97,23 +114,57 @@ export default async function handler(req, res) {
       currency: "BRL",
       total: amount,
       payment_provider: "mercado_pago",
+      customer_email: customerEmail,
+      customer_name: customerName,
+      customer_phone: customerPhone,
     });
     if (orderErr) {
       console.error("supabase order insert error", orderErr);
       return res.status(500).json({ error: "Não foi possível criar o pedido." });
     }
 
+    // Normaliza itens vindos do front (suporta variações de keys)
+    const pick = (...vals) => {
+      for (const v of vals) {
+        if (v === 0) return 0;
+        if (v === false) return false;
+        if (v === null || v === undefined) continue;
+        const s = String(v).trim();
+        if (s) return v;
+      }
+      return undefined;
+    };
+
+    const toInt = (v, fallback = 0) => {
+      const n = Number(v);
+      if (!Number.isFinite(n)) return fallback;
+      return Math.max(0, Math.trunc(n));
+    };
+
+    const toMoney = (v, fallback = 0) => {
+      const n = Number(v);
+      if (!Number.isFinite(n)) return fallback;
+      return Number(n.toFixed(2));
+    };
+
+    const normalizeImg = (src) => {
+      const s = String(src || "").trim();
+      if (!s) return "";
+      if (s.startsWith("http://") || s.startsWith("https://") || s.startsWith("data:")) return s;
+      return s.startsWith("/") ? s : `/${s}`;
+    };
+
     const orderItems = items
-      .filter((it) => (Number(it.qty) || 0) > 0 && (Number(it.price) || 0) > 0)
-      .map((it) => ({
-        order_id: orderId,
-        product_id: String(it.id || ""),
-        name: String(it.name || it.nome || "Item").trim(),
-        scale: String(it.scale || it.escala || "").trim(),
-        qty: Number(it.qty) || 1,
-        unit_price: Number(Number(it.price).toFixed(2)),
-        img: String(it.img || ""),
-      }));
+      .map((it) => {
+        const name = String(pick(it?.name, it?.nome, it?.title, it?.produto) || "Item").trim();
+        const qty = toInt(pick(it?.qty, it?.quantity, it?.quantidade), 1) || 1;
+        const unit = toMoney(pick(it?.price, it?.unitPrice, it?.unit_price, it?.valor, it?.preco), 0);
+        const img = normalizeImg(pick(it?.img, it?.image, it?.imagem, it?.photo, it?.foto) || "");
+        const scale = String(pick(it?.scale, it?.escala) || "").trim();
+        const productId = String(pick(it?.id, it?.product_id, it?.sku) || "").trim();
+        return { order_id: orderId, product_id: productId, name, scale, qty, unit_price: unit, img };
+      })
+      .filter((it) => (Number(it.qty) || 0) > 0 && (Number(it.unit_price) || 0) > 0);
 
     if (orderItems.length) {
       const { error: itemsErr } = await sb.from("order_items").insert(orderItems);
