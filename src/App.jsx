@@ -69,17 +69,54 @@ export default function App() {
   const [productsError, setProductsError] = React.useState("");
 
   const mapDbProductToUi = React.useCallback((p) => {
+    // Suporta schema PT-BR (lesma/variantes/variante_padrão) via view products_public
     const tags = Array.isArray(p?.tags) ? p.tags : [];
-    const images = Array.isArray(p?.images)
-      ? p.images
-      : Array.isArray(p?.imgs)
-      ? p.imgs
-      : p?.images
-      ? [p.images]
+    const images = Array.isArray(p?.images) ? p.images : [];
+
+    const rawVariants = Array.isArray(p?.variants)
+      ? p.variants
+      : Array.isArray(p?.variantes)
+      ? p.variantes
       : [];
-    const variants = Array.isArray(p?.variants) ? p.variants : [];
+
+    // Converte price_cents -> BRL (reais) para o front (que usa number em BRL)
+    const variants = rawVariants
+      .map((v) => {
+        const label = String(v?.label ?? v?.name ?? v?.escala ?? v?.variant ?? "").trim();
+        const cents =
+          v?.price_cents ?? v?.unit_price_cents ?? v?.valor_cents ?? v?.preco_cents ?? null;
+        const priceNumber =
+          cents !== null && cents !== undefined
+            ? Number(cents) / 100
+            : Number(v?.price ?? v?.valor ?? v?.preco ?? 0) || 0;
+
+        return { label, price: priceNumber };
+      })
+      .filter((v) => v.label);
+
+    const defaultVariant = String(p?.default_variant ?? p?.variante_padrão ?? p?.defaultVariant ?? "").trim();
+
+    // Preço base (fallback) — usa price_cents se existir
+    const basePrice =
+      typeof p?.price_cents === "number"
+        ? Number(p.price_cents) / 100
+        : typeof p?.preco_cents === "number"
+        ? Number(p.preco_cents) / 100
+        : Number(p?.price ?? p?.preco ?? 0) || 0;
+
+    // Se não houver variants no banco, cria uma variante padrão com basePrice (para não ficar 0,00)
+    const safeVariants =
+      variants.length > 0
+        ? variants
+        : basePrice > 0
+        ? [{ label: defaultVariant || "Padrão", price: basePrice }]
+        : [];
+
+    // ID usado no site/carrinho deve ser estável e textual (slug/lesma)
+    const slug = String(p?.slug ?? p?.lesma ?? "").trim();
+
     return {
-      id: String(p?.id ?? "").trim(),
+      id: slug || String(p?.id ?? "").trim(), // preferimos slug/lesma
       nome: String(p?.name ?? p?.nome ?? "").trim(),
       img: String(p?.image_url ?? p?.img ?? "").trim(),
       imgs: images.filter(Boolean),
@@ -87,13 +124,10 @@ export default function App() {
       status: String(p?.status ?? "catalogo").trim(),
       featured: !!p?.featured,
       tags,
-      defaultVariant: String(p?.default_variant ?? p?.defaultVariant ?? "").trim(),
-      variants: variants
-        .map((v) => ({
-          label: String(v?.label ?? v?.name ?? "").trim(),
-          price: Number(v?.price ?? v?.valor ?? 0) || 0,
-        }))
-        .filter((v) => v.label),
+      defaultVariant,
+      variants: safeVariants,
+      // fallback para lógicas antigas
+      preco: basePrice,
     };
   }, []);
 
@@ -101,10 +135,22 @@ export default function App() {
     setProductsLoading(true);
     setProductsError("");
     try {
-      const { data, error } = await supabase
-        .from("products")
-        .select("id, name, image_url, images, model_url, status, featured, tags, default_variant, variants")
-        .order("created_at", { ascending: false });
+      let data = null;
+      let error = null;
+
+      // Preferimos a view "products_public" (evita colunas com acento e padroniza nomes)
+      ({ data, error } = await supabase
+        .from("products_public")
+        .select("slug, name, image_url, images, model_url, status, featured, promo, tags, default_variant, variants, price_cents, created_at")
+        .order("created_at", { ascending: false }));
+
+      // Fallback: lê direto de "products" caso a view ainda não exista
+      if (error) {
+        ({ data, error } = await supabase
+          .from("products")
+          .select('lesma, name, image_url, images, model_url, status, featured, promo, tags, "variante_padrão", variantes, price_cents, created_at')
+          .order("created_at", { ascending: false }));
+      }
 
       if (error) throw error;
 
