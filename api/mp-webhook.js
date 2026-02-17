@@ -15,6 +15,7 @@
 
 import { supabaseAdmin } from "./_supabase.js";
 import { renderOwnerOrderEmail, renderCustomerOrderEmail, buildAddressFromProfile } from "./_emailTemplates.js";
+import { getProductInfo } from "./_catalog.js";
 
 function safeBody(req) {
   if (!req.body) return {};
@@ -183,9 +184,10 @@ export default async function handler(req, res) {
       .eq("id", orderId)
       .maybeSingle();
 
+    // Seu schema atual (print) usa: product_id, qty, unit_price_cents
     const { data: itemsData } = await sb
       .from("order_items")
-      .select("name, qty, unit_price, img, scale")
+      .select("product_id, qty, unit_price_cents")
       .eq("order_id", orderId);
 
     const userId = orderRow?.user_id || payment?.metadata?.user_id || null;
@@ -225,13 +227,17 @@ export default async function handler(req, res) {
       return toAbsImg(s);
     };
 
-    let items = (itemsData || []).map((it) => ({
-      name: String(it.name || "Item").trim(),
-      qty: Number(it.qty) || 1,
-      unit_price: Number(it.unit_price) || 0,
-      img: normalizeImg(it.img),
-      scale: it.scale || "",
-    }));
+    let items = (itemsData || []).map((it) => {
+      const pid = String(it.product_id || "").trim();
+      const p = getProductInfo(pid);
+      return {
+        name: p?.name || (pid ? `Produto (${pid})` : "Produto"),
+        qty: Number(it.qty) || 1,
+        unit_price: Number(it.unit_price_cents ?? 0) / 100,
+        img: normalizeImg(p?.img || ""),
+        scale: "",
+      };
+    });
 
     // Fallback: se não tiver itens no banco, tenta ler do metadata do pagamento
     if (!items.length) {

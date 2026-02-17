@@ -2,11 +2,18 @@ import React from "react";
 import Modal from "./Modal.jsx";
 import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../auth/AuthProvider.jsx";
+import { produtos } from "../data/produtos.js";
 
 const fmtBRL = (n) =>
   typeof n === "number" && isFinite(n)
     ? n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
     : "—";
+
+const findProduct = (productId) => {
+  const pid = String(productId || "").trim();
+  if (!pid) return null;
+  return produtos.find((p) => String(p.id) === pid) || null;
+};
 
 export default function OrdersModal({ open, onClose }) {
   const { user } = useAuth();
@@ -63,9 +70,11 @@ export default function OrdersModal({ open, onClose }) {
 
     // 2) Carrega itens em batch
     const ids = list.map((o) => o.id);
+    // Observação: seu schema atual (print) tem: product_id, qty, unit_price_cents.
+    // Então carregamos esses campos e enriquecemos com nome/imagem do catálogo local.
     const { data: itemsData, error: itemsErr } = await supabase
       .from("order_items")
-      .select("order_id, name, qty, unit_price, scale, img")
+      .select("order_id, product_id, qty, unit_price_cents")
       .in("order_id", ids);
 
     if (itemsErr) {
@@ -75,10 +84,29 @@ export default function OrdersModal({ open, onClose }) {
     }
 
     const byOrder = new Map();
+    const byProductId = new Map();
+    for (const p of Array.isArray(produtos) ? produtos : []) {
+      if (p?.id) byProductId.set(String(p.id), p);
+    }
+
     (itemsData || []).forEach((it) => {
       const k = it.order_id;
+      const pid = String(it.product_id || "").trim();
+      const p = pid ? byProductId.get(pid) : null;
+
+      const enriched = {
+        product_id: pid,
+        qty: Number(it.qty) || 1,
+        // unit_price_cents -> unit_price (BRL)
+        unit_price: Number(it.unit_price_cents ?? 0) / 100,
+        // fallback pro catálogo local
+        name: p?.nome || "Produto",
+        img: p?.img || "",
+        scale: "", // seu schema atual não tem escala; deixamos vazio
+      };
+
       if (!byOrder.has(k)) byOrder.set(k, []);
-      byOrder.get(k).push(it);
+      byOrder.get(k).push(enriched);
     });
 
     const merged = list.map((o) => ({

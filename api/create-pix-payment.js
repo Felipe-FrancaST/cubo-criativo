@@ -174,39 +174,37 @@ export default async function handler(req, res) {
       return s.startsWith("/") ? s : `/${s}`;
     };
 
+    // OBS: seu Supabase atual tem um schema antigo em order_items:
+    // (order_id uuid, product_id text, qty int4, unit_price_cents int4, id uuid...)
+    // Então salvamos os itens usando essas colunas (sem depender de name/img no banco).
     const orderItems = items
       .map((it) => {
-        const name = String(
-          pick(it?.name, it?.nome, it?.title, it?.produto, it?.productName, it?.product_name) || "Item"
-        ).trim();
         const qty = toInt(pick(it?.qty, it?.quantity, it?.quantidade, it?.qtd), 1) || 1;
         const unit = toMoney(
           pick(it?.price, it?.unitPrice, it?.unit_price, it?.valor, it?.preco, it?.unit, it?.amount),
           0
         );
-        const img = normalizeImg(
-          pick(
-            it?.img,
-            it?.image,
-            it?.imagem,
-            it?.photo,
-            it?.foto,
-            it?.imageUrl,
-            it?.image_url,
-            it?.thumbnail,
-            it?.thumb
-          ) || ""
-        );
-        const scale = String(pick(it?.scale, it?.escala, it?.variant, it?.variantLabel) || "").trim();
         const productId = String(pick(it?.id, it?.product_id, it?.sku, it?.productId) || "").trim();
-        return { order_id: orderId, product_id: productId, name, scale, qty, unit_price: unit, img };
+        return {
+          order_id: orderId,
+          product_id: productId || null,
+          qty,
+          unit_price_cents: Math.round((Number(unit) || 0) * 100),
+        };
       })
-      // Não filtra por preço: mesmo que esteja 0, ainda queremos salvar nome/imagem
-      // para a aba Pedidos e para emails (controle/cliente).
       .filter((it) => (Number(it.qty) || 0) > 0);
 
     if (orderItems.length) {
-      const { error: itemsErr } = await sb.from("order_items").insert(orderItems);
+      // 1) tenta inserir sem id (se o banco tiver default para uuid)
+      let { error: itemsErr } = await sb.from("order_items").insert(orderItems);
+
+      // 2) se o banco exigir id uuid sem default, tenta novamente com id gerado
+      if (itemsErr && /null value in column\s+"id"/i.test(String(itemsErr.message || ""))) {
+        const withId = orderItems.map((it) => ({ id: crypto.randomUUID(), ...it }));
+        const retry = await sb.from("order_items").insert(withId);
+        itemsErr = retry.error;
+      }
+
       if (itemsErr) console.error("supabase order_items insert error", itemsErr);
     }
 

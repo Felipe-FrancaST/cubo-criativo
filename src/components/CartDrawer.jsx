@@ -146,7 +146,8 @@ export default function CartDrawer({
       setPixStatus(data?.status ? (data.status === "approved" ? "paid" : "pending") : "pending");
       setPixOpen(true);
     } catch (e) {
-      alert("Não foi possível gerar o Pix: " + (e?.message || String(e)));
+      showToast("⚠️ Não foi possível gerar o Pix. Tente novamente.");
+      console.error(e);
     } finally {
       setPixLoading(false);
       payHandled.current = false;
