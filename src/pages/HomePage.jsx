@@ -5,6 +5,8 @@ import ProductCard from "../components/ProductCard.jsx";
 export default function HomePage({
   brand,
   featured,
+  loadingProducts = false,
+  productsError = "",
   addToCart,
   buyNow,
   openViewer,
@@ -112,8 +114,35 @@ export default function HomePage({
         </div>
 
         <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 justify-items-center">
-          {featured.map((p) => (
-            <ProductCard
+          {productsError && (
+            <div className="col-span-full rounded-2xl p-4 ring-1 ring-rose-400/30 bg-rose-500/10 text-rose-100 text-sm">
+              Não foi possível carregar os destaques. {productsError}
+            </div>
+          )}
+
+          {loadingProducts &&
+            !productsError &&
+            Array.from({ length: 8 }).map((_, idx) => (
+              <div
+                key={idx}
+                className="w-full max-w-[320px] rounded-2xl overflow-hidden ring-1 ring-white/10 bg-slate-900/60"
+              >
+                <div className="aspect-[4/5] bg-slate-800/60 animate-pulse" />
+                <div className="p-4">
+                  <div className="h-4 bg-slate-800/60 rounded animate-pulse" />
+                  <div className="mt-3 h-9 bg-slate-800/60 rounded animate-pulse" />
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    <div className="h-10 bg-slate-800/60 rounded animate-pulse" />
+                    <div className="h-10 bg-slate-800/60 rounded animate-pulse" />
+                  </div>
+                </div>
+              </div>
+            ))}
+
+          {!loadingProducts &&
+            !productsError &&
+            featured.map((p) => (
+              <ProductCard
               key={p.id}
               p={p}
               addToCart={addToCart}

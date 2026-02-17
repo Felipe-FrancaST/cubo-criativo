@@ -1,7 +1,6 @@
 // src/App.jsx
 import React from "react";
 import brand from "./data/config";
-import { produtos as produtosLocal } from "./data/produtos";
 
 // Componentes
 import Modal from "./components/Modal.jsx";
@@ -32,6 +31,64 @@ const fmtBRL = (n) =>
     ? n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
     : "—";
 
+/* ========================================================================
+   SUPABASE -> PRODUTOS (fonte de verdade)
+   ======================================================================== */
+const centsToBRL = (cents) =>
+  typeof cents === "number" && isFinite(cents) ? Number((cents / 100).toFixed(2)) : 0;
+
+function normalizeTextArray(v) {
+  if (!v) return [];
+  if (Array.isArray(v)) return v.filter(Boolean).map(String);
+  return [];
+}
+
+function normalizeImages(row) {
+  const imgs = Array.isArray(row?.images) ? row.images.filter(Boolean).map(String) : [];
+  const main = row?.image_url ? String(row.image_url) : "";
+  if (imgs.length > 0) return imgs;
+  return main ? [main] : [];
+}
+
+function mapProductRow(row) {
+  const variants = Array.isArray(row?.variants)
+    ? row.variants
+        .filter(Boolean)
+        .map((v) => ({
+          label: String(v?.label ?? ""),
+          // no banco é "price_cents"
+          price: centsToBRL(Number(v?.price_cents ?? 0)),
+        }))
+        .filter((v) => v.label)
+    : [];
+
+  const imgs = normalizeImages(row);
+  const img = row?.image_url ? String(row.image_url) : imgs[0] || "";
+
+  return {
+    // campos no formato que o front já usa
+    id: String(row?.id ?? ""),
+    slug: row?.slug ? String(row.slug) : "",
+    nome: row?.name ? String(row.name) : "",
+    descricao: row?.description ? String(row.description) : "",
+    img,
+    imgs,
+    model: row?.model_url ? String(row.model_url) : "",
+    status: row?.status ? String(row.status) : "catalogo",
+    featured: !!row?.featured,
+    promo: !!row?.promo,
+    originalPrice: centsToBRL(Number(row?.original_price_cents ?? 0)),
+    preco: centsToBRL(Number(row?.price_cents ?? 0)),
+    currency: row?.currency ? String(row.currency) : "brl",
+    stock: typeof row?.stock === "number" ? row.stock : 0,
+    active: row?.active !== false,
+    tags: normalizeTextArray(row?.tags),
+    category: row?.category ? String(row.category) : "",
+    defaultVariant: row?.default_variant ? String(row.default_variant) : "",
+    variants,
+  };
+}
+
 function Toast({ open, children }) {
   return (
     <div
@@ -61,120 +118,6 @@ function getRouteFromHash() {
 export default function App() {
   const { user, session, signOut } = useAuth();
   const accessToken = session?.access_token || "";
-
-
-  // ===== Produtos (agora vêm do Supabase) =====
-  const [products, setProducts] = React.useState([]);
-  const [productsLoading, setProductsLoading] = React.useState(true);
-  const [productsError, setProductsError] = React.useState("");
-
-  const mapDbProductToUi = React.useCallback((p) => {
-    // Suporta schema PT-BR (lesma/variantes/variante_padrão) via view products_public
-    const tags = Array.isArray(p?.tags) ? p.tags : [];
-    const images = Array.isArray(p?.images) ? p.images : [];
-
-    const rawVariants = Array.isArray(p?.variants)
-      ? p.variants
-      : Array.isArray(p?.variantes)
-      ? p.variantes
-      : [];
-
-    // Converte price_cents -> BRL (reais) para o front (que usa number em BRL)
-    const variants = rawVariants
-      .map((v) => {
-        const label = String(v?.label ?? v?.name ?? v?.escala ?? v?.variant ?? "").trim();
-        const cents =
-          v?.price_cents ?? v?.unit_price_cents ?? v?.valor_cents ?? v?.preco_cents ?? null;
-        const priceNumber =
-          cents !== null && cents !== undefined
-            ? Number(cents) / 100
-            : Number(v?.price ?? v?.valor ?? v?.preco ?? 0) || 0;
-
-        return { label, price: priceNumber };
-      })
-      .filter((v) => v.label);
-
-    const defaultVariant = String(p?.default_variant ?? p?.variante_padrão ?? p?.defaultVariant ?? "").trim();
-
-    // Preço base (fallback) — usa price_cents se existir
-    const basePrice =
-      typeof p?.price_cents === "number"
-        ? Number(p.price_cents) / 100
-        : typeof p?.preco_cents === "number"
-        ? Number(p.preco_cents) / 100
-        : Number(p?.price ?? p?.preco ?? 0) || 0;
-
-    // Se não houver variants no banco, cria uma variante padrão com basePrice (para não ficar 0,00)
-    const safeVariants =
-      variants.length > 0
-        ? variants
-        : basePrice > 0
-        ? [{ label: defaultVariant || "Padrão", price: basePrice }]
-        : [];
-
-    // ID usado no site/carrinho deve ser estável e textual (slug/lesma)
-    const slug = String(p?.slug ?? p?.lesma ?? "").trim();
-
-    return {
-      id: slug || String(p?.id ?? "").trim(), // preferimos slug/lesma
-      nome: String(p?.name ?? p?.nome ?? "").trim(),
-      img: String(p?.image_url ?? p?.img ?? "").trim(),
-      imgs: images.filter(Boolean),
-      model: String(p?.model_url ?? p?.model ?? "").trim(),
-      status: String(p?.status ?? "catalogo").trim(),
-      featured: !!p?.featured,
-      tags,
-      defaultVariant,
-      variants: safeVariants,
-      // fallback para lógicas antigas
-      preco: basePrice,
-    };
-  }, []);
-
-  const loadProducts = React.useCallback(async () => {
-    setProductsLoading(true);
-    setProductsError("");
-    try {
-      let data = null;
-      let error = null;
-
-      // Preferimos a view "products_public" (evita colunas com acento e padroniza nomes)
-      ({ data, error } = await supabase
-        .from("products_public")
-        .select("slug, name, image_url, images, model_url, status, featured, promo, tags, default_variant, variants, price_cents, created_at")
-        .order("created_at", { ascending: false }));
-
-      // Fallback: lê direto de "products" caso a view ainda não exista
-      if (error) {
-        ({ data, error } = await supabase
-          .from("products")
-          .select('lesma, name, image_url, images, model_url, status, featured, promo, tags, "variante_padrão", variantes, price_cents, created_at')
-          .order("created_at", { ascending: false }));
-      }
-
-      if (error) throw error;
-
-      const list = Array.isArray(data) ? data.map(mapDbProductToUi).filter((p) => p.id) : [];
-      if (list.length) {
-        setProducts(list);
-      } else {
-        // fallback: mantém site funcionando, mas o ideal é popular a tabela "products"
-        setProducts(produtosLocal);
-      }
-    } catch (e) {
-      console.error("loadProducts error", e);
-      setProducts(produtosLocal);
-      setProductsError("Não foi possível carregar produtos do banco. Usando catálogo local.");
-    } finally {
-      setProductsLoading(false);
-    }
-  }, [mapDbProductToUi]);
-
-  React.useEffect(() => {
-    loadProducts();
-  }, [loadProducts]);
-
-
 
   // ===== Rotas (Hash router sem dependências) =====
   const [route, setRoute] = React.useState(() => (typeof window === "undefined" ? "/" : getRouteFromHash()));
@@ -499,19 +442,66 @@ React.useEffect(() => {
     setMenuDrawerOpen(false);
   }, [route]);
 
-  // ===== Produtos =====
-  const emEstoque = React.useMemo(() => products.filter((p) => p.status === "estoque"), [products]);
-  const catalogo = React.useMemo(() => products.filter((p) => p.status !== "estoque"), [products]);
+
+  // ===== Produtos (vem do Supabase) =====
+  const [products, setProducts] = React.useState([]);
+  const [productsLoading, setProductsLoading] = React.useState(true);
+  const [productsError, setProductsError] = React.useState("");
+
+  React.useEffect(() => {
+    let alive = true;
+
+    async function load() {
+      try {
+        setProductsLoading(true);
+        setProductsError("");
+
+        const { data, error } = await supabase
+          .from("products")
+          .select(
+            "id,slug,name,description,price_cents,currency,stock,active,featured,promo,image_url,images,model_url,status,tags,default_variant,variants,original_price_cents,category,created_at"
+          )
+          .eq("active", true)
+          .order("created_at", { ascending: false });
+
+        if (error) throw error;
+
+        const mapped = (data || []).map(mapProductRow).filter((p) => p.id && p.nome);
+        if (alive) setProducts(mapped);
+      } catch (e) {
+        console.error(e);
+        if (alive) {
+          setProducts([]);
+          setProductsError(e?.message || "Não foi possível carregar os produtos.");
+        }
+      } finally {
+        if (alive) setProductsLoading(false);
+      }
+    }
+
+    load();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const emEstoque = React.useMemo(
+    () => products.filter((p) => String(p.status || "").toLowerCase() === "estoque"),
+    [products]
+  );
+  const catalogo = React.useMemo(
+    () => products.filter((p) => String(p.status || "").toLowerCase() !== "estoque"),
+    [products]
+  );
 
   const featured = React.useMemo(() => {
-        const explicit = products.filter((p) => p.featured === true);
+    const explicit = products.filter((p) => p.featured === true);
     if (explicit.length) return explicit.slice(0, 8);
 
-    // fallback: mistura estoque + catálogo
     const a = emEstoque.slice(0, 4);
     const b = catalogo.slice(0, 4);
     return [...a, ...b].slice(0, 8);
-  }, [emEstoque, catalogo]);
+  }, [products, emEstoque, catalogo]);
 
   // ===== Render da página =====
   const page = (() => {
@@ -519,6 +509,8 @@ React.useEffect(() => {
       return (
         <StockPage
           items={emEstoque}
+          loading={productsLoading}
+          error={productsError}
           addToCart={addToCart}
           buyNow={buyNow}
           openViewer={openViewer}
@@ -530,6 +522,8 @@ React.useEffect(() => {
       return (
         <CatalogPage
           items={catalogo}
+          loading={productsLoading}
+          error={productsError}
           addToCart={addToCart}
           buyNow={buyNow}
           openViewer={openViewer}
@@ -545,6 +539,8 @@ React.useEffect(() => {
       <HomePage
         brand={brand}
         featured={featured}
+        loadingProducts={productsLoading}
+        productsError={productsError}
         addToCart={addToCart}
         buyNow={buyNow}
         openViewer={openViewer}
@@ -685,7 +681,7 @@ React.useEffect(() => {
 
       <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
 
-      <OrdersModal open={ordersOpen} onClose={() => setOrdersOpen(false)} products={products} productsLoading={productsLoading} />
+      <OrdersModal open={ordersOpen} onClose={() => setOrdersOpen(false)} />
 
       <ProfileSettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
 

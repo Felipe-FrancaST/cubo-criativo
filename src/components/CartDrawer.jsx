@@ -42,14 +42,6 @@ export default function CartDrawer({
   const [checkingPix, setCheckingPix] = React.useState(false);
   const payHandled = React.useRef(false);
   const [pixLoginMsg, setPixLoginMsg] = React.useState("");
-  const [uiToast, setUiToast] = React.useState({ open: false, msg: "" });
-  const uiToastT = React.useRef(null);
-
-  function showToast(msg) {
-    window.clearTimeout(uiToastT.current);
-    setUiToast({ open: true, msg: String(msg || "") });
-    uiToastT.current = window.setTimeout(() => setUiToast({ open: false, msg: "" }), 2200);
-  }
 
   React.useEffect(() => {
     if (!open) return;
@@ -146,8 +138,7 @@ export default function CartDrawer({
       setPixStatus(data?.status ? (data.status === "approved" ? "paid" : "pending") : "pending");
       setPixOpen(true);
     } catch (e) {
-      showToast("⚠️ Não foi possível gerar o Pix. Tente novamente.");
-      console.error(e);
+      alert("Não foi possível gerar o Pix: " + (e?.message || String(e)));
     } finally {
       setPixLoading(false);
       payHandled.current = false;
@@ -211,22 +202,12 @@ export default function CartDrawer({
     if (!code) return;
     navigator.clipboard
       .writeText(code)
-      .then(() => showToast("✅ Código Pix copiado!"))
-      .catch(() => showToast("⚠️ Não foi possível copiar. Copie manualmente."));
+      .then(() => alert("Código Pix copiado!"))
+      .catch(() => alert("Não foi possível copiar. Copie manualmente."));
   }
 
   return (
     <div className={`fixed inset-0 z-[140] ${open ? "visible" : "invisible"}`}>
-      {/* Toast do carrinho (copiar Pix, avisos rápidos) */}
-      <div
-        className={`fixed top-20 left-1/2 -translate-x-1/2 z-[220] transition-all duration-300 ${
-          uiToast.open ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-3 pointer-events-none"
-        }`}
-      >
-        <div className="rounded-full bg-slate-100 text-slate-900 font-semibold px-4 py-2 shadow-lg ring-4 ring-white/10">
-          {uiToast.msg}
-        </div>
-      </div>
       <div className={`absolute inset-0 bg-black/50 transition-opacity ${open ? "opacity-100" : "opacity-0"}`} onClick={onClose} />
       <aside className={`absolute right-0 top-0 h-full w-[92vw] sm:w-[420px] bg-slate-900 shadow-xl ring-1 ring-white/10 transition-transform duration-300 ${open ? "translate-x-0" : "translate-x-full"}`}>
         <div className="p-4 flex items-center justify-between border-b border-white/10">

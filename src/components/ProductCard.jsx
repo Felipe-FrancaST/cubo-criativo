@@ -56,7 +56,7 @@ export default function ProductCard({ p, addToCart, buyNow, openViewer, openGall
             e.currentTarget.style.display = "none";
             e.currentTarget.parentElement?.classList.add("bg-slate-700");
             e.currentTarget.parentElement.innerHTML =
-              `<div class="text-slate-300 text-xs px-3 text-center">Imagem não encontrada.<br/>Coloque em <b>public/images</b>.</div>`;
+              `<div class="text-slate-300 text-xs px-3 text-center">Imagem não encontrada.<br/>Verifique a URL da imagem no Supabase (image_url).</div>`;
           }}
         />
         <span className="absolute bottom-2 right-2 text-[10px] px-2 py-0.5 rounded-full bg-black/50 ring-1 ring-white/20">

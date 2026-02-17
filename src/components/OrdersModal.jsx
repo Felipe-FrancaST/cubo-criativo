@@ -8,14 +8,11 @@ const fmtBRL = (n) =>
     ? n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
     : "—";
 
-
-export default function OrdersModal({ open, onClose, products = [], productsLoading = false }) {
+export default function OrdersModal({ open, onClose }) {
   const { user } = useAuth();
   const [orders, setOrders] = React.useState([]);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState("");
-  const [expanded, setExpanded] = React.useState({});
-
 
   const statusUI = (status) => {
     const s = String(status || "").toLowerCase();
@@ -64,11 +61,9 @@ export default function OrdersModal({ open, onClose, products = [], productsLoad
 
     // 2) Carrega itens em batch
     const ids = list.map((o) => o.id);
-    // Observação: para exibir nome/imagem, usamos snapshot (product_name/product_image_url) quando existir.
-    // Se faltar (pedidos antigos), buscamos no catálogo carregado do Supabase (products).
     const { data: itemsData, error: itemsErr } = await supabase
       .from("order_items")
-      .select("order_id, product_id, qty, unit_price_cents, product_name, product_image_url, scale")
+      .select("order_id, name, qty, unit_price, scale, img")
       .in("order_id", ids);
 
     if (itemsErr) {
@@ -78,29 +73,10 @@ export default function OrdersModal({ open, onClose, products = [], productsLoad
     }
 
     const byOrder = new Map();
-    const byProductId = new Map();
-    for (const p of Array.isArray(products) ? products : []) {
-      if (p?.id) byProductId.set(String(p.id), p);
-    }
-
     (itemsData || []).forEach((it) => {
       const k = it.order_id;
-      const pid = String(it.product_id || "").trim();
-      const p = pid ? byProductId.get(pid) : null;
-
-      const enriched = {
-        product_id: pid,
-        qty: Number(it.qty) || 1,
-        // unit_price_cents -> unit_price (BRL)
-        unit_price: Number(it.unit_price_cents ?? 0) / 100,
-        // prefere snapshot do pedido; se faltar, usa catálogo
-        name: String(it.product_name || "").trim() || p?.nome || (pid ? `Produto (${pid})` : "Produto"),
-        img: String(it.product_image_url || "").trim() || p?.img || "",
-        scale: String(it.scale || "").trim()
-      };
-
       if (!byOrder.has(k)) byOrder.set(k, []);
-      byOrder.get(k).push(enriched);
+      byOrder.get(k).push(it);
     });
 
     const merged = list.map((o) => ({
@@ -172,118 +148,64 @@ export default function OrdersModal({ open, onClose, products = [], productsLoad
             )}
 
             <div className="space-y-3">
-            {orders.map((o) => {
-              const dt = new Date(o.created_at);
-              const date = dt.toLocaleDateString("pt-BR");
-              const time = dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-              const first = Array.isArray(o.order_items) && o.order_items.length > 0 ? o.order_items[0] : null;
-              const thumbSrc = (() => {
-                const s = String(first?.img || "").trim();
-                if (!s) return "";
-                if (s.startsWith("http://") || s.startsWith("https://") || s.startsWith("data:")) return s;
-                return s.startsWith("/") ? s : `/${s}`;
-              })();
-              const extraCount = Array.isArray(o.order_items) ? Math.max(0, o.order_items.length - 1) : 0;
-              const isOpen = !!expanded[o.id];
+              
+{orders.map((o) => (
+  <div key={o.id} className="rounded-2xl bg-slate-900 ring-1 ring-white/10 p-4 sm:p-5">
+    <div className="flex items-start justify-between gap-3">
+      <div className="min-w-0">
+        <p className="text-xs text-slate-400">
+          {new Date(o.created_at).toLocaleString("pt-BR")}
+        </p>
+        <div className="mt-1">
+          <span className={`inline-flex items-center gap-1 text-xs rounded-full px-2 py-1 ring-1 ${statusUI(o.status).cls}`}>
+            {statusUI(o.status).label}
+          </span>
+        </div>
+      </div>
 
-              return (
-                <div key={o.id} className="rounded-2xl bg-slate-900 ring-1 ring-white/10 p-4 sm:p-5">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                      {first?.img ? (
-                        <img
-                          src={thumbSrc}
-                          alt={first.name || "Produto"}
-                          className="h-12 w-12 rounded-xl object-cover ring-1 ring-white/10 bg-slate-800"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div className="h-12 w-12 rounded-xl bg-slate-800 ring-1 ring-white/10 grid place-items-center text-slate-400">
-                          <span className="material-icons text-base">image</span>
-                        </div>
-                      )}
+      <div className="text-right shrink-0">
+        <p className="text-xs text-slate-400">Valor</p>
+        <p className="text-lg font-semibold">{fmtBRL(Number(o.total))}</p>
+      </div>
+    </div>
 
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-slate-100 truncate">
-                          {first?.name || "Pedido"}
-                          {extraCount > 0 ? (
-                            <span className="text-xs text-slate-400 font-normal"> {" +"}{extraCount} item(ns)</span>
-                          ) : null}
-                        </p>
-
-                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-400">
-                          <span className="inline-flex items-center gap-1">
-                            <span className="material-icons text-[16px]">event</span> {date}
-                          </span>
-                          <span className="inline-flex items-center gap-1">
-                            <span className="material-icons text-[16px]">schedule</span> {time}
-                          </span>
-                          <span className={`inline-flex items-center gap-1 text-[11px] rounded-full px-2 py-1 ring-1 ${statusUI(o.status).cls}`}>
-                            {statusUI(o.status).label}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="text-right shrink-0">
-                      <p className="text-xs text-slate-400">Valor</p>
-                      <p className="text-lg font-semibold">{fmtBRL(Number(o.total))}</p>
-                      <button
-                        onClick={() => setExpanded((prev) => ({ ...prev, [o.id]: !prev[o.id] }))}
-                        className="mt-2 inline-flex items-center gap-1 rounded-lg px-3 py-2 text-xs ring-1 ring-white/15 hover:bg-white/5"
-                        type="button"
-                      >
-                        <span className="material-icons text-[16px]">{isOpen ? "expand_less" : "expand_more"}</span>
-                        {isOpen ? "Ocultar itens" : "Ver itens"}
-                      </button>
-                    </div>
+    {Array.isArray(o.order_items) && o.order_items.length > 0 ? (
+      <div className="mt-4 rounded-xl bg-white/5 ring-1 ring-white/10">
+        <ul className="divide-y divide-white/10">
+          {o.order_items.map((it, idx) => (
+            <li key={idx} className="flex items-center justify-between gap-3 px-3 py-2">
+              <div className="flex items-center gap-3 min-w-0">
+                {it.img ? (
+                  <img
+                    src={it.img}
+                    alt={it.name || "Produto"}
+                    className="h-10 w-10 rounded-md object-cover ring-1 ring-white/10 bg-slate-800"
+                    loading="lazy"
+                  />
+                ) : (
+                  <div className="h-10 w-10 rounded-md bg-slate-800 ring-1 ring-white/10 grid place-items-center text-slate-400">
+                    <span className="material-icons text-base">image</span>
                   </div>
-
-                  {isOpen ? (
-                    Array.isArray(o.order_items) && o.order_items.length > 0 ? (
-                      <div className="mt-4 rounded-xl bg-white/5 ring-1 ring-white/10">
-                        <ul className="divide-y divide-white/10">
-                          {o.order_items.map((it, idx) => (
-                            <li key={idx} className="flex items-center justify-between gap-3 px-3 py-2">
-                              <div className="flex items-center gap-3 min-w-0">
-                                {it.img ? (
-                                  <img
-                                    src={(() => {
-                                      const s = String(it.img || "").trim();
-                                      if (!s) return "";
-                                      if (s.startsWith("http://") || s.startsWith("https://") || s.startsWith("data:")) return s;
-                                      return s.startsWith("/") ? s : `/${s}`;
-                                    })()}
-                                    alt={it.name || "Produto"}
-                                    className="h-10 w-10 rounded-md object-cover ring-1 ring-white/10 bg-slate-800"
-                                    loading="lazy"
-                                  />
-                                ) : (
-                                  <div className="h-10 w-10 rounded-md bg-slate-800 ring-1 ring-white/10 grid place-items-center text-slate-400">
-                                    <span className="material-icons text-base">image</span>
-                                  </div>
-                                )}
-                                <div className="min-w-0">
-                                  <p className="text-sm text-slate-200 truncate">{it.name || "Produto"}</p>
-                                  {it.scale ? <p className="text-xs text-slate-400 truncate">Escala: {it.scale}</p> : null}
-                                  <p className="text-xs text-slate-400 truncate">{fmtBRL(Number(it.unit_price))} cada</p>
-                                </div>
-                              </div>
-
-                              <p className="text-sm text-slate-300 shrink-0">{Number(it.qty) || 1}x</p>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    ) : (
-                      <p className="mt-4 text-sm text-slate-400">Itens não disponíveis.</p>
-                    )
+                )}
+                <div className="min-w-0">
+                  <p className="text-sm text-slate-200 truncate">{it.name || "Produto"}</p>
+                  {it.scale ? (
+                    <p className="text-xs text-slate-400 truncate">Escala: {it.scale}</p>
                   ) : null}
                 </div>
-              );
-            })}
-            </div>
+              </div>
 
+              <p className="text-sm text-slate-300 shrink-0">{Number(it.qty) || 1}x</p>
+            </li>
+          ))}
+        </ul>
+      </div>
+    ) : (
+      <p className="mt-4 text-sm text-slate-400">Itens não disponíveis.</p>
+    )}
+  </div>
+))}
+            </div>
           </div>
         )}
       </div>

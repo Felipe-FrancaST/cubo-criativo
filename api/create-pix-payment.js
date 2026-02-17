@@ -43,30 +43,6 @@ function toNumberBRL(value) {
   return Number(n.toFixed(2));
 }
 
-// Aceita: 1234.56, "1234,56", "R$ 1.234,56", "1.234,56", etc.
-function parseMoneyBRL(v, fallback = 0) {
-  if (v === null || v === undefined) return fallback;
-  if (typeof v === "number") return Number.isFinite(v) ? Number(v.toFixed(2)) : fallback;
-  const s0 = String(v).trim();
-  if (!s0) return fallback;
-  // remove moeda e espaços
-  let s = s0
-    .replace(/\s/g, "")
-    .replace(/R\$/gi, "")
-    .replace(/BRL/gi, "")
-    .replace(/\u00A0/g, "");
-
-  // Se tiver vírgula, assume decimal pt-BR
-  if (s.includes(",")) {
-    s = s.replace(/\./g, "").replace(",", ".");
-  }
-  // mantém só números e ponto
-  s = s.replace(/[^0-9.\-]/g, "");
-  const n = Number(s);
-  if (!Number.isFinite(n)) return fallback;
-  return Number(n.toFixed(2));
-}
-
 async function mpFetch(token, url, opts = {}) {
   const resp = await fetch(url, {
     ...opts,
@@ -114,23 +90,6 @@ export default async function handler(req, res) {
     const sb = supabaseAdmin();
     const orderId = crypto.randomUUID();
 
-    // Snapshot de dados do cliente (para email/produção)
-    let profile = null;
-    try {
-      const { data } = await sb
-        .from("profiles")
-        .select("full_name, phone, address_line1, address_line2, neighborhood, city, state, zip")
-        .eq("id", user.id)
-        .maybeSingle();
-      profile = data || null;
-    } catch {
-      profile = null;
-    }
-
-    const customerEmail = payerEmail || null;
-    const customerName = String(body.name || profile?.full_name || "").trim() || null;
-    const customerPhone = String(body.phone || profile?.phone || "").trim() || null;
-
     const { error: orderErr } = await sb.from("orders").insert({
       id: orderId,
       user_id: user.id,
@@ -138,123 +97,26 @@ export default async function handler(req, res) {
       currency: "BRL",
       total: amount,
       payment_provider: "mercado_pago",
-      customer_email: customerEmail,
-      customer_name: customerName,
-      customer_phone: customerPhone,
     });
     if (orderErr) {
       console.error("supabase order insert error", orderErr);
       return res.status(500).json({ error: "Não foi possível criar o pedido." });
     }
 
-    // Normaliza itens vindos do front (suporta variações de keys)
-    const pick = (...vals) => {
-      for (const v of vals) {
-        if (v === 0) return 0;
-        if (v === false) return false;
-        if (v === null || v === undefined) continue;
-        const s = String(v).trim();
-        if (s) return v;
-      }
-      return undefined;
-    };
-
-    const toInt = (v, fallback = 0) => {
-      const n = Number(v);
-      if (!Number.isFinite(n)) return fallback;
-      return Math.max(0, Math.trunc(n));
-    };
-
-    const toMoney = (v, fallback = 0) => parseMoneyBRL(v, fallback);
-
-    const normalizeImg = (src) => {
-      const s = String(src || "").trim();
-      if (!s) return "";
-      if (s.startsWith("http://") || s.startsWith("https://") || s.startsWith("data:")) return s;
-      return s.startsWith("/") ? s : `/${s}`;
-    };
-
-    // Salva itens do pedido no Supabase
-    // Preferimos "order_items" com snapshot (nome/imagem/escala) para garantir
-    // que a aba Pedidos e os emails sempre tenham o que mostrar, mesmo se o produto mudar depois.
-
-    const normalizedItems = items
-      .map((it) => {
-        const qty = toInt(pick(it?.qty, it?.quantity, it?.quantidade, it?.qtd), 1) || 1;
-        const unit = toMoney(
-          pick(it?.price, it?.unitPrice, it?.unit_price, it?.valor, it?.preco, it?.unit, it?.amount),
-          0
-        );
-        const productId = String(pick(it?.id, it?.product_id, it?.sku, it?.productId) || "").trim();
-        const name = String(pick(it?.name, it?.nome, it?.title) || "").trim();
-        const scale = String(pick(it?.scale, it?.escala, it?.variant, it?.variantLabel) || "").trim();
-        const img = normalizeImg(pick(it?.img, it?.image, it?.imagem, it?.thumbnail, it?.thumb) || "");
-        return {
-          product_id: productId || null,
-          qty,
-          unit_price_cents: Math.round((Number(unit) || 0) * 100),
-          product_name: name || null,
-          product_image_url: img || null,
-          scale: scale || null,
-        };
-      })
-      .filter((it) => (Number(it.qty) || 0) > 0);
-
-    // Enriquecimento pelo catálogo no banco (products)
-    const idsToFetch = Array.from(new Set(normalizedItems.map((it) => it.product_id).filter(Boolean)));
-    let productsById = new Map();
-    if (idsToFetch.length) {
-      try {
-        const { data: prodRows } = await sb
-          .from("products")
-          .select("id, name, image_url")
-          .in("id", idsToFetch);
-
-        for (const p of Array.isArray(prodRows) ? prodRows : []) {
-          if (p?.id) productsById.set(String(p.id), p);
-        }
-      } catch {
-        // ignore
-      }
-    }
-
-    const orderItems = normalizedItems.map((it) => {
-      const p = it.product_id ? productsById.get(String(it.product_id)) : null;
-      return {
+    const orderItems = items
+      .filter((it) => (Number(it.qty) || 0) > 0 && (Number(it.price) || 0) > 0)
+      .map((it) => ({
         order_id: orderId,
-        product_id: it.product_id,
-        qty: it.qty,
-        unit_price_cents: it.unit_price_cents,
-        // snapshots
-        product_name: it.product_name || (p?.name ? String(p.name) : null),
-        product_image_url: it.product_image_url || (p?.image_url ? normalizeImg(p.image_url) : null),
-        scale: it.scale,
-      };
-    });
+        product_id: String(it.id || ""),
+        name: String(it.name || it.nome || "Item").trim(),
+        scale: String(it.scale || it.escala || "").trim(),
+        qty: Number(it.qty) || 1,
+        unit_price: Number(Number(it.price).toFixed(2)),
+        img: String(it.img || ""),
+      }));
 
     if (orderItems.length) {
-      // Tentativa 1: inserção completa (com snapshots)
-      let { error: itemsErr } = await sb.from("order_items").insert(orderItems);
-
-      // Se o schema ainda não tem as colunas snapshot, tenta de novo só com o básico
-      if (itemsErr && /column .* does not exist/i.test(String(itemsErr.message || ""))) {
-        const basic = orderItems.map(({ order_id, product_id, qty, unit_price_cents }) => ({
-          order_id,
-          product_id,
-          qty,
-          unit_price_cents,
-        }));
-        const retryBasic = await sb.from("order_items").insert(basic);
-        itemsErr = retryBasic.error;
-      }
-
-      // Se o banco exigir id uuid sem default, tenta novamente com id gerado
-      if (itemsErr && /null value in column\s+"id"/i.test(String(itemsErr.message || ""))) {
-        const withId = orderItems.map((it) => ({ id: crypto.randomUUID(), ...it }));
-        const retry = await sb.from("order_items").insert(withId);
-        itemsErr = retry.error;
-      }
-
+      const { error: itemsErr } = await sb.from("order_items").insert(orderItems);
       if (itemsErr) console.error("supabase order_items insert error", itemsErr);
     }
 
@@ -276,8 +138,6 @@ export default async function handler(req, res) {
         metadata: {
           order_id: orderId,
           user_id: user.id,
-          payer_email: payerEmail,
-          customer_name: customerName || "",
           items_json: JSON.stringify(items).slice(0, 4500),
         },
         notification_url: `${origin}/api/mp-webhook`,
