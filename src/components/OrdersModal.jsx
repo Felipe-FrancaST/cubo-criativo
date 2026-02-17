@@ -226,7 +226,12 @@ export default function OrdersModal({ open, onClose }) {
                               <div className="flex items-center gap-3 min-w-0">
                                 {it.img ? (
                                   <img
-                                    src={it.img}
+                                    src={(() => {
+                                      const s = String(it.img || "").trim();
+                                      if (!s) return "";
+                                      if (s.startsWith("http://") || s.startsWith("https://") || s.startsWith("data:")) return s;
+                                      return s.startsWith("/") ? s : `/${s}`;
+                                    })()}
                                     alt={it.name || "Produto"}
                                     className="h-10 w-10 rounded-md object-cover ring-1 ring-white/10 bg-slate-800"
                                     loading="lazy"

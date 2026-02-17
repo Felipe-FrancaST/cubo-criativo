@@ -41,6 +41,29 @@ async function mpFetch(token, url, opts = {}) {
   return { ok: resp.ok, status: resp.status, data };
 }
 
+// Aceita números e strings em pt-BR ("R$ 1.234,56", "123,45").
+function parseMoneyBRL(v, fallback = 0) {
+  if (v === null || v === undefined) return fallback;
+  if (typeof v === "number") return Number.isFinite(v) ? Number(v.toFixed(2)) : fallback;
+  const s0 = String(v).trim();
+  if (!s0) return fallback;
+  let s = s0
+    .replace(/\s/g, "")
+    .replace(/R\$/gi, "")
+    .replace(/BRL/gi, "")
+    .replace(/\u00A0/g, "");
+  if (s.includes(",")) s = s.replace(/\./g, "").replace(",", ".");
+  s = s.replace(/[^0-9.\-]/g, "");
+  const n = Number(s);
+  if (!Number.isFinite(n)) return fallback;
+  return Number(n.toFixed(2));
+}
+
+function isValidEmail(email) {
+  const s = String(email || "").trim();
+  return s.includes("@");
+}
+
 
 function mapOrderStatus(mpStatus) {
   if (mpStatus === "approved") return "paid";
@@ -214,15 +237,38 @@ export default async function handler(req, res) {
     if (!items.length) {
       try {
         const raw = payment?.metadata?.items_json;
-        const parsed = raw ? JSON.parse(String(raw)) : [];
+        const parsed = Array.isArray(raw)
+          ? raw
+          : typeof raw === "object" && raw
+          ? raw
+          : raw
+          ? JSON.parse(String(raw))
+          : [];
         if (Array.isArray(parsed)) {
           items = parsed
             .map((it) => {
-              const name = String(pick(it?.name, it?.nome, it?.title, it?.produto) || "Item").trim();
-              const qty = Number(pick(it?.qty, it?.quantity, it?.quantidade) || 1) || 1;
-              const unit_price = Number(pick(it?.price, it?.unitPrice, it?.unit_price, it?.valor, it?.preco) || 0) || 0;
-              const img = normalizeImg(pick(it?.img, it?.image, it?.imagem, it?.photo, it?.foto) || "");
-              const scale = String(pick(it?.scale, it?.escala) || "").trim();
+              const name = String(
+                pick(it?.name, it?.nome, it?.title, it?.produto, it?.productName, it?.product_name) || "Item"
+              ).trim();
+              const qty = Number(pick(it?.qty, it?.quantity, it?.quantidade, it?.qtd) || 1) || 1;
+              const unit_price = parseMoneyBRL(
+                pick(it?.price, it?.unitPrice, it?.unit_price, it?.valor, it?.preco, it?.unit, it?.amount),
+                0
+              );
+              const img = normalizeImg(
+                pick(
+                  it?.img,
+                  it?.image,
+                  it?.imagem,
+                  it?.photo,
+                  it?.foto,
+                  it?.imageUrl,
+                  it?.image_url,
+                  it?.thumbnail,
+                  it?.thumb
+                ) || ""
+              );
+              const scale = String(pick(it?.scale, it?.escala, it?.variant, it?.variantLabel) || "").trim();
               return { name, qty, unit_price, img, scale };
             })
             .filter((it) => (Number(it.qty) || 0) > 0);
@@ -232,11 +278,28 @@ export default async function handler(req, res) {
       }
     }
 
+    // Fallback 2: Mercado Pago às vezes traz itens em additional_info
+    if (!items.length) {
+      const arr = Array.isArray(payment?.additional_info?.items) ? payment.additional_info.items : [];
+      if (arr.length) {
+        items = arr
+          .map((it) => {
+            const name = String(pick(it?.title, it?.name, it?.description) || "Item").trim();
+            const qty = Number(pick(it?.quantity, it?.qty) || 1) || 1;
+            const unit_price = parseMoneyBRL(pick(it?.unit_price, it?.unitPrice, it?.price), 0);
+            const img = normalizeImg(pick(it?.picture_url, it?.img, it?.image, it?.thumbnail) || "");
+            return { name, qty, unit_price, img, scale: "" };
+          })
+          .filter((it) => (Number(it.qty) || 0) > 0);
+      }
+    }
+
     const payerEmail =
       orderRow?.customer_email ||
       payment?.payer?.email ||
       payment?.additional_info?.payer?.email ||
       payment?.metadata?.payer_email ||
+      payment?.metadata?.customer_email ||
       "";
 
     const customerName =
@@ -308,7 +371,7 @@ export default async function handler(req, res) {
 
     // 2) Email para o cliente (best-effort)
     let customerResp = { ok: true };
-    if (payerEmail) {
+    if (isValidEmail(payerEmail)) {
       customerResp = await sendResendEmail({ apiKey, from, to: payerEmail, subject: customerEmail.subject, html: customerEmail.html });
     }
 

@@ -43,6 +43,30 @@ function toNumberBRL(value) {
   return Number(n.toFixed(2));
 }
 
+// Aceita: 1234.56, "1234,56", "R$ 1.234,56", "1.234,56", etc.
+function parseMoneyBRL(v, fallback = 0) {
+  if (v === null || v === undefined) return fallback;
+  if (typeof v === "number") return Number.isFinite(v) ? Number(v.toFixed(2)) : fallback;
+  const s0 = String(v).trim();
+  if (!s0) return fallback;
+  // remove moeda e espaços
+  let s = s0
+    .replace(/\s/g, "")
+    .replace(/R\$/gi, "")
+    .replace(/BRL/gi, "")
+    .replace(/\u00A0/g, "");
+
+  // Se tiver vírgula, assume decimal pt-BR
+  if (s.includes(",")) {
+    s = s.replace(/\./g, "").replace(",", ".");
+  }
+  // mantém só números e ponto
+  s = s.replace(/[^0-9.\-]/g, "");
+  const n = Number(s);
+  if (!Number.isFinite(n)) return fallback;
+  return Number(n.toFixed(2));
+}
+
 async function mpFetch(token, url, opts = {}) {
   const resp = await fetch(url, {
     ...opts,
@@ -141,11 +165,7 @@ export default async function handler(req, res) {
       return Math.max(0, Math.trunc(n));
     };
 
-    const toMoney = (v, fallback = 0) => {
-      const n = Number(v);
-      if (!Number.isFinite(n)) return fallback;
-      return Number(n.toFixed(2));
-    };
+    const toMoney = (v, fallback = 0) => parseMoneyBRL(v, fallback);
 
     const normalizeImg = (src) => {
       const s = String(src || "").trim();
@@ -156,15 +176,34 @@ export default async function handler(req, res) {
 
     const orderItems = items
       .map((it) => {
-        const name = String(pick(it?.name, it?.nome, it?.title, it?.produto) || "Item").trim();
-        const qty = toInt(pick(it?.qty, it?.quantity, it?.quantidade), 1) || 1;
-        const unit = toMoney(pick(it?.price, it?.unitPrice, it?.unit_price, it?.valor, it?.preco), 0);
-        const img = normalizeImg(pick(it?.img, it?.image, it?.imagem, it?.photo, it?.foto) || "");
-        const scale = String(pick(it?.scale, it?.escala) || "").trim();
-        const productId = String(pick(it?.id, it?.product_id, it?.sku) || "").trim();
+        const name = String(
+          pick(it?.name, it?.nome, it?.title, it?.produto, it?.productName, it?.product_name) || "Item"
+        ).trim();
+        const qty = toInt(pick(it?.qty, it?.quantity, it?.quantidade, it?.qtd), 1) || 1;
+        const unit = toMoney(
+          pick(it?.price, it?.unitPrice, it?.unit_price, it?.valor, it?.preco, it?.unit, it?.amount),
+          0
+        );
+        const img = normalizeImg(
+          pick(
+            it?.img,
+            it?.image,
+            it?.imagem,
+            it?.photo,
+            it?.foto,
+            it?.imageUrl,
+            it?.image_url,
+            it?.thumbnail,
+            it?.thumb
+          ) || ""
+        );
+        const scale = String(pick(it?.scale, it?.escala, it?.variant, it?.variantLabel) || "").trim();
+        const productId = String(pick(it?.id, it?.product_id, it?.sku, it?.productId) || "").trim();
         return { order_id: orderId, product_id: productId, name, scale, qty, unit_price: unit, img };
       })
-      .filter((it) => (Number(it.qty) || 0) > 0 && (Number(it.unit_price) || 0) > 0);
+      // Não filtra por preço: mesmo que esteja 0, ainda queremos salvar nome/imagem
+      // para a aba Pedidos e para emails (controle/cliente).
+      .filter((it) => (Number(it.qty) || 0) > 0);
 
     if (orderItems.length) {
       const { error: itemsErr } = await sb.from("order_items").insert(orderItems);
@@ -189,6 +228,8 @@ export default async function handler(req, res) {
         metadata: {
           order_id: orderId,
           user_id: user.id,
+          payer_email: payerEmail,
+          customer_name: customerName || "",
           items_json: JSON.stringify(items).slice(0, 4500),
         },
         notification_url: `${origin}/api/mp-webhook`,
