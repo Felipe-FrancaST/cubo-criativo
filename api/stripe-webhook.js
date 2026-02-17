@@ -14,6 +14,7 @@
 
 import crypto from "crypto";
 import { supabaseAdmin } from "./_supabase.js";
+import { renderOwnerOrderEmail, renderCustomerOrderEmail, buildAddressFromProfile } from "./_emailTemplates.js";
 
 export const config = { runtime: "nodejs" };
 
@@ -191,27 +192,88 @@ export default async function handler(req, res) {
       })
       .join("");
 
-    const subject = `Novo pedido pago — R$ ${amountTotal.toFixed(2)} — ${customerEmail}`;
-    const html = `
-      <h2>Novo pedido pago ✅</h2>
-      <p><b>Checkout Session:</b> ${sessionId}</p>
-      <p><b>Valor total:</b> R$ ${amountTotal.toFixed(2)}</p>
+    
+    const brandName = String(process.env.BRAND_NAME || "Cubo Criativo").trim();
+    const supportEmail = String(process.env.SUPPORT_EMAIL || "").trim();
+    const whatsapp = String(process.env.WHATSAPP || "").trim();
 
-      <h3>Cliente</h3>
-      <p>
-        <b>Nome:</b> ${customerName}<br/>
-        <b>Email:</b> ${customerEmail}<br/>
-        <b>Telefone:</b> ${phone}
-      </p>
+    const sb = supabaseAdmin();
+    const { data: orderRow } = orderId
+      ? await sb
+          .from("orders")
+          .select("id, user_id, total, created_at, customer_email, customer_name, customer_phone")
+          .eq("id", orderId)
+          .maybeSingle()
+      : { data: null };
 
-      <h3>Endereço</h3>
-      <p>${address}</p>
+    const userId = orderRow?.user_id || session?.metadata?.user_id || null;
 
-      <h3>Itens</h3>
-      <ul>${itemsHtml || "<li>(sem itens)</li>"}</ul>
-    `;
+    const { data: profile } = userId
+      ? await sb
+          .from("profiles")
+          .select("full_name, phone, address_line1, address_line2, neighborhood, city, state, zip")
+          .eq("id", userId)
+          .maybeSingle()
+      : { data: null };
 
-    const apiKey = String(process.env.RESEND_API_KEY || "").trim();
+    const total = Number(orderRow?.total ?? amountTotal ?? 0) || 0;
+    const createdAt = orderRow?.created_at || new Date().toISOString();
+
+    const customerNameFinal = orderRow?.customer_name || profile?.full_name || customerName || "";
+    const customerEmailFinal = orderRow?.customer_email || customerEmail || "";
+    const customerPhoneFinal = orderRow?.customer_phone || profile?.phone || phone || "";
+
+    const addressFromProfile = buildAddressFromProfile(profile);
+    const addressFinal = addressFromProfile || address;
+
+    const itemsForEmail = (items || []).map((li) => {
+      const qty = Number(li?.quantity) || 1;
+      const lineTotal = Number(li?.amount_total ?? 0) / 100;
+      const unit = qty ? lineTotal / qty : lineTotal;
+      return {
+        name: li?.description || "Item",
+        qty,
+        unit_price: Number(unit.toFixed(2)),
+        img: "",
+      };
+    });
+
+    const paymentMethod = "Cartão (Stripe)";
+
+    const ownerEmail = renderOwnerOrderEmail({
+      brandName,
+      orderId: orderId || sessionId,
+      orderStatus: "paid",
+      createdAt,
+      paymentMethod,
+      total,
+      customer: {
+        name: customerNameFinal,
+        email: customerEmailFinal,
+        phone: customerPhoneFinal,
+        address: addressFinal,
+      },
+      items: itemsForEmail,
+    });
+
+    const customerEmailTpl = renderCustomerOrderEmail({
+      brandName,
+      orderId: orderId || sessionId,
+      createdAt,
+      paymentMethod,
+      total,
+      customer: {
+        name: customerNameFinal,
+        email: customerEmailFinal,
+        phone: customerPhoneFinal,
+        address: addressFinal,
+      },
+      items: itemsForEmail,
+      supportEmail,
+      whatsapp,
+    });
+
+const apiKey = String(process.env.RESEND_API_KEY || "").trim();
     const to = String(process.env.ORDER_EMAIL_TO || "").trim();
     const from = String(process.env.RESEND_FROM || "").trim();
 
@@ -221,8 +283,18 @@ export default async function handler(req, res) {
       return res.status(200).send("ok");
     }
 
-    const emailResp = await sendResendEmail({ apiKey, from, to, subject, html });
-    if (!emailResp.ok) {
+    const ownerResp = await sendResendEmail({ apiKey, from, to, subject: ownerEmail.subject, html: ownerEmail.html });
+
+    if (!ownerResp.ok) {
+      return res.status(200).json({ ok: true, email: "error_owner", details: ownerResp.data });
+    }
+
+    // Email para o cliente (best-effort)
+    let customerResp = { ok: true };
+    if (customerEmailFinal) {
+      customerResp = await sendResendEmail({ apiKey, from, to: customerEmailFinal, subject: customerEmailTpl.subject, html: customerEmailTpl.html });
+    }
+    if (!ownerResp.ok) {
       console.error("Resend error", emailResp.data);
       // still ack to avoid retries storm; you can check Vercel logs
       return res.status(200).send("ok");

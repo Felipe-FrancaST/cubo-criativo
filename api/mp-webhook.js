@@ -14,6 +14,7 @@
  */
 
 import { supabaseAdmin } from "./_supabase.js";
+import { renderOwnerOrderEmail, renderCustomerOrderEmail, buildAddressFromProfile } from "./_emailTemplates.js";
 
 function safeBody(req) {
   if (!req.body) return {};
@@ -149,43 +150,120 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, status: "approved", email: "skipped (missing resend env)" });
     }
 
-    let items = [];
-    try {
-      items = JSON.parse(payment?.metadata?.items_json || "[]") || [];
-    } catch {
-      items = [];
+    
+    // ===== Carrega dados do pedido (itens + perfil) para compor os emails
+    const sb = supabaseAdmin();
+
+    const { data: orderRow } = await sb
+      .from("orders")
+      .select("id, user_id, status, total, created_at, payment_provider, provider_payment_id, customer_email, customer_name, customer_phone")
+      .eq("id", orderId)
+      .maybeSingle();
+
+    const { data: itemsData } = await sb
+      .from("order_items")
+      .select("name, qty, unit_price, img, scale")
+      .eq("order_id", orderId);
+
+    const userId = orderRow?.user_id || payment?.metadata?.user_id || null;
+
+    const { data: profile } = userId
+      ? await sb
+          .from("profiles")
+          .select("full_name, phone, address_line1, address_line2, neighborhood, city, state, zip")
+          .eq("id", userId)
+          .maybeSingle()
+      : { data: null };
+
+    const siteUrl = String(process.env.SITE_URL || "").trim().replace(/\/$/, "");
+    const toAbsImg = (src) => {
+      const s = String(src || "").trim();
+      if (!s) return "";
+      if (s.startsWith("http://") || s.startsWith("https://")) return s;
+      if (!siteUrl) return s;
+      return s.startsWith("/") ? `${siteUrl}${s}` : `${siteUrl}/${s}`;
+    };
+
+    const items = (itemsData || []).map((it) => ({
+      name: it.name,
+      qty: Number(it.qty) || 1,
+      unit_price: Number(it.unit_price) || 0,
+      img: toAbsImg(it.img),
+      scale: it.scale || "",
+    }));
+
+    const payerEmail = orderRow?.customer_email || payment?.payer?.email || "";
+    const customerName =
+      orderRow?.customer_name ||
+      profile?.full_name ||
+      (payment?.payer?.first_name
+        ? `${payment.payer.first_name || ""} ${payment.payer.last_name || ""}`.trim()
+        : "");
+
+    const customerPhone = orderRow?.customer_phone || profile?.phone || payment?.payer?.phone?.number || "";
+
+    const address = buildAddressFromProfile(profile);
+
+    const total = Number(orderRow?.total ?? payment?.transaction_amount ?? 0) || 0;
+    const createdAt = orderRow?.created_at || new Date().toISOString();
+
+    // Forma de pagamento (Pix, cartão etc.)
+    const paymentMethod = (() => {
+      const pm = String(payment?.payment_method_id || payment?.payment_type_id || "mercado_pago").toLowerCase();
+      if (pm === "pix") return "Pix";
+      if (pm === "credit_card" || pm === "debit_card") return "Cartão";
+      return pm.replaceAll("_", " ").toUpperCase();
+    })();
+
+    const brandName = String(process.env.BRAND_NAME || "Cubo Criativo").trim();
+    const supportEmail = String(process.env.SUPPORT_EMAIL || "").trim();
+    const whatsapp = String(process.env.WHATSAPP || "").trim();
+
+    const ownerEmail = renderOwnerOrderEmail({
+      brandName,
+      orderId,
+      orderStatus: "paid",
+      createdAt,
+      paymentMethod,
+      total,
+      customer: {
+        name: customerName,
+        email: payerEmail,
+        phone: customerPhone,
+        address,
+      },
+      items,
+    });
+
+    const customerEmail = renderCustomerOrderEmail({
+      brandName,
+      orderId,
+      createdAt,
+      paymentMethod,
+      total,
+      customer: {
+        name: customerName,
+        email: payerEmail,
+        phone: customerPhone,
+        address,
+      },
+      items,
+      supportEmail,
+      whatsapp,
+    });
+
+    // 1) Email de controle (para você)
+    const ownerResp = await sendResendEmail({ apiKey, from, to, subject: ownerEmail.subject, html: ownerEmail.html });
+
+    if (!ownerResp.ok) {
+      // acknowledge webhook anyway
+      return res.status(200).json({ ok: true, email: "error_owner", details: ownerResp.data });
     }
 
-    const itemsHtml = items
-      .map((it) => {
-        const name = it?.name || it?.nome || "Item";
-        const qty = Number(it?.qty) || 1;
-        const price = Number(it?.price) || 0;
-        const total = (qty * price).toFixed(2);
-        return `<li>${qty}× ${name} — R$ ${total}</li>`;
-      })
-      .join("");
-
-    const payerEmail = payment?.payer?.email || "(sem email)";
-    const amount = (Number(payment?.transaction_amount) || 0).toFixed(2);
-
-    const subject = `Novo pedido Pix aprovado — R$ ${amount} — ${payerEmail}`;
-    const html = `
-      <h2>Novo pedido Pix aprovado ✅</h2>
-      <p><b>Payment ID:</b> ${payment.id}</p>
-      <p><b>Valor:</b> R$ ${amount}</p>
-      <p><b>Status:</b> ${payment.status}</p>
-      <p><b>Email do pagador:</b> ${payerEmail}</p>
-      <p><b>Pedido:</b> ${payment.external_reference || "-"}</p>
-      <h3>Itens</h3>
-      <ul>${itemsHtml || "<li>(sem itens)</li>"}</ul>
-    `;
-
-    const emailResp = await sendResendEmail({ apiKey, from, to, subject, html });
-
-    if (!emailResp.ok) {
-      // acknowledge webhook anyway
-      return res.status(200).json({ ok: true, email: "error", details: emailResp.data });
+    // 2) Email para o cliente (best-effort)
+    let customerResp = { ok: true };
+    if (payerEmail) {
+      customerResp = await sendResendEmail({ apiKey, from, to: payerEmail, subject: customerEmail.subject, html: customerEmail.html });
     }
 
     // Marca como enviado (best-effort)
@@ -203,7 +281,7 @@ export default async function handler(req, res) {
       }
     );
 
-    return res.status(200).json({ ok: true, email: "sent" });
+    return res.status(200).json({ ok: true, email: "sent", customer: customerResp.ok ? "sent" : "error" });
   } catch (err) {
     console.error("mp-webhook error:", err);
     // Sempre 200 pra não gerar retry infinito
