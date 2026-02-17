@@ -118,6 +118,8 @@ export default function App() {
   const [toastMsg, setToastMsg] = React.useState("Adicionado!");
   const bounceT = React.useRef(null);
   const toastT = React.useRef(null);
+  // evita toasts repetidos ao lidar com retorno do pagamento (URL params)
+  const paymentReturnRef = React.useRef({ key: "", notified: false });
 
   // ===== Pagamento (Mercado Pago Checkout Pro + Pix) =====
   const [paying, setPaying] = React.useState(false);
@@ -214,7 +216,15 @@ React.useEffect(() => {
     window.history.replaceState({}, "", next);
   };
 
-  const show = (msg, ms = 2400) => {
+  const key = `${payment || ""}|${provider || ""}|${orderId || ""}`;
+  if (paymentReturnRef.current.key !== key) {
+    paymentReturnRef.current.key = key;
+    paymentReturnRef.current.notified = false;
+  }
+
+  const showOnce = (msg, ms = 2400) => {
+    if (paymentReturnRef.current.notified) return;
+    paymentReturnRef.current.notified = true;
     setToastMsg(msg);
     setToastOpen(true);
     clearTimeout(toastT.current);
@@ -239,32 +249,48 @@ React.useEffect(() => {
   (async () => {
     try {
       if (payment === "cancel") {
-        show("Pagamento cancelado.");
+        showOnce("Pagamento cancelado.");
         cleanupUrl();
         return;
       }
 
       if (payment === "pending") {
-        show("Pagamento em processamento. Acompanhe em Meus pedidos.");
+        showOnce("Pagamento em processamento. Acompanhe em Meus pedidos.");
         cleanupUrl();
         return;
       }
 
       if (payment === "success") {
-        // Se veio do Mercado Pago e temos order_id, confirma pelo status no Supabase.
-        if (provider === "mercadopago" && orderId && user) {
+        // Checkout Pro pode redirecionar antes do webhook marcar como paid.
+        // Se temos order_id, confirmamos no Supabase e só então limpamos o carrinho.
+        if (provider === "mercadopago" && orderId) {
           const paid = await pollOrderPaid(orderId);
           if (paid) {
             setCart([]);
             setCartOpen(false);
-            show("✅ Pedido finalizado!");
-          } else {
-            show("Pagamento recebido, confirmando… Veja em Meus pedidos.");
+            showOnce("✅ Pedido finalizado!");
+            cleanupUrl();
+            return;
           }
-        } else {
-          // fallback (sem order_id): mostra feedback, mas não limpa carrinho automaticamente
-          show("Pagamento confirmado.");
+
+          // Se ainda não confirmou e o usuário não está pronto, mantemos a URL
+          // para tentar novamente quando o auth hidratar.
+          if (!user) {
+            showOnce("Confirmando pagamento… faça login para finalizar.");
+            setAuthOpen(true);
+            return;
+          }
+
+          // Usuário já logado, mas ainda não marcou como paid dentro do timeout.
+          showOnce("Pagamento recebido, confirmando… Veja em Meus pedidos.");
+          cleanupUrl();
+          return;
         }
+
+        // fallback (sem order_id): considera como sucesso e limpa o carrinho
+        setCart([]);
+        setCartOpen(false);
+        showOnce("✅ Pagamento confirmado!");
         cleanupUrl();
       }
     } catch {

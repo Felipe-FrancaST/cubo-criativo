@@ -31,7 +31,8 @@ export default function CartDrawer({
   authToken,
   userEmail,
   onRequireLogin,
-  onOpenOrders
+  onOpenOrders,
+  onPaymentConfirmed
 }) {
   // Pix state
   const [pix, setPix] = React.useState(null);
@@ -40,6 +41,7 @@ export default function CartDrawer({
   const [pixStatus, setPixStatus] = React.useState("pending");
   const [checkingPix, setCheckingPix] = React.useState(false);
   const payHandled = React.useRef(false);
+  const [pixLoginMsg, setPixLoginMsg] = React.useState("");
 
   React.useEffect(() => {
     if (!open) return;
@@ -56,6 +58,7 @@ export default function CartDrawer({
       setPixOpen(false);
       setPix(null);
       setPixLoading(false);
+      setPixLoginMsg("");
       payHandled.current = false;
     }
   }, [open]);
@@ -86,7 +89,9 @@ export default function CartDrawer({
 
       if (!authToken) {
         onRequireLogin?.();
-        alert("Faça login para gerar o Pix.");
+        setPixLoginMsg("Faça login para gerar o Pix.");
+        window.clearTimeout(handlePix._t);
+        handlePix._t = window.setTimeout(() => setPixLoginMsg(""), 2800);
         return;
       }
 
@@ -130,7 +135,8 @@ export default function CartDrawer({
 
       setPix(data);
       payHandled.current = false;
-      setPixStatus(data?.status ? (data.status === 'approved' ? 'paid' : 'pending') : 'pending');      setPixOpen(true);
+      setPixStatus(data?.status ? (data.status === "approved" ? "paid" : "pending") : "pending");
+      setPixOpen(true);
     } catch (e) {
       alert("Não foi possível gerar o Pix: " + (e?.message || String(e)));
     } finally {
@@ -251,6 +257,12 @@ export default function CartDrawer({
           >
             {paying ? "Abrindo pagamento…" : "Pagar com cartão"}
           </button>
+
+          {pixLoginMsg && (
+            <div className="rounded-full bg-emerald-500 text-black font-semibold px-4 py-2 shadow-lg ring-4 ring-emerald-400/30 text-center text-sm">
+              {pixLoginMsg}
+            </div>
+          )}
 
           <button
             onClick={handlePix}
