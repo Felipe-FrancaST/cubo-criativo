@@ -15,7 +15,6 @@
 
 import { supabaseAdmin } from "./_supabase.js";
 import { renderOwnerOrderEmail, renderCustomerOrderEmail, buildAddressFromProfile } from "./_emailTemplates.js";
-import { getProductInfo } from "./_catalog.js";
 
 function safeBody(req) {
   if (!req.body) return {};
@@ -187,7 +186,7 @@ export default async function handler(req, res) {
     // Seu schema atual (print) usa: product_id, qty, unit_price_cents
     const { data: itemsData } = await sb
       .from("order_items")
-      .select("product_id, qty, unit_price_cents")
+      .select("product_id, qty, unit_price_cents, product_name, product_image_url, scale")
       .eq("order_id", orderId);
 
     const userId = orderRow?.user_id || payment?.metadata?.user_id || null;
@@ -227,15 +226,33 @@ export default async function handler(req, res) {
       return toAbsImg(s);
     };
 
-    let items = (itemsData || []).map((it) => {
+    // Enriquecimento dos itens: pega nome/imagem do snapshot (order_items) e, se faltar, consulta tabela "products"
+    const rawItems = Array.isArray(itemsData) ? itemsData : [];
+    const productIds = Array.from(new Set(rawItems.map((it) => String(it.product_id || "").trim()).filter(Boolean)));
+
+    let prodMap = new Map();
+    if (productIds.length) {
+      try {
+        const { data: prodRows } = await sb.from("products").select("id, name, image_url").in("id", productIds);
+        for (const p of Array.isArray(prodRows) ? prodRows : []) {
+          if (p?.id) prodMap.set(String(p.id), p);
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    let items = rawItems.map((it) => {
       const pid = String(it.product_id || "").trim();
-      const p = getProductInfo(pid);
+      const p = pid ? prodMap.get(pid) : null;
+      const name = String(it.product_name || "").trim() || (p?.name ? String(p.name) : "") || (pid ? `Produto (${pid})` : "Produto");
+      const imgSrc = String(it.product_image_url || "").trim() || (p?.image_url ? String(p.image_url) : "");
       return {
-        name: p?.name || (pid ? `Produto (${pid})` : "Produto"),
+        name,
         qty: Number(it.qty) || 1,
         unit_price: Number(it.unit_price_cents ?? 0) / 100,
-        img: normalizeImg(p?.img || ""),
-        scale: "",
+        img: normalizeImg(imgSrc),
+        scale: String(it.scale || "").trim(),
       };
     });
 
@@ -381,7 +398,23 @@ export default async function handler(req, res) {
       customerResp = await sendResendEmail({ apiKey, from, to: payerEmail, subject: customerEmail.subject, html: customerEmail.html });
     }
 
-    // Marca como enviado (best-effort)
+    
+    // Salva no Supabase o resultado do envio (para você conseguir debugar no Table Editor)
+    try {
+      const nowIso = new Date().toISOString();
+      const update = { owner_email_sent_at: nowIso };
+      if (isValidEmail(payerEmail) && customerResp) {
+        if (customerResp.ok) update.customer_email_sent_at = nowIso;
+        else update.customer_email_error = JSON.stringify(customerResp.data || customerResp) || "error";
+      } else {
+        update.customer_email_error = "missing_or_invalid_customer_email";
+      }
+      await sb.from("orders").update(update).eq("id", orderId);
+    } catch (e) {
+      // ignore
+    }
+
+// Marca como enviado (best-effort)
     await mpFetch(
       token,
       `https://api.mercadopago.com/v1/payments/${encodeURIComponent(paymentId)}`,

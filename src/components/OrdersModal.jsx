@@ -2,20 +2,14 @@ import React from "react";
 import Modal from "./Modal.jsx";
 import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../auth/AuthProvider.jsx";
-import { produtos } from "../data/produtos.js";
 
 const fmtBRL = (n) =>
   typeof n === "number" && isFinite(n)
     ? n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
     : "—";
 
-const findProduct = (productId) => {
-  const pid = String(productId || "").trim();
-  if (!pid) return null;
-  return produtos.find((p) => String(p.id) === pid) || null;
-};
 
-export default function OrdersModal({ open, onClose }) {
+export default function OrdersModal({ open, onClose, products = [], productsLoading = false }) {
   const { user } = useAuth();
   const [orders, setOrders] = React.useState([]);
   const [loading, setLoading] = React.useState(false);
@@ -70,11 +64,11 @@ export default function OrdersModal({ open, onClose }) {
 
     // 2) Carrega itens em batch
     const ids = list.map((o) => o.id);
-    // Observação: seu schema atual (print) tem: product_id, qty, unit_price_cents.
-    // Então carregamos esses campos e enriquecemos com nome/imagem do catálogo local.
+    // Observação: para exibir nome/imagem, usamos snapshot (product_name/product_image_url) quando existir.
+    // Se faltar (pedidos antigos), buscamos no catálogo carregado do Supabase (products).
     const { data: itemsData, error: itemsErr } = await supabase
       .from("order_items")
-      .select("order_id, product_id, qty, unit_price_cents")
+      .select("order_id, product_id, qty, unit_price_cents, product_name, product_image_url, scale")
       .in("order_id", ids);
 
     if (itemsErr) {
@@ -85,7 +79,7 @@ export default function OrdersModal({ open, onClose }) {
 
     const byOrder = new Map();
     const byProductId = new Map();
-    for (const p of Array.isArray(produtos) ? produtos : []) {
+    for (const p of Array.isArray(products) ? products : []) {
       if (p?.id) byProductId.set(String(p.id), p);
     }
 
@@ -99,10 +93,10 @@ export default function OrdersModal({ open, onClose }) {
         qty: Number(it.qty) || 1,
         // unit_price_cents -> unit_price (BRL)
         unit_price: Number(it.unit_price_cents ?? 0) / 100,
-        // fallback pro catálogo local
-        name: p?.nome || "Produto",
-        img: p?.img || "",
-        scale: "", // seu schema atual não tem escala; deixamos vazio
+        // prefere snapshot do pedido; se faltar, usa catálogo
+        name: String(it.product_name || "").trim() || p?.nome || (pid ? `Produto (${pid})` : "Produto"),
+        img: String(it.product_image_url || "").trim() || p?.img || "",
+        scale: String(it.scale || "").trim()
       };
 
       if (!byOrder.has(k)) byOrder.set(k, []);

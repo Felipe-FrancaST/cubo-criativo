@@ -174,10 +174,11 @@ export default async function handler(req, res) {
       return s.startsWith("/") ? s : `/${s}`;
     };
 
-    // OBS: seu Supabase atual tem um schema antigo em order_items:
-    // (order_id uuid, product_id text, qty int4, unit_price_cents int4, id uuid...)
-    // Então salvamos os itens usando essas colunas (sem depender de name/img no banco).
-    const orderItems = items
+    // Salva itens do pedido no Supabase
+    // Preferimos "order_items" com snapshot (nome/imagem/escala) para garantir
+    // que a aba Pedidos e os emails sempre tenham o que mostrar, mesmo se o produto mudar depois.
+
+    const normalizedItems = items
       .map((it) => {
         const qty = toInt(pick(it?.qty, it?.quantity, it?.quantidade, it?.qtd), 1) || 1;
         const unit = toMoney(
@@ -185,20 +186,69 @@ export default async function handler(req, res) {
           0
         );
         const productId = String(pick(it?.id, it?.product_id, it?.sku, it?.productId) || "").trim();
+        const name = String(pick(it?.name, it?.nome, it?.title) || "").trim();
+        const scale = String(pick(it?.scale, it?.escala, it?.variant, it?.variantLabel) || "").trim();
+        const img = normalizeImg(pick(it?.img, it?.image, it?.imagem, it?.thumbnail, it?.thumb) || "");
         return {
-          order_id: orderId,
           product_id: productId || null,
           qty,
           unit_price_cents: Math.round((Number(unit) || 0) * 100),
+          product_name: name || null,
+          product_image_url: img || null,
+          scale: scale || null,
         };
       })
       .filter((it) => (Number(it.qty) || 0) > 0);
 
+    // Enriquecimento pelo catálogo no banco (products)
+    const idsToFetch = Array.from(new Set(normalizedItems.map((it) => it.product_id).filter(Boolean)));
+    let productsById = new Map();
+    if (idsToFetch.length) {
+      try {
+        const { data: prodRows } = await sb
+          .from("products")
+          .select("id, name, image_url")
+          .in("id", idsToFetch);
+
+        for (const p of Array.isArray(prodRows) ? prodRows : []) {
+          if (p?.id) productsById.set(String(p.id), p);
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    const orderItems = normalizedItems.map((it) => {
+      const p = it.product_id ? productsById.get(String(it.product_id)) : null;
+      return {
+        order_id: orderId,
+        product_id: it.product_id,
+        qty: it.qty,
+        unit_price_cents: it.unit_price_cents,
+        // snapshots
+        product_name: it.product_name || (p?.name ? String(p.name) : null),
+        product_image_url: it.product_image_url || (p?.image_url ? normalizeImg(p.image_url) : null),
+        scale: it.scale,
+      };
+    });
+
     if (orderItems.length) {
-      // 1) tenta inserir sem id (se o banco tiver default para uuid)
+      // Tentativa 1: inserção completa (com snapshots)
       let { error: itemsErr } = await sb.from("order_items").insert(orderItems);
 
-      // 2) se o banco exigir id uuid sem default, tenta novamente com id gerado
+      // Se o schema ainda não tem as colunas snapshot, tenta de novo só com o básico
+      if (itemsErr && /column .* does not exist/i.test(String(itemsErr.message || ""))) {
+        const basic = orderItems.map(({ order_id, product_id, qty, unit_price_cents }) => ({
+          order_id,
+          product_id,
+          qty,
+          unit_price_cents,
+        }));
+        const retryBasic = await sb.from("order_items").insert(basic);
+        itemsErr = retryBasic.error;
+      }
+
+      // Se o banco exigir id uuid sem default, tenta novamente com id gerado
       if (itemsErr && /null value in column\s+"id"/i.test(String(itemsErr.message || ""))) {
         const withId = orderItems.map((it) => ({ id: crypto.randomUUID(), ...it }));
         const retry = await sb.from("order_items").insert(withId);

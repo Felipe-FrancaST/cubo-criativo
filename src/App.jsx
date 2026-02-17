@@ -1,7 +1,7 @@
 // src/App.jsx
 import React from "react";
 import brand from "./data/config";
-import { produtos } from "./data/produtos";
+import { produtos as produtosLocal } from "./data/produtos";
 
 // Componentes
 import Modal from "./components/Modal.jsx";
@@ -61,6 +61,74 @@ function getRouteFromHash() {
 export default function App() {
   const { user, session, signOut } = useAuth();
   const accessToken = session?.access_token || "";
+
+
+  // ===== Produtos (agora vêm do Supabase) =====
+  const [products, setProducts] = React.useState([]);
+  const [productsLoading, setProductsLoading] = React.useState(true);
+  const [productsError, setProductsError] = React.useState("");
+
+  const mapDbProductToUi = React.useCallback((p) => {
+    const tags = Array.isArray(p?.tags) ? p.tags : [];
+    const images = Array.isArray(p?.images)
+      ? p.images
+      : Array.isArray(p?.imgs)
+      ? p.imgs
+      : p?.images
+      ? [p.images]
+      : [];
+    const variants = Array.isArray(p?.variants) ? p.variants : [];
+    return {
+      id: String(p?.id ?? "").trim(),
+      nome: String(p?.name ?? p?.nome ?? "").trim(),
+      img: String(p?.image_url ?? p?.img ?? "").trim(),
+      imgs: images.filter(Boolean),
+      model: String(p?.model_url ?? p?.model ?? "").trim(),
+      status: String(p?.status ?? "catalogo").trim(),
+      featured: !!p?.featured,
+      tags,
+      defaultVariant: String(p?.default_variant ?? p?.defaultVariant ?? "").trim(),
+      variants: variants
+        .map((v) => ({
+          label: String(v?.label ?? v?.name ?? "").trim(),
+          price: Number(v?.price ?? v?.valor ?? 0) || 0,
+        }))
+        .filter((v) => v.label),
+    };
+  }, []);
+
+  const loadProducts = React.useCallback(async () => {
+    setProductsLoading(true);
+    setProductsError("");
+    try {
+      const { data, error } = await supabase
+        .from("products")
+        .select("id, name, image_url, images, model_url, status, featured, tags, default_variant, variants")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      const list = Array.isArray(data) ? data.map(mapDbProductToUi).filter((p) => p.id) : [];
+      if (list.length) {
+        setProducts(list);
+      } else {
+        // fallback: mantém site funcionando, mas o ideal é popular a tabela "products"
+        setProducts(produtosLocal);
+      }
+    } catch (e) {
+      console.error("loadProducts error", e);
+      setProducts(produtosLocal);
+      setProductsError("Não foi possível carregar produtos do banco. Usando catálogo local.");
+    } finally {
+      setProductsLoading(false);
+    }
+  }, [mapDbProductToUi]);
+
+  React.useEffect(() => {
+    loadProducts();
+  }, [loadProducts]);
+
+
 
   // ===== Rotas (Hash router sem dependências) =====
   const [route, setRoute] = React.useState(() => (typeof window === "undefined" ? "/" : getRouteFromHash()));
@@ -386,11 +454,11 @@ React.useEffect(() => {
   }, [route]);
 
   // ===== Produtos =====
-  const emEstoque = React.useMemo(() => produtos.filter((p) => p.status === "estoque"), []);
-  const catalogo = React.useMemo(() => produtos.filter((p) => p.status !== "estoque"), []);
+  const emEstoque = React.useMemo(() => products.filter((p) => p.status === "estoque"), [products]);
+  const catalogo = React.useMemo(() => products.filter((p) => p.status !== "estoque"), [products]);
 
   const featured = React.useMemo(() => {
-    const explicit = produtos.filter((p) => p.featured === true);
+        const explicit = products.filter((p) => p.featured === true);
     if (explicit.length) return explicit.slice(0, 8);
 
     // fallback: mistura estoque + catálogo
@@ -571,7 +639,7 @@ React.useEffect(() => {
 
       <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
 
-      <OrdersModal open={ordersOpen} onClose={() => setOrdersOpen(false)} />
+      <OrdersModal open={ordersOpen} onClose={() => setOrdersOpen(false)} products={products} productsLoading={productsLoading} />
 
       <ProfileSettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
 
