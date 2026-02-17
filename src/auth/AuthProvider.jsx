@@ -30,58 +30,62 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
-  
-async function saveProfile(userId, profile, jwt) {
-  if (!userId || !profile) return { error: null };
+  async function saveProfile(userId, profile, jwt) {
+    if (!userId || !profile) return { error: null };
 
-  const payload = {
-    full_name: profile.full_name,
-    phone: profile.phone,
-    address_line1: profile.address_line1,
-    address_line2: profile.address_line2,
-    neighborhood: profile.neighborhood,
-    city: profile.city,
-    state: profile.state,
-    zip: profile.zip,
-  };
+    const payload = {
+      full_name: profile.full_name,
+      phone: profile.phone,
+      address_line1: profile.address_line1,
+      address_line2: profile.address_line2,
+      neighborhood: profile.neighborhood,
+      city: profile.city,
+      state: profile.state,
+      zip: profile.zip,
+    };
 
-  // remove campos vazios
-  Object.keys(payload).forEach((k) => {
-    if (payload[k] === undefined || payload[k] === null || payload[k] === "") delete payload[k];
-  });
-
-  // Preferência: salvar via API (Service Role), para não depender de RLS no client.
-  try {
-    if (jwt) {
-      const resp = await fetch("/api/profile", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${jwt}`,
-        },
-        body: JSON.stringify({ profile: payload }),
-      });
-
-      const data = await resp.json().catch(() => ({}));
-      if (!resp.ok) {
-        return { error: new Error(data?.error || "Não foi possível salvar seus dados.") };
+    // remove campos vazios
+    Object.keys(payload).forEach((k) => {
+      if (payload[k] === undefined || payload[k] === null || payload[k] === "") {
+        delete payload[k];
       }
-      return { error: null };
-    }
-  } catch (e) {
-    // fallback abaixo
-    console.warn("profile api failed", e);
-  }
+    });
 
-  // Fallback: tentar salvar direto pelo client (caso RLS esteja ok)
-  try {
-    const { error } = await supabase.from("profiles").upsert({ id: userId, ...payload }, { onConflict: "id" });
-    if (error) return { error };
-    return { error: null };
-  } catch (e) {
-    return { error: e };
-  }
-}
+    // Preferência: salvar via API (Service Role), para não depender de RLS no client.
+    try {
+      if (jwt) {
+        const resp = await fetch("/api/profile", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${jwt}`,
+          },
+          body: JSON.stringify({ profile: payload }),
+        });
+
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) {
+          return {
+            error: new Error(data?.error || "Não foi possível salvar seus dados."),
+          };
+        }
+        return { error: null };
+      }
+    } catch (e) {
+      // fallback abaixo
+      console.warn("profile api failed", e);
+    }
+
+    // Fallback: tentar salvar direto pelo client (caso RLS esteja ok)
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .upsert({ id: userId, ...payload }, { onConflict: "id" });
+      if (error) return { error };
+      return { error: null };
+    } catch (e) {
+      return { error: e };
+    }
   }
 
   async function signUp({ email, password, profile }) {
