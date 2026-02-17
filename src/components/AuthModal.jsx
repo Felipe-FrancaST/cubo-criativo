@@ -134,7 +134,7 @@ export default function AuthModal({ open, onClose, onSuccess }) {
           </button>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-2">
+        <div className="mt-4 grid grid-cols-2 sm:grid-cols-2 gap-2">
           <button
             type="button"
             onClick={() => setMode("login")}
@@ -215,7 +215,7 @@ export default function AuthModal({ open, onClose, onSuccess }) {
             />
           </Field>
 
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-2 gap-2">
             <Field label="Bairro">
               <input
                 value={neighborhood}
@@ -238,7 +238,7 @@ export default function AuthModal({ open, onClose, onSuccess }) {
             </Field>
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-2 gap-2">
             <Field label="Cidade">
               <input
                 value={city}

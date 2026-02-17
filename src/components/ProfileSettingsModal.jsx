@@ -1,6 +1,5 @@
 import React from "react";
 import Modal from "./Modal.jsx";
-import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../auth/AuthProvider.jsx";
 
 function Field({ label, children }) {
@@ -13,7 +12,8 @@ function Field({ label, children }) {
 }
 
 export default function ProfileSettingsModal({ open, onClose }) {
-  const { user } = useAuth();
+  const { user, session } = useAuth();
+  const jwt = session?.access_token || "";
 
   const [loading, setLoading] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
@@ -34,27 +34,27 @@ export default function ProfileSettingsModal({ open, onClose }) {
     setLoading(true);
     setError("");
     setOk("");
-    const { data, error: err } = await supabase
-      .from("profiles")
-      .select("full_name, phone, address_line1, address_line2, neighborhood, city, state, zip")
-      .eq("id", user.id)
-      .maybeSingle();
+    const resp = await fetch("/api/profile", {
+  method: "GET",
+  headers: { ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}) },
+});
+const json = await resp.json().catch(() => ({}));
+if (!resp.ok) {
+  setError(json?.error || "Não foi possível carregar seus dados.");
+  setLoading(false);
+  return;
+}
 
-    if (err) {
-      setError(err.message || "Não foi possível carregar seus dados.");
-      setLoading(false);
-      return;
-    }
-
-    setFullName(data?.full_name || "");
-    setPhone(data?.phone || "");
-    setAddr1(data?.address_line1 || "");
-    setAddr2(data?.address_line2 || "");
-    setNeighborhood(data?.neighborhood || "");
-    setCity(data?.city || "");
-    setStateUF(data?.state || "");
-    setZip(data?.zip || "");
-    setLoading(false);
+const data = json?.profile || {};
+setFullName(data?.full_name || "");
+setPhone(data?.phone || "");
+setAddr1(data?.address_line1 || "");
+setAddr2(data?.address_line2 || "");
+setNeighborhood(data?.neighborhood || "");
+setCity(data?.city || "");
+setStateUF(data?.state || "");
+setZip(data?.zip || "");
+setLoading(false);
   }, [user]);
 
   React.useEffect(() => {
@@ -85,12 +85,20 @@ export default function ProfileSettingsModal({ open, onClose }) {
     });
     payload.id = user.id;
 
-    const { error: err } = await supabase.from("profiles").upsert(payload, { onConflict: "id" });
-    if (err) {
-      setError(err.message || "Não foi possível salvar.");
-      setSaving(false);
-      return;
-    }
+    const resp = await fetch("/api/profile", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}),
+  },
+  body: JSON.stringify({ profile: payload }),
+});
+const json = await resp.json().catch(() => ({}));
+if (!resp.ok) {
+  setError(json?.error || "Não foi possível salvar.");
+  setSaving(false);
+  return;
+}
     setOk("Dados salvos com sucesso ✅");
     setSaving(false);
   }

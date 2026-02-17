@@ -38,8 +38,8 @@ export default function CartDrawer({
   const [pixOpen, setPixOpen] = React.useState(false);
   const [pixLoading, setPixLoading] = React.useState(false);
   const [pixStatus, setPixStatus] = React.useState("pending");
-  const [pixMessage, setPixMessage] = React.useState("");
   const [checkingPix, setCheckingPix] = React.useState(false);
+  const payHandled = React.useRef(false);
 
   React.useEffect(() => {
     if (!open) return;
@@ -56,6 +56,7 @@ export default function CartDrawer({
       setPixOpen(false);
       setPix(null);
       setPixLoading(false);
+      payHandled.current = false;
     }
   }, [open]);
 
@@ -128,13 +129,13 @@ export default function CartDrawer({
       }
 
       setPix(data);
-      setPixStatus(data?.status ? (data.status === 'approved' ? 'paid' : 'pending') : 'pending');
-      setPixMessage('');
-      setPixOpen(true);
+      payHandled.current = false;
+      setPixStatus(data?.status ? (data.status === 'approved' ? 'paid' : 'pending') : 'pending');      setPixOpen(true);
     } catch (e) {
       alert("Não foi possível gerar o Pix: " + (e?.message || String(e)));
     } finally {
       setPixLoading(false);
+      payHandled.current = false;
     }
   }
 
@@ -142,10 +143,7 @@ export default function CartDrawer({
   async function checkPixStatus({ forceVerify = false } = {}) {
     try {
       if (!pix?.order_id) return;
-      setCheckingPix(true);
-      setPixMessage("");
-
-      // 1) Checa no Supabase (rápido)
+      setCheckingPix(true);      // 1) Checa no Supabase (rápido)
       const { data: orderRow, error: orderErr } = await supabase
         .from("orders")
         .select("status")
@@ -155,7 +153,10 @@ export default function CartDrawer({
       if (!orderErr && orderRow?.status) {
         setPixStatus(orderRow.status);
         if (orderRow.status === "paid") {
-          setPixMessage("Pagamento confirmado! Pedido finalizado ✅");
+          if (!payHandled.current) {
+            payHandled.current = true;
+            onPaymentConfirmed?.();
+          }
           return;
         }
       }
@@ -179,11 +180,13 @@ export default function CartDrawer({
       }
 
       if (payload?.status) setPixStatus(payload.status);
-      if (payload?.paid) setPixMessage("Pagamento confirmado! Pedido finalizado ✅");
-      else setPixMessage("Ainda não consta como pago. Se você acabou de pagar, aguarde alguns instantes e tente novamente.");
-    } catch (e) {
-      setPixMessage(e?.message || "Não foi possível verificar o Pix.");
-    } finally {
+      if (payload?.paid) {
+        if (!payHandled.current) {
+          payHandled.current = true;
+          onPaymentConfirmed?.();
+        }
+      }
+      else    } catch (e) {    } finally {
       setCheckingPix(false);
     }
   }
@@ -277,7 +280,7 @@ export default function CartDrawer({
               <div className="flex items-center justify-between">
                 <h4 className="font-bold">Pague com Pix</h4>
                 <button
-                  onClick={() => { setPixOpen(false); setPixMessage(''); }}
+                  onClick={() => { setPixOpen(false); payHandled.current = false; }}
                   className="rounded-lg p-2 ring-1 ring-white/15"
                   title="Fechar"
                 >
@@ -345,9 +348,8 @@ export default function CartDrawer({
                   }`}
                   onClick={() => {
                     if (pixStatus === "paid") {
-                      setPixOpen(false);
-                      setPixMessage("");
-                      onClose?.();
+                      onPaymentConfirmed?.();
+                      setPixOpen(false);                      onClose?.();
                       onOpenOrders?.();
                       return;
                     }

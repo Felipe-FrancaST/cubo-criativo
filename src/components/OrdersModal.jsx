@@ -104,15 +104,6 @@ export default function OrdersModal({ open, onClose }) {
       cancel = true;
     };
   }, [open, user, fetchOrders]);
-
-  const copyId = async (id) => {
-    try {
-      await navigator.clipboard.writeText(String(id));
-    } catch {
-      // ignore
-    }
-  };
-
   return (
     <Modal open={open} onClose={onClose}>
       <div className="w-full max-w-2xl">
@@ -157,77 +148,47 @@ export default function OrdersModal({ open, onClose }) {
             )}
 
             <div className="space-y-3">
-              {orders.map((o) => (
-                <div key={o.id} className="rounded-2xl bg-slate-900 ring-1 ring-white/10 p-4 sm:p-5">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-xs text-slate-400">{new Date(o.created_at).toLocaleString("pt-BR")}</p>
-                      <div className="mt-1 flex items-center gap-2">
-                        <span
-                          className={`text-xs rounded-full px-2 py-1 ring-1 ${statusUI(o.status).cls}`}
-                        >
-                          {statusUI(o.status).label}
-                        </span>
-                        <span className="text-xs rounded-full px-2 py-1 ring-1 ring-white/10 bg-white/5">
-                          {o.payment_provider || "—"}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs text-slate-400">Total</p>
-                      <p className="text-lg font-semibold">{fmtBRL(Number(o.total))}</p>
-                    </div>
-                  </div>
+              
+{orders.map((o) => (
+  <div key={o.id} className="rounded-2xl bg-slate-900 ring-1 ring-white/10 p-4 sm:p-5">
+    <div className="flex items-start justify-between gap-3">
+      <div className="min-w-0">
+        <p className="text-xs text-slate-400">
+          {new Date(o.created_at).toLocaleString("pt-BR")}
+        </p>
+        <div className="mt-1">
+          <span className={`inline-flex items-center gap-1 text-xs rounded-full px-2 py-1 ring-1 ${statusUI(o.status).cls}`}>
+            {statusUI(o.status).label}
+          </span>
+        </div>
+      </div>
 
-                  <div className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-white/5 ring-1 ring-white/10 px-3 py-2">
-                    <p className="text-[11px] text-slate-400 truncate">
-                      <span className="font-mono text-slate-200">{o.id}</span>
-                    </p>
-                    <button
-                      onClick={() => copyId(o.id)}
-                      className="shrink-0 rounded-lg px-2 py-1 text-xs ring-1 ring-white/10 hover:bg-white/5"
-                      title="Copiar ID"
-                    >
-                      <span className="material-icons" style={{ fontSize: 16 }}>content_copy</span>
-                    </button>
-                  </div>
+      <div className="text-right shrink-0">
+        <p className="text-xs text-slate-400">Valor</p>
+        <p className="text-lg font-semibold">{fmtBRL(Number(o.total))}</p>
+      </div>
+    </div>
 
-                  {Array.isArray(o.order_items) && o.order_items.length > 0 && (
-                    <div className="mt-4">
-                      <p className="text-xs text-slate-400 mb-2">Itens</p>
-                      <ul className="space-y-2">
-                        {o.order_items.map((it, idx) => {
-                          const lineTotal = Number(it.unit_price) * Number(it.qty);
-                          return (
-                            <li key={idx} className="flex items-center justify-between gap-3">
-                              <div className="flex items-center gap-3 min-w-0">
-                                {it.img ? (
-                                  <img
-                                    src={it.img}
-                                    alt={it.name || "Item"}
-                                    className="h-10 w-10 rounded-lg object-cover ring-1 ring-white/10"
-                                  />
-                                ) : (
-                                  <div className="h-10 w-10 rounded-lg bg-white/5 ring-1 ring-white/10" />
-                                )}
-                                <div className="min-w-0">
-                                  <p className="text-sm text-slate-200 truncate">
-                                    <span className="font-semibold">{it.qty}×</span> {it.name || "Produto"}
-                                  </p>
-                                  {it.scale ? (
-                                    <p className="text-xs text-slate-400 truncate">Escala: {it.scale}</p>
-                                  ) : null}
-                                </div>
-                              </div>
-                              <p className="text-sm text-slate-300 shrink-0">{fmtBRL(lineTotal)}</p>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              ))}
+    {Array.isArray(o.order_items) && o.order_items.length > 0 ? (
+      <div className="mt-4 rounded-xl bg-white/5 ring-1 ring-white/10">
+        <ul className="divide-y divide-white/10">
+          {o.order_items.map((it, idx) => (
+            <li key={idx} className="flex items-center justify-between gap-3 px-3 py-2">
+              <p className="text-sm text-slate-200 min-w-0 truncate">
+                {it.name || "Produto"}
+              </p>
+              <p className="text-sm text-slate-300 shrink-0">
+                {Number(it.qty) || 1}x
+              </p>
+            </li>
+          ))}
+        </ul>
+      </div>
+    ) : (
+      <p className="mt-4 text-sm text-slate-400">Itens não disponíveis.</p>
+    )}
+  </div>
+))}
             </div>
           </div>
         )}

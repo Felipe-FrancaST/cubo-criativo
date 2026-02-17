@@ -74,7 +74,7 @@ export default function SiteHeader({
             )}
 
             {/* Logo */}
-            <button onClick={handleLogoClick} className="flex items-center gap-3 group">
+            <button onClick={handleLogoClick} className="flex items-center gap-3 group shrink-0">
               <span
                 className={`bg-white rounded-2xl p-3 shadow-sm transition-transform duration-300 ${
                   logoAnimate ? "scale-110 rotate-3" : "scale-100"
@@ -137,23 +137,12 @@ export default function SiteHeader({
               </IconButton>
 
               {/* Conta */}
-              {!user ? (
-                <IconButton title="Entrar" onClick={onOpenAuth}>
-                  <span className="material-icons text-[20px]">person</span>
-                </IconButton>
-              ) : (
-                <>
-                  <IconButton title="Meus pedidos" onClick={onOpenOrders}>
-                    <span className="material-icons text-[20px]">receipt_long</span>
-                  </IconButton>
-                  <IconButton title="Configurações" onClick={onOpenSettings}>
-                    <span className="material-icons text-[20px]">settings</span>
-                  </IconButton>
-                  <IconButton title={user.email || "Sair"} onClick={onSignOut}>
-                    <span className="material-icons text-[20px]">logout</span>
-                  </IconButton>
-                </>
-              )}
+              {/* Conta */}
+{!user ? (
+  <IconButton title="Entrar / Criar conta" onClick={onOpenAuth}>
+    <span className="material-icons text-[20px]">person</span>
+  </IconButton>
+) : null}
 {/* Carrinho */}
               <IconButton title={cartOpen ? "Fechar carrinho" : "Carrinho"} onClick={onToggleCart} className="relative">
                 <span className="material-icons text-[20px]">{cartOpen ? "close" : "shopping_cart"}</span>

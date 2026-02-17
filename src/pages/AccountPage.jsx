@@ -39,7 +39,8 @@ export default function AccountPage({ onClose, onGoHome }) {
     if (mode === "signup") {
       if (!fullName.trim()) return setError("Informe seu nome.");
       if (!phone.trim()) return setError("Informe seu telefone.");
-      if (!addr1.trim()) return setError("Informe seu endereço.");    }
+      if (!addr1.trim()) return setError("Informe seu endereço.");
+    }
 
     try {
       setBusy(true);
@@ -239,7 +240,7 @@ export default function AccountPage({ onClose, onGoHome }) {
             />
           </Field>
 
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <Field label="Bairro">
               <input
                 value={neighborhood}
@@ -262,7 +263,7 @@ export default function AccountPage({ onClose, onGoHome }) {
             </Field>
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <Field label="Cidade">
               <input
                 value={city}

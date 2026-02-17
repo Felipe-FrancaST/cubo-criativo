@@ -12,6 +12,7 @@ import MenuDrawer from "./components/MenuDrawer.jsx";
 import ProfileSettingsModal from "./components/ProfileSettingsModal.jsx";
 import SiteHeader from "./components/SiteHeader.jsx";
 import { useAuth } from "./auth/AuthProvider.jsx";
+import { supabase } from "./lib/supabaseClient";
 
 // Páginas
 import HomePage from "./pages/HomePage.jsx";
@@ -118,7 +119,7 @@ export default function App() {
   const bounceT = React.useRef(null);
   const toastT = React.useRef(null);
 
-  // ===== Pagamento (Stripe Checkout) =====
+  // ===== Pagamento (Mercado Pago Checkout Pro + Pix) =====
   const [paying, setPaying] = React.useState(false);
 
   // ===== Visualizador 3D =====
@@ -194,31 +195,83 @@ export default function App() {
     return encodeURIComponent(`Olá! Quero finalizar meu pedido:\n${linhas.join("\n")}${totalTxt}\n\nPagamento: combinar via WhatsApp.`);
   }, [cart, subtotal]);
 
-  // Detecta retorno do Stripe (success/cancel) e mostra feedback
-  React.useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const payment = params.get("payment");
-    if (!payment) return;
+// Detecta retorno do Mercado Pago (Checkout Pro) e mostra feedback.
+// IMPORTANTE: "success" pode ocorrer antes do webhook marcar como paid,
+// então aqui fazemos uma checagem rápida pelo order_id (quando disponível).
+React.useEffect(() => {
+  const params = new URLSearchParams(window.location.search);
+  const payment = params.get("payment");
+  const provider = params.get("provider");
+  const orderId = params.get("order_id");
 
-    if (payment === "success") {
-      setToastMsg("✅ Pagamento confirmado!");
-      setToastOpen(true);
-      setCart([]);
-      setCartOpen(false);
-    }
-    if (payment === "cancel") {
-      setToastMsg("Pagamento cancelado.");
-      setToastOpen(true);
-    }
+  if (!payment) return;
 
+  const cleanupUrl = () => {
     params.delete("payment");
-    params.delete("session_id");
+    params.delete("provider");
+    params.delete("order_id");
     const next = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ""}${window.location.hash || ""}`;
     window.history.replaceState({}, "", next);
+  };
 
+  const show = (msg, ms = 2400) => {
+    setToastMsg(msg);
+    setToastOpen(true);
     clearTimeout(toastT.current);
-    toastT.current = setTimeout(() => setToastOpen(false), 2200);
-  }, []);
+    toastT.current = setTimeout(() => setToastOpen(false), ms);
+  };
+
+  const pollOrderPaid = async (id) => {
+    // tenta por ~20s (webhook pode atrasar)
+    for (let i = 0; i < 10; i++) {
+      const { data, error } = await supabase
+        .from("orders")
+        .select("status")
+        .eq("id", id)
+        .maybeSingle();
+
+      if (!error && data?.status === "paid") return true;
+      await new Promise((r) => setTimeout(r, 2000));
+    }
+    return false;
+  };
+
+  (async () => {
+    try {
+      if (payment === "cancel") {
+        show("Pagamento cancelado.");
+        cleanupUrl();
+        return;
+      }
+
+      if (payment === "pending") {
+        show("Pagamento em processamento. Acompanhe em Meus pedidos.");
+        cleanupUrl();
+        return;
+      }
+
+      if (payment === "success") {
+        // Se veio do Mercado Pago e temos order_id, confirma pelo status no Supabase.
+        if (provider === "mercadopago" && orderId && user) {
+          const paid = await pollOrderPaid(orderId);
+          if (paid) {
+            setCart([]);
+            setCartOpen(false);
+            show("✅ Pedido finalizado!");
+          } else {
+            show("Pagamento recebido, confirmando… Veja em Meus pedidos.");
+          }
+        } else {
+          // fallback (sem order_id): mostra feedback, mas não limpa carrinho automaticamente
+          show("Pagamento confirmado.");
+        }
+        cleanupUrl();
+      }
+    } catch {
+      cleanupUrl();
+    }
+  })();
+}, [user]);
 
   async function startCheckout() {
     if (!user) {
@@ -376,6 +429,14 @@ export default function App() {
         onToggleCart={() => setCartOpen((v) => !v)}
         onOpenAuth={() => setAuthOpen(true)}
         onOpenOrders={() => setOrdersOpen(true)}
+        onPaymentConfirmed={() => {
+          setCart([]);
+          setCartOpen(false);
+          setToastMsg("✅ Pedido finalizado!");
+          setToastOpen(true);
+          clearTimeout(toastT.current);
+          toastT.current = setTimeout(() => setToastOpen(false), 2400);
+        }}
         onOpenSettings={() => setSettingsOpen(true)}
         onSignOut={() => signOut()}
         onToggleRpg={() => setRpgMode((v) => !v)}
@@ -393,6 +454,14 @@ export default function App() {
         onGoHomeSection={goHomeSection}
         onOpenAuth={() => setAuthOpen(true)}
         onOpenOrders={() => setOrdersOpen(true)}
+        onPaymentConfirmed={() => {
+          setCart([]);
+          setCartOpen(false);
+          setToastMsg("✅ Pedido finalizado!");
+          setToastOpen(true);
+          clearTimeout(toastT.current);
+          toastT.current = setTimeout(() => setToastOpen(false), 2400);
+        }}
         onOpenSettings={() => setSettingsOpen(true)}
         onSignOut={() => signOut()}
         onToggleRpg={() => setRpgMode((v) => !v)}
@@ -464,6 +533,14 @@ export default function App() {
         userEmail={user?.email || ""}
         onRequireLogin={() => setAuthOpen(true)}
         onOpenOrders={() => setOrdersOpen(true)}
+        onPaymentConfirmed={() => {
+          setCart([]);
+          setCartOpen(false);
+          setToastMsg("✅ Pedido finalizado!");
+          setToastOpen(true);
+          clearTimeout(toastT.current);
+          toastT.current = setTimeout(() => setToastOpen(false), 2400);
+        }}
       />
 
       <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />

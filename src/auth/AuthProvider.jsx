@@ -30,35 +30,58 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
-  async function saveProfile(userId, profile) {
-    if (!userId || !profile) return;
-    const payload = {
-      id: userId,
-      full_name: profile.full_name,
-      phone: profile.phone,
-      address_line1: profile.address_line1,
-      address_line2: profile.address_line2,
-      neighborhood: profile.neighborhood,
-      city: profile.city,
-      state: profile.state,
-      zip: profile.zip,
-    };
+  
+async function saveProfile(userId, profile, jwt) {
+  if (!userId || !profile) return { error: null };
 
-    // remove campos vazios
-    Object.keys(payload).forEach((k) => {
-      if (payload[k] === undefined || payload[k] === null || payload[k] === "") delete payload[k];
-    });
+  const payload = {
+    full_name: profile.full_name,
+    phone: profile.phone,
+    address_line1: profile.address_line1,
+    address_line2: profile.address_line2,
+    neighborhood: profile.neighborhood,
+    city: profile.city,
+    state: profile.state,
+    zip: profile.zip,
+  };
 
-    // sempre mantém o id
-    payload.id = userId;
+  // remove campos vazios
+  Object.keys(payload).forEach((k) => {
+    if (payload[k] === undefined || payload[k] === null || payload[k] === "") delete payload[k];
+  });
 
-    try {
-      const { error } = await supabase.from("profiles").upsert(payload, { onConflict: "id" });
-      if (error) return { error };
+  // Preferência: salvar via API (Service Role), para não depender de RLS no client.
+  try {
+    if (jwt) {
+      const resp = await fetch("/api/profile", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${jwt}`,
+        },
+        body: JSON.stringify({ profile: payload }),
+      });
+
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        return { error: new Error(data?.error || "Não foi possível salvar seus dados.") };
+      }
       return { error: null };
-    } catch (e) {
-      return { error: e };
     }
+  } catch (e) {
+    // fallback abaixo
+    console.warn("profile api failed", e);
+  }
+
+  // Fallback: tentar salvar direto pelo client (caso RLS esteja ok)
+  try {
+    const { error } = await supabase.from("profiles").upsert({ id: userId, ...payload }, { onConflict: "id" });
+    if (error) return { error };
+    return { error: null };
+  } catch (e) {
+    return { error: e };
+  }
+}
   }
 
   async function signUp({ email, password, profile }) {
@@ -77,7 +100,7 @@ export function AuthProvider({ children }) {
     // Salva os dados do perfil.
     if (resp?.data?.user?.id && profile) {
       if (resp?.data?.session) {
-        const saved = await saveProfile(resp.data.user.id, profile);
+        const saved = await saveProfile(resp.data.user.id, profile, resp.data.session.access_token);
         if (saved?.error) {
           // não bloqueia criação de conta, mas avisa no console para debug
           console.warn("profiles upsert error", saved.error);
@@ -107,7 +130,7 @@ export function AuthProvider({ children }) {
       if (raw && resp?.data?.user?.id) {
         const parsed = JSON.parse(raw);
         if (parsed?.email === email && parsed?.profile) {
-          const saved = await saveProfile(resp.data.user.id, parsed.profile);
+          const saved = await saveProfile(resp.data.user.id, parsed.profile, resp.data.session.access_token);
           if (saved?.error) console.warn("profiles upsert error", saved.error);
           localStorage.removeItem("pending_profile");
         }
