@@ -35,7 +35,7 @@ export default function CatalogPage({ items, loading = false, error = "", addToC
         <div className="flex items-end justify-between gap-4 flex-wrap">
           <div>
             <h1 className="text-2xl sm:text-3xl font-extrabold">Catálogo</h1>
-            <p className="mt-1 text-sm text-slate-400">Modelos sob encomenda / sob consulta.</p>
+            <p className="mt-1 text-sm text-slate-400">Modelos sob encomenda</p>
           </div>
           <span className="text-xs sm:text-sm text-slate-400">
             {loading ? "carregando…" : `${filtered.length} modelo(s)`}
