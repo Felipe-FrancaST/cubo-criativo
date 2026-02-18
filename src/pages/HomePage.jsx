@@ -151,6 +151,13 @@ export default function HomePage({
               openGallery={openGallery}
             />
           ))}
+
+          {!loadingProducts && !productsError && featured.length === 0 && (
+            <div className="col-span-full rounded-2xl p-4 ring-1 ring-white/10 bg-white/5 text-slate-200 text-sm">
+              Nenhum destaque selecionado. Para mostrar aqui, marque <b>featured = true</b> no produto (Supabase →
+              tabela <b>products</b>).
+            </div>
+          )}
         </div>
       </section>
 

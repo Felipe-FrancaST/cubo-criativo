@@ -495,12 +495,16 @@ React.useEffect(() => {
   );
 
   const featured = React.useMemo(() => {
+    // Destaques devem ser controlados exclusivamente pelo campo `featured` no Supabase.
+    // Se nenhum produto estiver marcado como featured, não mostra nada.
     const explicit = products.filter((p) => p.featured === true);
-    if (explicit.length) return explicit.slice(0, 8);
-
-    const a = emEstoque.slice(0, 4);
-    const b = catalogo.slice(0, 4);
-    return [...a, ...b].slice(0, 8);
+    // opcional: mantém uma ordem estável (mais recentes primeiro)
+    explicit.sort((a, b) => {
+      const ta = a?.updated_at ? new Date(a.updated_at).getTime() : 0;
+      const tb = b?.updated_at ? new Date(b.updated_at).getTime() : 0;
+      return tb - ta;
+    });
+    return explicit.slice(0, 8);
   }, [products, emEstoque, catalogo]);
 
   // ===== RPG (usa a mesma tabela `products`) =====
