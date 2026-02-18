@@ -104,14 +104,20 @@ export default function CarrosselPromo({
         <>
           <button
             aria-label="Anterior"
-            onClick={prev}
+            onClick={(e) => {
+              e.stopPropagation();
+              prev();
+            }}
             className="group absolute left-2 top-1/2 -translate-y-1/2 rounded-full p-2 bg-black/35 hover:bg-black/55 ring-1 ring-white/20 opacity-80 hover:opacity-100 transition"
           >
             <span className="material-icons text-white/90">chevron_left</span>
           </button>
           <button
             aria-label="Próximo"
-            onClick={next}
+            onClick={(e) => {
+              e.stopPropagation();
+              next();
+            }}
             className="group absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-2 bg-black/35 hover:bg-black/55 ring-1 ring-white/20 opacity-80 hover:opacity-100 transition"
           >
             <span className="material-icons text-white/90">chevron_right</span>
@@ -125,7 +131,10 @@ export default function CarrosselPromo({
           {images.map((_, idx) => (
             <button
               key={idx}
-              onClick={() => setI(idx)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setI(idx);
+              }}
               className="relative h-2.5 w-2.5"
               aria-label={`Ir para slide ${idx + 1}`}
             >

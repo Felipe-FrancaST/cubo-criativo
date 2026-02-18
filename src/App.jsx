@@ -18,6 +18,7 @@ import HomePage from "./pages/HomePage.jsx";
 import StockPage from "./pages/StockPage.jsx";
 import CatalogPage from "./pages/CatalogPage.jsx";
 import AccountPage from "./pages/AccountPage.jsx";
+import PromocoesPage from "./pages/PromocoesPage.jsx";
 
 // Lazy-load (carrega só quando abrir)
 const ModelViewer3D = React.lazy(() => import("./components/ModelViewer3D.jsx"));
@@ -507,6 +508,24 @@ React.useEffect(() => {
     return explicit.slice(0, 8);
   }, [products, emEstoque, catalogo]);
 
+  const promocoes = React.useMemo(() => {
+    const promos = products.filter((p) => p.promo === true);
+    // ordena por maior desconto (quando houver), senão mais recente
+    promos.sort((a, b) => {
+      const aCur = (a.variants?.[0]?.price ?? a.preco) || 0;
+      const bCur = (b.variants?.[0]?.price ?? b.preco) || 0;
+      const aOrig = a.originalPrice || 0;
+      const bOrig = b.originalPrice || 0;
+      const aOff = aOrig > aCur && aOrig > 0 ? (aOrig - aCur) / aOrig : 0;
+      const bOff = bOrig > bCur && bOrig > 0 ? (bOrig - bCur) / bOrig : 0;
+      if (aOff !== bOff) return bOff - aOff;
+      const ta = a?.created_at ? new Date(a.created_at).getTime() : 0;
+      const tb = b?.created_at ? new Date(b.created_at).getTime() : 0;
+      return tb - ta;
+    });
+    return promos;
+  }, [products]);
+
   // ===== RPG (usa a mesma tabela `products`) =====
   const rpgItems = React.useMemo(() => {
     return products.filter((p) => {
@@ -518,6 +537,20 @@ React.useEffect(() => {
 
   // ===== Render da página =====
   const page = (() => {
+    if (route === "/promocoes") {
+      return (
+        <PromocoesPage
+          items={promocoes}
+          loading={productsLoading}
+          error={productsError}
+          addToCart={addToCart}
+          buyNow={buyNow}
+          openViewer={openViewer}
+          openGallery={openGallery}
+          onGoHome={() => navigate("/")}
+        />
+      );
+    }
     if (route === "/estoque") {
       return (
         <StockPage
@@ -560,6 +593,7 @@ React.useEffect(() => {
         openGallery={openGallery}
         onGoEstoque={() => navigate("/estoque")}
         onGoCatalogo={() => navigate("/catalogo")}
+        onGoPromocoes={() => navigate("/promocoes")}
       />
     );
   })();

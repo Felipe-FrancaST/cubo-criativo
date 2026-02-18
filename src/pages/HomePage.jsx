@@ -13,6 +13,7 @@ export default function HomePage({
   openGallery,
   onGoEstoque,
   onGoCatalogo,
+  onGoPromocoes,
 }) {
   return (
     <main className="flex-1">
@@ -82,11 +83,31 @@ export default function HomePage({
                   ⚡ aproveite enquanto dura
                 </span>
               </div>
-              <div className="rounded-2xl overflow-hidden ring-1 ring-white/10 bg-slate-900/60">
-                <CarrosselPromo
-                  images={["/images/promo.jpg", "/images/promo1.jpg", "/images/promo2.jpg"]}
-                  fit="cover"
-                />
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={onGoPromocoes}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") onGoPromocoes?.();
+                }}
+                className="rounded-2xl overflow-hidden ring-1 ring-white/10 bg-slate-900/60 w-full text-left group/car cursor-pointer"
+                title="Ver todas as promoções"
+              >
+                <div className="relative">
+                  <CarrosselPromo
+                    images={["/images/promo.jpg", "/images/promo1.jpg", "/images/promo2.jpg"]}
+                    fit="cover"
+                  />
+                  <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-black/55 via-black/10 to-transparent opacity-0 group-hover/car:opacity-100 transition" />
+                  <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-3">
+                    <div className="text-xs sm:text-sm text-slate-100 font-semibold drop-shadow">
+                      Toque para ver todas as promoções
+                    </div>
+                    <div className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 bg-amber-400 text-black text-xs sm:text-sm font-extrabold ring-4 ring-amber-400/25 shadow">
+                      Ver promoções <span className="material-icons text-[16px]">chevron_right</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
             <div className="absolute -top-3 -right-2 sm:-right-3">

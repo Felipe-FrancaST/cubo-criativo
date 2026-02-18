@@ -72,7 +72,7 @@ export default function MenuDrawer({
           <DrawerButton icon="home" onClick={() => { onNavigate("/"); onClose?.(); }}>
             Início
           </DrawerButton>
-          <DrawerButton icon="local_offer" onClick={() => { onGoHomeSection("promocoes"); onClose?.(); }}>
+          <DrawerButton icon="local_offer" onClick={() => { onNavigate("/promocoes"); onClose?.(); }}>
             Promoções
           </DrawerButton>
           <DrawerButton icon="inventory_2" onClick={() => { onNavigate("/estoque"); onClose?.(); }}>
