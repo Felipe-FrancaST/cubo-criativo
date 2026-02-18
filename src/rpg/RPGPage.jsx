@@ -1,7 +1,20 @@
 // src/rpg/RPGPage.jsx
 import React from "react";
 import Modal from "../components/Modal.jsx";
-import { rpgUi, rpgClasses, rpgRacas, rpgItens } from "./rpgData.js";
+
+// Este modo usa a MESMA tabela `products` do Supabase.
+// Para controlar filtros/abas, use tags no produto:
+// - category = 'rpg' (ou tag 'rpg')
+// - tipo:miniatura | tipo:boss
+// - classe:Guerreiro | classe:Mago | ...
+// - raca:Humano | raca:Orc | ...
+// (exemplos: ['rpg','tipo:miniatura','classe:Guerreiro','raca:Humano'])
+
+const rpgUi = {
+  title: "RPG",
+  subtitle: "Miniaturas e bosses — escolha, filtre e adicione ao carrinho.",
+  ctaBack: "Voltar",
+};
 
 // Formata BRL rapidinho
 const fmtBRL = (n) =>
@@ -25,7 +38,7 @@ function CardRPG({ item, onOpenGallery, onAdd }) {
           onError={(e) => {
             e.currentTarget.style.display = "none";
             e.currentTarget.parentElement.innerHTML =
-              '<div class="text-slate-300 text-xs p-3 text-center">Imagem não encontrada.<br/>Coloque em <b>public/images/rpg</b>.</div>';
+              '<div class="text-slate-300 text-xs p-3 text-center">Imagem não encontrada.</div>';
           }}
         />
         <span className="absolute bottom-2 right-2 text-[10px] px-2 py-0.5 rounded-full bg-black/60 ring-1 ring-white/20">
@@ -42,7 +55,16 @@ function CardRPG({ item, onOpenGallery, onAdd }) {
           {item.classe} • {item.raca}
         </p>
         <div className="mt-3 flex items-center justify-between">
-          <span className="font-semibold">{fmtBRL(item.preco)}</span>
+          <span className="font-semibold">
+            {item.promo && item.originalPrice > item.preco ? (
+              <span className="inline-flex items-baseline gap-2">
+                <span className="text-xs text-slate-400 line-through">{fmtBRL(item.originalPrice)}</span>
+                <span>{fmtBRL(item.preco)}</span>
+              </span>
+            ) : (
+              fmtBRL(item.preco)
+            )}
+          </span>
           <button
             onClick={() => onAdd(item)}
             className="rounded-lg px-3 py-1.5 bg-amber-400 text-black font-semibold ring-4 ring-amber-400/20 hover:bg-amber-300 transition"
@@ -55,7 +77,67 @@ function CardRPG({ item, onOpenGallery, onAdd }) {
   );
 }
 
-export default function RPGPage({ onClose, addToCart }) {
+function normalizeTags(tags) {
+  return Array.isArray(tags) ? tags.map((t) => String(t)) : [];
+}
+
+function tagValue(tags, prefix) {
+  const p = String(prefix).toLowerCase();
+  const hit = (tags || []).find((t) => String(t).toLowerCase().startsWith(p));
+  if (!hit) return "";
+  const raw = String(hit);
+  const idx = raw.indexOf(":");
+  return idx >= 0 ? raw.slice(idx + 1).trim() : "";
+}
+
+function pickDefaultScale(p) {
+  // prioridade: defaultVariant -> tag escala: -> primeira variant -> vazio
+  if (p?.defaultVariant) return String(p.defaultVariant);
+  const tv = tagValue(p?.tags || [], "escala:");
+  if (tv) return tv;
+  const first = Array.isArray(p?.variants) && p.variants.length ? p.variants[0] : null;
+  return first?.label ? String(first.label) : "";
+}
+
+function priceForScale(p, scaleLabel) {
+  const label = String(scaleLabel || "");
+  if (label && Array.isArray(p?.variants)) {
+    const v = p.variants.find((x) => String(x?.label || "") === label);
+    if (v && typeof v.price === "number") return v.price;
+  }
+  // fallback
+  return typeof p?.preco === "number" ? p.preco : 0;
+}
+
+function mapRpgItem(p) {
+  const tags = normalizeTags(p?.tags);
+
+  // tipo (aba)
+  const tipoTag = tagValue(tags, "tipo:").toLowerCase();
+  const tipo = tipoTag === "boss" ? "boss" : "miniatura";
+
+  const classe = tagValue(tags, "classe:") || "—";
+  const raca = tagValue(tags, "raca:") || tagValue(tags, "raça:") || "—";
+
+  const escala = pickDefaultScale(p) || "Padrão";
+  const preco = priceForScale(p, escala);
+
+  return {
+    id: p.id,
+    product: p,
+    nome: p.nome,
+    imgs: p.imgs || (p.img ? [p.img] : []),
+    classe,
+    raca,
+    tipo,
+    escala,
+    preco,
+    promo: !!p.promo,
+    originalPrice: typeof p.originalPrice === "number" ? p.originalPrice : 0,
+  };
+}
+
+export default function RPGPage({ onClose, addToCart, items = [], loading = false, error = "" }) {
   // Animação de entrada
   const [entered, setEntered] = React.useState(false);
   React.useEffect(() => {
@@ -71,16 +153,28 @@ export default function RPGPage({ onClose, addToCart }) {
   const [raca, setRaca] = React.useState("Todas");
   const [q, setQ] = React.useState("");
 
+  const baseItems = React.useMemo(() => (items || []).map(mapRpgItem), [items]);
+
+  const classes = React.useMemo(() => {
+    const set = new Set(baseItems.map((i) => i.classe).filter((v) => v && v !== "—"));
+    return ["Todos", ...Array.from(set).sort((a, b) => a.localeCompare(b))];
+  }, [baseItems]);
+
+  const racas = React.useMemo(() => {
+    const set = new Set(baseItems.map((i) => i.raca).filter((v) => v && v !== "—"));
+    return ["Todas", ...Array.from(set).sort((a, b) => a.localeCompare(b))];
+  }, [baseItems]);
+
   const itensFiltrados = React.useMemo(() => {
     const name = q.trim().toLowerCase();
-    return rpgItens.filter((it) => {
+    return baseItems.filter((it) => {
       const byTab = it.tipo === tab;
       const byClasse = classe === "Todos" || it.classe === classe;
       const byRaca = raca === "Todas" || it.raca === raca;
       const byName = !name || it.nome.toLowerCase().includes(name);
       return byTab && byClasse && byRaca && byName;
     });
-  }, [tab, classe, raca, q]);
+  }, [baseItems, tab, classe, raca, q]);
 
   // Galeria
   const [galOpen, setGalOpen] = React.useState(false);
@@ -155,7 +249,7 @@ export default function RPGPage({ onClose, addToCart }) {
             onChange={(e) => setClasse(e.target.value)}
             className="rounded-lg bg-[#0b0f12]/70 ring-1 ring-white/10 px-3 py-2 text-sm"
           >
-            {rpgClasses.map((c) => (
+            {classes.map((c) => (
               <option key={c} value={c}>
                 {c}
               </option>
@@ -167,7 +261,7 @@ export default function RPGPage({ onClose, addToCart }) {
             onChange={(e) => setRaca(e.target.value)}
             className="rounded-lg bg-[#0b0f12]/70 ring-1 ring-white/10 px-3 py-2 text-sm"
           >
-            {rpgRacas.map((r) => (
+            {racas.map((r) => (
               <option key={r} value={r}>
                 {r}
               </option>
@@ -189,6 +283,14 @@ export default function RPGPage({ onClose, addToCart }) {
             entered ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
           }`}
         >
+          {loading && (
+            <div className="col-span-full text-slate-400 text-sm">Carregando itens do RPG…</div>
+          )}
+
+          {!loading && error && (
+            <div className="col-span-full text-rose-300 text-sm">{error}</div>
+          )}
+
           {itensFiltrados.map((item) => (
             <CardRPG
               key={item.id}
@@ -197,7 +299,7 @@ export default function RPGPage({ onClose, addToCart }) {
               onAdd={(it) =>
                 addToCart?.(
                   // “compra” simulada usando a mesma estrutura do seu carrinho
-                  { id: it.id, nome: it.nome, img: it.imgs?.[0] || "", status: "catalogo" },
+                  { ...it.product, id: it.product.id, nome: it.nome, img: it.imgs?.[0] || it.product.img || "", status: "catalogo" },
                   { escala: it.escala || "", unitPrice: it.preco || 0 }
                 )
               }

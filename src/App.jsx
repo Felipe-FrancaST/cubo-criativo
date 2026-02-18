@@ -503,6 +503,15 @@ React.useEffect(() => {
     return [...a, ...b].slice(0, 8);
   }, [products, emEstoque, catalogo]);
 
+  // ===== RPG (usa a mesma tabela `products`) =====
+  const rpgItems = React.useMemo(() => {
+    return products.filter((p) => {
+      const cat = String(p.category || "").toLowerCase();
+      const tags = Array.isArray(p.tags) ? p.tags.map((t) => String(t).toLowerCase()) : [];
+      return cat === "rpg" || tags.includes("rpg");
+    });
+  }, [products]);
+
   // ===== Render da página =====
   const page = (() => {
     if (route === "/estoque") {
@@ -612,7 +621,13 @@ React.useEffect(() => {
             </div>
           }
         >
-          <RPGPage onClose={() => setRpgMode(false)} addToCart={addToCart} />
+          <RPGPage
+            onClose={() => setRpgMode(false)}
+            addToCart={addToCart}
+            items={rpgItems}
+            loading={productsLoading}
+            error={productsError}
+          />
         </React.Suspense>
       )}
 
