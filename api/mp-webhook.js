@@ -304,19 +304,27 @@ export default async function handler(req, res) {
       try {
         if (sb) {
         const mapped = mapOrderStatus(status);
-          await sb
-            .from("orders")
-            .update({
-              status: mapped,
-              payment_provider: "mercado_pago",
-              provider_payment_id: String(payment.id || ""),
-              customer_email: payment?.payer?.email || null,
-              customer_name: payment?.payer?.first_name
-                ? `${payment.payer.first_name || ""} ${payment.payer.last_name || ""}`.trim()
-                : null,
-              customer_phone: payment?.payer?.phone?.number || null,
-            })
-            .eq("id", orderId);
+          // IMPORTANTE: não sobrescrever customer_email com NULL.
+          // Alguns eventos do MP chegam sem payer.email; nesse caso mantemos o e-mail já salvo no pedido
+          // (geralmente vindo do auth do Supabase).
+          const updateData = {
+            status: mapped,
+            payment_provider: "mercado_pago",
+            provider_payment_id: String(payment.id || ""),
+          };
+
+          const payerEmail = String(payment?.payer?.email || "").trim();
+          if (payerEmail) updateData.customer_email = payerEmail;
+
+          const payerName = payment?.payer?.first_name
+            ? `${payment.payer.first_name || ""} ${payment.payer.last_name || ""}`.trim()
+            : "";
+          if (payerName) updateData.customer_name = payerName;
+
+          const payerPhone = String(payment?.payer?.phone?.number || "").trim();
+          if (payerPhone) updateData.customer_phone = payerPhone;
+
+          await sb.from("orders").update(updateData).eq("id", orderId);
 
         // Se ainda não está aprovado, só atualiza e encerra (sem e-mail)
         if (mapped !== "paid") {
