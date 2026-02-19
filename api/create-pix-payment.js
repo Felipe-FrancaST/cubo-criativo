@@ -113,21 +113,53 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "Não foi possível criar o pedido." });
     }
 
-    const orderItems = items
+    const cleaned = items
       .filter((it) => (Number(it.qty) || 0) > 0 && (Number(it.price) || 0) > 0)
-      .map((it) => ({
+      .map((it) => {
+        const name = String(it.name || it.nome || "Item").trim();
+        const qty = Number(it.qty) || 1;
+        const scale = String(it.scale || it.escala || "").trim();
+        const img = String(it.img || it.image_url || "").trim();
+        const priceBRL = Number(Number(it.price).toFixed(2));
+        const priceCents = Math.round(priceBRL * 100);
+        return {
+          product_id: String(it.id || it.product_id || "").trim() || null,
+          name,
+          qty,
+          scale: scale || null,
+          img: img || null,
+          unit_price_brl: priceBRL,
+          unit_price_cents: priceCents,
+        };
+      });
+
+    if (cleaned.length) {
+      // Preferência: schema novo (snapshot em cents)
+      const payloadNew = cleaned.map((it) => ({
         order_id: orderId,
-        product_id: String(it.id || ""),
-        name: String(it.name || it.nome || "Item").trim(),
-        scale: String(it.scale || it.escala || "").trim(),
-        qty: Number(it.qty) || 1,
-        unit_price: Number(Number(it.price).toFixed(2)),
-        img: String(it.img || ""),
+        product_id: it.product_id,
+        product_name: it.name,
+        scale: it.scale,
+        qty: it.qty,
+        unit_price_cents: it.unit_price_cents,
+        product_image_url: it.img,
       }));
 
-    if (orderItems.length) {
-      const { error: itemsErr } = await sb.from("order_items").insert(orderItems);
-      if (itemsErr) console.error("supabase order_items insert error", itemsErr);
+      const attemptNew = await sb.from("order_items").insert(payloadNew);
+      if (attemptNew?.error) {
+        // Fallback: schema antigo
+        const payloadOld = cleaned.map((it) => ({
+          order_id: orderId,
+          product_id: it.product_id,
+          name: it.name,
+          scale: it.scale,
+          qty: it.qty,
+          unit_price: it.unit_price_brl,
+          img: it.img,
+        }));
+        const attemptOld = await sb.from("order_items").insert(payloadOld);
+        if (attemptOld?.error) console.error("supabase order_items insert error", attemptOld.error);
+      }
     }
 
     // 2) Cria pagamento Pix

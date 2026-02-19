@@ -15,6 +15,159 @@
 
 import { supabaseAdmin } from "./_supabase.js";
 
+function fmtBRL(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "—";
+  return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function escapeHtml(str) {
+  return String(str || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function parseEmailList(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return [];
+  return raw
+    .split(/[;,\n]/g)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+async function loadOrderSnapshot(orderId) {
+  const sb = supabaseAdmin();
+  const { data: order } = await sb
+    .from("orders")
+    .select(
+      "id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,production_status,shipping_tracking"
+    )
+    .eq("id", orderId)
+    .maybeSingle();
+
+  let profile = null;
+  if (order?.user_id) {
+    const { data: p } = await sb
+      .from("profiles")
+      .select("full_name,phone,address_line1,address_line2,neighborhood,city,state,zip")
+      .eq("id", order.user_id)
+      .maybeSingle();
+    profile = p || null;
+  }
+
+  // Itens: schema novo -> antigo
+  let items = [];
+  const attemptNew = await sb
+    .from("order_items")
+    .select("product_name,qty,unit_price_cents,scale,product_image_url")
+    .eq("order_id", orderId);
+  if (attemptNew?.error) {
+    const attemptOld = await sb
+      .from("order_items")
+      .select("name,qty,unit_price,scale,img")
+      .eq("order_id", orderId);
+    items = (attemptOld?.data || []).map((it) => ({
+      name: it.name,
+      qty: Number(it.qty) || 1,
+      scale: it.scale || null,
+      unit_price_brl: Number(it.unit_price) || 0,
+      img: it.img || null,
+    }));
+  } else {
+    items = (attemptNew?.data || []).map((it) => ({
+      name: it.product_name,
+      qty: Number(it.qty) || 1,
+      scale: it.scale || null,
+      unit_price_brl: (Number(it.unit_price_cents) || 0) / 100,
+      img: it.product_image_url || null,
+    }));
+  }
+
+  return { order, profile, items };
+}
+
+function renderEmailLayout({ title, subtitle, contentHtml, badgeText }) {
+  const badge = badgeText
+    ? `<span style="display:inline-block;background:#34d399;color:#06101f;font-weight:700;border-radius:999px;padding:6px 10px;font-size:12px;">${escapeHtml(
+        badgeText
+      )}</span>`
+    : "";
+
+  return `
+  <div style="background:#050a14;padding:28px 12px;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;">
+    <div style="max-width:680px;margin:0 auto;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;">
+        <div>
+          <div style="color:#e2e8f0;font-weight:900;font-size:18px;letter-spacing:0.3px;">Cubo Criativo</div>
+          <div style="color:#94a3b8;font-size:12px;margin-top:2px;">${escapeHtml(subtitle || "")}</div>
+        </div>
+        ${badge}
+      </div>
+
+      <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.10);border-radius:18px;overflow:hidden;">
+        <div style="padding:18px 18px 0 18px;">
+          <h1 style="margin:0;color:#f8fafc;font-size:20px;line-height:1.2;">${escapeHtml(title)}</h1>
+        </div>
+        <div style="padding:18px;">
+          ${contentHtml}
+        </div>
+      </div>
+
+      <div style="color:#64748b;font-size:12px;margin-top:12px;">
+        Este é um email automático do Cubo Criativo.
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderItemsTable(items) {
+  if (!items?.length) {
+    return `<div style="color:#cbd5e1;font-size:14px;">(Sem itens)</div>`;
+  }
+
+  const rows = items
+    .map((it) => {
+      const name = escapeHtml(it.name || "Produto");
+      const qty = Number(it.qty) || 1;
+      const scale = it.scale ? ` <span style="color:#94a3b8;font-size:12px;">(${escapeHtml(it.scale)})</span>` : "";
+      const price = fmtBRL((Number(it.unit_price_brl) || 0) * qty);
+      const img = it.img
+        ? `<img src="${escapeHtml(it.img)}" alt="${name}" width="44" height="44" style="border-radius:10px;object-fit:cover;display:block;border:1px solid rgba(255,255,255,0.10);"/>`
+        : `<div style="width:44px;height:44px;border-radius:10px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.10);"></div>`;
+
+      return `
+        <tr>
+          <td style="padding:10px;border-bottom:1px solid rgba(255,255,255,0.08);vertical-align:top;">${img}</td>
+          <td style="padding:10px;border-bottom:1px solid rgba(255,255,255,0.08);vertical-align:top;">
+            <div style="color:#e2e8f0;font-weight:700;font-size:14px;">${name}${scale}</div>
+            <div style="color:#94a3b8;font-size:12px;margin-top:3px;">Qtd: ${qty}</div>
+          </td>
+          <td style="padding:10px;border-bottom:1px solid rgba(255,255,255,0.08);vertical-align:top;text-align:right;white-space:nowrap;">
+            <div style="color:#f8fafc;font-weight:800;">${escapeHtml(price)}</div>
+          </td>
+        </tr>`;
+    })
+    .join("");
+
+  return `
+    <table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;border-collapse:separate;border-spacing:0;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.10);border-radius:14px;overflow:hidden;">
+      <thead>
+        <tr>
+          <th style="text-align:left;color:#94a3b8;font-size:12px;font-weight:700;padding:10px;">Item</th>
+          <th style="text-align:left;color:#94a3b8;font-size:12px;font-weight:700;padding:10px;">Descrição</th>
+          <th style="text-align:right;color:#94a3b8;font-size:12px;font-weight:700;padding:10px;">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows}
+      </tbody>
+    </table>`;
+}
+
 function safeBody(req) {
   if (!req.body) return {};
   if (typeof req.body === "string") {
@@ -149,43 +302,136 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, status: "approved", email: "skipped (missing resend env)" });
     }
 
-    let items = [];
-    try {
-      items = JSON.parse(payment?.metadata?.items_json || "[]") || [];
-    } catch {
-      items = [];
+    // Carrega snapshot do pedido (com itens e perfil), se possível.
+    const { order, profile, items } = orderId ? await loadOrderSnapshot(orderId) : { order: null, profile: null, items: [] };
+
+    // Fallback para itens via metadata (se o snapshot ainda não tiver itens)
+    let fallbackItems = [];
+    if (!items || items.length === 0) {
+      try {
+        const raw = JSON.parse(payment?.metadata?.items_json || "[]") || [];
+        fallbackItems = raw.map((it) => ({
+          name: it?.name || it?.nome || "Item",
+          qty: Number(it?.qty) || 1,
+          scale: it?.scale || it?.escala || null,
+          unit_price_brl: Number(it?.price) || 0,
+          img: it?.img || it?.image_url || null,
+        }));
+      } catch {
+        fallbackItems = [];
+      }
     }
 
-    const itemsHtml = items
-      .map((it) => {
-        const name = it?.name || it?.nome || "Item";
-        const qty = Number(it?.qty) || 1;
-        const price = Number(it?.price) || 0;
-        const total = (qty * price).toFixed(2);
-        return `<li>${qty}× ${name} — R$ ${total}</li>`;
-      })
-      .join("");
+    const normalizedItems = (items && items.length ? items : fallbackItems).filter(Boolean);
 
-    const payerEmail = payment?.payer?.email || "(sem email)";
-    const amount = (Number(payment?.transaction_amount) || 0).toFixed(2);
+    const payerEmail = payment?.payer?.email || order?.customer_email || "";
+    const totalBRL = order?.total ?? Number(payment?.transaction_amount) || 0;
+    const orderCode = order?.id || orderId || payment?.external_reference || "-";
 
-    const subject = `Novo pedido Pix aprovado — R$ ${amount} — ${payerEmail}`;
-    const html = `
-      <h2>Novo pedido Pix aprovado ✅</h2>
-      <p><b>Payment ID:</b> ${payment.id}</p>
-      <p><b>Valor:</b> R$ ${amount}</p>
-      <p><b>Status:</b> ${payment.status}</p>
-      <p><b>Email do pagador:</b> ${payerEmail}</p>
-      <p><b>Pedido:</b> ${payment.external_reference || "-"}</p>
-      <h3>Itens</h3>
-      <ul>${itemsHtml || "<li>(sem itens)</li>"}</ul>
+    const customerEmail = String(order?.customer_email || payerEmail || "").trim();
+    const customerName = String(order?.customer_name || profile?.full_name || "").trim();
+    const customerPhone = String(order?.customer_phone || profile?.phone || "").trim();
+
+    const addressLines = [
+      profile?.address_line1,
+      profile?.address_line2,
+      profile?.neighborhood,
+      [profile?.city, profile?.state].filter(Boolean).join(" - "),
+      profile?.zip,
+    ]
+      .map((x) => String(x || "").trim())
+      .filter(Boolean);
+    const addressText = addressLines.join("\n");
+
+    const itemsTable = renderItemsTable(normalizedItems);
+
+    const ownerContent = `
+      <div style="display:grid;grid-template-columns:1fr;gap:12px;">
+        <div style="background:rgba(0,0,0,0.15);border:1px solid rgba(255,255,255,0.10);border-radius:14px;padding:14px;">
+          <div style="color:#94a3b8;font-size:12px;font-weight:700;margin-bottom:6px;">Cliente</div>
+          <div style="color:#f8fafc;font-size:14px;font-weight:800;">${escapeHtml(customerName || "(sem nome)")}</div>
+          <div style="color:#cbd5e1;font-size:13px;margin-top:4px;">${escapeHtml(customerEmail || "(sem email)")}${customerPhone ? ` • ${escapeHtml(customerPhone)}` : ""}</div>
+          ${addressText ? `<pre style="margin:10px 0 0 0;white-space:pre-wrap;color:#e2e8f0;font-size:13px;line-height:1.35;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:10px;">${escapeHtml(addressText)}</pre>` : ""}
+        </div>
+
+        <div style="display:flex;flex-wrap:wrap;gap:10px;">
+          <div style="flex:1;min-width:220px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.10);border-radius:14px;padding:12px;">
+            <div style="color:#94a3b8;font-size:12px;font-weight:700;">Pedido</div>
+            <div style="color:#f8fafc;font-size:14px;font-weight:900;margin-top:2px;">${escapeHtml(orderCode)}</div>
+            <div style="color:#94a3b8;font-size:12px;margin-top:6px;">Pagamento: Pix (Mercado Pago)</div>
+          </div>
+          <div style="flex:1;min-width:220px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.10);border-radius:14px;padding:12px;text-align:right;">
+            <div style="color:#94a3b8;font-size:12px;font-weight:700;">Total</div>
+            <div style="color:#f8fafc;font-size:20px;font-weight:900;margin-top:2px;">${escapeHtml(fmtBRL(totalBRL))}</div>
+            <div style="color:#94a3b8;font-size:12px;margin-top:6px;">Status: ${escapeHtml(order?.status || payment?.status || "approved")}</div>
+          </div>
+        </div>
+
+        <div>
+          <div style="color:#94a3b8;font-size:12px;font-weight:700;margin-bottom:8px;">Itens do pedido</div>
+          ${itemsTable}
+        </div>
+      </div>
     `;
 
-    const emailResp = await sendResendEmail({ apiKey, from, to, subject, html });
+    const customerContent = `
+      <div style="color:#cbd5e1;font-size:14px;line-height:1.5;">
+        <p style="margin:0 0 10px 0;">Olá${customerName ? ` ${escapeHtml(customerName)}` : ""}! Seu pedido foi confirmado ✅</p>
+        <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.10);border-radius:14px;padding:12px;">
+          <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+            <div>
+              <div style="color:#94a3b8;font-size:12px;font-weight:700;">Pedido</div>
+              <div style="color:#f8fafc;font-size:14px;font-weight:900;">${escapeHtml(orderCode)}</div>
+              <div style="color:#94a3b8;font-size:12px;margin-top:6px;">Status: ${escapeHtml(order?.production_status || "recebido")}</div>
+            </div>
+            <div style="text-align:right;">
+              <div style="color:#94a3b8;font-size:12px;font-weight:700;">Total</div>
+              <div style="color:#f8fafc;font-size:18px;font-weight:900;">${escapeHtml(fmtBRL(totalBRL))}</div>
+            </div>
+          </div>
+        </div>
 
-    if (!emailResp.ok) {
-      // acknowledge webhook anyway
-      return res.status(200).json({ ok: true, email: "error", details: emailResp.data });
+        <div style="margin-top:14px;">
+          <div style="color:#94a3b8;font-size:12px;font-weight:700;margin-bottom:8px;">Itens</div>
+          ${itemsTable}
+        </div>
+
+        <p style="margin:14px 0 0 0;color:#94a3b8;font-size:12px;">Você pode acompanhar o status em “Meus pedidos” no site.</p>
+      </div>
+    `;
+
+    const ownerSubject = `Novo pedido aprovado — ${escapeHtml(fmtBRL(totalBRL))} — ${customerEmail || "(sem email)"}`;
+    const customerSubject = `Pedido confirmado — Cubo Criativo (${String(orderCode).slice(0, 8)})`;
+
+    const ownerHtml = renderEmailLayout({
+      title: "Novo pedido confirmado",
+      subtitle: "Controle interno • Produção",
+      badgeText: "PAGO",
+      contentHtml: ownerContent,
+    });
+
+    const customerHtml = renderEmailLayout({
+      title: "Pedido confirmado",
+      subtitle: "Obrigado pela compra!",
+      badgeText: "CONFIRMADO",
+      contentHtml: customerContent,
+    });
+
+    const ownerTo = parseEmailList(to);
+    const ownerResp = await sendResendEmail({ apiKey, from, to: ownerTo, subject: ownerSubject, html: ownerHtml });
+
+    let customerResp = { ok: true, skipped: true };
+    if (customerEmail) {
+      customerResp = await sendResendEmail({ apiKey, from, to: [customerEmail], subject: customerSubject, html: customerHtml });
+    }
+
+    if (!ownerResp.ok || !customerResp.ok) {
+      return res.status(200).json({
+        ok: true,
+        email: "error",
+        owner: ownerResp.ok ? "sent" : ownerResp.data,
+        customer: customerResp.ok ? "sent" : customerResp.data,
+      });
     }
 
     // Marca como enviado (best-effort)
@@ -203,7 +449,7 @@ export default async function handler(req, res) {
       }
     );
 
-    return res.status(200).json({ ok: true, email: "sent" });
+    return res.status(200).json({ ok: true, email: "sent", owner: "sent", customer: customerEmail ? "sent" : "skipped" });
   } catch (err) {
     console.error("mp-webhook error:", err);
     // Sempre 200 pra não gerar retry infinito

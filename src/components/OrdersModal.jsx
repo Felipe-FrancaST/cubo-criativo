@@ -8,6 +8,22 @@ const fmtBRL = (n) =>
     ? n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
     : "—";
 
+function trackUrl(code) {
+  const c = String(code || "").trim();
+  if (!c) return "";
+  // Correios (funciona para a maioria dos envios no BR)
+  return `https://www2.correios.com.br/sistemas/rastreamento/default.cfm?objeto=${encodeURIComponent(c)}`;
+}
+
+function copyToClipboard(text) {
+  try {
+    navigator.clipboard.writeText(String(text || ""));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export default function OrdersModal({ open, onClose }) {
   const { user } = useAuth();
   const [orders, setOrders] = React.useState([]);
@@ -81,10 +97,28 @@ export default function OrdersModal({ open, onClose }) {
 
     // 2) Carrega itens em batch
     const ids = list.map((o) => o.id);
-    const { data: itemsData, error: itemsErr } = await supabase
+    let itemsData = [];
+    let itemsErr = null;
+
+    // Primeiro tenta schema novo (snapshot em cents)
+    const attemptNew = await supabase
       .from("order_items")
-      .select("order_id, name, qty, unit_price, scale, img")
+      .select("order_id, product_id, product_name, qty, unit_price_cents, scale, product_image_url")
       .in("order_id", ids);
+
+    if (attemptNew?.error) {
+      // Fallback para schema antigo
+      const attemptOld = await supabase
+        .from("order_items")
+        .select("order_id, product_id, name, qty, unit_price, scale, img")
+        .in("order_id", ids);
+
+      itemsData = attemptOld?.data || [];
+      itemsErr = attemptOld?.error || null;
+    } else {
+      itemsData = attemptNew?.data || [];
+      itemsErr = null;
+    }
 
     if (itemsErr) {
       setLoading(false);
@@ -96,13 +130,77 @@ export default function OrdersModal({ open, onClose }) {
     (itemsData || []).forEach((it) => {
       const k = it.order_id;
       if (!byOrder.has(k)) byOrder.set(k, []);
-      byOrder.get(k).push(it);
+      // Normaliza campos entre schema novo e antigo
+      byOrder.get(k).push({
+        order_id: it.order_id,
+        product_id: it.product_id || null,
+        name: it.product_name || it.name || null,
+        qty: it.qty,
+        scale: it.scale,
+        img: it.product_image_url || it.img || null,
+      });
     });
 
-    const merged = list.map((o) => ({
+    let merged = list.map((o) => ({
       ...o,
       order_items: byOrder.get(o.id) || [],
     }));
+
+    // 3) Preenche nome/imagem a partir da tabela products (para pedidos antigos)
+    try {
+      const missing = [];
+      merged.forEach((o) => {
+        (o.order_items || []).forEach((it) => {
+          if ((!it.name || !it.img) && it.product_id) missing.push(String(it.product_id));
+        });
+      });
+
+      const uniq = Array.from(new Set(missing)).slice(0, 100);
+      if (uniq.length) {
+        const isUuid = (s) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(s));
+        const uuids = uniq.filter(isUuid);
+        const slugs = uniq.filter((x) => !isUuid(x));
+
+        const results = [];
+        if (uuids.length) {
+          const r1 = await supabase
+            .from("products")
+            .select("id,name,image_url,images,slug")
+            .in("id", uuids);
+          if (!r1.error) results.push(...(r1.data || []));
+        }
+        if (slugs.length) {
+          const r2 = await supabase
+            .from("products")
+            .select("id,name,image_url,images,slug")
+            .in("slug", slugs);
+          if (!r2.error) results.push(...(r2.data || []));
+        }
+
+        const byIdOrSlug = new Map();
+        results.forEach((p) => {
+          if (p?.id) byIdOrSlug.set(String(p.id), p);
+          if (p?.slug) byIdOrSlug.set(String(p.slug), p);
+        });
+
+        merged = merged.map((o) => ({
+          ...o,
+          order_items: (o.order_items || []).map((it) => {
+            if (it.name && it.img) return it;
+            const p = it.product_id ? byIdOrSlug.get(String(it.product_id)) : null;
+            if (!p) return it;
+            const img = it.img || p.image_url || (Array.isArray(p.images) ? p.images[0] : null);
+            return {
+              ...it,
+              name: it.name || p.name,
+              img,
+            };
+          }),
+        }));
+      }
+    } catch {
+      // ignore
+    }
 
     setOrders(merged);
     setLoading(false);
@@ -189,9 +287,30 @@ export default function OrdersModal({ open, onClose }) {
             {prodUI(o.production_status).label}
           </span>
           {o.shipping_tracking ? (
-            <span className="inline-flex items-center gap-1 text-xs rounded-full px-2 py-1 ring-1 ring-white/15 bg-white/5 text-slate-200">
-              Rastreio: {String(o.shipping_tracking)}
-            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1 text-xs rounded-full px-2 py-1 ring-1 ring-white/15 bg-white/5 text-slate-200">
+                Rastreio: {String(o.shipping_tracking)}
+              </span>
+              <button
+                onClick={() => {
+                  const ok = copyToClipboard(o.shipping_tracking);
+                  if (!ok) return;
+                }}
+                className="text-xs rounded-full px-2 py-1 ring-1 ring-white/15 hover:bg-white/5 text-slate-200"
+                title="Copiar código"
+              >
+                Copiar
+              </button>
+              <a
+                href={trackUrl(o.shipping_tracking)}
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs rounded-full px-2 py-1 bg-emerald-400 text-black font-semibold hover:bg-emerald-300"
+                title="Abrir rastreio"
+              >
+                Rastrear
+              </a>
+            </div>
           ) : null}
         </div>
       </div>

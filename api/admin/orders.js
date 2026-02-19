@@ -37,8 +37,7 @@ export default async function handler(req, res) {
     const orderIds = list.map((o) => o.id);
     const userIds = Array.from(new Set(list.map((o) => o.user_id).filter(Boolean)));
 
-    const [{ data: items, error: itemsErr }, { data: profiles, error: profErr }] = await Promise.all([
-      sb.from("order_items").select("order_id,name,qty,unit_price,scale,img").in("order_id", orderIds),
+    const [{ data: profiles, error: profErr }] = await Promise.all([
       userIds.length
         ? sb
             .from("profiles")
@@ -47,6 +46,25 @@ export default async function handler(req, res) {
         : Promise.resolve({ data: [], error: null }),
     ]);
 
+    // Itens: tenta schema novo, depois schema antigo
+    let items = [];
+    let itemsErr = null;
+    const attemptNew = await sb
+      .from("order_items")
+      .select("order_id,product_name,qty,unit_price_cents,scale,product_image_url")
+      .in("order_id", orderIds);
+    if (attemptNew?.error) {
+      const attemptOld = await sb
+        .from("order_items")
+        .select("order_id,name,qty,unit_price,scale,img")
+        .in("order_id", orderIds);
+      items = attemptOld?.data || [];
+      itemsErr = attemptOld?.error || null;
+    } else {
+      items = attemptNew?.data || [];
+      itemsErr = null;
+    }
+
     if (itemsErr) return res.status(500).json({ error: itemsErr.message || "Failed to load order items" });
     if (profErr) return res.status(500).json({ error: profErr.message || "Failed to load profiles" });
 
@@ -54,7 +72,16 @@ export default async function handler(req, res) {
     (items || []).forEach((it) => {
       const k = it.order_id;
       if (!itemsByOrder.has(k)) itemsByOrder.set(k, []);
-      itemsByOrder.get(k).push(it);
+      // normaliza
+      itemsByOrder.get(k).push({
+        order_id: it.order_id,
+        name: it.product_name || it.name,
+        qty: it.qty,
+        scale: it.scale,
+        img: it.product_image_url || it.img,
+        // para o painel admin, manter um preço em BRL se existir
+        unit_price: typeof it.unit_price === "number" ? it.unit_price : (typeof it.unit_price_cents === "number" ? it.unit_price_cents / 100 : null),
+      });
     });
 
     const profileById = new Map();
