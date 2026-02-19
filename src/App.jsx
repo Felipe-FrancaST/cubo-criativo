@@ -38,6 +38,11 @@ const fmtBRL = (n) =>
 const centsToBRL = (cents) =>
   typeof cents === "number" && isFinite(cents) ? Number((cents / 100).toFixed(2)) : 0;
 
+const toInt = (v) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.trunc(n) : 0;
+};
+
 function normalizeTextArray(v) {
   if (!v) return [];
   if (Array.isArray(v)) return v.filter(Boolean).map(String);
@@ -55,11 +60,16 @@ function mapProductRow(row) {
   const variants = Array.isArray(row?.variants)
     ? row.variants
         .filter(Boolean)
-        .map((v) => ({
-          label: String(v?.label ?? ""),
-          // no banco é "price_cents"
-          price: centsToBRL(Number(v?.price_cents ?? 0)),
-        }))
+        .map((v) => {
+          const priceCents = toInt(v?.price_cents ?? 0);
+          return {
+            label: String(v?.label ?? ""),
+            // compat: preço em BRL que o front já usa
+            price: centsToBRL(priceCents),
+            // novo: mantém centavos para cálculos (promo/variante)
+            priceCents,
+          };
+        })
         .filter((v) => v.label)
     : [];
 
@@ -78,8 +88,11 @@ function mapProductRow(row) {
     status: row?.status ? String(row.status) : "catalogo",
     featured: !!row?.featured,
     promo: !!row?.promo,
-    originalPrice: centsToBRL(Number(row?.original_price_cents ?? 0)),
-    preco: centsToBRL(Number(row?.price_cents ?? 0)),
+    originalPrice: centsToBRL(toInt(row?.original_price_cents ?? 0)),
+    preco: centsToBRL(toInt(row?.price_cents ?? 0)),
+    // novo: mantém centavos para promo/variante
+    originalPriceCents: toInt(row?.original_price_cents ?? 0),
+    priceCents: toInt(row?.price_cents ?? 0),
     currency: row?.currency ? String(row.currency) : "brl",
     stock: typeof row?.stock === "number" ? row.stock : 0,
     active: row?.active !== false,
@@ -487,18 +500,37 @@ React.useEffect(() => {
   }, []);
 
   const emEstoque = React.useMemo(
-    () => products.filter((p) => String(p.status || "").toLowerCase() === "estoque"),
+    () =>
+      products.filter((p) => {
+        const isStock = String(p.status || "").toLowerCase() === "estoque";
+        const cat = String(p.category || "").toLowerCase();
+        const tags = Array.isArray(p.tags) ? p.tags.map((t) => String(t).toLowerCase()) : [];
+        const isRpg = cat === "rpg" || tags.includes("rpg");
+        return isStock && !isRpg;
+      }),
     [products]
   );
   const catalogo = React.useMemo(
-    () => products.filter((p) => String(p.status || "").toLowerCase() !== "estoque"),
+    () =>
+      products.filter((p) => {
+        const isCatalog = String(p.status || "").toLowerCase() !== "estoque";
+        const cat = String(p.category || "").toLowerCase();
+        const tags = Array.isArray(p.tags) ? p.tags.map((t) => String(t).toLowerCase()) : [];
+        const isRpg = cat === "rpg" || tags.includes("rpg");
+        return isCatalog && !isRpg;
+      }),
     [products]
   );
 
   const featured = React.useMemo(() => {
     // Destaques devem ser controlados exclusivamente pelo campo `featured` no Supabase.
     // Se nenhum produto estiver marcado como featured, não mostra nada.
-    const explicit = products.filter((p) => p.featured === true);
+    const explicit = products.filter((p) => {
+      const cat = String(p.category || "").toLowerCase();
+      const tags = Array.isArray(p.tags) ? p.tags.map((t) => String(t).toLowerCase()) : [];
+      const isRpg = cat === "rpg" || tags.includes("rpg");
+      return p.featured === true && !isRpg;
+    });
     // opcional: mantém uma ordem estável (mais recentes primeiro)
     explicit.sort((a, b) => {
       const ta = a?.updated_at ? new Date(a.updated_at).getTime() : 0;

@@ -4,7 +4,15 @@ import ProductCard from "../components/ProductCard.jsx";
 export default function CatalogPage({ items, loading = false, error = "", addToCart, buyNow, openViewer, openGallery }) {
   const allTags = React.useMemo(() => {
     const set = new Set();
-    items.forEach((p) => (p.tags || []).forEach((t) => set.add(t)));
+    const isRpgTag = (t) => {
+      const s = String(t || "").toLowerCase();
+      if (!s) return true;
+      if (s === "rpg") return true;
+      return s.startsWith("tipo:") || s.startsWith("classe:") || s.startsWith("raca:") || s.startsWith("raça:");
+    };
+    items.forEach((p) => (p.tags || []).forEach((t) => {
+      if (!isRpgTag(t)) set.add(t);
+    }));
     return ["Todos", ...Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR"))];
   }, [items]);
 

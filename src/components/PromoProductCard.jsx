@@ -1,14 +1,5 @@
 import React from "react";
-
-const fmtBRL = (n) =>
-  typeof n === "number" && isFinite(n)
-    ? n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
-    : "—";
-
-function percentOff(original, current) {
-  if (!(original > 0) || !(current > 0) || original <= current) return 0;
-  return Math.round(((original - current) / original) * 100);
-}
+import { fmtBRL, centsToBRL, getVariantPricingCents, percentOffCents } from "../lib/pricing.js";
 
 /**
  * Card especial para promoções.
@@ -22,22 +13,12 @@ export default function PromoProductCard({ p, addToCart, buyNow, openViewer, ope
 
   React.useEffect(() => () => clearTimeout(flashT.current), []);
 
-  const hasVariants = Array.isArray(p.variants) && p.variants.length > 0;
-  const sel = hasVariants ? p.variants[selIndex] : null;
-  // Preço efetivo (mesma lógica do card normal):
-  // - Se tiver variantes, usa a variante selecionada.
-  // - Se promo=true e price_cents (p.preco) estiver menor que a variante (caso comum quando
-  //   você altera o price_cents mas esquece de atualizar variants[].price_cents), aplicamos
-  //   o promo apenas para a escolha padrão (ou quando só existe 1 variante).
-  const basePrice = typeof p.preco === "number" ? p.preco : 0;
-  let currentPrice = typeof sel?.price === "number" ? sel.price : basePrice;
-  if (p.promo === true && basePrice > 0) {
-    const isDefaultChoice = !hasVariants || selIndex === defaultIndex || p.variants.length === 1;
-    if (isDefaultChoice && (currentPrice === 0 || basePrice < currentPrice)) currentPrice = basePrice;
-  }
-  const escala = sel?.label ?? p.escala ?? "";
-  const original = p.originalPrice ?? 0;
-  const off = percentOff(original, currentPrice);
+  const pricing = getVariantPricingCents(p, selIndex, defaultIndex);
+  const hasVariants = pricing.hasVariants;
+  const escala = pricing.sel?.label ?? p.escala ?? "";
+  const currentPrice = centsToBRL(pricing.currentCents);
+  const original = centsToBRL(p.originalPriceCents ?? 0);
+  const off = percentOffCents(pricing.originalCents, pricing.currentCents);
 
   function handleAdd() {
     addToCart(p, { escala, unitPrice: currentPrice });
@@ -92,9 +73,9 @@ export default function PromoProductCard({ p, addToCart, buyNow, openViewer, ope
         {/* Preços */}
         <div className="mt-3 flex items-end justify-between gap-3">
           <div className="min-w-0">
-            {original > 0 && original > currentPrice ? (
+            {pricing.showStrike && (pricing.originalCents > pricing.currentCents) ? (
               <div className="text-xs text-slate-300">
-                <span className="line-through opacity-80">{fmtBRL(original)}</span>
+                <span className="line-through opacity-80">{fmtBRL(centsToBRL(pricing.originalCents))}</span>
               </div>
             ) : (
               <div className="text-xs text-slate-400">Oferta especial</div>
@@ -115,11 +96,14 @@ export default function PromoProductCard({ p, addToCart, buyNow, openViewer, ope
               value={selIndex}
               onChange={(e) => setSelIndex(Number(e.target.value))}
             >
-              {p.variants.map((v, i) => (
-                <option key={v.label} value={i}>
-                  {v.label} — {fmtBRL(v.price)}
-                </option>
-              ))}
+              {p.variants.map((v, i) => {
+                const vPriceCents = getVariantPricingCents(p, i, defaultIndex).currentCents;
+                return (
+                  <option key={v.label} value={i}>
+                    {v.label} — {fmtBRL(centsToBRL(vPriceCents))}
+                  </option>
+                );
+              })}
             </select>
           </div>
         )}

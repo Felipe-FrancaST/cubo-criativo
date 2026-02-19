@@ -1,10 +1,5 @@
 import React from "react";
-
-// Util simples local (ou passe por props se preferir)
-const fmtBRL = (n) =>
-  typeof n === "number" && isFinite(n)
-    ? n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
-    : "—";
+import { fmtBRL, centsToBRL, getVariantPricingCents, percentOffCents } from "../lib/pricing.js";
 
 /**
  * Props:
@@ -25,23 +20,14 @@ export default function ProductCard({ p, addToCart, buyNow, openViewer, openGall
   }, []);
 
   const hasVariants = Array.isArray(p.variants) && p.variants.length > 0;
-  const sel = hasVariants ? p.variants[selIndex] : null;
-
-  // Preço efetivo:
-  // - Se tiver variantes, usa o preço da variante selecionada.
-  // - Caso `promo=true` e `price_cents` esteja menor que o preço da variante (caso comum quando você
-  //   atualiza o price_cents mas esquece de atualizar variants[].price_cents), aplicamos o promo APENAS
-  //   para a escolha padrão (ou quando só existe 1 variante).
-  const basePrice = typeof p.preco === "number" ? p.preco : 0;
-  let price = typeof sel?.price === "number" ? sel.price : basePrice;
-  if (p.promo === true && basePrice > 0) {
-    const isDefaultChoice = !hasVariants || selIndex === defaultIndex || p.variants.length === 1;
-    if (isDefaultChoice && (price === 0 || basePrice < price)) price = basePrice;
-  }
-  const escala = sel?.label ?? p.escala ?? "";
+  const pricing = getVariantPricingCents(p, selIndex, defaultIndex);
+  const escala = pricing.sel?.label ?? p.escala ?? "";
+  const currentPrice = centsToBRL(pricing.currentCents);
+  const originalPrice = centsToBRL(pricing.originalCents);
+  const off = percentOffCents(pricing.originalCents, pricing.currentCents);
 
   function handleAdd() {
-    addToCart(p, { escala, unitPrice: price });
+    addToCart(p, { escala, unitPrice: currentPrice });
     setAddedFlash(true);
     clearTimeout(flashT.current);
     flashT.current = setTimeout(() => setAddedFlash(false), 900);
@@ -78,6 +64,23 @@ export default function ProductCard({ p, addToCart, buyNow, openViewer, openGall
       <div className="p-4">
         <h3 className="font-bold tracking-tight text-center lg:text-left">{p.nome}</h3>
 
+        {/* Preços (promo com riscado) */}
+        <div className="mt-2 flex items-center justify-center lg:justify-start gap-2">
+          {pricing.showStrike && originalPrice > currentPrice ? (
+            <>
+              <span className="text-xs text-slate-300 line-through opacity-80">{fmtBRL(originalPrice)}</span>
+              <span className="text-lg font-black text-emerald-300">{fmtBRL(currentPrice)}</span>
+              {off > 0 && (
+                <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-400 text-black ring-4 ring-emerald-400/20">
+                  -{off}%
+                </span>
+              )}
+            </>
+          ) : (
+            <span className="text-lg font-extrabold text-slate-100">{fmtBRL(currentPrice)}</span>
+          )}
+        </div>
+
         {hasVariants && (
           <div className="mt-3">
             <label className="text-xs text-slate-400">Escala / Preço</label>
@@ -88,11 +91,7 @@ export default function ProductCard({ p, addToCart, buyNow, openViewer, openGall
             >
               {p.variants.map((v, i) => (
                 <option key={v.label} value={i}>
-                  {v.label} — {fmtBRL(
-                    p.promo === true && basePrice > 0 && p.variants.length === 1 && basePrice < (v.price || 0)
-                      ? basePrice
-                      : v.price
-                  )}
+                  {v.label} — {fmtBRL(centsToBRL(getVariantPricingCents(p, i, defaultIndex).currentCents))}
                 </option>
               ))}
             </select>
@@ -111,7 +110,7 @@ export default function ProductCard({ p, addToCart, buyNow, openViewer, openGall
             {addedFlash ? "Adicionado!" : "Adicionar"}
           </button>
           <button
-            onClick={() => buyNow(p, { escala, unitPrice: price })}
+            onClick={() => buyNow(p, { escala, unitPrice: currentPrice })}
             className="rounded-lg px-3 py-2 ring-1 ring-white/15 hover:bg-white/5"
             title="Comprar agora"
           >
