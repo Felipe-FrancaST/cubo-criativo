@@ -19,6 +19,8 @@ import StockPage from "./pages/StockPage.jsx";
 import CatalogPage from "./pages/CatalogPage.jsx";
 import AccountPage from "./pages/AccountPage.jsx";
 import PromocoesPage from "./pages/PromocoesPage.jsx";
+import AdminOrdersPage from "./pages/AdminOrdersPage.jsx";
+import { isAdminEmail } from "./lib/admin.js";
 
 // Lazy-load (carrega só quando abrir)
 const ModelViewer3D = React.lazy(() => import("./components/ModelViewer3D.jsx"));
@@ -132,6 +134,7 @@ function getRouteFromHash() {
 export default function App() {
   const { user, session, signOut } = useAuth();
   const accessToken = session?.access_token || "";
+  const isAdmin = isAdminEmail(user?.email || "");
 
   // ===== Rotas (Hash router sem dependências) =====
   const [route, setRoute] = React.useState(() => (typeof window === "undefined" ? "/" : getRouteFromHash()));
@@ -569,6 +572,9 @@ React.useEffect(() => {
 
   // ===== Render da página =====
   const page = (() => {
+    if (route === "/admin") {
+      return <AdminOrdersPage user={user} accessToken={accessToken} onNavigateHome={() => navigate("/")} />;
+    }
     if (route === "/promocoes") {
       return (
         <PromocoesPage
@@ -637,6 +643,8 @@ React.useEffect(() => {
       <SiteHeader
         route={route}
         user={user}
+        isAdmin={isAdmin}
+        isAdmin={isAdmin}
         menuOpen={menuDrawerOpen}
         onToggleMenu={() => setMenuDrawerOpen((v) => !v)}
         cartCount={cart.reduce((s, i) => s + i.qty, 0)}
@@ -665,6 +673,8 @@ React.useEffect(() => {
         onClose={() => setMenuDrawerOpen(false)}
         route={route}
         user={user}
+        isAdmin={isAdmin}
+        isAdmin={isAdmin}
         onNavigate={navigate}
         onGoHomeSection={goHomeSection}
         onOpenAuth={() => setAuthOpen(true)}

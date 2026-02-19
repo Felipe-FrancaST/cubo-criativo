@@ -21,6 +21,7 @@ export default function MenuDrawer({
   onClose,
   route,
   user,
+  isAdmin,
   onNavigate,
   onGoHomeSection,
   onOpenAuth,
@@ -114,6 +115,19 @@ export default function MenuDrawer({
               >
                 Meus pedidos
               </DrawerButton>
+
+              {isAdmin ? (
+                <DrawerButton
+                  icon="admin_panel_settings"
+                  right="chevron_right"
+                  onClick={() => {
+                    onNavigate("/admin");
+                    onClose?.();
+                  }}
+                >
+                  Admin — Pedidos
+                </DrawerButton>
+              ) : null}
               <DrawerButton
                 icon="settings"
                 right="chevron_right"

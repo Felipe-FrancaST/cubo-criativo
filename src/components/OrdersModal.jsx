@@ -34,6 +34,26 @@ export default function OrdersModal({ open, onClose }) {
     };
   };
 
+  const prodUI = (status) => {
+    const s = String(status || "recebido").toLowerCase();
+    if (s === "em_producao") {
+      return { label: "Em produção", cls: "bg-indigo-500/15 text-indigo-200 ring-indigo-400/30" };
+    }
+    if (s === "pronto") {
+      return { label: "Pronto", cls: "bg-cyan-500/15 text-cyan-200 ring-cyan-400/30" };
+    }
+    if (s === "enviado") {
+      return { label: "Enviado", cls: "bg-amber-500/15 text-amber-200 ring-amber-400/30" };
+    }
+    if (s === "entregue") {
+      return { label: "Entregue", cls: "bg-emerald-500/15 text-emerald-200 ring-emerald-400/30" };
+    }
+    if (s === "cancelado") {
+      return { label: "Cancelado", cls: "bg-red-500/15 text-red-200 ring-red-500/30" };
+    }
+    return { label: "Recebido", cls: "bg-white/5 text-slate-200 ring-white/15" };
+  };
+
   const fetchOrders = React.useCallback(async () => {
     if (!user) return;
     setLoading(true);
@@ -42,7 +62,7 @@ export default function OrdersModal({ open, onClose }) {
     // 1) Carrega pedidos (sem join) para evitar erro de relationship no schema cache
     const { data: ordersData, error: ordersErr } = await supabase
       .from("orders")
-      .select("id, status, total, payment_provider, provider_payment_id, created_at")
+      .select("id, status, total, payment_provider, provider_payment_id, created_at, production_status, shipping_tracking")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
 
@@ -156,10 +176,23 @@ export default function OrdersModal({ open, onClose }) {
         <p className="text-xs text-slate-400">
           {new Date(o.created_at).toLocaleString("pt-BR")}
         </p>
-        <div className="mt-1">
-          <span className={`inline-flex items-center gap-1 text-xs rounded-full px-2 py-1 ring-1 ${statusUI(o.status).cls}`}>
+        <div className="mt-1 flex flex-wrap items-center gap-2">
+          <span
+            className={`inline-flex items-center gap-1 text-xs rounded-full px-2 py-1 ring-1 ${statusUI(o.status).cls}`}
+          >
             {statusUI(o.status).label}
           </span>
+          <span
+            className={`inline-flex items-center gap-1 text-xs rounded-full px-2 py-1 ring-1 ${prodUI(o.production_status).cls}`}
+            title="Status de produção/envio"
+          >
+            {prodUI(o.production_status).label}
+          </span>
+          {o.shipping_tracking ? (
+            <span className="inline-flex items-center gap-1 text-xs rounded-full px-2 py-1 ring-1 ring-white/15 bg-white/5 text-slate-200">
+              Rastreio: {String(o.shipping_tracking)}
+            </span>
+          ) : null}
         </div>
       </div>
 

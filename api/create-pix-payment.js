@@ -90,6 +90,13 @@ export default async function handler(req, res) {
     const sb = supabaseAdmin();
     const orderId = crypto.randomUUID();
 
+    // tenta puxar nome/telefone do profile (se existir)
+    const { data: prof } = await sb
+      .from("profiles")
+      .select("full_name,phone")
+      .eq("id", user.id)
+      .maybeSingle();
+
     const { error: orderErr } = await sb.from("orders").insert({
       id: orderId,
       user_id: user.id,
@@ -97,6 +104,9 @@ export default async function handler(req, res) {
       currency: "BRL",
       total: amount,
       payment_provider: "mercado_pago",
+      customer_email: user.email || payerEmail || null,
+      customer_name: prof?.full_name || null,
+      customer_phone: prof?.phone || null,
     });
     if (orderErr) {
       console.error("supabase order insert error", orderErr);

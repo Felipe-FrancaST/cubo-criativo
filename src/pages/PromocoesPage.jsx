@@ -82,10 +82,6 @@ export default function PromocoesPage({
             {!loading && !error && promos.length === 0 && (
               <div className="rounded-2xl p-5 ring-1 ring-white/10 bg-white/5 text-slate-200 text-sm">
                 Nenhuma promoção ativa no momento.
-                <div className="mt-2 text-slate-300">
-                  Para aparecer aqui, marque <b>promo = true</b> e defina o preço em <b>price_cents</b> (e opcionalmente
-                  <b> original_price_cents</b> para riscar).
-                </div>
               </div>
             )}
 
