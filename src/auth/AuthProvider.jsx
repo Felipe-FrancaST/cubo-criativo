@@ -37,11 +37,14 @@ export function AuthProvider({ children }) {
       full_name: profile.full_name,
       phone: profile.phone,
       address_line1: profile.address_line1,
+      address_number: profile.address_number,
       address_line2: profile.address_line2,
       neighborhood: profile.neighborhood,
       city: profile.city,
       state: profile.state,
       zip: profile.zip,
+      cpf: profile.cpf,
+      birthdate: profile.birthdate,
     };
 
     // remove campos vazios

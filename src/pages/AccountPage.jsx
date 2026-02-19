@@ -18,7 +18,10 @@ export default function AccountPage({ onClose, onGoHome }) {
   const [password, setPassword] = React.useState("");
   const [fullName, setFullName] = React.useState("");
   const [phone, setPhone] = React.useState("");
-  const [addr1, setAddr1] = React.useState("");
+  const [cpf, setCpf] = React.useState("");
+  const [birthdate, setBirthdate] = React.useState(""); // YYYY-MM-DD
+  const [street, setStreet] = React.useState("");
+  const [number, setNumber] = React.useState("");
   const [addr2, setAddr2] = React.useState("");
   const [neighborhood, setNeighborhood] = React.useState("");
   const [city, setCity] = React.useState("");
@@ -39,7 +42,14 @@ export default function AccountPage({ onClose, onGoHome }) {
     if (mode === "signup") {
       if (!fullName.trim()) return setError("Informe seu nome.");
       if (!phone.trim()) return setError("Informe seu telefone.");
-      if (!addr1.trim()) return setError("Informe seu endereço.");
+      if (!cpf.trim()) return setError("Informe seu CPF.");
+      if (!birthdate) return setError("Informe sua data de nascimento.");
+      if (!zip.trim()) return setError("Informe seu CEP.");
+      if (!city.trim()) return setError("Informe sua cidade.");
+      if (!stateUF.trim() || stateUF.trim().length !== 2) return setError("Informe sua UF (2 letras).");
+      if (!neighborhood.trim()) return setError("Informe seu bairro.");
+      if (!street.trim()) return setError("Informe sua rua.");
+      if (!number.trim()) return setError("Informe o número.");
     }
 
     try {
@@ -54,7 +64,10 @@ export default function AccountPage({ onClose, onGoHome }) {
               profile: {
                 full_name: fullName.trim(),
                 phone: phone.trim(),
-                address_line1: addr1.trim(),
+                cpf: cpf.trim(),
+                birthdate,
+                address_line1: street.trim(),
+                address_number: number.trim(),
                 address_line2: addr2.trim(),
                 neighborhood: neighborhood.trim(),
                 city: city.trim(),
@@ -212,82 +225,113 @@ export default function AccountPage({ onClose, onGoHome }) {
           />
         </Field>
 
-        <Field label="Endereço completo">
-          <textarea
-            value={addr1}
-            onChange={(e) => setAddr1(e.target.value)}
-            rows={3}
-            autoComplete="street-address"
-            className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60 resize-none"
-            placeholder="Rua, número, bairro, cidade/UF, CEP (se tiver)"
-          />
-        </Field>
-      </div>
 
-      <details className="mt-3 rounded-xl bg-white/5 ring-1 ring-white/10 p-3">
-        <summary className="cursor-pointer text-sm text-slate-200 select-none">
-          Detalhes do endereço (opcional)
-        </summary>
-        <div className="mt-3 space-y-3">
-          <Field label="Complemento">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <Field label="CPF">
             <input
-              value={addr2}
-              onChange={(e) => setAddr2(e.target.value)}
+              value={cpf}
+              onChange={(e) => setCpf(e.target.value)}
               type="text"
-              autoComplete="address-line2"
+              inputMode="numeric"
+              autoComplete="off"
               className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
-              placeholder="Apartamento, bloco, etc"
+              placeholder="000.000.000-00"
             />
           </Field>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <Field label="Bairro">
-              <input
-                value={neighborhood}
-                onChange={(e) => setNeighborhood(e.target.value)}
-                type="text"
-                autoComplete="address-level3"
-                className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
-                placeholder="Bairro"
-              />
-            </Field>
-            <Field label="CEP">
-              <input
-                value={zip}
-                onChange={(e) => setZip(e.target.value)}
-                type="text"
-                autoComplete="postal-code"
-                className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
-                placeholder="00000-000"
-              />
-            </Field>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <Field label="Cidade">
-              <input
-                value={city}
-                onChange={(e) => setCity(e.target.value)}
-                type="text"
-                autoComplete="address-level2"
-                className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
-                placeholder="Cidade"
-              />
-            </Field>
-            <Field label="Estado (UF)">
-              <input
-                value={stateUF}
-                onChange={(e) => setStateUF(e.target.value)}
-                type="text"
-                autoComplete="address-level1"
-                className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
-                placeholder="SP"
-                maxLength={2}
-              />
-            </Field>
-          </div>
+          <Field label="Data de nascimento">
+            <input
+              value={birthdate}
+              onChange={(e) => setBirthdate(e.target.value)}
+              type="date"
+              autoComplete="bday"
+              className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+            />
+          </Field>
         </div>
-      </details>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <Field label="CEP">
+            <input
+              value={zip}
+              onChange={(e) => setZip(e.target.value)}
+              type="text"
+              inputMode="numeric"
+              autoComplete="postal-code"
+              className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+              placeholder="00000-000"
+            />
+          </Field>
+          <Field label="UF">
+            <input
+              value={stateUF}
+              onChange={(e) => setStateUF(e.target.value.toUpperCase())}
+              type="text"
+              autoComplete="address-level1"
+              className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+              placeholder="SP"
+              maxLength={2}
+            />
+          </Field>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <Field label="Cidade">
+            <input
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              type="text"
+              autoComplete="address-level2"
+              className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+              placeholder="Cidade"
+            />
+          </Field>
+          <Field label="Bairro">
+            <input
+              value={neighborhood}
+              onChange={(e) => setNeighborhood(e.target.value)}
+              type="text"
+              autoComplete="address-level3"
+              className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+              placeholder="Bairro"
+            />
+          </Field>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <Field label="Rua">
+            <input
+              value={street}
+              onChange={(e) => setStreet(e.target.value)}
+              type="text"
+              autoComplete="address-line1"
+              className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+              placeholder="Rua"
+            />
+          </Field>
+          <Field label="Número">
+            <input
+              value={number}
+              onChange={(e) => setNumber(e.target.value)}
+              type="text"
+              inputMode="numeric"
+              autoComplete="address-line2"
+              className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+              placeholder="123"
+            />
+          </Field>
+        </div>
+
+        <Field label="Complemento (opcional)">
+          <input
+            value={addr2}
+            onChange={(e) => setAddr2(e.target.value)}
+            type="text"
+            autoComplete="address-line3"
+            className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+            placeholder="Apartamento, bloco, etc"
+          />
+        </Field>
+	      </div>
     </div>
   </div>
 )}

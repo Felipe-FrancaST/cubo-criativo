@@ -15,6 +15,23 @@ function Field({ label, children }) {
 export default function AuthModal({ open, onClose, onSuccess }) {
   const { signIn, signUp, signInWithGoogle, resetPassword } = useAuth();
 
+  function isValidCpf(raw) {
+    const cpf = onlyDigits(raw);
+    if (cpf.length !== 11) return false;
+    if (/^(\d)\1{10}$/.test(cpf)) return false; // todos dígitos iguais
+
+    const calc = (base, factor) => {
+      let sum = 0;
+      for (let i = 0; i < base.length; i++) sum += Number(base[i]) * (factor - i);
+      const mod = (sum * 10) % 11;
+      return mod === 10 ? 0 : mod;
+    };
+
+    const d1 = calc(cpf.slice(0, 9), 10);
+    const d2 = calc(cpf.slice(0, 10), 11);
+    return d1 === Number(cpf[9]) && d2 === Number(cpf[10]);
+  }
+
   const [mode, setMode] = React.useState("login"); // login | signup
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
@@ -22,7 +39,10 @@ export default function AuthModal({ open, onClose, onSuccess }) {
   // signup/profile
   const [fullName, setFullName] = React.useState("");
   const [phone, setPhone] = React.useState("");
-  const [addr1, setAddr1] = React.useState(""); // rua + numero
+  const [cpf, setCpf] = React.useState("");
+  const [birthdate, setBirthdate] = React.useState(""); // YYYY-MM-DD
+  const [street, setStreet] = React.useState("");
+  const [number, setNumber] = React.useState("");
   const [addr2, setAddr2] = React.useState(""); // complemento
   const [neighborhood, setNeighborhood] = React.useState("");
   const [city, setCity] = React.useState("");
@@ -72,7 +92,7 @@ export default function AuthModal({ open, onClose, onSuccess }) {
       setCepHint("Endereço encontrado ✓");
 
       // Só preenche se o campo estiver vazio, para não apagar o que o cliente digitou.
-      if (!addr1.trim() && a.street) setAddr1(a.street);
+      if (!street.trim() && a.street) setStreet(a.street);
       if (!neighborhood.trim() && a.neighborhood) setNeighborhood(a.neighborhood);
       if (!city.trim() && a.city) setCity(a.city);
       if (!stateUF.trim() && a.uf) setStateUF(a.uf);
@@ -99,11 +119,17 @@ export default function AuthModal({ open, onClose, onSuccess }) {
       if (!fullName.trim()) return setError("Informe seu nome.");
       if (!phone.trim()) return setError("Informe seu telefone.");
 
+      if (!cpf.trim()) return setError("Informe seu CPF.");
+      if (!isValidCpf(cpf)) return setError("CPF inválido. Digite apenas números (11 dígitos).");
+
+      if (!birthdate) return setError("Informe sua data de nascimento.");
+
       if (!isValidCep(zip)) return setError("Informe um CEP válido.");
       if (!city.trim()) return setError("Informe sua cidade.");
       if (!stateUF.trim() || stateUF.trim().length !== 2) return setError("Informe a UF (2 letras).");
       if (!neighborhood.trim()) return setError("Informe o bairro.");
-      if (!addr1.trim()) return setError("Informe a rua e número.");
+      if (!street.trim()) return setError("Informe a rua.");
+      if (!number.trim()) return setError("Informe o número.");
     }
 
     try {
@@ -119,7 +145,10 @@ export default function AuthModal({ open, onClose, onSuccess }) {
               profile: {
                 full_name: fullName.trim(),
                 phone: phone.trim(),
-                address_line1: addr1.trim(),
+                cpf: onlyDigits(cpf),
+                birthdate,
+                address_line1: street.trim(),
+                address_number: number.trim(),
                 address_line2: addr2.trim(),
                 neighborhood: neighborhood.trim(),
                 city: city.trim(),
@@ -269,6 +298,30 @@ export default function AuthModal({ open, onClose, onSuccess }) {
                   />
                 </Field>
 
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <Field label="CPF">
+                    <input
+                      value={cpf}
+                      onChange={(e) => setCpf(e.target.value)}
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                      placeholder="000.000.000-00"
+                    />
+                  </Field>
+
+                  <Field label="Data de nascimento">
+                    <input
+                      value={birthdate}
+                      onChange={(e) => setBirthdate(e.target.value)}
+                      type="date"
+                      autoComplete="bday"
+                      className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                    />
+                  </Field>
+                </div>
+
                 <div className="grid grid-cols-2 gap-2">
                   <Field label="CEP">
                     <input
@@ -319,16 +372,32 @@ export default function AuthModal({ open, onClose, onSuccess }) {
                   />
                 </Field>
 
-                <Field label="Rua e número">
-                  <input
-                    value={addr1}
-                    onChange={(e) => setAddr1(e.target.value)}
-                    type="text"
-                    autoComplete="street-address"
-                    className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
-                    placeholder="Rua Exemplo, 123"
-                  />
-                </Field>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <div className="sm:col-span-2">
+                    <Field label="Rua">
+                      <input
+                        value={street}
+                        onChange={(e) => setStreet(e.target.value)}
+                        type="text"
+                        autoComplete="address-line1"
+                        className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                        placeholder="Rua Exemplo"
+                      />
+                    </Field>
+                  </div>
+
+                  <Field label="Número">
+                    <input
+                      value={number}
+                      onChange={(e) => setNumber(e.target.value)}
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="address-line2"
+                      className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                      placeholder="123"
+                    />
+                  </Field>
+                </div>
 
                 <Field label="Complemento (opcional)">
                   <input

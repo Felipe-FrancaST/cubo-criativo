@@ -26,11 +26,14 @@ const ALLOWED = new Set([
   "full_name",
   "phone",
   "address_line1",
+  "address_number",
   "address_line2",
   "neighborhood",
   "city",
   "state",
   "zip",
+  "cpf",
+  "birthdate",
 ]);
 
 export default async function handler(req, res) {
@@ -43,7 +46,9 @@ export default async function handler(req, res) {
     if (req.method === "GET") {
       const { data, error } = await sb
         .from("profiles")
-        .select("full_name, phone, address_line1, address_line2, neighborhood, city, state, zip")
+        .select(
+          "full_name, phone, cpf, birthdate, address_line1, address_number, address_line2, neighborhood, city, state, zip"
+        )
         .eq("id", user.id)
         .maybeSingle();
 

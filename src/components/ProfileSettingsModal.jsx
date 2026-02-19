@@ -1,7 +1,7 @@
 import React from "react";
 import Modal from "./Modal.jsx";
 import { useAuth } from "../auth/AuthProvider.jsx";
-import { fetchAddressFromCep, onlyDigits } from "../lib/cep.js";
+import { fetchAddressFromCep, isValidCep, onlyDigits } from "../lib/cep.js";
 
 function Field({ label, children }) {
   return (
@@ -23,12 +23,31 @@ export default function ProfileSettingsModal({ open, onClose }) {
 
   const [fullName, setFullName] = React.useState("");
   const [phone, setPhone] = React.useState("");
-  const [addr1, setAddr1] = React.useState("");
+  const [cpf, setCpf] = React.useState("");
+  const [birthdate, setBirthdate] = React.useState(""); // YYYY-MM-DD
+
+  const [street, setStreet] = React.useState("");
+  const [number, setNumber] = React.useState("");
   const [addr2, setAddr2] = React.useState("");
   const [neighborhood, setNeighborhood] = React.useState("");
   const [city, setCity] = React.useState("");
   const [stateUF, setStateUF] = React.useState("");
   const [zip, setZip] = React.useState("");
+
+  function isValidCpf(raw) {
+    const v = onlyDigits(raw);
+    if (v.length !== 11) return false;
+    if (/^(\d)\1{10}$/.test(v)) return false;
+    const calc = (base, factor) => {
+      let sum = 0;
+      for (let i = 0; i < base.length; i++) sum += Number(base[i]) * (factor - i);
+      const mod = (sum * 10) % 11;
+      return mod === 10 ? 0 : mod;
+    };
+    const d1 = calc(v.slice(0, 9), 10);
+    const d2 = calc(v.slice(0, 10), 11);
+    return d1 === Number(v[9]) && d2 === Number(v[10]);
+  }
 
   const [cepBusy, setCepBusy] = React.useState(false);
   const [cepHint, setCepHint] = React.useState("");
@@ -54,7 +73,11 @@ export default function ProfileSettingsModal({ open, onClose }) {
     const data = json?.profile || {};
     setFullName(data?.full_name || "");
     setPhone(data?.phone || "");
-    setAddr1(data?.address_line1 || "");
+    setCpf(data?.cpf || "");
+    setBirthdate(data?.birthdate || "");
+
+    setStreet(data?.address_line1 || "");
+    setNumber(data?.address_number || "");
     setAddr2(data?.address_line2 || "");
     setNeighborhood(data?.neighborhood || "");
     setCity(data?.city || "");
@@ -91,7 +114,7 @@ export default function ProfileSettingsModal({ open, onClose }) {
 
       const a = resp.data;
       setCepHint("Endereço encontrado ✓");
-      if (!addr1.trim() && a.street) setAddr1(a.street);
+      if (!street.trim() && a.street) setStreet(a.street);
       if (!neighborhood.trim() && a.neighborhood) setNeighborhood(a.neighborhood);
       if (!city.trim() && a.city) setCity(a.city);
       if (!stateUF.trim() && a.uf) setStateUF(a.uf);
@@ -110,11 +133,32 @@ export default function ProfileSettingsModal({ open, onClose }) {
     setOk("");
     setSaving(true);
 
+    const fail = (msg) => {
+      setError(msg);
+      setSaving(false);
+    };
+
+    // validações (obrigatório)
+    if (!fullName.trim()) return fail("Informe seu nome.");
+    if (!phone.trim()) return fail("Informe seu telefone.");
+    if (!cpf.trim()) return fail("Informe seu CPF.");
+    if (!isValidCpf(cpf)) return fail("CPF inválido. Digite apenas números (11 dígitos).");
+    if (!birthdate) return fail("Informe sua data de nascimento.");
+    if (!isValidCep(zip)) return fail("Informe um CEP válido.");
+    if (!city.trim()) return fail("Informe sua cidade.");
+    if (!stateUF.trim() || stateUF.trim().length !== 2) return fail("Informe a UF (2 letras).");
+    if (!neighborhood.trim()) return fail("Informe o bairro.");
+    if (!street.trim()) return fail("Informe a rua.");
+    if (!number.trim()) return fail("Informe o número.");
+
     const payload = {
       id: user.id,
       full_name: fullName.trim(),
       phone: phone.trim(),
-      address_line1: addr1.trim(),
+      cpf: onlyDigits(cpf),
+      birthdate,
+      address_line1: street.trim(),
+      address_number: number.trim(),
       address_line2: addr2.trim(),
       neighborhood: neighborhood.trim(),
       city: city.trim(),
@@ -180,6 +224,28 @@ export default function ProfileSettingsModal({ open, onClose }) {
                     placeholder="(11) 99999-9999"
                   />
                 </Field>
+
+                <Field label="CPF">
+                  <input
+                    value={cpf}
+                    onChange={(e) => setCpf(e.target.value)}
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                    placeholder="000.000.000-00"
+                  />
+                </Field>
+
+                <Field label="Data de nascimento">
+                  <input
+                    value={birthdate}
+                    onChange={(e) => setBirthdate(e.target.value)}
+                    type="date"
+                    autoComplete="bday"
+                    className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                  />
+                </Field>
               </div>
 
               <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -234,15 +300,29 @@ export default function ProfileSettingsModal({ open, onClose }) {
                 </Field>
               </div>
 
-              <div className="mt-3">
-                <Field label="Rua e número">
+              <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-2">
+                  <Field label="Rua">
+                    <input
+                      value={street}
+                      onChange={(e) => setStreet(e.target.value)}
+                      type="text"
+                      autoComplete="address-line1"
+                      className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                      placeholder="Rua Exemplo"
+                    />
+                  </Field>
+                </div>
+
+                <Field label="Número">
                   <input
-                    value={addr1}
-                    onChange={(e) => setAddr1(e.target.value)}
+                    value={number}
+                    onChange={(e) => setNumber(e.target.value)}
                     type="text"
-                    autoComplete="street-address"
+                    inputMode="numeric"
+                    autoComplete="address-line2"
                     className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
-                    placeholder="Rua Exemplo, 123"
+                    placeholder="123"
                   />
                 </Field>
               </div>
