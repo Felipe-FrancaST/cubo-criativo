@@ -20,8 +20,7 @@ export default function SobrePage({ onGoHome }) {
                 Cubo Criativo
               </h1>
               <p className="mt-2 text-slate-300 text-sm sm:text-base max-w-2xl">
-                Fundada em <b>março de 2025</b>, a Cubo Criativo nasceu para transformar ideias em peças
-                com presença — da vitrine ao colecionável, sempre com acabamento e cuidado em cada detalhe.
+                Fundada em <b>março de 2025</b>, a Cubo Criativo nasceu para transformar ideias em realidade — da vitrine ao colecionável, sempre com acabamento e cuidado em cada detalhe.
               </p>
             </div>
 
@@ -37,7 +36,7 @@ export default function SobrePage({ onGoHome }) {
             <div className="lg:col-span-2 rounded-3xl p-6 sm:p-7 bg-white/5 ring-1 ring-white/10 shadow-[0_0_0_1px_rgba(255,255,255,0.04)]">
               <h2 className="text-lg font-extrabold">Nossa missão</h2>
               <p className="mt-2 text-slate-300 text-sm leading-relaxed">
-                Criar miniaturas e peças decorativas que chamam atenção de verdade — com opções de escala,
+                Criar miniaturas e peças em 3d que chamam atenção de verdade — com opções de escala,
                 fotos detalhadas, produção cuidadosa e comunicação transparente do pedido ao envio.
               </p>
 
@@ -45,13 +44,13 @@ export default function SobrePage({ onGoHome }) {
                 <div className="rounded-2xl p-4 bg-black/25 ring-1 ring-white/10">
                   <p className="text-xs text-slate-400">O que fazemos</p>
                   <p className="mt-1 text-sm font-semibold text-slate-100">
-                    Peças de catálogo, promoções e modelos RPG sob demanda.
+                    Peças sob encomenda, action figures e miniatura de rpg.
                   </p>
                 </div>
                 <div className="rounded-2xl p-4 bg-black/25 ring-1 ring-white/10">
                   <p className="text-xs text-slate-400">Como trabalhamos</p>
                   <p className="mt-1 text-sm font-semibold text-slate-100">
-                    Produção organizada por status, com foco em qualidade e prazos.
+                    Produção organizada, com foco em qualidade e prazos.
                   </p>
                 </div>
               </div>
