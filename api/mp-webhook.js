@@ -39,6 +39,13 @@ function parseEmailList(value) {
     .filter(Boolean);
 }
 
+function isValidEmail(value) {
+  const s = String(value || "").trim();
+  if (!s) return false;
+  // Validação leve (suficiente para bloquear cpf/telefone/etc.)
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+}
+
 async function loadOrderSnapshot(orderId) {
   const sb = supabaseAdmin();
   const { data: order } = await sb
@@ -297,13 +304,37 @@ export default async function handler(req, res) {
     const to = String(process.env.ORDER_EMAIL_TO || "").trim();
     const from = String(process.env.RESEND_FROM || "").trim();
 
+    // Carrega snapshot do pedido (com itens e perfil), se possível.
+    const { order, profile, items } = orderId
+      ? await loadOrderSnapshot(orderId)
+      : { order: null, profile: null, items: [] };
+
+    const sb = supabaseAdmin();
+
+    // Se faltar env do Resend, registra no pedido (não marca como enviado no MP)
     if (!apiKey || !to || !from) {
-      // Mesmo sem email, tente marcar como enviado? Não.
+      if (orderId) {
+        const missing = [
+          !apiKey ? "missing_RESEND_API_KEY" : null,
+          !to ? "missing_ORDER_EMAIL_TO" : null,
+          !from ? "missing_RESEND_FROM" : null,
+        ].filter(Boolean);
+        try {
+          await sb
+            .from("orders")
+            .update({
+              owner_email_sent_at: null,
+              customer_email_sent_at: null,
+              customer_email_error: missing.join(";") || "missing_resend_env",
+              owner_email_error: missing.join(";") || "missing_resend_env",
+            })
+            .eq("id", orderId);
+        } catch (e) {
+          console.error("failed to write email env error", e);
+        }
+      }
       return res.status(200).json({ ok: true, status: "approved", email: "skipped (missing resend env)" });
     }
-
-    // Carrega snapshot do pedido (com itens e perfil), se possível.
-    const { order, profile, items } = orderId ? await loadOrderSnapshot(orderId) : { order: null, profile: null, items: [] };
 
     // Fallback para itens via metadata (se o snapshot ainda não tiver itens)
     let fallbackItems = [];
@@ -328,7 +359,9 @@ export default async function handler(req, res) {
     const totalBRL = order?.total ?? Number(payment?.transaction_amount) || 0;
     const orderCode = order?.id || orderId || payment?.external_reference || "-";
 
-    const customerEmail = String(order?.customer_email || payerEmail || "").trim();
+    const customerEmailRaw = String(order?.customer_email || payerEmail || "").trim();
+    const customerEmailOk = isValidEmail(customerEmailRaw);
+    const customerEmail = customerEmailOk ? customerEmailRaw : "";
     const customerName = String(order?.customer_name || profile?.full_name || "").trim();
     const customerPhone = String(order?.customer_phone || profile?.phone || "").trim();
 
@@ -418,19 +451,55 @@ export default async function handler(req, res) {
     });
 
     const ownerTo = parseEmailList(to);
-    const ownerResp = await sendResendEmail({ apiKey, from, to: ownerTo, subject: ownerSubject, html: ownerHtml });
-
+    let ownerResp = { ok: false, status: 0, data: { error: "not_sent" } };
     let customerResp = { ok: true, skipped: true };
-    if (customerEmail) {
-      customerResp = await sendResendEmail({ apiKey, from, to: [customerEmail], subject: customerSubject, html: customerHtml });
+    let ownerErr = null;
+    let customerErr = null;
+
+    // Envia para você (admin) SEM depender do email do cliente
+    try {
+      ownerResp = await sendResendEmail({ apiKey, from, to: ownerTo, subject: ownerSubject, html: ownerHtml });
+      if (!ownerResp.ok) ownerErr = `resend_${ownerResp.status}`;
+    } catch (e) {
+      ownerErr = e?.message || String(e);
     }
 
-    if (!ownerResp.ok || !customerResp.ok) {
+    // Envia para o cliente somente se email for válido
+    if (customerEmailOk) {
+      try {
+        customerResp = await sendResendEmail({ apiKey, from, to: [customerEmailRaw], subject: customerSubject, html: customerHtml });
+        if (!customerResp.ok) customerErr = `resend_${customerResp.status}`;
+      } catch (e) {
+        customerErr = e?.message || String(e);
+      }
+    } else {
+      customerErr = "missing_or_invalid_customer_email";
+    }
+
+    // Registra resultado no pedido (para debug)
+    if (orderId) {
+      try {
+        await sb
+          .from("orders")
+          .update({
+            owner_email_sent_at: ownerResp.ok ? new Date().toISOString() : null,
+            customer_email_sent_at: customerResp.ok && customerEmailOk ? new Date().toISOString() : null,
+            customer_email_error: customerErr,
+            owner_email_error: ownerErr,
+          })
+          .eq("id", orderId);
+      } catch (e) {
+        console.error("failed to write email send result", e);
+      }
+    }
+
+    // Se falhou algum email, não marca idempotência no MP
+    if (!ownerResp.ok || (customerEmailOk && !customerResp.ok)) {
       return res.status(200).json({
         ok: true,
         email: "error",
         owner: ownerResp.ok ? "sent" : ownerResp.data,
-        customer: customerResp.ok ? "sent" : customerResp.data,
+        customer: customerEmailOk ? (customerResp.ok ? "sent" : customerResp.data) : "skipped_invalid_email",
       });
     }
 
@@ -449,7 +518,9 @@ export default async function handler(req, res) {
       }
     );
 
-    return res.status(200).json({ ok: true, email: "sent", owner: "sent", customer: customerEmail ? "sent" : "skipped" });
+    return res
+      .status(200)
+      .json({ ok: true, email: "sent", owner: "sent", customer: customerEmailOk ? "sent" : "skipped_invalid_email" });
   } catch (err) {
     console.error("mp-webhook error:", err);
     // Sempre 200 pra não gerar retry infinito
