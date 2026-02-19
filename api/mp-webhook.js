@@ -13,7 +13,9 @@
  * - ORDER_EMAIL_TO=seuemail@...
  */
 
-import { supabaseAdmin } from "./_supabase.js";
+// IMPORTANT: usamos import dinâmico do Supabase para evitar crash em tempo de carga.
+// Isso garante que qualquer erro (env faltando, bundling, etc.) caia no try/catch do handler
+// e apareça nos logs do runtime da Vercel.
 
 function fmtBRL(value) {
   const n = Number(value);
@@ -46,8 +48,19 @@ function isValidEmail(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
 }
 
-async function loadOrderSnapshot(orderId) {
-  const sb = supabaseAdmin();
+async function getSupabaseAdminSafe() {
+  try {
+    const mod = await import("./_supabase.js");
+    if (typeof mod?.supabaseAdmin !== "function") throw new Error("supabaseAdmin not found");
+    return mod.supabaseAdmin();
+  } catch (e) {
+    console.error("supabase init error", e);
+    return null;
+  }
+}
+
+async function loadOrderSnapshot(sb, orderId) {
+  if (!sb) return { order: null, profile: null, items: [] };
   const { data: order } = await sb
     .from("orders")
     .select(
@@ -95,6 +108,19 @@ async function loadOrderSnapshot(orderId) {
   }
 
   return { order, profile, items };
+}
+
+function replyJson(res, code, payload) {
+  try {
+    if (typeof res?.status === "function" && typeof res?.json === "function") {
+      return res.status(code).json(payload);
+    }
+  } catch {}
+  try {
+    res.statusCode = code;
+    res.setHeader?.("Content-Type", "application/json; charset=utf-8");
+    res.end(JSON.stringify(payload));
+  } catch {}
 }
 
 function renderEmailLayout({ title, subtitle, contentHtml, badgeText }) {
@@ -228,8 +254,16 @@ async function sendResendEmail({ apiKey, from, to, subject, html }) {
 
 export default async function handler(req, res) {
   try {
+    // GET no navegador: não deve crashar (e MP não usa GET)
+    if (req.method === "GET") {
+      res.statusCode = 200;
+      res.setHeader?.("Content-Type", "text/plain; charset=utf-8");
+      res.end("ok");
+      return;
+    }
+    // Para qualquer método diferente de POST, apenas acknowledge
     if (req.method !== "POST") {
-      return res.status(405).json({ error: "Method not allowed. Use POST." });
+      return res.status(200).json({ ok: true, ignored: "not_post" });
     }
 
     const token = String(process.env.MP_ACCESS_TOKEN || "").trim();
@@ -261,29 +295,33 @@ export default async function handler(req, res) {
     const payment = paymentResp.data;
     const status = payment?.status;
 
+    // Inicializa Supabase (best-effort). Se falhar, seguimos sem quebrar o webhook.
+    const sb = await getSupabaseAdminSafe();
+
     // Atualiza pedido no Supabase (best-effort)
     const orderId = payment?.external_reference || payment?.metadata?.order_id || null;
     if (orderId) {
       try {
-        const sb = supabaseAdmin();
+        if (sb) {
         const mapped = mapOrderStatus(status);
-        await sb
-          .from("orders")
-          .update({
-            status: mapped,
-            payment_provider: "mercado_pago",
-            provider_payment_id: String(payment.id || ""),
-            customer_email: payment?.payer?.email || null,
-            customer_name: payment?.payer?.first_name
-              ? `${payment.payer.first_name || ""} ${payment.payer.last_name || ""}`.trim()
-              : null,
-            customer_phone: payment?.payer?.phone?.number || null,
-          })
-          .eq("id", orderId);
+          await sb
+            .from("orders")
+            .update({
+              status: mapped,
+              payment_provider: "mercado_pago",
+              provider_payment_id: String(payment.id || ""),
+              customer_email: payment?.payer?.email || null,
+              customer_name: payment?.payer?.first_name
+                ? `${payment.payer.first_name || ""} ${payment.payer.last_name || ""}`.trim()
+                : null,
+              customer_phone: payment?.payer?.phone?.number || null,
+            })
+            .eq("id", orderId);
 
         // Se ainda não está aprovado, só atualiza e encerra (sem e-mail)
         if (mapped !== "paid") {
           return res.status(200).json({ ok: true, status, mapped });
+        }
         }
       } catch (e) {
         console.error("supabase update order error", e);
@@ -295,11 +333,9 @@ export default async function handler(req, res) {
     const from = String(process.env.RESEND_FROM || "").trim();
 
     // Carrega snapshot do pedido (com itens e perfil), se possível.
-    const { order, profile, items } = orderId
-      ? await loadOrderSnapshot(orderId)
+    const { order, profile, items } = orderId && sb
+      ? await loadOrderSnapshot(sb, orderId)
       : { order: null, profile: null, items: [] };
-
-    const sb = supabaseAdmin();
 
     // Idempotência: preferimos confiar no nosso banco.
     // Se o Mercado Pago já tiver metadata.email_sent=1, mas no banco ainda não há registro de envio,
@@ -318,7 +354,7 @@ export default async function handler(req, res) {
 
     // Se faltar env do Resend, registra no pedido (não marca como enviado no MP)
     if (!apiKey || !to || !from) {
-      if (orderId) {
+      if (orderId && sb) {
         const missing = [
           !apiKey ? "missing_RESEND_API_KEY" : null,
           !to ? "missing_ORDER_EMAIL_TO" : null,
@@ -361,7 +397,7 @@ export default async function handler(req, res) {
     const normalizedItems = (items && items.length ? items : fallbackItems).filter(Boolean);
 
     const payerEmail = payment?.payer?.email || order?.customer_email || "";
-    const totalBRL = order?.total ?? Number(payment?.transaction_amount) || 0;
+    const totalBRL = ((order?.total ?? Number(payment?.transaction_amount ?? 0)) || 0);
     const orderCode = order?.id || orderId || payment?.external_reference || "-";
 
     const customerEmailRaw = String(order?.customer_email || payerEmail || "").trim();
@@ -482,7 +518,7 @@ export default async function handler(req, res) {
     }
 
     // Registra resultado no pedido (para debug)
-    if (orderId) {
+    if (orderId && sb) {
       try {
         await sb
           .from("orders")
