@@ -290,16 +290,6 @@ export default async function handler(req, res) {
       }
     }
 
-    // Idempotência: se já enviou, não envia de novo
-    const alreadySent =
-      payment?.metadata?.email_sent === 1 ||
-      payment?.metadata?.email_sent === "1" ||
-      payment?.metadata?.email_sent === true;
-
-    if (alreadySent) {
-      return res.status(200).json({ ok: true, status: "approved", email: "skipped" });
-    }
-
     const apiKey = String(process.env.RESEND_API_KEY || "").trim();
     const to = String(process.env.ORDER_EMAIL_TO || "").trim();
     const from = String(process.env.RESEND_FROM || "").trim();
@@ -310,6 +300,21 @@ export default async function handler(req, res) {
       : { order: null, profile: null, items: [] };
 
     const sb = supabaseAdmin();
+
+    // Idempotência: preferimos confiar no nosso banco.
+    // Se o Mercado Pago já tiver metadata.email_sent=1, mas no banco ainda não há registro de envio,
+    // ainda tentamos enviar (isso resolve casos em que versões antigas marcaram email_sent sem realmente enviar).
+    const alreadySent =
+      payment?.metadata?.email_sent === 1 ||
+      payment?.metadata?.email_sent === "1" ||
+      payment?.metadata?.email_sent === true;
+
+    const ownerAlreadyLogged = Boolean(order?.owner_email_sent_at);
+    const customerAlreadyLogged = Boolean(order?.customer_email_sent_at);
+
+    if (alreadySent && (ownerAlreadyLogged || customerAlreadyLogged)) {
+      return res.status(200).json({ ok: true, status: "approved", email: "skipped" });
+    }
 
     // Se faltar env do Resend, registra no pedido (não marca como enviado no MP)
     if (!apiKey || !to || !from) {
