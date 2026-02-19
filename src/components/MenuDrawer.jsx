@@ -85,6 +85,9 @@ export default function MenuDrawer({
           <DrawerButton icon="contact_support" onClick={() => { onGoHomeSection("contato"); onClose?.(); }}>
             Contato
           </DrawerButton>
+          <DrawerButton icon="groups" onClick={() => { onNavigate("/sobre"); onClose?.(); }}>
+            Sobre nós
+          </DrawerButton>
 
           <div className="my-3 h-px bg-white/10" />
 

@@ -32,8 +32,7 @@ export default function PromocoesPage({
                 Ofertas para chamar atenção
               </h1>
               <p className="mt-2 text-slate-300 text-sm sm:text-base max-w-2xl">
-                Aqui ficam todos os produtos marcados com <b>promo = true</b> no Supabase.
-                Toque em um item para ver fotos, escolher escala e comprar.
+                Descontos especiais por tempo limitado. Toque em um item para ver fotos, escolher escala e comprar.
               </p>
             </div>
 

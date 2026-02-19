@@ -141,9 +141,9 @@ export default function ProfileSettingsModal({ open, onClose }) {
     // validações (obrigatório)
     if (!fullName.trim()) return fail("Informe seu nome.");
     if (!phone.trim()) return fail("Informe seu telefone.");
-    if (!cpf.trim()) return fail("Informe seu CPF.");
-    if (!isValidCpf(cpf)) return fail("CPF inválido. Digite apenas números (11 dígitos).");
-    if (!birthdate) return fail("Informe sua data de nascimento.");
+    // CPF e data de nascimento são opcionais aqui,
+    // mas serão exigidos antes de pagar (na finalização do pedido).
+    if (cpf.trim() && !isValidCpf(cpf)) return fail("CPF inválido. Digite apenas números (11 dígitos).");
     if (!isValidCep(zip)) return fail("Informe um CEP válido.");
     if (!city.trim()) return fail("Informe sua cidade.");
     if (!stateUF.trim() || stateUF.trim().length !== 2) return fail("Informe a UF (2 letras).");
@@ -225,7 +225,7 @@ export default function ProfileSettingsModal({ open, onClose }) {
                   />
                 </Field>
 
-                <Field label="CPF">
+                <Field label="CPF (obrigatório para comprar)">
                   <input
                     value={cpf}
                     onChange={(e) => setCpf(e.target.value)}
@@ -237,7 +237,7 @@ export default function ProfileSettingsModal({ open, onClose }) {
                   />
                 </Field>
 
-                <Field label="Data de nascimento">
+                <Field label="Data de nascimento (obrigatório para comprar)">
                   <input
                     value={birthdate}
                     onChange={(e) => setBirthdate(e.target.value)}

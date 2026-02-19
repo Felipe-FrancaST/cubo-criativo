@@ -29,8 +29,10 @@ export default function CartDrawer({
   onPay,
   paying,
   authToken,
+  userId,
   userEmail,
   onRequireLogin,
+  onRequireProfile,
   onOpenOrders,
   onPaymentConfirmed
 }) {
@@ -95,11 +97,57 @@ export default function CartDrawer({
         return;
       }
 
-      const payerEmail = String(userEmail || "").trim() ||
-        window.prompt(
-          "Digite seu e-mail para receber o comprovante (para testes, use: test@testuser.com)"
-        );
-      if (!payerEmail) return;
+      // Antes de gerar o Pix, exigimos que o cliente complete os dados pessoais
+      // (endereço + CPF + nascimento). No cadastro eles podem ficar em branco,
+      // mas aqui é obrigatório para finalizar o pedido.
+      const payerEmail = String(userEmail || "").trim();
+      if (!payerEmail || !payerEmail.includes("@")) {
+        onRequireProfile?.();
+        setPixLoginMsg("Complete seu perfil (incluindo e-mail) antes de pagar.");
+        window.clearTimeout(handlePix._t);
+        handlePix._t = window.setTimeout(() => setPixLoginMsg(""), 3200);
+        return;
+      }
+
+      // busca profile no Supabase (client) para validar campos obrigatórios
+      let prof = null;
+      try {
+        if (userId) {
+          const { data } = await supabase
+            .from("profiles")
+            .select("full_name, phone, cpf, birthdate, address_line1, address_number, neighborhood, city, state, zip")
+            .eq("id", userId)
+            .single();
+          prof = data || null;
+        }
+      } catch {
+        // ignore
+      }
+
+      const missing = [];
+      const v = (x) => String(x || "").trim();
+      if (!prof) {
+        missing.push("perfil");
+      } else {
+        if (!v(prof.full_name)) missing.push("nome");
+        if (!v(prof.phone)) missing.push("telefone");
+        if (v(prof.cpf).replace(/\D/g, "").length !== 11) missing.push("CPF");
+        if (!v(prof.birthdate)) missing.push("data de nascimento");
+        if (v(prof.zip).replace(/\D/g, "").length !== 8) missing.push("CEP");
+        if (!v(prof.city)) missing.push("cidade");
+        if (v(prof.state).length !== 2) missing.push("UF");
+        if (!v(prof.neighborhood)) missing.push("bairro");
+        if (!v(prof.address_line1)) missing.push("rua");
+        if (!v(prof.address_number)) missing.push("número");
+      }
+
+      if (missing.length) {
+        onRequireProfile?.();
+        setPixLoginMsg(`Complete seus dados antes de pagar: ${missing.join(", ")}.`);
+        window.clearTimeout(handlePix._t);
+        handlePix._t = window.setTimeout(() => setPixLoginMsg(""), 4500);
+        return;
+      }
 
       setPixLoading(true);
 

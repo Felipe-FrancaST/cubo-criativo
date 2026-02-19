@@ -119,10 +119,9 @@ export default function AuthModal({ open, onClose, onSuccess }) {
       if (!fullName.trim()) return setError("Informe seu nome.");
       if (!phone.trim()) return setError("Informe seu telefone.");
 
-      if (!cpf.trim()) return setError("Informe seu CPF.");
-      if (!isValidCpf(cpf)) return setError("CPF inválido. Digite apenas números (11 dígitos).");
-
-      if (!birthdate) return setError("Informe sua data de nascimento.");
+      // CPF e data de nascimento são opcionais no cadastro,
+      // mas se forem preenchidos, validamos.
+      if (cpf.trim() && !isValidCpf(cpf)) return setError("CPF inválido. Digite apenas números (11 dígitos).");
 
       if (!isValidCep(zip)) return setError("Informe um CEP válido.");
       if (!city.trim()) return setError("Informe sua cidade.");
@@ -299,7 +298,7 @@ export default function AuthModal({ open, onClose, onSuccess }) {
                 </Field>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <Field label="CPF">
+                  <Field label="CPF (opcional)">
                     <input
                       value={cpf}
                       onChange={(e) => setCpf(e.target.value)}
@@ -311,7 +310,7 @@ export default function AuthModal({ open, onClose, onSuccess }) {
                     />
                   </Field>
 
-                  <Field label="Data de nascimento">
+                  <Field label="Data de nascimento (opcional)">
                     <input
                       value={birthdate}
                       onChange={(e) => setBirthdate(e.target.value)}

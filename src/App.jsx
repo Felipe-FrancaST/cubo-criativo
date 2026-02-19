@@ -19,6 +19,7 @@ import StockPage from "./pages/StockPage.jsx";
 import CatalogPage from "./pages/CatalogPage.jsx";
 import AccountPage from "./pages/AccountPage.jsx";
 import PromocoesPage from "./pages/PromocoesPage.jsx";
+import SobrePage from "./pages/SobrePage.jsx";
 import AdminOrdersPage from "./pages/AdminOrdersPage.jsx";
 import { isAdminEmail } from "./lib/admin.js";
 
@@ -615,6 +616,9 @@ React.useEffect(() => {
         />
       );
     }
+    if (route === "/sobre") {
+      return <SobrePage onGoHome={() => navigate("/")} />;
+    }
     if (route === "/conta") {
       return <AccountPage onGoHome={() => navigate("/")} />;
     }
@@ -761,8 +765,10 @@ React.useEffect(() => {
         onPay={startCheckout}
         paying={paying}
         authToken={accessToken}
+        userId={user?.id || ""}
         userEmail={user?.email || ""}
         onRequireLogin={() => setAuthOpen(true)}
+        onRequireProfile={() => setSettingsOpen(true)}
         onOpenOrders={() => setOrdersOpen(true)}
         onPaymentConfirmed={() => {
           setCart([]);
