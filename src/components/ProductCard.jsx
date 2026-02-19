@@ -26,7 +26,18 @@ export default function ProductCard({ p, addToCart, buyNow, openViewer, openGall
 
   const hasVariants = Array.isArray(p.variants) && p.variants.length > 0;
   const sel = hasVariants ? p.variants[selIndex] : null;
-  const price = sel?.price ?? p.preco ?? 0;
+
+  // Preço efetivo:
+  // - Se tiver variantes, usa o preço da variante selecionada.
+  // - Caso `promo=true` e `price_cents` esteja menor que o preço da variante (caso comum quando você
+  //   atualiza o price_cents mas esquece de atualizar variants[].price_cents), aplicamos o promo APENAS
+  //   para a escolha padrão (ou quando só existe 1 variante).
+  const basePrice = typeof p.preco === "number" ? p.preco : 0;
+  let price = typeof sel?.price === "number" ? sel.price : basePrice;
+  if (p.promo === true && basePrice > 0) {
+    const isDefaultChoice = !hasVariants || selIndex === defaultIndex || p.variants.length === 1;
+    if (isDefaultChoice && (price === 0 || basePrice < price)) price = basePrice;
+  }
   const escala = sel?.label ?? p.escala ?? "";
 
   function handleAdd() {
@@ -77,7 +88,11 @@ export default function ProductCard({ p, addToCart, buyNow, openViewer, openGall
             >
               {p.variants.map((v, i) => (
                 <option key={v.label} value={i}>
-                  {v.label} — {fmtBRL(v.price)}
+                  {v.label} — {fmtBRL(
+                    p.promo === true && basePrice > 0 && p.variants.length === 1 && basePrice < (v.price || 0)
+                      ? basePrice
+                      : v.price
+                  )}
                 </option>
               ))}
             </select>

@@ -24,7 +24,17 @@ export default function PromoProductCard({ p, addToCart, buyNow, openViewer, ope
 
   const hasVariants = Array.isArray(p.variants) && p.variants.length > 0;
   const sel = hasVariants ? p.variants[selIndex] : null;
-  const currentPrice = sel?.price ?? p.preco ?? 0;
+  // Preço efetivo (mesma lógica do card normal):
+  // - Se tiver variantes, usa a variante selecionada.
+  // - Se promo=true e price_cents (p.preco) estiver menor que a variante (caso comum quando
+  //   você altera o price_cents mas esquece de atualizar variants[].price_cents), aplicamos
+  //   o promo apenas para a escolha padrão (ou quando só existe 1 variante).
+  const basePrice = typeof p.preco === "number" ? p.preco : 0;
+  let currentPrice = typeof sel?.price === "number" ? sel.price : basePrice;
+  if (p.promo === true && basePrice > 0) {
+    const isDefaultChoice = !hasVariants || selIndex === defaultIndex || p.variants.length === 1;
+    if (isDefaultChoice && (currentPrice === 0 || basePrice < currentPrice)) currentPrice = basePrice;
+  }
   const escala = sel?.label ?? p.escala ?? "";
   const original = p.originalPrice ?? 0;
   const off = percentOff(original, currentPrice);
