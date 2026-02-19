@@ -82,7 +82,7 @@ export default function MenuDrawer({
           <DrawerButton icon="view_module" onClick={() => { onNavigate("/catalogo"); onClose?.(); }}>
             Catálogo
           </DrawerButton>
-          <DrawerButton icon="contact_support" onClick={() => { onGoHomeSection("contato"); onClose?.(); }}>
+          <DrawerButton icon="contact_support" onClick={() => { onNavigate("/contato"); onClose?.(); }}>
             Contato
           </DrawerButton>
           <DrawerButton icon="groups" onClick={() => { onNavigate("/sobre"); onClose?.(); }}>

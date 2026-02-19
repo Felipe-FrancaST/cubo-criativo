@@ -20,6 +20,7 @@ import CatalogPage from "./pages/CatalogPage.jsx";
 import AccountPage from "./pages/AccountPage.jsx";
 import PromocoesPage from "./pages/PromocoesPage.jsx";
 import SobrePage from "./pages/SobrePage.jsx";
+import ContactPage from "./pages/ContactPage.jsx";
 import AdminOrdersPage from "./pages/AdminOrdersPage.jsx";
 import { isAdminEmail } from "./lib/admin.js";
 
@@ -618,6 +619,9 @@ React.useEffect(() => {
     }
     if (route === "/sobre") {
       return <SobrePage onGoHome={() => navigate("/")} />;
+    }
+    if (route === "/contato") {
+      return <ContactPage onGoHome={() => navigate("/")} />;
     }
     if (route === "/conta") {
       return <AccountPage onGoHome={() => navigate("/")} />;
