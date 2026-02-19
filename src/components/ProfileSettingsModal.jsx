@@ -1,6 +1,7 @@
 import React from "react";
 import Modal from "./Modal.jsx";
 import { useAuth } from "../auth/AuthProvider.jsx";
+import { fetchAddressFromCep, onlyDigits } from "../lib/cep.js";
 
 function Field({ label, children }) {
   return (
@@ -29,33 +30,38 @@ export default function ProfileSettingsModal({ open, onClose }) {
   const [stateUF, setStateUF] = React.useState("");
   const [zip, setZip] = React.useState("");
 
+  const [cepBusy, setCepBusy] = React.useState(false);
+  const [cepHint, setCepHint] = React.useState("");
+
   const loadProfile = React.useCallback(async () => {
     if (!user) return;
     setLoading(true);
     setError("");
     setOk("");
-    const resp = await fetch("/api/profile", {
-  method: "GET",
-  headers: { ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}) },
-});
-const json = await resp.json().catch(() => ({}));
-if (!resp.ok) {
-  setError(json?.error || "Não foi possível carregar seus dados.");
-  setLoading(false);
-  return;
-}
 
-const data = json?.profile || {};
-setFullName(data?.full_name || "");
-setPhone(data?.phone || "");
-setAddr1(data?.address_line1 || "");
-setAddr2(data?.address_line2 || "");
-setNeighborhood(data?.neighborhood || "");
-setCity(data?.city || "");
-setStateUF(data?.state || "");
-setZip(data?.zip || "");
-setLoading(false);
-  }, [user]);
+    const resp = await fetch("/api/profile", {
+      method: "GET",
+      headers: { ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}) },
+    });
+
+    const json = await resp.json().catch(() => ({}));
+    if (!resp.ok) {
+      setError(json?.error || "Não foi possível carregar seus dados.");
+      setLoading(false);
+      return;
+    }
+
+    const data = json?.profile || {};
+    setFullName(data?.full_name || "");
+    setPhone(data?.phone || "");
+    setAddr1(data?.address_line1 || "");
+    setAddr2(data?.address_line2 || "");
+    setNeighborhood(data?.neighborhood || "");
+    setCity(data?.city || "");
+    setStateUF(data?.state || "");
+    setZip(data?.zip || "");
+    setLoading(false);
+  }, [user, jwt]);
 
   React.useEffect(() => {
     if (!open) return;
@@ -63,11 +69,47 @@ setLoading(false);
     loadProfile();
   }, [open, user, loadProfile]);
 
+  // Auto-preenche pelo CEP
+  React.useEffect(() => {
+    const d = onlyDigits(zip);
+    if (d.length !== 8) {
+      setCepHint("");
+      return;
+    }
+
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      setCepBusy(true);
+      const resp = await fetchAddressFromCep(d);
+      if (cancelled) return;
+      setCepBusy(false);
+
+      if (!resp.ok) {
+        setCepHint(resp.error || "Não foi possível consultar o CEP");
+        return;
+      }
+
+      const a = resp.data;
+      setCepHint("Endereço encontrado ✓");
+      if (!addr1.trim() && a.street) setAddr1(a.street);
+      if (!neighborhood.trim() && a.neighborhood) setNeighborhood(a.neighborhood);
+      if (!city.trim() && a.city) setCity(a.city);
+      if (!stateUF.trim() && a.uf) setStateUF(a.uf);
+    }, 350);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zip]);
+
   async function save() {
     if (!user) return;
     setError("");
     setOk("");
     setSaving(true);
+
     const payload = {
       id: user.id,
       full_name: fullName.trim(),
@@ -76,9 +118,10 @@ setLoading(false);
       address_line2: addr2.trim(),
       neighborhood: neighborhood.trim(),
       city: city.trim(),
-      state: stateUF.trim(),
-      zip: zip.trim(),
+      state: stateUF.trim().toUpperCase(),
+      zip: onlyDigits(zip),
     };
+
     // remove strings vazias
     Object.keys(payload).forEach((k) => {
       if (payload[k] === "") delete payload[k];
@@ -86,19 +129,21 @@ setLoading(false);
     payload.id = user.id;
 
     const resp = await fetch("/api/profile", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-    ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}),
-  },
-  body: JSON.stringify({ profile: payload }),
-});
-const json = await resp.json().catch(() => ({}));
-if (!resp.ok) {
-  setError(json?.error || "Não foi possível salvar.");
-  setSaving(false);
-  return;
-}
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}),
+      },
+      body: JSON.stringify({ profile: payload }),
+    });
+
+    const json = await resp.json().catch(() => ({}));
+    if (!resp.ok) {
+      setError(json?.error || "Não foi possível salvar.");
+      setSaving(false);
+      return;
+    }
+
     setOk("Dados salvos com sucesso ✅");
     setSaving(false);
   }
@@ -112,9 +157,7 @@ if (!resp.ok) {
           <div className="space-y-4">
             <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
               <p className="text-sm font-semibold text-slate-100">Dados do cliente</p>
-              <p className="mt-1 text-xs text-slate-400">
-                Essas informações aparecem no seu pedido e facilitam a entrega.
-              </p>
+              <p className="mt-1 text-xs text-slate-400">Essas informações aparecem no seu pedido e facilitam a entrega.</p>
 
               <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Field label="Nome completo">
@@ -139,80 +182,83 @@ if (!resp.ok) {
                 </Field>
               </div>
 
-              <div className="mt-3">
-                <Field label="Endereço completo">
-                  <textarea
-                    value={addr1}
-                    onChange={(e) => setAddr1(e.target.value)}
-                    rows={3}
-                    autoComplete="street-address"
-                    className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60 resize-none"
-                    placeholder="Rua, número, bairro, cidade/UF, CEP"
+              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Field label="CEP">
+                  <input
+                    value={zip}
+                    onChange={(e) => setZip(e.target.value)}
+                    type="text"
+                    autoComplete="postal-code"
+                    className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                    placeholder="00000-000"
+                  />
+                  <div className="mt-1 text-[11px] text-slate-400">{cepBusy ? "Consultando CEP…" : cepHint || ""}</div>
+                </Field>
+
+                <Field label="UF">
+                  <input
+                    value={stateUF}
+                    onChange={(e) => setStateUF(e.target.value.toUpperCase())}
+                    type="text"
+                    autoComplete="address-level1"
+                    className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                    placeholder="SP"
+                    maxLength={2}
                   />
                 </Field>
               </div>
 
-              <details className="mt-3 rounded-xl bg-white/5 ring-1 ring-white/10 p-3">
-                <summary className="cursor-pointer text-sm text-slate-200 select-none">Detalhes (opcional)</summary>
-                <div className="mt-3 space-y-3">
-                  <Field label="Complemento">
-                    <input
-                      value={addr2}
-                      onChange={(e) => setAddr2(e.target.value)}
-                      type="text"
-                      autoComplete="address-line2"
-                      className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
-                      placeholder="Apartamento, bloco, etc"
-                    />
-                  </Field>
+              <div className="mt-3">
+                <Field label="Cidade">
+                  <input
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    type="text"
+                    autoComplete="address-level2"
+                    className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                    placeholder="Cidade"
+                  />
+                </Field>
+              </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <Field label="Bairro">
-                      <input
-                        value={neighborhood}
-                        onChange={(e) => setNeighborhood(e.target.value)}
-                        type="text"
-                        className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
-                        placeholder="Bairro"
-                      />
-                    </Field>
-                    <Field label="CEP">
-                      <input
-                        value={zip}
-                        onChange={(e) => setZip(e.target.value)}
-                        type="text"
-                        autoComplete="postal-code"
-                        className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
-                        placeholder="00000-000"
-                      />
-                    </Field>
-                  </div>
+              <div className="mt-3">
+                <Field label="Bairro">
+                  <input
+                    value={neighborhood}
+                    onChange={(e) => setNeighborhood(e.target.value)}
+                    type="text"
+                    autoComplete="address-level3"
+                    className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                    placeholder="Bairro"
+                  />
+                </Field>
+              </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <Field label="Cidade">
-                      <input
-                        value={city}
-                        onChange={(e) => setCity(e.target.value)}
-                        type="text"
-                        autoComplete="address-level2"
-                        className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
-                        placeholder="Cidade"
-                      />
-                    </Field>
-                    <Field label="Estado (UF)">
-                      <input
-                        value={stateUF}
-                        onChange={(e) => setStateUF(e.target.value)}
-                        type="text"
-                        autoComplete="address-level1"
-                        className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
-                        placeholder="SP"
-                        maxLength={2}
-                      />
-                    </Field>
-                  </div>
-                </div>
-              </details>
+              <div className="mt-3">
+                <Field label="Rua e número">
+                  <input
+                    value={addr1}
+                    onChange={(e) => setAddr1(e.target.value)}
+                    type="text"
+                    autoComplete="street-address"
+                    className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                    placeholder="Rua Exemplo, 123"
+                  />
+                </Field>
+              </div>
+
+              <div className="mt-3">
+                <Field label="Complemento (opcional)">
+                  <input
+                    value={addr2}
+                    onChange={(e) => setAddr2(e.target.value)}
+                    type="text"
+                    autoComplete="address-line2"
+                    className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                    placeholder="Apartamento, bloco, etc"
+                  />
+                </Field>
+              </div>
             </div>
 
             {error ? (
@@ -223,10 +269,7 @@ if (!resp.ok) {
             ) : null}
 
             <div className="flex items-center justify-end gap-2">
-              <button
-                onClick={onClose}
-                className="rounded-xl px-4 py-3 ring-1 ring-white/10 hover:bg-white/5"
-              >
+              <button onClick={onClose} className="rounded-xl px-4 py-3 ring-1 ring-white/10 hover:bg-white/5">
                 Fechar
               </button>
               <button

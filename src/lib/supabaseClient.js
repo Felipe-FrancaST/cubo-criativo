@@ -15,5 +15,7 @@ export const supabase = createClient(supabaseUrl || "", supabaseAnonKey || "", {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
+    // Evita token no hash (melhor com HashRouter) e melhora compatibilidade com OAuth
+    flowType: "pkce",
   },
 });

@@ -156,8 +156,16 @@ export function AuthProvider({ children }) {
     return supabase.auth.signOut();
   }
 
+  async function signInWithGoogle() {
+    const redirectTo = typeof window !== "undefined" ? window.location.origin : undefined;
+    return supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: redirectTo ? { redirectTo } : undefined,
+    });
+  }
+
   const value = React.useMemo(
-    () => ({ session, user, loading, signUp, signIn, resetPassword, signOut }),
+    () => ({ session, user, loading, signUp, signIn, signInWithGoogle, resetPassword, signOut }),
     [session, user, loading]
   );
 

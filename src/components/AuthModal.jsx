@@ -1,7 +1,7 @@
 import React from "react";
 import Modal from "./Modal.jsx";
 import { useAuth } from "../auth/AuthProvider.jsx";
-
+import { fetchAddressFromCep, isValidCep, onlyDigits } from "../lib/cep.js";
 
 function Field({ label, children }) {
   return (
@@ -13,31 +13,77 @@ function Field({ label, children }) {
 }
 
 export default function AuthModal({ open, onClose, onSuccess }) {
-  const { signIn, signUp, resetPassword } = useAuth();
+  const { signIn, signUp, signInWithGoogle, resetPassword } = useAuth();
 
   const [mode, setMode] = React.useState("login"); // login | signup
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
+
+  // signup/profile
   const [fullName, setFullName] = React.useState("");
   const [phone, setPhone] = React.useState("");
-  const [addr1, setAddr1] = React.useState("");
-  const [addr2, setAddr2] = React.useState("");
+  const [addr1, setAddr1] = React.useState(""); // rua + numero
+  const [addr2, setAddr2] = React.useState(""); // complemento
   const [neighborhood, setNeighborhood] = React.useState("");
   const [city, setCity] = React.useState("");
   const [stateUF, setStateUF] = React.useState("");
   const [zip, setZip] = React.useState("");
+
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState("");
   const [info, setInfo] = React.useState("");
+
+  const [cepBusy, setCepBusy] = React.useState(false);
+  const [cepHint, setCepHint] = React.useState("");
 
   React.useEffect(() => {
     if (!open) {
       setError("");
       setInfo("");
+      setCepHint("");
+      setCepBusy(false);
       setBusy(false);
       setPassword("");
     }
   }, [open]);
+
+  // Auto-preenche cidade/UF/bairro/rua pelo CEP (ViaCEP)
+  React.useEffect(() => {
+    if (mode !== "signup") return;
+    const d = onlyDigits(zip);
+    if (d.length !== 8) {
+      setCepHint("");
+      return;
+    }
+
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      setCepBusy(true);
+      const resp = await fetchAddressFromCep(d);
+      if (cancelled) return;
+      setCepBusy(false);
+
+      if (!resp.ok) {
+        setCepHint(resp.error || "Não foi possível consultar o CEP");
+        return;
+      }
+
+      const a = resp.data;
+      setCepHint("Endereço encontrado ✓");
+
+      // Só preenche se o campo estiver vazio, para não apagar o que o cliente digitou.
+      if (!addr1.trim() && a.street) setAddr1(a.street);
+      if (!neighborhood.trim() && a.neighborhood) setNeighborhood(a.neighborhood);
+      if (!city.trim() && a.city) setCity(a.city);
+      if (!stateUF.trim() && a.uf) setStateUF(a.uf);
+    }, 350);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zip, mode]);
 
   async function submit(e) {
     e?.preventDefault?.();
@@ -52,12 +98,19 @@ export default function AuthModal({ open, onClose, onSuccess }) {
     if (mode === "signup") {
       if (!fullName.trim()) return setError("Informe seu nome.");
       if (!phone.trim()) return setError("Informe seu telefone.");
-      if (!addr1.trim()) return setError("Informe seu endereço.");    }
+
+      if (!isValidCep(zip)) return setError("Informe um CEP válido.");
+      if (!city.trim()) return setError("Informe sua cidade.");
+      if (!stateUF.trim() || stateUF.trim().length !== 2) return setError("Informe a UF (2 letras).");
+      if (!neighborhood.trim()) return setError("Informe o bairro.");
+      if (!addr1.trim()) return setError("Informe a rua e número.");
+    }
 
     try {
       setBusy(true);
       const fn = mode === "login" ? signIn : signUp;
-      const { data, error: err } = await fn(
+
+      const payload =
         mode === "login"
           ? { email, password }
           : {
@@ -70,11 +123,12 @@ export default function AuthModal({ open, onClose, onSuccess }) {
                 address_line2: addr2.trim(),
                 neighborhood: neighborhood.trim(),
                 city: city.trim(),
-                state: stateUF.trim(),
-                zip: zip.trim(),
+                state: stateUF.trim().toUpperCase(),
+                zip: onlyDigits(zip),
               },
-            }
-      );
+            };
+
+      const { data, error: err } = await fn(payload);
       if (err) throw err;
 
       // Signup com confirmação por e-mail não retorna session
@@ -113,6 +167,21 @@ export default function AuthModal({ open, onClose, onSuccess }) {
     }
   }
 
+  async function doGoogle() {
+    setError("");
+    setInfo("");
+    try {
+      setBusy(true);
+      const { error: err } = await signInWithGoogle();
+      if (err) throw err;
+      // Vai redirecionar para o Google.
+    } catch (e) {
+      setError(e?.message || "Não foi possível entrar com Google.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <Modal open={open} onClose={onClose}>
       <div className="w-full max-w-md">
@@ -120,9 +189,7 @@ export default function AuthModal({ open, onClose, onSuccess }) {
           <div>
             <h3 className="font-extrabold text-xl">{mode === "login" ? "Entrar" : "Criar conta"}</h3>
             <p className="mt-1 text-xs text-slate-400">
-              {mode === "login"
-                ? "Acesse seus pedidos e finalize compras."
-                : "Crie sua conta para pagar e acompanhar pedidos."}
+              {mode === "login" ? "Acesse seus pedidos e finalize compras." : "Crie sua conta para pagar e acompanhar pedidos."}
             </p>
           </div>
           <button
@@ -138,134 +205,145 @@ export default function AuthModal({ open, onClose, onSuccess }) {
           <button
             type="button"
             onClick={() => setMode("login")}
-            className={`rounded-xl px-4 py-2 text-sm ring-1 ring-white/10 ${
-              mode === "login" ? "bg-white/10" : "hover:bg-white/5"
-            }`}
+            className={`rounded-xl px-4 py-2 text-sm ring-1 ring-white/10 ${mode === "login" ? "bg-white/10" : "hover:bg-white/5"}`}
           >
             Entrar
           </button>
           <button
             type="button"
             onClick={() => setMode("signup")}
-            className={`rounded-xl px-4 py-2 text-sm ring-1 ring-white/10 ${
-              mode === "signup" ? "bg-white/10" : "hover:bg-white/5"
-            }`}
+            className={`rounded-xl px-4 py-2 text-sm ring-1 ring-white/10 ${mode === "signup" ? "bg-white/10" : "hover:bg-white/5"}`}
           >
             Criar conta
           </button>
         </div>
 
+        <div className="mt-3">
+          <button
+            type="button"
+            onClick={doGoogle}
+            disabled={busy}
+            className={`w-full rounded-xl px-4 py-3 font-semibold ring-1 ring-white/10 transition flex items-center justify-center gap-2 ${
+              busy ? "bg-slate-700/50 text-slate-300 cursor-not-allowed" : "bg-white/10 hover:bg-white/15 text-slate-100"
+            }`}
+          >
+            <span className="material-icons" style={{ fontSize: 18 }}>
+              account_circle
+            </span>
+            Continuar com Google
+          </button>
+        </div>
+
+        <div className="mt-3 flex items-center gap-3 text-xs text-slate-400">
+          <div className="h-px flex-1 bg-white/10" />
+          <span>ou</span>
+          <div className="h-px flex-1 bg-white/10" />
+        </div>
+
         <form onSubmit={submit} className="mt-4 space-y-3">
           {mode === "signup" && (
-  <div className="space-y-3">
-    <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
-      <p className="text-sm font-semibold text-slate-100">Dados para entrega</p>
-      <p className="mt-1 text-xs text-slate-400">
-        Preencha para facilitar o fechamento do pedido (você pode editar depois).
-      </p>
+            <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
+              <p className="text-sm font-semibold text-slate-100">Dados para entrega</p>
+              <p className="mt-1 text-xs text-slate-400">Obrigatório: CEP, cidade e UF (a rua/bairro podem preencher automaticamente).</p>
 
-      <div className="mt-4 space-y-3">
-        <Field label="Nome completo">
-          <input
-            value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
-            type="text"
-            autoComplete="name"
-            className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
-            placeholder="Seu nome"
-          />
-        </Field>
+              <div className="mt-4 space-y-3">
+                <Field label="Nome completo">
+                  <input
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    type="text"
+                    autoComplete="name"
+                    className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                    placeholder="Seu nome"
+                  />
+                </Field>
 
-        <Field label="Telefone (WhatsApp)">
-          <input
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            type="tel"
-            autoComplete="tel"
-            className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
-            placeholder="(11) 99999-9999"
-          />
-        </Field>
+                <Field label="Telefone (WhatsApp)">
+                  <input
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    type="tel"
+                    autoComplete="tel"
+                    className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                    placeholder="(11) 99999-9999"
+                  />
+                </Field>
 
-        <Field label="Endereço completo">
-          <textarea
-            value={addr1}
-            onChange={(e) => setAddr1(e.target.value)}
-            rows={3}
-            autoComplete="street-address"
-            className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60 resize-none"
-            placeholder="Rua, número, bairro, cidade/UF, CEP (se tiver)"
-          />
-        </Field>
-      </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Field label="CEP">
+                    <input
+                      value={zip}
+                      onChange={(e) => setZip(e.target.value)}
+                      type="text"
+                      autoComplete="postal-code"
+                      className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                      placeholder="00000-000"
+                    />
+                    <div className="mt-1 text-[11px] text-slate-400">
+                      {cepBusy ? "Consultando CEP…" : cepHint ? cepHint : ""}
+                    </div>
+                  </Field>
 
-      <details className="mt-3 rounded-xl bg-white/5 ring-1 ring-white/10 p-3">
-        <summary className="cursor-pointer text-sm text-slate-200 select-none">
-          Detalhes do endereço (opcional)
-        </summary>
-        <div className="mt-3 space-y-3">
-          <Field label="Complemento">
-            <input
-              value={addr2}
-              onChange={(e) => setAddr2(e.target.value)}
-              type="text"
-              autoComplete="address-line2"
-              className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
-              placeholder="Apartamento, bloco, etc"
-            />
-          </Field>
+                  <Field label="UF">
+                    <input
+                      value={stateUF}
+                      onChange={(e) => setStateUF(e.target.value.toUpperCase())}
+                      type="text"
+                      autoComplete="address-level1"
+                      className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                      placeholder="SP"
+                      maxLength={2}
+                    />
+                  </Field>
+                </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-2 gap-2">
-            <Field label="Bairro">
-              <input
-                value={neighborhood}
-                onChange={(e) => setNeighborhood(e.target.value)}
-                type="text"
-                autoComplete="address-level3"
-                className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
-                placeholder="Bairro"
-              />
-            </Field>
-            <Field label="CEP">
-              <input
-                value={zip}
-                onChange={(e) => setZip(e.target.value)}
-                type="text"
-                autoComplete="postal-code"
-                className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
-                placeholder="00000-000"
-              />
-            </Field>
-          </div>
+                <Field label="Cidade">
+                  <input
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    type="text"
+                    autoComplete="address-level2"
+                    className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                    placeholder="Cidade"
+                  />
+                </Field>
 
-          <div className="grid grid-cols-2 sm:grid-cols-2 gap-2">
-            <Field label="Cidade">
-              <input
-                value={city}
-                onChange={(e) => setCity(e.target.value)}
-                type="text"
-                autoComplete="address-level2"
-                className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
-                placeholder="Cidade"
-              />
-            </Field>
-            <Field label="Estado (UF)">
-              <input
-                value={stateUF}
-                onChange={(e) => setStateUF(e.target.value)}
-                type="text"
-                autoComplete="address-level1"
-                className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
-                placeholder="SP"
-                maxLength={2}
-              />
-            </Field>
-          </div>
-        </div>
-      </details>
-    </div>
-  </div>
-)}
+                <Field label="Bairro">
+                  <input
+                    value={neighborhood}
+                    onChange={(e) => setNeighborhood(e.target.value)}
+                    type="text"
+                    autoComplete="address-level3"
+                    className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                    placeholder="Bairro"
+                  />
+                </Field>
+
+                <Field label="Rua e número">
+                  <input
+                    value={addr1}
+                    onChange={(e) => setAddr1(e.target.value)}
+                    type="text"
+                    autoComplete="street-address"
+                    className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                    placeholder="Rua Exemplo, 123"
+                  />
+                </Field>
+
+                <Field label="Complemento (opcional)">
+                  <input
+                    value={addr2}
+                    onChange={(e) => setAddr2(e.target.value)}
+                    type="text"
+                    autoComplete="address-line2"
+                    className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                    placeholder="Apartamento, bloco, etc"
+                  />
+                </Field>
+              </div>
+            </div>
+          )}
+
           <div>
             <label className="text-xs text-slate-400">Email</label>
             <input
@@ -291,22 +369,16 @@ export default function AuthModal({ open, onClose, onSuccess }) {
           </div>
 
           {error && (
-            <p className="text-sm text-red-300 bg-red-500/10 ring-1 ring-red-500/30 rounded-xl px-4 py-3">
-              {error}
-            </p>
+            <p className="text-sm text-red-300 bg-red-500/10 ring-1 ring-red-500/30 rounded-xl px-4 py-3">{error}</p>
           )}
           {info && (
-            <p className="text-sm text-emerald-200 bg-emerald-500/10 ring-1 ring-emerald-500/30 rounded-xl px-4 py-3">
-              {info}
-            </p>
+            <p className="text-sm text-emerald-200 bg-emerald-500/10 ring-1 ring-emerald-500/30 rounded-xl px-4 py-3">{info}</p>
           )}
 
           <button
             disabled={busy}
             className={`w-full rounded-xl px-4 py-3 font-semibold ring-1 ring-white/10 transition ${
-              busy
-                ? "bg-slate-700/50 text-slate-300 cursor-not-allowed"
-                : "bg-emerald-400 hover:bg-emerald-300 text-black"
+              busy ? "bg-slate-700/50 text-slate-300 cursor-not-allowed" : "bg-emerald-400 hover:bg-emerald-300 text-black"
             }`}
           >
             {busy ? "Aguarde…" : mode === "login" ? "Entrar" : "Criar conta"}
