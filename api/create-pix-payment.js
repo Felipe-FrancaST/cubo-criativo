@@ -74,14 +74,18 @@ export default async function handler(req, res) {
     const amount = toNumberBRL(body.amount);
     const origin = String(body.origin || "").trim() || getBaseUrl(req);
 
-    // Em sandbox, o Mercado Pago exige test users/emails.
-    // Mantemos a regra aqui para facilitar o teste.
-    let payerEmail = String(body.email || user.email || "").trim();
-    if (!payerEmail) return res.status(400).json({ error: "Missing payer email" });
+    // IMPORTANTÍSSIMO:
+    // O sistema exige login para gerar Pix. Então SEMPRE usamos o e-mail real do usuário autenticado.
+    // Isso evita que o front envie CPF/telefone no campo "email" e quebre o envio do email do cliente.
+    // (Já vimos vários pedidos com customer_email inválido por causa disso.)
+    let payerEmail = String(user.email || "").trim();
+    if (!payerEmail) return res.status(400).json({ error: "Missing user email" });
 
+    // Em sandbox/test, o Mercado Pago pode exigir compradores de teste.
+    // Se você realmente precisar sobrescrever, envie body.email APENAS em modo test.
     if (mode === "test") {
-      // Use um comprador de teste (criado no painel) OU emails aceitos no ambiente de teste.
-      payerEmail = payerEmail || "test@testuser.com";
+      const override = String(body.email || "").trim();
+      payerEmail = override || payerEmail || "test@testuser.com";
     }
 
     const items = Array.isArray(body.items) ? body.items : [];
@@ -104,7 +108,8 @@ export default async function handler(req, res) {
       currency: "BRL",
       total: amount,
       payment_provider: "mercado_pago",
-      customer_email: user.email || payerEmail || null,
+      // Sempre salva o email do usuário autenticado.
+      customer_email: payerEmail,
       customer_name: prof?.full_name || null,
       customer_phone: prof?.phone || null,
     });

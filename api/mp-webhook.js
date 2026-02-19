@@ -48,6 +48,32 @@ function isValidEmail(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
 }
 
+// Busca o email verdadeiro do usuário no Supabase Auth (admin API)
+// Útil quando pedidos antigos ficaram com customer_email = CPF/telefone.
+async function fetchAuthUserEmail(userId) {
+  try {
+    const supabaseUrl = String(process.env.SUPABASE_URL || "").trim();
+    const serviceKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+    if (!supabaseUrl || !serviceKey || !userId) return null;
+
+    const url = `${supabaseUrl.replace(/\/$/, "")}/auth/v1/admin/users/${encodeURIComponent(userId)}`;
+    const resp = await fetch(url, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${serviceKey}`,
+        apikey: serviceKey,
+        "Content-Type": "application/json",
+      },
+    });
+    const data = await resp.json().catch(() => ({}));
+    const email = String(data?.email || "").trim();
+    return isValidEmail(email) ? email : null;
+  } catch (e) {
+    console.error("fetchAuthUserEmail error", e);
+    return null;
+  }
+}
+
 async function getSupabaseAdminSafe() {
   try {
     const mod = await import("./_supabase.js");
@@ -408,7 +434,25 @@ export default async function handler(req, res) {
     const totalBRL = ((order?.total ?? Number(payment?.transaction_amount ?? 0)) || 0);
     const orderCode = order?.id || orderId || payment?.external_reference || "-";
 
-    const customerEmailRaw = String(order?.customer_email || payerEmail || "").trim();
+    let customerEmailRaw = String(order?.customer_email || payerEmail || "").trim();
+
+    // Se o email estiver inválido (ex: CPF/telefone), tenta recuperar do Auth via user_id.
+    // Isso resolve casos em que o front enviou CPF no campo email e o pedido ficou sem email válido.
+    if (!isValidEmail(customerEmailRaw) && order?.user_id) {
+      const authEmail = await fetchAuthUserEmail(order.user_id);
+      if (authEmail) {
+        customerEmailRaw = authEmail;
+        // best-effort: atualiza o pedido com o email correto
+        try {
+          if (sb && orderId) {
+            await sb.from("orders").update({ customer_email: authEmail }).eq("id", orderId);
+          }
+        } catch (e) {
+          console.error("failed to backfill customer_email", e);
+        }
+      }
+    }
+
     const customerEmailOk = isValidEmail(customerEmailRaw);
     const customerEmail = customerEmailOk ? customerEmailRaw : "";
     const customerName = String(order?.customer_name || profile?.full_name || "").trim();
