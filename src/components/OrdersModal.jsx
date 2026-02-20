@@ -32,7 +32,18 @@ export default function OrdersModal({ open, onClose }) {
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState("");
 
-  const [cancelModal, setCancelModal] = React.useState({ open: false, order: null, mode: "full", busy: false, msg: "" });
+  const [cancelModal, setCancelModal] = React.useState({
+    open: false,
+    order: null,
+    // full: reembolso integral (status recebido)
+    // partial: reembolso 50% (status != recebido)
+    // info: apenas informativo
+    mode: "full",
+    // confirm | processing | success | info
+    step: "confirm",
+    busy: false,
+    msg: "",
+  });
 
 
   const statusUI = (status) => {
@@ -76,14 +87,46 @@ export default function OrdersModal({ open, onClose }) {
   };
 
 
-  function openCancel(order) {
-    const prod = String(order?.production_status || "recebido").toLowerCase();
-    const mode = prod === "recebido" ? "full" : "partial";
-    setCancelModal({ open: true, order, mode, busy: false, msg: "" });
+  function closeCancel() {
+    setCancelModal({ open: false, order: null, mode: "full", step: "confirm", busy: false, msg: "" });
   }
 
-  async function doCancel(order) {
+  async function openCancel(order) {
+    const prod = String(order?.production_status || "recebido").toLowerCase();
+    if (prod === "cancelado") {
+      setCancelModal({
+        open: true,
+        order,
+        mode: "info",
+        step: "info",
+        busy: false,
+        msg: "Este pedido já está cancelado.",
+      });
+      return;
+    }
+
+    // Se for "Recebido": cancela imediatamente e mostra mensagem de reembolso integral
+    if (prod === "recebido") {
+      setCancelModal({ open: true, order, mode: "full", step: "processing", busy: true, msg: "" });
+      await doCancel(order, { confirm: true, mode: "full" });
+      return;
+    }
+
+    // Qualquer outro status: informa que já está em produção e pede confirmação
+    setCancelModal({
+      open: true,
+      order,
+      mode: "partial",
+      step: "confirm",
+      busy: false,
+      msg: "",
+    });
+  }
+
+  async function doCancel(order, opts = {}) {
     if (!order?.id) return;
+    const mode = opts?.mode === "partial" ? "partial" : "full";
+    const confirm = !!opts?.confirm;
     setCancelModal((s) => ({ ...s, busy: true, msg: "" }));
     try {
       const resp = await fetch("/api/cancel-order", {
@@ -92,19 +135,37 @@ export default function OrdersModal({ open, onClose }) {
           "Content-Type": "application/json",
           ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         },
-        body: JSON.stringify({ order_id: order.id }),
+        body: JSON.stringify({ order_id: order.id, confirm, refund_mode: mode }),
       });
       const data = await resp.json().catch(() => ({}));
       if (!resp.ok) {
         const msg = data?.error || "Não foi possível cancelar.";
-        setCancelModal((s) => ({ ...s, busy: false, msg }));
+        setCancelModal((s) => ({ ...s, busy: false, msg, step: s.step || "confirm" }));
         return;
       }
       // atualiza lista local
       setOrders((prev) =>
         prev.map((o) => (o.id === order.id ? { ...o, production_status: data?.order?.production_status || "cancelado", status: data?.order?.status || o.status } : o))
       );
-      setCancelModal({ open: false, order: null, mode: "full", busy: false, msg: "" });
+
+      const successMsg =
+        mode === "full"
+          ? "Pedido cancelado. Seu reembolso será processado de forma integral."
+          : "Pedido cancelado. Como o pedido já está em produção, o reembolso será de 50% do valor para cobrir custos do processo.";
+
+      setCancelModal((s) => ({
+        ...s,
+        busy: false,
+        step: "success",
+        msg: successMsg,
+        order: s.order
+          ? {
+              ...s.order,
+              production_status: data?.order?.production_status || "cancelado",
+              status: data?.order?.status || s.order.status,
+            }
+          : s.order,
+      }));
     } catch (e) {
       console.error(e);
       setCancelModal((s) => ({ ...s, busy: false, msg: "Erro ao cancelar. Tente novamente." }));
@@ -264,6 +325,7 @@ export default function OrdersModal({ open, onClose }) {
     };
   }, [open, user, fetchOrders]);
   return (
+    <>
     <Modal open={open} onClose={onClose}>
       <div className="w-full max-w-2xl">
         <div className="flex items-center justify-between gap-3">
@@ -410,5 +472,86 @@ export default function OrdersModal({ open, onClose }) {
         )}
       </div>
     </Modal>
+
+    <Modal open={cancelModal.open} onClose={cancelModal.busy ? undefined : closeCancel} title="Cancelar pedido">
+      <div className="w-full max-w-lg">
+        {cancelModal.order ? (
+          <div className="text-sm text-slate-200">
+            <p className="text-xs text-slate-400">Pedido</p>
+            <p className="font-semibold break-all">{String(cancelModal.order.id)}</p>
+
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className={`inline-flex items-center gap-1 text-xs rounded-full px-2 py-1 ring-1 ${prodUI(cancelModal.order.production_status).cls}`}>
+                {prodUI(cancelModal.order.production_status).label}
+              </span>
+              <span className={`inline-flex items-center gap-1 text-xs rounded-full px-2 py-1 ring-1 ${statusUI(cancelModal.order.status).cls}`}>
+                {statusUI(cancelModal.order.status).label}
+              </span>
+            </div>
+
+            {/* Conteúdo */}
+            {cancelModal.step === "processing" ? (
+              <div className="mt-4 rounded-xl bg-white/5 ring-1 ring-white/10 px-3 py-3">
+                <p className="text-slate-200">Cancelando pedido…</p>
+              </div>
+            ) : null}
+
+            {cancelModal.step === "confirm" && cancelModal.mode === "partial" ? (
+              <div className="mt-4 rounded-xl bg-amber-500/10 ring-1 ring-amber-400/30 px-3 py-3">
+                <p className="font-semibold text-amber-200">Atenção</p>
+                <p className="mt-1 text-slate-200">
+                  Este pedido já está em produção. Se desejar continuar, o reembolso será somente da metade do valor para suprir os custos do processo.
+                </p>
+              </div>
+            ) : null}
+
+            {(cancelModal.step === "success" || cancelModal.step === "info") && cancelModal.msg ? (
+              <div className="mt-4 rounded-xl bg-emerald-500/10 ring-1 ring-emerald-400/30 px-3 py-3">
+                <p className="text-slate-100">{cancelModal.msg}</p>
+              </div>
+            ) : null}
+
+            {cancelModal.msg && cancelModal.step !== "success" && cancelModal.step !== "info" ? (
+              <p className="mt-3 text-sm text-red-300 bg-red-500/10 ring-1 ring-red-500/30 rounded-lg px-3 py-2">
+                {cancelModal.msg}
+              </p>
+            ) : null}
+
+            {/* Ações */}
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button
+                onClick={closeCancel}
+                className="text-sm rounded-xl px-3 py-2 ring-1 ring-white/15 hover:bg-white/5 text-slate-100"
+                disabled={cancelModal.busy}
+              >
+                {cancelModal.step === "success" || cancelModal.step === "info" ? "Fechar" : "Voltar"}
+              </button>
+
+              {cancelModal.step === "confirm" && cancelModal.mode === "partial" ? (
+                <button
+                  onClick={() => doCancel(cancelModal.order, { confirm: true, mode: "partial" })}
+                  className="text-sm rounded-xl px-3 py-2 bg-red-500 text-white font-semibold hover:bg-red-400"
+                  disabled={cancelModal.busy}
+                >
+                  {cancelModal.busy ? "Processando…" : "Prosseguir com o Cancelamento"}
+                </button>
+              ) : null}
+
+              {cancelModal.step === "success" ? (
+                <button
+                  onClick={closeCancel}
+                  className="text-sm rounded-xl px-3 py-2 bg-emerald-400 text-black font-semibold hover:bg-emerald-300"
+                >
+                  OK
+                </button>
+              ) : null}
+            </div>
+          </div>
+        ) : (
+          <p className="text-slate-300">Pedido não encontrado.</p>
+        )}
+      </div>
+    </Modal>
+    </>
   );
 }

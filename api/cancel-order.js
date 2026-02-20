@@ -12,6 +12,10 @@ export default async function handler(req, res) {
     const orderId = String(body.order_id || "").trim();
     if (!orderId) return res.status(400).json({ error: "Missing order_id" });
 
+    // Para status != "recebido", exigimos confirmação explícita no body.
+    const confirm = !!body.confirm;
+    const refundMode = String(body.refund_mode || "").toLowerCase();
+
     const sb = supabaseAdmin();
 
     const { data: order, error: ordErr } = await sb
@@ -25,10 +29,16 @@ export default async function handler(req, res) {
     if (order.user_id !== user.id) return res.status(403).json({ error: "Sem permissão." });
 
     const prod = String(order.production_status || "recebido").toLowerCase();
-    if (prod !== "recebido") {
-      return res.status(400).json({
-        error: "Pedido não pode ser cancelado neste status.",
-        code: "not_recebido",
+
+    if (prod === "cancelado") {
+      return res.status(200).json({ ok: true, order, refund_mode: refundMode || "info" });
+    }
+
+    // Se não for recebido, só cancela com confirmação.
+    if (prod !== "recebido" && !confirm) {
+      return res.status(409).json({
+        error: "Pedido já está em produção. Confirme para prosseguir com o cancelamento.",
+        code: "needs_confirmation",
         production_status: prod,
       });
     }
@@ -44,7 +54,7 @@ export default async function handler(req, res) {
 
     if (upErr) return res.status(500).json({ error: upErr.message || "Não foi possível cancelar." });
 
-    return res.status(200).json({ ok: true, order: updated });
+    return res.status(200).json({ ok: true, order: updated, refund_mode: refundMode || (prod === "recebido" ? "full" : "partial") });
   } catch (e) {
     console.error(e);
     return res.status(500).json({ error: "Internal error" });
