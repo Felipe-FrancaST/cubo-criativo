@@ -362,38 +362,38 @@ export default function OrdersModal({ open, onClose }) {
       </div>
     </div>
 
-    {Array.isArray(o.order_items) && o.order_items.length > 0 ? (
-      <div className="mt-4 rounded-xl bg-white/5 ring-1 ring-white/10">
-        <ul className="divide-y divide-white/10">
-          {o.order_items.map((it, idx) => (
-            <li key={idx} className="flex items-center justify-between gap-3 px-3 py-2">
-              <div className="flex items-center gap-3 min-w-0">
-                {it.img ? (
-                  <img
-                    src={it.img}
-                    alt={it.name || "Produto"}
-                    className="h-10 w-10 rounded-md object-cover ring-1 ring-white/10 bg-slate-800"
-                    loading="lazy"
-                  />
-                ) : (
-                  <div className="h-10 w-10 rounded-md bg-slate-800 ring-1 ring-white/10 grid place-items-center text-slate-400">
-                    <span className="material-icons text-base">image</span>
-                  </div>
-                )}
-                <div className="min-w-0">
-                  <p className="text-sm text-slate-200 truncate">{it.name || "Produto"}</p>
-                  {it.scale ? (
-                    <p className="text-xs text-slate-400 truncate">Escala: {it.scale}</p>
-                  ) : null}
-                </div>
+    {Array.isArray(o.order_items) && o.order_items.length > 0 && (
+  <div className="mt-4 rounded-xl bg-white/5 ring-1 ring-white/10">
+    <ul className="divide-y divide-white/10">
+      {o.order_items.map((it, idx) => (
+        <li key={idx} className="flex items-center justify-between gap-3 px-3 py-2">
+          <div className="flex items-center gap-3 min-w-0">
+            {it.img ? (
+              <img
+                src={it.img}
+                alt={it.name || "Produto"}
+                className="h-10 w-10 rounded-md object-cover ring-1 ring-white/10 bg-slate-800"
+                loading="lazy"
+              />
+            ) : (
+              <div className="h-10 w-10 rounded-md bg-slate-800 ring-1 ring-white/10 grid place-items-center text-slate-400">
+                <span className="material-icons text-base">image</span>
               </div>
+            )}
+            <div className="min-w-0">
+              <p className="text-sm text-slate-200 truncate">{it.name || "Produto"}</p>
+              {it.scale ? (
+                <p className="text-xs text-slate-400 truncate">Escala: {it.scale}</p>
+              ) : null}
+            </div>
+          </div>
 
-              <p className="text-sm text-slate-300 shrink-0">{Number(it.qty) || 1}x</p>
-            </li>
-          ))}
-        </ul>
-      </div>
-    )}
+          <p className="text-sm text-slate-300 shrink-0">{Number(it.qty) || 1}x</p>
+        </li>
+      ))}
+    </ul>
+  </div>
+)}
 
     <div className="mt-4 flex flex-wrap items-center gap-2">
       <button
