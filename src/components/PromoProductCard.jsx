@@ -137,10 +137,6 @@ export default function PromoProductCard({ p, addToCart, buyNow, openViewer, ope
             {outOfStock ? "Esgotado" : "Comprar"}
           </button>
         </div>
-
-        {p.model && (
-          <button
-            onClick={() => openViewer?.(p.model, p.nome)}
             className="mt-2 w-full rounded-xl px-3 py-2 ring-1 ring-white/15 hover:bg-white/5 text-sm"
           >
             Ver em 3D
