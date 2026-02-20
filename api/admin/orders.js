@@ -31,23 +31,24 @@ export default async function handler(req, res) {
     const selectLegacy =
       "id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,production_status,shipping_tracking";
 
-    const attemptNew = await sb
+    const attemptOrdersNew = await sb
       .from("orders")
       .select(selectWithRefund)
       .order("created_at", { ascending: false })
       .limit(300);
 
-    orders = attemptNew?.data || null;
-    ordersErr = attemptNew?.error || null;
+    orders = attemptOrdersNew?.data || null;
+    ordersErr = attemptOrdersNew?.error || null;
 
-    if (ordersErr && /refund_requested/i.test(String(ordersErr.message || ""))) {
-      const attemptOld = await sb
+    // fallback para schema antigo quando a coluna não existe
+    if (ordersErr && /refund_requested|refund_requested_at|column/i.test(String(ordersErr.message || ""))) {
+      const attemptOrdersOld = await sb
         .from("orders")
         .select(selectLegacy)
         .order("created_at", { ascending: false })
         .limit(300);
-      orders = attemptOld?.data || null;
-      ordersErr = attemptOld?.error || null;
+      orders = attemptOrdersOld?.data || null;
+      ordersErr = attemptOrdersOld?.error || null;
     }
 
     if (ordersErr) return res.status(500).json({ error: ordersErr.message || "Failed to load orders" });
@@ -70,19 +71,22 @@ export default async function handler(req, res) {
     // Itens: tenta schema novo, depois schema antigo
     let items = [];
     let itemsErr = null;
-    const attemptNew = await sb
+
+    const attemptItemsNew = await sb
       .from("order_items")
       .select("order_id,product_name,qty,unit_price_cents,scale,product_image_url")
       .in("order_id", orderIds);
-    if (attemptNew?.error) {
-      const attemptOld = await sb
+
+    if (attemptItemsNew?.error) {
+      const attemptItemsOld = await sb
         .from("order_items")
         .select("order_id,name,qty,unit_price,scale,img")
         .in("order_id", orderIds);
-      items = attemptOld?.data || [];
-      itemsErr = attemptOld?.error || null;
+
+      items = attemptItemsOld?.data || [];
+      itemsErr = attemptItemsOld?.error || null;
     } else {
-      items = attemptNew?.data || [];
+      items = attemptItemsNew?.data || [];
       itemsErr = null;
     }
 
@@ -93,7 +97,7 @@ export default async function handler(req, res) {
     (items || []).forEach((it) => {
       const k = it.order_id;
       if (!itemsByOrder.has(k)) itemsByOrder.set(k, []);
-      // normaliza
+
       itemsByOrder.get(k).push({
         order_id: it.order_id,
         name: it.product_name || it.name,
@@ -101,7 +105,12 @@ export default async function handler(req, res) {
         scale: it.scale,
         img: it.product_image_url || it.img,
         // para o painel admin, manter um preço em BRL se existir
-        unit_price: typeof it.unit_price === "number" ? it.unit_price : (typeof it.unit_price_cents === "number" ? it.unit_price_cents / 100 : null),
+        unit_price:
+          typeof it.unit_price === "number"
+            ? it.unit_price
+            : typeof it.unit_price_cents === "number"
+            ? it.unit_price_cents / 100
+            : null,
       });
     });
 
