@@ -29,6 +29,7 @@ const ALLOWED_PROD_STATUS = new Set([
   "enviado",
   "entregue",
   "cancelado",
+  "reembolsado",
 ]);
 
 export default async function handler(req, res) {

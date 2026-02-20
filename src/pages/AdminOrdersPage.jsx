@@ -21,6 +21,8 @@ const prodStatusLabel = (s) => {
       return { label: "Entregue", cls: "bg-emerald-500/15 text-emerald-200 ring-emerald-400/30" };
     case "cancelado":
       return { label: "Cancelado", cls: "bg-red-500/15 text-red-200 ring-red-500/30" };
+    case "reembolsado":
+      return { label: "Reembolsado", cls: "bg-teal-500/15 text-teal-200 ring-teal-400/30" };
     default:
       return { label: v, cls: "bg-slate-500/15 text-slate-200 ring-white/15" };
   }
@@ -244,6 +246,7 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome }) {
                 <option value="enviado">Enviado</option>
                 <option value="entregue">Entregue</option>
                 <option value="cancelado">Cancelado</option>
+                <option value="reembolsado">Reembolsado</option>
               </select>
             </div>
           </div>
@@ -355,6 +358,7 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome }) {
                           <option value="enviado">Enviado</option>
                           <option value="entregue">Entregue</option>
                           <option value="cancelado">Cancelado</option>
+                          <option value="reembolsado">Reembolsado</option>
                         </select>
 
                         <input

@@ -30,6 +30,14 @@ export default async function handler(req, res) {
 
     const prod = String(order.production_status || "recebido").toLowerCase();
 
+    if (prod === "reembolsado") {
+      return res.status(409).json({
+        error: "Este pedido já foi reembolsado.",
+        code: "already_refunded",
+        production_status: prod,
+      });
+    }
+
     if (prod === "cancelado") {
       return res.status(200).json({ ok: true, order, refund_mode: refundMode || "info" });
     }

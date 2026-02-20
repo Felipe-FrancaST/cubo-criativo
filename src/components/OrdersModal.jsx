@@ -83,6 +83,9 @@ export default function OrdersModal({ open, onClose }) {
     if (s === "cancelado") {
       return { label: "Cancelado", cls: "bg-red-500/15 text-red-200 ring-red-500/30" };
     }
+    if (s === "reembolsado") {
+      return { label: "Reembolsado", cls: "bg-teal-500/15 text-teal-200 ring-teal-400/30" };
+    }
     return { label: "Recebido", cls: "bg-white/5 text-slate-200 ring-white/15" };
   };
 
@@ -93,6 +96,17 @@ export default function OrdersModal({ open, onClose }) {
 
   async function openCancel(order) {
     const prod = String(order?.production_status || "recebido").toLowerCase();
+    if (prod === "reembolsado") {
+      setCancelModal({
+        open: true,
+        order,
+        mode: "info",
+        step: "info",
+        busy: false,
+        msg: "Este pedido já foi reembolsado.",
+      });
+      return;
+    }
     if (prod === "cancelado") {
       setCancelModal({
         open: true,
