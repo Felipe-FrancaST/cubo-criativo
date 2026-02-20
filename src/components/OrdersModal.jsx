@@ -2,6 +2,7 @@ import React from "react";
 import Modal from "./Modal.jsx";
 import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../auth/AuthProvider.jsx";
+import brand from "../data/config.js";
 
 const fmtBRL = (n) =>
   typeof n === "number" && isFinite(n)
@@ -25,10 +26,14 @@ function copyToClipboard(text) {
 }
 
 export default function OrdersModal({ open, onClose }) {
-  const { user } = useAuth();
+  const { user, session } = useAuth();
+  const accessToken = session?.access_token || "";
   const [orders, setOrders] = React.useState([]);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState("");
+
+  const [cancelModal, setCancelModal] = React.useState({ open: false, order: null, mode: "full", busy: false, msg: "" });
+
 
   const statusUI = (status) => {
     const s = String(status || "").toLowerCase();
@@ -69,6 +74,42 @@ export default function OrdersModal({ open, onClose }) {
     }
     return { label: "Recebido", cls: "bg-white/5 text-slate-200 ring-white/15" };
   };
+
+
+  function openCancel(order) {
+    const prod = String(order?.production_status || "recebido").toLowerCase();
+    const mode = prod === "recebido" ? "full" : "partial";
+    setCancelModal({ open: true, order, mode, busy: false, msg: "" });
+  }
+
+  async function doCancel(order) {
+    if (!order?.id) return;
+    setCancelModal((s) => ({ ...s, busy: true, msg: "" }));
+    try {
+      const resp = await fetch("/api/cancel-order", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+        body: JSON.stringify({ order_id: order.id }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        const msg = data?.error || "Não foi possível cancelar.";
+        setCancelModal((s) => ({ ...s, busy: false, msg }));
+        return;
+      }
+      // atualiza lista local
+      setOrders((prev) =>
+        prev.map((o) => (o.id === order.id ? { ...o, production_status: data?.order?.production_status || "cancelado", status: data?.order?.status || o.status } : o))
+      );
+      setCancelModal({ open: false, order: null, mode: "full", busy: false, msg: "" });
+    } catch (e) {
+      console.error(e);
+      setCancelModal((s) => ({ ...s, busy: false, msg: "Erro ao cancelar. Tente novamente." }));
+    }
+  }
 
   const fetchOrders = React.useCallback(async () => {
     if (!user) return;
@@ -352,9 +393,16 @@ export default function OrdersModal({ open, onClose }) {
           ))}
         </ul>
       </div>
-    ) : (
-      <p className="mt-4 text-sm text-slate-400">Itens não disponíveis.</p>
     )}
+
+    <div className="mt-4 flex flex-wrap items-center gap-2">
+      <button
+        onClick={() => openCancel(o)}
+        className="text-sm rounded-xl px-3 py-2 ring-1 ring-white/15 hover:bg-white/5 text-slate-100"
+      >
+        Cancelar pedido
+      </button>
+    </div>
   </div>
 ))}
             </div>

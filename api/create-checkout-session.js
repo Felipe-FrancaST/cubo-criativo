@@ -76,6 +76,36 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: "Faça login para pagar." });
     }
 
+    
+    // Valida profile antes de permitir pagamento (dados obrigatórios no checkout)
+    const sb = supabaseAdmin();
+    const { data: profile } = await sb
+      .from("profiles")
+      .select("full_name, phone, cpf, birthdate, address_line1, address_number, neighborhood, city, state, zip")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    const requiredFields = [
+      "full_name",
+      "phone",
+      "cpf",
+      "birthdate",
+      "address_line1",
+      "address_number",
+      "neighborhood",
+      "city",
+      "state",
+      "zip",
+    ];
+    const missing = requiredFields.filter((k) => !String(profile?.[k] || "").trim());
+    if (missing.length) {
+      return res.status(400).json({
+        error: "Profile incomplete",
+        code: "profile_incomplete",
+        missing,
+      });
+    }
+
     const body = safeBody(req);
     const items = Array.isArray(body.items) ? body.items : [];
     if (items.length === 0) {
@@ -109,7 +139,6 @@ export default async function handler(req, res) {
     const orderId = crypto.randomUUID();
 
     // 1) Cria pedido no Supabase
-    const sb = supabaseAdmin();
     const { error: orderErr } = await sb.from("orders").insert({
       id: orderId,
       user_id: user.id,

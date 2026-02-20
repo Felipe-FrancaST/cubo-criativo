@@ -12,7 +12,7 @@ function Field({ label, children }) {
   );
 }
 
-export default function ProfileSettingsModal({ open, onClose }) {
+export default function ProfileSettingsModal({ open, onClose, required = false, onSaved }) {
   const { user, session } = useAuth();
   const jwt = session?.access_token || "";
 
@@ -189,6 +189,9 @@ export default function ProfileSettingsModal({ open, onClose }) {
     }
 
     setOk("Dados salvos com sucesso ✅");
+    try { onSaved?.(); } catch {}
+    // Fecha automaticamente após salvar
+    setTimeout(() => { try { onClose?.(); } catch {} }, 200);
     setSaving(false);
   }
 

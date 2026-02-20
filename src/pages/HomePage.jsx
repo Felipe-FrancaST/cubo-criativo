@@ -32,7 +32,7 @@ export default function HomePage({
 
             <h1 className="mt-4 font-black leading-tight text-3xl sm:text-5xl lg:text-6xl">
               Promoções, lançamentos e
-              <span className="text-teal-400"> destaques da semana</span>
+              <span className="text-teal-400"> peças em destaque</span>
             </h1>
 
             <p className="mt-4 text-slate-300 text-base sm:text-lg">
@@ -44,13 +44,13 @@ export default function HomePage({
                 onClick={onGoEstoque}
                 className="rounded-xl px-5 py-3 bg-teal-400 text-black font-bold ring-4 ring-teal-400/20 text-center"
               >
-                Ver estoque pronto
+                Peças em estoque
               </button>
               <button
                 onClick={onGoCatalogo}
                 className="rounded-xl px-5 py-3 ring-1 ring-white/20 hover:bg-white/5 text-center"
               >
-                Ver catálogo completo
+                Catálogo completo
               </button>
             </div>
 

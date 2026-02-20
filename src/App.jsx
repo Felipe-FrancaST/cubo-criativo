@@ -187,8 +187,19 @@ export default function App() {
   const [menuDrawerOpen, setMenuDrawerOpen] = React.useState(false);
 
   // ===== Carrinho =====
+  const CART_STORAGE_KEY = "cc_cart_v1";
   const [cartOpen, setCartOpen] = React.useState(false);
-  const [cart, setCart] = React.useState([]);
+  const [cart, setCart] = React.useState(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const raw = window.localStorage.getItem(CART_STORAGE_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
   const [cartBounce, setCartBounce] = React.useState(false);
   const [toastOpen, setToastOpen] = React.useState(false);
   const [toastMsg, setToastMsg] = React.useState("Adicionado!");
@@ -196,6 +207,16 @@ export default function App() {
   const toastT = React.useRef(null);
   // evita toasts repetidos ao lidar com retorno do pagamento (URL params)
   const paymentReturnRef = React.useRef({ key: "", notified: false });
+
+  // Persiste carrinho (mantém itens após recarregar)
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
+    } catch {
+      // ignore
+    }
+  }, [cart]);
 
   // ===== Pagamento (Mercado Pago Checkout Pro + Pix) =====
   const [paying, setPaying] = React.useState(false);
@@ -375,6 +396,52 @@ React.useEffect(() => {
   })();
 }, [user]);
 
+
+  async function ensureProfileCompleteForCheckout() {
+    if (!user) return false;
+    try {
+      const resp = await fetch("/api/profile", {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+      });
+      const data = await resp.json().catch(() => ({}));
+      const p = data?.profile || {};
+      const requiredFields = [
+        "full_name",
+        "phone",
+        "zip",
+        "city",
+        "state",
+        "neighborhood",
+        "address_line1",
+        "address_number",
+        "cpf",
+        "birthdate",
+      ];
+      const missing = requiredFields.filter((k) => !String(p?.[k] || "").trim());
+      if (missing.length) {
+        setToastMsg("Preencha seus dados para finalizar o pagamento.");
+        setToastOpen(true);
+        clearTimeout(toastT.current);
+        toastT.current = setTimeout(() => setToastOpen(false), 2600);
+        setSettingsOpen(true);
+        return false;
+      }
+      return true;
+    } catch (e) {
+      console.error(e);
+      setToastMsg("Não foi possível validar seus dados. Abra Configurações e tente novamente.");
+      setToastOpen(true);
+      clearTimeout(toastT.current);
+      toastT.current = setTimeout(() => setToastOpen(false), 3000);
+      setSettingsOpen(true);
+      return false;
+    }
+  }
+
   async function startCheckout() {
     if (!user) {
       setToastMsg("Faça login para pagar.");
@@ -392,6 +459,9 @@ React.useEffect(() => {
       toastT.current = setTimeout(() => setToastOpen(false), 2200);
       return;
     }
+
+    const okProfile = await ensureProfileCompleteForCheckout();
+    if (!okProfile) return;
 
     try {
       setPaying(true);
@@ -414,7 +484,18 @@ React.useEffect(() => {
       });
 
       const data = await resp.json().catch(() => ({}));
-      if (!resp.ok || !data?.url) throw new Error(data?.error || "Não foi possível iniciar o pagamento.");
+      if (!resp.ok) {
+        if (data?.code === "profile_incomplete") {
+          setToastMsg("Complete seus dados para finalizar o pagamento.");
+          setToastOpen(true);
+          clearTimeout(toastT.current);
+          toastT.current = setTimeout(() => setToastOpen(false), 2600);
+          setSettingsOpen(true);
+          return;
+        }
+        throw new Error(data?.error || "Não foi possível iniciar o pagamento.");
+      }
+      if (!data?.url) throw new Error("Não foi possível iniciar o pagamento.");
       window.location.href = data.url;
     } catch (e) {
       console.error(e);
@@ -788,7 +869,16 @@ React.useEffect(() => {
 
       <OrdersModal open={ordersOpen} onClose={() => setOrdersOpen(false)} />
 
-      <ProfileSettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <ProfileSettingsModal
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        onSaved={() => {
+          setToastMsg("Dados salvos!");
+          setToastOpen(true);
+          clearTimeout(toastT.current);
+          toastT.current = setTimeout(() => setToastOpen(false), 1600);
+        }}
+      />
 
       {/* MODAL 3D */}
       <Modal open={viewerOpen} onClose={() => setViewerOpen(false)} title={`Visualizador 3D — ${viewerModel.title}`}>
