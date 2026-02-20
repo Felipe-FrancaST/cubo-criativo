@@ -12,23 +12,57 @@ export default async function handler(req, res) {
     const orderId = String(body.order_id || "").trim();
     if (!orderId) return res.status(400).json({ error: "Missing order_id" });
 
-    // Para status != "recebido", exigimos confirmação explícita no body.
+    // Para alguns status, exigimos confirmação explícita no body.
     const confirm = !!body.confirm;
-    const refundMode = String(body.refund_mode || "").toLowerCase();
+    const requestedRefundMode = String(body.refund_mode || "").toLowerCase();
 
     const sb = supabaseAdmin();
 
-    const { data: order, error: ordErr } = await sb
+    // Compatibilidade: alguns bancos ainda não têm refund_requested/refund_requested_at.
+    // Tentamos buscar com as colunas novas; se falhar por coluna inexistente, buscamos sem elas.
+    let order = null;
+    let ordErr = null;
+
+    const attemptNew = await sb
       .from("orders")
       .select("id, user_id, status, production_status, refund_requested, refund_requested_at")
       .eq("id", orderId)
       .maybeSingle();
+
+    order = attemptNew?.data || null;
+    ordErr = attemptNew?.error || null;
+
+    if (ordErr && /refund_requested/i.test(String(ordErr.message || ""))) {
+      const attemptOld = await sb
+        .from("orders")
+        .select("id, user_id, status, production_status")
+        .eq("id", orderId)
+        .maybeSingle();
+      order = attemptOld?.data || null;
+      ordErr = attemptOld?.error || null;
+    }
 
     if (ordErr) return res.status(500).json({ error: ordErr.message || "DB error" });
     if (!order) return res.status(404).json({ error: "Pedido não encontrado." });
     if (order.user_id !== user.id) return res.status(403).json({ error: "Sem permissão." });
 
     const prod = String(order.production_status || "recebido").toLowerCase();
+
+    // Cancelamento não é permitido após envio/entrega
+    if (prod === "enviado") {
+      return res.status(409).json({
+        error: "Cancelamento não permitido: o pedido já foi enviado.",
+        code: "not_allowed_shipped",
+        production_status: prod,
+      });
+    }
+    if (prod === "entregue") {
+      return res.status(409).json({
+        error: "Cancelamento não permitido: o pedido já foi entregue.",
+        code: "not_allowed_delivered",
+        production_status: prod,
+      });
+    }
 
     if (prod === "reembolsado") {
       return res.status(409).json({
@@ -38,13 +72,24 @@ export default async function handler(req, res) {
       });
     }
 
+    // Define modo padrão de reembolso com base no status atual
+    const defaultRefundMode = prod === "recebido" ? "full" : (prod === "pronto" ? "partial30" : "partial");
+    const refundMode = ["full", "partial", "partial30"].includes(requestedRefundMode)
+      ? requestedRefundMode
+      : defaultRefundMode;
+
     // Se já está cancelado (talvez cancelado pelo admin), o cliente ainda pode estar solicitando reembolso.
     if (prod === "cancelado") {
-      if (!order.refund_requested) {
-        await sb
+      // Se o pedido já está cancelado, marcamos como "reembolso solicitado" quando possível.
+      if (order && Object.prototype.hasOwnProperty.call(order, "refund_requested") && !order.refund_requested) {
+        const mark = await sb
           .from("orders")
           .update({ refund_requested: true, refund_requested_at: new Date().toISOString() })
           .eq("id", orderId);
+        // Se o banco não tem as colunas, ignoramos (sem quebrar o cancelamento).
+        if (mark?.error && !/refund_requested/i.test(String(mark.error.message || ""))) {
+          return res.status(500).json({ error: mark.error.message || "DB error" });
+        }
       }
       return res.status(200).json({ ok: true, order: { ...order, refund_requested: true }, refund_mode: refundMode || "info" });
     }
@@ -52,7 +97,10 @@ export default async function handler(req, res) {
     // Se não for recebido, só cancela com confirmação.
     if (prod !== "recebido" && !confirm) {
       return res.status(409).json({
-        error: "Pedido já está em produção. Confirme para prosseguir com o cancelamento.",
+        error:
+          prod === "pronto"
+            ? "Pedido já está pronto. Confirme para prosseguir com o cancelamento. O estorno será de 30% do valor."
+            : "Pedido já está em produção. Confirme para prosseguir com o cancelamento.",
         code: "needs_confirmation",
         production_status: prod,
       });
@@ -60,7 +108,8 @@ export default async function handler(req, res) {
 
     const newStatus = String(order.status || "").toLowerCase() === "pending" ? "cancelled" : order.status;
 
-    const { data: updated, error: upErr } = await sb
+    // Primeiro: tenta atualizar incluindo as colunas de reembolso.
+    const attemptUpdateNew = await sb
       .from("orders")
       .update({
         production_status: "cancelado",
@@ -72,9 +121,27 @@ export default async function handler(req, res) {
       .select("id, status, production_status, refund_requested, refund_requested_at")
       .maybeSingle();
 
+    let updated = attemptUpdateNew?.data || null;
+    let upErr = attemptUpdateNew?.error || null;
+
+    // Fallback: se as colunas não existem ainda, faz update sem elas.
+    if (upErr && /refund_requested/i.test(String(upErr.message || ""))) {
+      const attemptUpdateOld = await sb
+        .from("orders")
+        .update({
+          production_status: "cancelado",
+          status: newStatus,
+        })
+        .eq("id", orderId)
+        .select("id, status, production_status")
+        .maybeSingle();
+      updated = attemptUpdateOld?.data || null;
+      upErr = attemptUpdateOld?.error || null;
+    }
+
     if (upErr) return res.status(500).json({ error: upErr.message || "Não foi possível cancelar." });
 
-    return res.status(200).json({ ok: true, order: updated, refund_mode: refundMode || (prod === "recebido" ? "full" : "partial") });
+    return res.status(200).json({ ok: true, order: updated, refund_mode: refundMode });
   } catch (e) {
     console.error(e);
     return res.status(500).json({ error: "Internal error" });

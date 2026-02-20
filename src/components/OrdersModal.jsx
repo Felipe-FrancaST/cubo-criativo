@@ -96,6 +96,31 @@ export default function OrdersModal({ open, onClose }) {
 
   async function openCancel(order) {
     const prod = String(order?.production_status || "recebido").toLowerCase();
+
+    // Regras de cancelamento por status
+    if (prod === "entregue") {
+      setCancelModal({
+        open: true,
+        order,
+        mode: "info",
+        step: "info",
+        busy: false,
+        msg: "Este pedido já foi entregue e não pode ser cancelado.",
+      });
+      return;
+    }
+
+    if (prod === "enviado") {
+      setCancelModal({
+        open: true,
+        order,
+        mode: "info",
+        step: "info",
+        busy: false,
+        msg: "Cancelamento não permitido: o pedido já foi enviado.",
+      });
+      return;
+    }
     if (prod === "reembolsado") {
       setCancelModal({
         open: true,
@@ -119,6 +144,19 @@ export default function OrdersModal({ open, onClose }) {
       return;
     }
 
+    // Se for "Pronto": pede confirmação e informa estorno de 30%
+    if (prod === "pronto") {
+      setCancelModal({
+        open: true,
+        order,
+        mode: "partial30",
+        step: "confirm",
+        busy: false,
+        msg: "",
+      });
+      return;
+    }
+
     // Se for "Recebido": cancela imediatamente e mostra mensagem de reembolso integral
     if (prod === "recebido") {
       setCancelModal({ open: true, order, mode: "full", step: "processing", busy: true, msg: "" });
@@ -126,7 +164,7 @@ export default function OrdersModal({ open, onClose }) {
       return;
     }
 
-    // Qualquer outro status: informa que já está em produção e pede confirmação
+    // Qualquer outro status (ex.: em_producao): informa que já está em produção e pede confirmação
     setCancelModal({
       open: true,
       order,
@@ -139,7 +177,7 @@ export default function OrdersModal({ open, onClose }) {
 
   async function doCancel(order, opts = {}) {
     if (!order?.id) return;
-    const mode = opts?.mode === "partial" ? "partial" : "full";
+    const mode = opts?.mode === "partial" ? "partial" : (opts?.mode === "partial30" ? "partial30" : "full");
     const confirm = !!opts?.confirm;
     setCancelModal((s) => ({ ...s, busy: true, msg: "" }));
     try {
@@ -165,7 +203,9 @@ export default function OrdersModal({ open, onClose }) {
       const successMsg =
         mode === "full"
           ? "Pedido cancelado. Seu reembolso será processado de forma integral."
-          : "Pedido cancelado. Como o pedido já está em produção, o reembolso será de 50% do valor para cobrir custos do processo.";
+          : mode === "partial30"
+            ? "Pedido cancelado. Como o pedido já está pronto, o estorno será de 30% do valor."
+            : "Pedido cancelado. Como o pedido já está em produção, o reembolso será de 50% do valor para cobrir custos do processo.";
 
       setCancelModal((s) => ({
         ...s,
@@ -471,14 +511,16 @@ export default function OrdersModal({ open, onClose }) {
   </div>
 )}
 
-    <div className="mt-4 flex flex-wrap items-center gap-2">
-      <button
-        onClick={() => openCancel(o)}
-        className="text-sm rounded-xl px-3 py-2 ring-1 ring-white/15 hover:bg-white/5 text-slate-100"
-      >
-        Cancelar pedido
-      </button>
-    </div>
+    {String(o.production_status || "recebido").toLowerCase() !== "entregue" ? (
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <button
+          onClick={() => openCancel(o)}
+          className="text-sm rounded-xl px-3 py-2 ring-1 ring-white/15 hover:bg-white/5 text-slate-100"
+        >
+          Cancelar pedido
+        </button>
+      </div>
+    ) : null}
   </div>
 ))}
             </div>
@@ -519,6 +561,15 @@ export default function OrdersModal({ open, onClose }) {
               </div>
             ) : null}
 
+            {cancelModal.step === "confirm" && cancelModal.mode === "partial30" ? (
+              <div className="mt-4 rounded-xl bg-cyan-500/10 ring-1 ring-cyan-400/30 px-3 py-3">
+                <p className="font-semibold text-cyan-200">Pedido pronto</p>
+                <p className="mt-1 text-slate-200">
+                  Este pedido já está pronto. Tem certeza que quer cancelar? Se prosseguir, o estorno será de apenas 30% do valor.
+                </p>
+              </div>
+            ) : null}
+
             {(cancelModal.step === "success" || cancelModal.step === "info") && cancelModal.msg ? (
               <div className="mt-4 rounded-xl bg-emerald-500/10 ring-1 ring-emerald-400/30 px-3 py-3">
                 <p className="text-slate-100">{cancelModal.msg}</p>
@@ -544,6 +595,16 @@ export default function OrdersModal({ open, onClose }) {
               {cancelModal.step === "confirm" && cancelModal.mode === "partial" ? (
                 <button
                   onClick={() => doCancel(cancelModal.order, { confirm: true, mode: "partial" })}
+                  className="text-sm rounded-xl px-3 py-2 bg-red-500 text-white font-semibold hover:bg-red-400"
+                  disabled={cancelModal.busy}
+                >
+                  {cancelModal.busy ? "Processando…" : "Prosseguir com o Cancelamento"}
+                </button>
+              ) : null}
+
+              {cancelModal.step === "confirm" && cancelModal.mode === "partial30" ? (
+                <button
+                  onClick={() => doCancel(cancelModal.order, { confirm: true, mode: "partial30" })}
                   className="text-sm rounded-xl px-3 py-2 bg-red-500 text-white font-semibold hover:bg-red-400"
                   disabled={cancelModal.busy}
                 >

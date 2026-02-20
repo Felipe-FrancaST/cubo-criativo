@@ -21,13 +21,34 @@ export default async function handler(req, res) {
 
     const sb = supabaseAdmin();
 
-    const { data: orders, error: ordersErr } = await sb
+    // Compatibilidade: alguns bancos ainda não têm refund_requested/refund_requested_at.
+    // Tentamos buscar com as colunas novas; se falhar por coluna inexistente, buscamos sem elas.
+    let orders = null;
+    let ordersErr = null;
+
+    const selectWithRefund =
+      "id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,production_status,shipping_tracking,refund_requested,refund_requested_at";
+    const selectLegacy =
+      "id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,production_status,shipping_tracking";
+
+    const attemptNew = await sb
       .from("orders")
-      .select(
-        "id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,production_status,shipping_tracking,refund_requested,refund_requested_at"
-      )
+      .select(selectWithRefund)
       .order("created_at", { ascending: false })
       .limit(300);
+
+    orders = attemptNew?.data || null;
+    ordersErr = attemptNew?.error || null;
+
+    if (ordersErr && /refund_requested/i.test(String(ordersErr.message || ""))) {
+      const attemptOld = await sb
+        .from("orders")
+        .select(selectLegacy)
+        .order("created_at", { ascending: false })
+        .limit(300);
+      orders = attemptOld?.data || null;
+      ordersErr = attemptOld?.error || null;
+    }
 
     if (ordersErr) return res.status(500).json({ error: ordersErr.message || "Failed to load orders" });
 
