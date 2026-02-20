@@ -24,7 +24,7 @@ export default async function handler(req, res) {
     const { data: orders, error: ordersErr } = await sb
       .from("orders")
       .select(
-        "id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,production_status,shipping_tracking"
+        "id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,production_status,shipping_tracking,refund_requested,refund_requested_at"
       )
       .order("created_at", { ascending: false })
       .limit(300);

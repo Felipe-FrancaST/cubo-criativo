@@ -29,6 +29,12 @@ create table if not exists public.orders (
   customer_email text,
   customer_name text,
   customer_phone text,
+  -- Status operacional (painel admin)
+  production_status text not null default 'recebido',
+  shipping_tracking text,
+  -- Cancelamento pelo cliente / solicitação de reembolso
+  refund_requested boolean not null default false,
+  refund_requested_at timestamptz,
   created_at timestamptz not null default now()
 );
 
@@ -38,6 +44,10 @@ alter table public.orders add column if not exists customer_name text;
 alter table public.orders add column if not exists customer_phone text;
 alter table public.orders add column if not exists provider_payment_id text;
 alter table public.orders add column if not exists payment_provider text;
+alter table public.orders add column if not exists production_status text not null default 'recebido';
+alter table public.orders add column if not exists shipping_tracking text;
+alter table public.orders add column if not exists refund_requested boolean not null default false;
+alter table public.orders add column if not exists refund_requested_at timestamptz;
 alter table public.orders add column if not exists total numeric(10,2) not null default 0;
 alter table public.orders add column if not exists created_at timestamptz not null default now();
 

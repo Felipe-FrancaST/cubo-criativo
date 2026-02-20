@@ -28,6 +28,12 @@ create table if not exists public.orders (
   customer_email text,
   customer_name text,
   customer_phone text,
+  -- Status operacional (painel admin)
+  production_status text not null default 'recebido',
+  shipping_tracking text,
+  -- Cancelamento pelo cliente / solicitação de reembolso
+  refund_requested boolean not null default false,
+  refund_requested_at timestamptz,
   created_at timestamptz not null default now()
 );
 

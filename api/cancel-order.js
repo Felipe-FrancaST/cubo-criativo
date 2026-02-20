@@ -20,7 +20,7 @@ export default async function handler(req, res) {
 
     const { data: order, error: ordErr } = await sb
       .from("orders")
-      .select("id, user_id, status, production_status")
+      .select("id, user_id, status, production_status, refund_requested, refund_requested_at")
       .eq("id", orderId)
       .maybeSingle();
 
@@ -38,8 +38,15 @@ export default async function handler(req, res) {
       });
     }
 
+    // Se já está cancelado (talvez cancelado pelo admin), o cliente ainda pode estar solicitando reembolso.
     if (prod === "cancelado") {
-      return res.status(200).json({ ok: true, order, refund_mode: refundMode || "info" });
+      if (!order.refund_requested) {
+        await sb
+          .from("orders")
+          .update({ refund_requested: true, refund_requested_at: new Date().toISOString() })
+          .eq("id", orderId);
+      }
+      return res.status(200).json({ ok: true, order: { ...order, refund_requested: true }, refund_mode: refundMode || "info" });
     }
 
     // Se não for recebido, só cancela com confirmação.
@@ -55,9 +62,14 @@ export default async function handler(req, res) {
 
     const { data: updated, error: upErr } = await sb
       .from("orders")
-      .update({ production_status: "cancelado", status: newStatus })
+      .update({
+        production_status: "cancelado",
+        status: newStatus,
+        refund_requested: true,
+        refund_requested_at: new Date().toISOString(),
+      })
       .eq("id", orderId)
-      .select("id, status, production_status")
+      .select("id, status, production_status, refund_requested, refund_requested_at")
       .maybeSingle();
 
     if (upErr) return res.status(500).json({ error: upErr.message || "Não foi possível cancelar." });

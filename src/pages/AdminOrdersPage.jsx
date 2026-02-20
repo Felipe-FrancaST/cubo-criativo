@@ -293,6 +293,15 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome }) {
                           </span>
                         ) : null}
                       </div>
+
+                      {(o.refund_requested && String(o.production_status || "").toLowerCase() !== "reembolsado") ? (
+                        <div className="mt-3 rounded-xl bg-amber-500/10 ring-1 ring-amber-400/30 px-3 py-2 text-sm text-amber-200">
+                          <span className="font-semibold">Reembolso solicitado:</span> o cliente cancelou o pedido e pediu o reembolso.
+                          {o.refund_requested_at ? (
+                            <span className="text-amber-200/80"> {" "}({new Date(o.refund_requested_at).toLocaleString("pt-BR")})</span>
+                          ) : null}
+                        </div>
+                      ) : null}
                     </div>
 
                     <div className="text-right">
