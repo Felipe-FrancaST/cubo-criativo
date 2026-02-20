@@ -26,7 +26,10 @@ export default function ProductCard({ p, addToCart, buyNow, openViewer, openGall
   const originalPrice = centsToBRL(pricing.originalCents);
   const off = percentOffCents(pricing.originalCents, pricing.currentCents);
 
+  const outOfStock = typeof p?.stock === "number" && Number.isFinite(p.stock) && p.stock <= 0;
+
   function handleAdd() {
+    if (outOfStock) return;
     addToCart(p, { escala, unitPrice: currentPrice });
     setAddedFlash(true);
     clearTimeout(flashT.current);
@@ -102,19 +105,27 @@ export default function ProductCard({ p, addToCart, buyNow, openViewer, openGall
         <div className="mt-4 grid grid-cols-2 gap-2">
           <button
             onClick={handleAdd}
-            className={`rounded-lg px-3 py-2 font-semibold ring-4 ring-teal-400/20 ${
-              addedFlash ? "bg-emerald-400 text-black" : "bg-teal-400 text-black"
-            } transition`}
+            disabled={outOfStock}
+            className={`rounded-lg px-3 py-2 font-semibold ring-4 ring-teal-400/20 transition ${
+              outOfStock
+                ? "bg-slate-800 text-slate-400 cursor-not-allowed ring-white/10"
+                : addedFlash
+                  ? "bg-emerald-400 text-black"
+                  : "bg-teal-400 text-black"
+            }`}
             title="Adicionar ao carrinho"
           >
-            {addedFlash ? "Adicionado!" : "Adicionar"}
+            {outOfStock ? "Esgotado" : addedFlash ? "Adicionado!" : "Adicionar"}
           </button>
           <button
             onClick={() => buyNow(p, { escala, unitPrice: currentPrice })}
-            className="rounded-lg px-3 py-2 ring-1 ring-white/15 hover:bg-white/5"
+            disabled={outOfStock}
+            className={`rounded-lg px-3 py-2 ring-1 ring-white/15 ${
+              outOfStock ? "bg-slate-800 text-slate-400 cursor-not-allowed" : "hover:bg-white/5"
+            }`}
             title="Comprar agora"
           >
-            Comprar
+            {outOfStock ? "Esgotado" : "Comprar"}
           </button>
         </div>
 

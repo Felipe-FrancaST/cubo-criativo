@@ -45,6 +45,16 @@ export default function OrdersModal({ open, onClose }) {
     msg: "",
   });
 
+  const [payModal, setPayModal] = React.useState({
+    open: false,
+    order: null,
+    loading: false,
+    checking: false,
+    pix: null, // {qr_code, qr_code_base64, ticket_url}
+    status: "pending",
+    msg: "",
+  });
+
 
   const statusUI = (status) => {
     const s = String(status || "").toLowerCase();
@@ -92,6 +102,107 @@ export default function OrdersModal({ open, onClose }) {
 
   function closeCancel() {
     setCancelModal({ open: false, order: null, mode: "full", step: "confirm", busy: false, msg: "" });
+  }
+
+  function closePay() {
+    setPayModal({ open: false, order: null, loading: false, checking: false, pix: null, status: "pending", msg: "" });
+  }
+
+  async function openPay(order) {
+    if (!order?.id) return;
+
+    // Só faz sentido para pedidos pendentes via Pix
+    if (String(order.status || "").toLowerCase() !== "pending") {
+      setPayModal({
+        open: true,
+        order,
+        loading: false,
+        checking: false,
+        pix: null,
+        status: String(order.status || "pending"),
+        msg: "Este pedido não está pendente.",
+      });
+      return;
+    }
+
+    if (!accessToken) {
+      setPayModal({
+        open: true,
+        order,
+        loading: false,
+        checking: false,
+        pix: null,
+        status: "pending",
+        msg: "Faça login novamente para pagar.",
+      });
+      return;
+    }
+
+    setPayModal({ open: true, order, loading: true, checking: false, pix: null, status: "pending", msg: "" });
+
+    try {
+      const resp = await fetch("/api/get-pix-payment", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+        body: JSON.stringify({ order_id: order.id }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        setPayModal((s) => ({ ...s, loading: false, msg: data?.error || "Não foi possível carregar o Pix." }));
+        return;
+      }
+
+      setPayModal((s) => ({
+        ...s,
+        loading: false,
+        pix: {
+          qr_code: data?.qr_code || "",
+          qr_code_base64: data?.qr_code_base64 || "",
+          ticket_url: data?.ticket_url || "",
+        },
+        status: data?.status || "pending",
+      }));
+
+      // atualiza lista local caso o status tenha mudado
+      if (data?.status) {
+        setOrders((prev) => prev.map((o) => (o.id === order.id ? { ...o, status: data.status } : o)));
+      }
+    } catch (e) {
+      console.error(e);
+      setPayModal((s) => ({ ...s, loading: false, msg: "Erro ao carregar o Pix. Tente novamente." }));
+    }
+  }
+
+  async function verifyPay(orderId) {
+    if (!orderId || !accessToken) return;
+    setPayModal((s) => ({ ...s, checking: true, msg: "" }));
+    try {
+      const resp = await fetch("/api/verify-pix-payment", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ order_id: orderId }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        setPayModal((s) => ({ ...s, checking: false, msg: data?.error || "Não foi possível verificar o Pix." }));
+        return;
+      }
+      if (data?.status) {
+        setPayModal((s) => ({ ...s, checking: false, status: data.status }));
+        setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: data.status } : o)));
+      } else {
+        setPayModal((s) => ({ ...s, checking: false }));
+      }
+    } catch (e) {
+      console.error(e);
+      setPayModal((s) => ({ ...s, checking: false, msg: "Erro ao verificar. Tente novamente." }));
+    }
   }
 
   async function openCancel(order) {
@@ -513,6 +624,17 @@ export default function OrdersModal({ open, onClose }) {
 
     {String(o.production_status || "recebido").toLowerCase() !== "entregue" ? (
       <div className="mt-4 flex flex-wrap items-center gap-2">
+        {String(o.status || "").toLowerCase() === "pending" &&
+        String(o.payment_provider || "").toLowerCase() === "mercado_pago" &&
+        o.provider_payment_id ? (
+          <button
+            onClick={() => openPay(o)}
+            className="text-sm rounded-xl px-3 py-2 bg-emerald-400 text-black font-semibold hover:bg-emerald-300"
+            title="Abrir pagamento Pix"
+          >
+            Pagar
+          </button>
+        ) : null}
         <button
           onClick={() => openCancel(o)}
           className="text-sm rounded-xl px-3 py-2 ring-1 ring-white/15 hover:bg-white/5 text-slate-100"
@@ -621,6 +743,98 @@ export default function OrdersModal({ open, onClose }) {
                 </button>
               ) : null}
             </div>
+          </div>
+        ) : (
+          <p className="text-slate-300">Pedido não encontrado.</p>
+        )}
+      </div>
+    </Modal>
+
+    <Modal open={payModal.open} onClose={payModal.loading ? undefined : closePay} title="Pagamento Pix">
+      <div className="w-full max-w-lg">
+        {payModal.order ? (
+          <div className="text-sm text-slate-200">
+            <p className="text-xs text-slate-400">Pedido</p>
+            <p className="font-semibold break-all">{String(payModal.order.id)}</p>
+
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className={`inline-flex items-center gap-1 text-xs rounded-full px-2 py-1 ring-1 ${statusUI(payModal.status).cls}`}>
+                {statusUI(payModal.status).label}
+              </span>
+            </div>
+
+            {payModal.msg ? (
+              <p className="mt-3 text-sm text-red-300 bg-red-500/10 ring-1 ring-red-500/30 rounded-lg px-3 py-2">
+                {payModal.msg}
+              </p>
+            ) : null}
+
+            {payModal.loading ? (
+              <div className="mt-4 rounded-xl bg-white/5 ring-1 ring-white/10 px-3 py-3">
+                <p className="text-slate-200">Carregando Pix…</p>
+              </div>
+            ) : null}
+
+            {!payModal.loading && payModal.pix ? (
+              <div className="mt-4 rounded-xl bg-white/5 ring-1 ring-white/10 p-3">
+                {payModal.pix.qr_code_base64 ? (
+                  <div className="grid place-items-center">
+                    <img
+                      src={`data:image/png;base64,${payModal.pix.qr_code_base64}`}
+                      alt="QR Code Pix"
+                      className="w-56 h-56 rounded-xl bg-white p-2"
+                    />
+                  </div>
+                ) : null}
+
+                {payModal.pix.qr_code ? (
+                  <div className="mt-4">
+                    <p className="text-xs text-slate-300">Pix copia e cola</p>
+                    <div className="mt-1 flex gap-2">
+                      <input
+                        readOnly
+                        value={payModal.pix.qr_code}
+                        className="w-full rounded-lg bg-slate-950/60 ring-1 ring-white/10 px-3 py-2 text-xs text-slate-200"
+                      />
+                      <button
+                        onClick={() => copyToClipboard(payModal.pix.qr_code)}
+                        className="shrink-0 rounded-lg px-3 py-2 bg-amber-400 text-black font-semibold hover:bg-amber-300"
+                      >
+                        Copiar
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  {payModal.pix.ticket_url ? (
+                    <a
+                      href={payModal.pix.ticket_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-sm rounded-xl px-3 py-2 bg-emerald-400 text-black font-semibold hover:bg-emerald-300"
+                    >
+                      Abrir pagamento
+                    </a>
+                  ) : null}
+
+                  <button
+                    onClick={() => verifyPay(payModal.order.id)}
+                    className="text-sm rounded-xl px-3 py-2 ring-1 ring-white/15 hover:bg-white/5"
+                    disabled={payModal.checking}
+                  >
+                    {payModal.checking ? "Verificando…" : "Verificar pagamento"}
+                  </button>
+
+                  <button
+                    onClick={closePay}
+                    className="text-sm rounded-xl px-3 py-2 ring-1 ring-white/15 hover:bg-white/5"
+                  >
+                    Fechar
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
         ) : (
           <p className="text-slate-300">Pedido não encontrado.</p>

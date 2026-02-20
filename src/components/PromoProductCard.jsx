@@ -20,7 +20,10 @@ export default function PromoProductCard({ p, addToCart, buyNow, openViewer, ope
   const original = centsToBRL(p.originalPriceCents ?? 0);
   const off = percentOffCents(pricing.originalCents, pricing.currentCents);
 
+  const outOfStock = typeof p?.stock === "number" && Number.isFinite(p.stock) && p.stock <= 0;
+
   function handleAdd() {
+    if (outOfStock) return;
     addToCart(p, { escala, unitPrice: currentPrice });
     setAddedFlash(true);
     clearTimeout(flashT.current);
@@ -111,19 +114,27 @@ export default function PromoProductCard({ p, addToCart, buyNow, openViewer, ope
         <div className="mt-5 grid grid-cols-2 gap-2">
           <button
             onClick={handleAdd}
-            className={`rounded-xl px-3 py-2 font-extrabold ring-4 ring-amber-400/20 ${
-              addedFlash ? "bg-emerald-400 text-black" : "bg-amber-400 text-black"
-            } transition`}
+            disabled={outOfStock}
+            className={`rounded-xl px-3 py-2 font-extrabold ring-4 ring-amber-400/20 transition ${
+              outOfStock
+                ? "bg-slate-900 text-slate-400 cursor-not-allowed ring-white/10"
+                : addedFlash
+                  ? "bg-emerald-400 text-black"
+                  : "bg-amber-400 text-black"
+            }`}
             title="Adicionar ao carrinho"
           >
-            {addedFlash ? "Adicionado!" : "Adicionar"}
+            {outOfStock ? "Esgotado" : addedFlash ? "Adicionado!" : "Adicionar"}
           </button>
           <button
             onClick={() => buyNow(p, { escala, unitPrice: currentPrice })}
-            className="rounded-xl px-3 py-2 ring-1 ring-white/15 hover:bg-white/5 font-semibold"
+            disabled={outOfStock}
+            className={`rounded-xl px-3 py-2 ring-1 ring-white/15 font-semibold ${
+              outOfStock ? "bg-slate-900 text-slate-400 cursor-not-allowed" : "hover:bg-white/5"
+            }`}
             title="Comprar agora"
           >
-            Comprar
+            {outOfStock ? "Esgotado" : "Comprar"}
           </button>
         </div>
 

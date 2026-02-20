@@ -98,7 +98,16 @@ function mapProductRow(row) {
     originalPriceCents: toInt(row?.original_price_cents ?? 0),
     priceCents: toInt(row?.price_cents ?? 0),
     currency: row?.currency ? String(row.currency) : "brl",
-    stock: typeof row?.stock === "number" ? row.stock : 0,
+    // stock:
+    // - null/undefined => sem controle de estoque (não bloquear compra)
+    // - number        => controlar disponibilidade (0 => esgotado)
+    stock:
+      row?.stock === null || row?.stock === undefined
+        ? null
+        : (() => {
+            const n = Number(row.stock);
+            return Number.isFinite(n) ? Math.trunc(n) : null;
+          })(),
     active: row?.active !== false,
     tags: normalizeTextArray(row?.tags),
     category: row?.category ? String(row.category) : "",
@@ -237,7 +246,21 @@ export default function App() {
     };
   }, []);
 
+  const isOutOfStock = React.useCallback((p) => {
+    const s = p?.stock;
+    // Só bloqueia se o estoque estiver definido (number).
+    // Se stock for null => sem controle de estoque.
+    return typeof s === "number" && Number.isFinite(s) && s <= 0;
+  }, []);
+
   function addToCart(p, { escala, unitPrice } = {}) {
+    if (isOutOfStock(p)) {
+      clearTimeout(toastT.current);
+      setToastMsg("Esgotado");
+      setToastOpen(true);
+      toastT.current = setTimeout(() => setToastOpen(false), 1600);
+      return;
+    }
     const price = typeof unitPrice === "number" ? unitPrice : p.preco || 0;
     const scale = escala || p.escala || "";
 
@@ -262,6 +285,13 @@ export default function App() {
   }
 
   function buyNow(p, { escala, unitPrice } = {}) {
+    if (isOutOfStock(p)) {
+      clearTimeout(toastT.current);
+      setToastMsg("Esgotado");
+      setToastOpen(true);
+      toastT.current = setTimeout(() => setToastOpen(false), 1600);
+      return;
+    }
     const price = typeof unitPrice === "number" ? unitPrice : p.preco || 0;
     const scale = escala || p.escala || "";
     setCart([{ ...p, qty: 1, unitPrice: price, escala: scale }]);

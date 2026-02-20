@@ -61,6 +61,25 @@ Na Vercel (Project → Settings → Environment Variables), adicione:
 - Ao aprovar, ele retorna para o seu site com `?payment=success`.
 - O webhook `api/mp-webhook.js` confirma e marca o pedido como **pago** no Supabase.
 
+### ⏰ Lembrete de Pix pendente (Vercel Cron)
+
+Também existe um fluxo de Pix. Se o cliente gerar o Pix e não pagar, você pode enviar um lembrete automático.
+
+Foi adicionado o endpoint:
+- `GET /api/cron/pix-reminders`
+
+Ele procura pedidos `status = pending` com `payment_provider = mercado_pago` e envia e-mail (Resend) com o link/QR do Pix.
+
+**Configuração:**
+1) Rode o SQL `SUPABASE_PIX_REMINDER.sql` para criar as colunas de controle.
+2) Configure as env vars:
+   - `CRON_SECRET`
+   - `RESEND_API_KEY`
+   - `RESEND_FROM`
+   - `MP_ACCESS_TOKEN`
+3) Configure um Cron Job no Vercel para chamar o endpoint com o header:
+   - `Authorization: Bearer <CRON_SECRET>`
+
 ---
 
 ## 🔐 Login + Banco de Dados (Supabase)
