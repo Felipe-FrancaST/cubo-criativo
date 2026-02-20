@@ -763,7 +763,6 @@ React.useEffect(() => {
         route={route}
         user={user}
         isAdmin={isAdmin}
-        isAdmin={isAdmin}
         menuOpen={menuDrawerOpen}
         onToggleMenu={() => setMenuDrawerOpen((v) => !v)}
         cartCount={cart.reduce((s, i) => s + i.qty, 0)}
@@ -792,7 +791,6 @@ React.useEffect(() => {
         onClose={() => setMenuDrawerOpen(false)}
         route={route}
         user={user}
-        isAdmin={isAdmin}
         isAdmin={isAdmin}
         onNavigate={navigate}
         onGoHomeSection={goHomeSection}
