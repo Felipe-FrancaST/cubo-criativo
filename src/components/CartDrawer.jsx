@@ -44,6 +44,8 @@ export default function CartDrawer({
   const [checkingPix, setCheckingPix] = React.useState(false);
   const payHandled = React.useRef(false);
   const [pixLoginMsg, setPixLoginMsg] = React.useState("");
+  const [copyToast, setCopyToast] = React.useState(null); // { type: 'success'|'error', message: string }
+  const copyToastTimer = React.useRef(null);
 
   React.useEffect(() => {
     if (!open) return;
@@ -61,6 +63,11 @@ export default function CartDrawer({
       setPix(null);
       setPixLoading(false);
       setPixLoginMsg("");
+      setCopyToast(null);
+      if (copyToastTimer.current) {
+        window.clearTimeout(copyToastTimer.current);
+        copyToastTimer.current = null;
+      }
       payHandled.current = false;
     }
   }, [open]);
@@ -250,8 +257,16 @@ export default function CartDrawer({
     if (!code) return;
     navigator.clipboard
       .writeText(code)
-      .then(() => alert("Código Pix copiado!"))
-      .catch(() => alert("Não foi possível copiar. Copie manualmente."));
+      .then(() => {
+        setCopyToast({ type: "success", message: "Código Pix copiado!" });
+        if (copyToastTimer.current) window.clearTimeout(copyToastTimer.current);
+        copyToastTimer.current = window.setTimeout(() => setCopyToast(null), 2400);
+      })
+      .catch(() => {
+        setCopyToast({ type: "error", message: "Não foi possível copiar. Copie manualmente." });
+        if (copyToastTimer.current) window.clearTimeout(copyToastTimer.current);
+        copyToastTimer.current = window.setTimeout(() => setCopyToast(null), 3200);
+      });
   }
 
   return (
@@ -368,6 +383,23 @@ export default function CartDrawer({
               >
                 Copiar código Pix
               </button>
+
+              {copyToast && (
+                <div
+                  className={`mt-2 rounded-lg px-3 py-2 text-sm ring-1 flex items-start gap-2 ${
+                    copyToast.type === "success"
+                      ? "bg-emerald-500/10 text-emerald-200 ring-emerald-400/20"
+                      : "bg-rose-500/10 text-rose-200 ring-rose-400/20"
+                  }`}
+                  role="status"
+                  aria-live="polite"
+                >
+                  <span className="material-icons text-base mt-[1px]">
+                    {copyToast.type === "success" ? "check_circle" : "error_outline"}
+                  </span>
+                  <p className="leading-tight">{copyToast.message}</p>
+                </div>
+              )}
 
               {pix?.qr_code && (
                 <div className="mt-3">
