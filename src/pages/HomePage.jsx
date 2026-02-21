@@ -236,9 +236,7 @@ export default function HomePage({
         <div className="flex items-end justify-between gap-3 flex-wrap">
           <div>
             <h2 className="text-2xl sm:text-3xl font-extrabold">Depoimentos</h2>
-            <p className="mt-1 text-sm text-slate-400">Layout pronto — troque estes textos pelos depoimentos reais dos seus clientes.</p>
           </div>
-          <span className="text-[11px] sm:text-xs px-3 py-1 rounded-full bg-amber-400/20 text-amber-200 ring-1 ring-amber-300/20">Use prints/autorização do cliente</span>
         </div>
 
         <div className="mt-6 grid md:grid-cols-3 gap-4">
@@ -256,9 +254,6 @@ export default function HomePage({
           ))}
         </div>
 
-        <div className="mt-4 rounded-2xl p-4 bg-black/20 ring-1 ring-white/10 text-sm text-slate-300">
-          Dica: adicione nome (ou iniciais), cidade/UF, foto da peça e data aproximada para aumentar confiança e conversão.
-        </div>
       </section>
 
       {/* SOBRE */}
