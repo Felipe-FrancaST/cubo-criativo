@@ -57,6 +57,45 @@ async function mpFetch(token, url, opts = {}) {
   return { ok: resp.ok, status: resp.status, data };
 }
 
+
+function normalizeCpf(value) {
+  return String(value || '').replace(/\D/g, '');
+}
+
+async function getUserCpf(sb, userId) {
+  const { data } = await sb.from("profiles").select("cpf").eq("id", userId).maybeSingle();
+  return normalizeCpf(data?.cpf);
+}
+
+async function couponAlreadyUsedByCpf(sb, { couponCode, cpf }) {
+  const normalized = normalizeCpf(cpf);
+  if (!couponCode || !normalized) return false;
+  const { data: reds } = await sb.from("coupon_redemptions").select("user_id").eq("coupon_code", couponCode);
+  const ids = [...new Set((reds || []).map((r) => r.user_id).filter(Boolean))];
+  if (!ids.length) return false;
+  const { data: profs } = await sb.from("profiles").select("id,cpf").in("id", ids);
+  return (profs || []).some((p) => normalizeCpf(p.cpf) === normalized);
+}
+
+async function ensureCouponCpfAllowed(sb, { coupon, currentUser }) {
+  const currentCpf = await getUserCpf(sb, currentUser.id);
+  if (!currentCpf) return { ok: false, status: 400, error: "Complete seu CPF no perfil para usar cupom." };
+
+  if (coupon.user_id) {
+    const ownerCpf = await getUserCpf(sb, coupon.user_id);
+    if (ownerCpf && ownerCpf !== currentCpf) {
+      return { ok: false, status: 403, error: "Esse cupom pertence a outro CPF." };
+    }
+  }
+
+  const alreadyUsedByCpf = await couponAlreadyUsedByCpf(sb, { couponCode: coupon.code, cpf: currentCpf });
+  if (alreadyUsedByCpf) {
+    return { ok: false, status: 400, error: "Este cupom já foi utilizado por este CPF." };
+  }
+
+  return { ok: true, currentCpf };
+}
+
 export default async function handler(req, res) {
   try {
     if (req.method !== "POST") {
@@ -100,7 +139,8 @@ export default async function handler(req, res) {
     if (couponCode) {
       const { data: coupon } = await sb.from("coupons").select("*").eq("code", couponCode).maybeSingle();
       if (!coupon) return res.status(400).json({ error: "Cupom não encontrado." });
-      if (coupon.user_id && coupon.user_id !== user.id) return res.status(403).json({ error: "Esse cupom pertence a outra conta." });
+      const cpfGate = await ensureCouponCpfAllowed(sb, { coupon, currentUser: user });
+      if (!cpfGate.ok) return res.status(cpfGate.status).json({ error: cpfGate.error });
       const calc = calcCouponDiscount({ subtotal: amount, coupon });
       if (!calc.valid) return res.status(400).json({ error: "Cupom inválido, expirado ou já usado." });
       finalAmount = calc.final_total;
@@ -112,7 +152,7 @@ export default async function handler(req, res) {
     // tenta puxar nome/telefone do profile (se existir)
     const { data: prof } = await sb
       .from("profiles")
-      .select("full_name,phone")
+      .select("full_name,phone,cpf")
       .eq("id", user.id)
       .maybeSingle();
 

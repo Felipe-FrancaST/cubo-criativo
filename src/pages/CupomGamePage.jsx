@@ -2,7 +2,7 @@ import React from 'react';
 import { trackEvent } from '../lib/analytics.js';
 
 const ICONS = ['🐉','🧙','⚔️','🛡️','🧪','💎'];
-const MAX_ERRORS = 4;
+const MAX_ERRORS = 7;
 
 function shuffle(arr) {
   const a = [...arr];
@@ -174,7 +174,7 @@ export default function CupomGamePage({ onGoHome, user, accessToken }) {
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
             <h1 className="text-2xl sm:text-3xl font-extrabold">Cubo Game</h1>
-            <p className="text-slate-300 mt-2">1 tentativa por semana por conta. Máximo de {MAX_ERRORS} erros. Vitória perfeita (0 erros) = 1000 pontos + cupom especial de 20% OFF.</p>
+            
           </div>
           <div className="flex gap-2">
             <button onClick={onGoHome} className="rounded-xl px-4 py-2 ring-1 ring-white/15 hover:bg-white/5">Voltar</button>
