@@ -241,7 +241,7 @@ export default function OrdersModal({ open, onClose }) {
     setPayModal({ open: true, order, loading: true, checking: false, pix: null, status: "pending", msg: "" });
 
     try {
-      const resp = await fetch("/api/get-pix-payment", {
+      const resp = await fetch("/api/pix-payment?action=get", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -280,7 +280,7 @@ export default function OrdersModal({ open, onClose }) {
     if (!orderId || !accessToken) return;
     setPayModal((s) => ({ ...s, checking: true, msg: "" }));
     try {
-      const resp = await fetch("/api/verify-pix-payment", {
+      const resp = await fetch("/api/pix-payment?action=verify", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

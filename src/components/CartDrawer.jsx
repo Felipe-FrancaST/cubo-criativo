@@ -279,7 +279,7 @@ export default function CartDrawer({
       if (!forceVerify) return;
 
       // 2) Força verificação no Mercado Pago (caso o webhook ainda não tenha atualizado)
-      const res = await fetch("/api/verify-pix-payment", {
+      const res = await fetch("/api/pix-payment?action=verify", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
