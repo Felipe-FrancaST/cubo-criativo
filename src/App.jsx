@@ -26,6 +26,7 @@ import FAQPage from "./pages/FAQPage.jsx";
 import PoliticaPrivacidadePage from "./pages/PoliticaPrivacidadePage.jsx";
 import TrocasPage from "./pages/TrocasPage.jsx";
 import TermosPage from "./pages/TermosPage.jsx";
+import CupomGamePage from "./pages/CupomGamePage.jsx";
 import { isAdminEmail } from "./lib/admin.js";
 import { applySeo, setJsonLd, clearJsonLd } from "./lib/seo.js";
 import { trackEvent } from "./lib/analytics.js";
@@ -228,6 +229,7 @@ export default function App() {
       "/politica-de-privacidade": { title: "Política de Privacidade | Cubo Criativo", description: "Como tratamos seus dados para cadastro, pagamento, envio e suporte.", path: "/politica-de-privacidade" },
       "/trocas-e-devolucoes": { title: "Trocas e devoluções | Cubo Criativo", description: "Informações sobre trocas, devoluções e peças sob encomenda.", path: "/trocas-e-devolucoes" },
       "/termos": { title: "Termos de uso | Cubo Criativo", description: "Condições gerais de navegação e compra no site da Cubo Criativo.", path: "/termos" },
+      "/cupom": { title: "Jogo da memória e cupom | Cubo Criativo", description: "Jogue 1x por semana e concorra a cupom para usar no carrinho.", path: "/cupom" },
     };
     applySeo(seoByRoute[route] || seoByRoute["/"]);
     trackEvent("page_view", { route });
@@ -548,7 +550,7 @@ React.useEffect(() => {
     }
   }
 
-  async function startCheckout() {
+  async function startCheckout(appliedCoupon = null) {
     if (!user) {
       setToastMsg("Faça login para pagar.");
       setToastOpen(true);
@@ -578,6 +580,7 @@ React.useEffect(() => {
           ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         },
         body: JSON.stringify({
+          coupon_code: appliedCoupon?.code || null,
           items: cart.map((i) => ({
             id: i.id,
             name: i.nome,
@@ -602,7 +605,7 @@ React.useEffect(() => {
         throw new Error(data?.error || "Não foi possível iniciar o pagamento.");
       }
       if (!data?.url) throw new Error("Não foi possível iniciar o pagamento.");
-      trackEvent("checkout_started", { items: cart.length, subtotal });
+      trackEvent("checkout_started", { items: cart.length, subtotal, coupon_code: appliedCoupon?.code || null });
       window.location.href = data.url;
     } catch (e) {
       console.error(e);
@@ -840,6 +843,9 @@ React.useEffect(() => {
     if (route === "/termos") {
       return <TermosPage onGoHome={() => navigate("/")} />;
     }
+    if (route === "/cupom") {
+      return <CupomGamePage onGoHome={() => navigate("/")} user={user} accessToken={accessToken} />;
+    }
     if (route === "/conta") {
       return <AccountPage onGoHome={() => navigate("/")} />;
     }
@@ -858,6 +864,7 @@ React.useEffect(() => {
         onGoPromocoes={() => navigate("/promocoes")}
         onGoFaq={() => navigate("/faq")}
         onGoPoliticas={() => navigate("/politica-de-privacidade")}
+        onGoCupom={() => navigate("/cupom")}
       />
     );
   })();
@@ -987,6 +994,7 @@ React.useEffect(() => {
         brand={brand}
         waMsg={waMsg}
         onPay={startCheckout}
+        onPayWithCoupon={startCheckout}
         paying={paying}
         authToken={accessToken}
         userId={user?.id || ""}

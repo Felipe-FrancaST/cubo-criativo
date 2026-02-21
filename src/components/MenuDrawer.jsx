@@ -83,6 +83,9 @@ export default function MenuDrawer({
           <DrawerButton icon="view_module" onClick={() => { onNavigate("/catalogo"); onClose?.(); }}>
             Catálogo
           </DrawerButton>
+          <DrawerButton icon="redeem" onClick={() => { onNavigate("/cupom"); onClose?.(); }}>
+            Jogo da memória (cupom)
+          </DrawerButton>
           <DrawerButton icon="contact_support" onClick={() => { onNavigate("/contato"); onClose?.(); }}>
             Contato
           </DrawerButton>

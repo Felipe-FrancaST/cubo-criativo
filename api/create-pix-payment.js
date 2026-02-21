@@ -14,6 +14,7 @@
 
 import crypto from "crypto";
 import { getUserFromAuthHeader, supabaseAdmin } from "./_supabase.js";
+import { calcCouponDiscount } from "./_couponGame.js";
 
 export const config = { runtime: "nodejs" };
 
@@ -72,6 +73,7 @@ export default async function handler(req, res) {
     const mode = String(process.env.MP_MODE || "production").trim().toLowerCase();
 
     const amount = toNumberBRL(body.amount);
+    const couponCode = String(body.coupon_code || "").trim().toUpperCase();
     const origin = String(body.origin || "").trim() || getBaseUrl(req);
 
     // IMPORTANTÍSSIMO:
@@ -92,6 +94,19 @@ export default async function handler(req, res) {
 
     // 1) Cria pedido no Supabase
     const sb = supabaseAdmin();
+
+    let finalAmount = amount;
+    let couponApplied = null;
+    if (couponCode) {
+      const { data: coupon } = await sb.from("coupons").select("*").eq("code", couponCode).maybeSingle();
+      if (!coupon) return res.status(400).json({ error: "Cupom não encontrado." });
+      if (coupon.user_id && coupon.user_id !== user.id) return res.status(403).json({ error: "Esse cupom pertence a outra conta." });
+      const calc = calcCouponDiscount({ subtotal: amount, coupon });
+      if (!calc.valid) return res.status(400).json({ error: "Cupom inválido, expirado ou já usado." });
+      finalAmount = calc.final_total;
+      couponApplied = { code: coupon.code, discount: calc.discount, label: coupon.label || coupon.code };
+    }
+
     const orderId = crypto.randomUUID();
 
     // tenta puxar nome/telefone do profile (se existir)
@@ -106,7 +121,7 @@ export default async function handler(req, res) {
       user_id: user.id,
       status: "pending",
       currency: "BRL",
-      total: amount,
+      total: finalAmount,
       payment_provider: "mercado_pago",
       // Sempre salva o email do usuário autenticado.
       customer_email: payerEmail,
@@ -167,6 +182,15 @@ export default async function handler(req, res) {
       }
     }
 
+    if (couponApplied) {
+      const { data: curr } = await sb.from("coupons").select("used_count").eq("code", couponApplied.code).maybeSingle();
+      const nextUsed = (Number(curr?.used_count) || 0) + 1;
+      const upd = await sb.from("coupons").update({ used_count: nextUsed }).eq("code", couponApplied.code).eq("user_id", user.id);
+      if (upd?.error) console.error("coupon use update error", upd.error);
+      const red = await sb.from("coupon_redemptions").insert({ coupon_code: couponApplied.code, user_id: user.id, order_id: orderId, discount_amount: couponApplied.discount });
+      if (red?.error) console.error("coupon redemption insert error", red.error);
+    }
+
     // 2) Cria pagamento Pix
     const idempotencyKey = crypto.randomUUID();
     const paymentResp = await mpFetch(token, "https://api.mercadopago.com/v1/payments", {
@@ -175,7 +199,7 @@ export default async function handler(req, res) {
         "X-Idempotency-Key": idempotencyKey,
       },
       body: JSON.stringify({
-        transaction_amount: amount,
+        transaction_amount: finalAmount,
         description: String(body.description || "Pagamento via Pix").slice(0, 120),
         payment_method_id: "pix",
         payer: {
@@ -185,6 +209,8 @@ export default async function handler(req, res) {
         metadata: {
           order_id: orderId,
           user_id: user.id,
+          coupon_code: couponApplied?.code || null,
+          coupon_discount: couponApplied?.discount || 0,
           items_json: JSON.stringify(items).slice(0, 4500),
         },
         notification_url: `${origin}/api/mp-webhook`,

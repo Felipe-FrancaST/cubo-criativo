@@ -15,6 +15,7 @@
 
 import crypto from "crypto";
 import { getUserFromAuthHeader, supabaseAdmin } from "./_supabase.js";
+import { calcCouponDiscount } from "./_couponGame.js";
 
 export const config = { runtime: "nodejs" };
 
@@ -108,6 +109,7 @@ export default async function handler(req, res) {
 
     const body = safeBody(req);
     const items = Array.isArray(body.items) ? body.items : [];
+    const couponCode = String(body.coupon_code || "").trim().toUpperCase();
     if (items.length === 0) {
       return res.status(400).json({ error: "Carrinho vazio" });
     }
@@ -135,6 +137,18 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Total/itens inválidos" });
     }
 
+    let finalTotal = Number(total.toFixed(2));
+    let couponApplied = null;
+    if (couponCode) {
+      const { data: coupon } = await sb.from("coupons").select("*").eq("code", couponCode).maybeSingle();
+      if (!coupon) return res.status(400).json({ error: "Cupom não encontrado." });
+      if (coupon.user_id && coupon.user_id !== user.id) return res.status(403).json({ error: "Esse cupom pertence a outra conta." });
+      const calc = calcCouponDiscount({ subtotal: total, coupon });
+      if (!calc.valid) return res.status(400).json({ error: "Cupom inválido, expirado ou já usado." });
+      finalTotal = calc.final_total;
+      couponApplied = { code: coupon.code, discount: calc.discount, label: coupon.label || coupon.code };
+    }
+
     const base = getBaseUrl(req);
     const orderId = crypto.randomUUID();
 
@@ -144,7 +158,7 @@ export default async function handler(req, res) {
       user_id: user.id,
       status: "pending",
       currency: "BRL",
-      total: Number(total.toFixed(2)),
+      total: finalTotal,
       payment_provider: "mercadopago",
       customer_email: user.email || null,
     });
@@ -173,9 +187,18 @@ export default async function handler(req, res) {
       }
     }
 
+    if (couponApplied) {
+      const { data: curr } = await sb.from("coupons").select("used_count").eq("code", couponApplied.code).maybeSingle();
+      const nextUsed = (Number(curr?.used_count) || 0) + 1;
+      const upd = await sb.from("coupons").update({ used_count: nextUsed }).eq("code", couponApplied.code).eq("user_id", user.id);
+      if (upd?.error) console.error("coupon use update error", upd.error);
+      const red = await sb.from("coupon_redemptions").insert({ coupon_code: couponApplied.code, user_id: user.id, order_id: orderId, discount_amount: couponApplied.discount });
+      if (red?.error) console.error("coupon redemption insert error", red.error);
+    }
+
     // 2) Cria preferência no Mercado Pago
     const prefBody = {
-      items: cleanItems,
+      items: couponApplied && couponApplied.discount > 0 ? [...cleanItems, { title: `Desconto (${couponApplied.code})`, quantity: 1, unit_price: Number((-couponApplied.discount).toFixed(2)), currency_id: "BRL" }] : cleanItems,
       payer: { email: user.email || undefined },
       external_reference: orderId,
       notification_url: `${base}/api/mp-webhook`,
@@ -189,6 +212,8 @@ export default async function handler(req, res) {
       metadata: {
         order_id: orderId,
         user_id: user.id,
+        coupon_code: couponApplied?.code || null,
+        coupon_discount: couponApplied?.discount || 0,
         items_json: JSON.stringify(
           items.map((i) => ({
             name: i.name || i.nome,

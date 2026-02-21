@@ -34,7 +34,8 @@ export default function CartDrawer({
   onRequireLogin,
   onRequireProfile,
   onOpenOrders,
-  onPaymentConfirmed
+  onPaymentConfirmed,
+  onPayWithCoupon
 }) {
   // Pix state
   const [pix, setPix] = React.useState(null);
@@ -46,6 +47,10 @@ export default function CartDrawer({
   const [pixLoginMsg, setPixLoginMsg] = React.useState("");
   const [copyToast, setCopyToast] = React.useState(null); // { type: 'success'|'error', message: string }
   const copyToastTimer = React.useRef(null);
+  const [couponCode, setCouponCode] = React.useState(() => (typeof window !== 'undefined' ? window.localStorage.getItem('cc_coupon_last') || '' : ''));
+  const [couponInfo, setCouponInfo] = React.useState(null);
+  const [couponLoading, setCouponLoading] = React.useState(false);
+  const [couponMsg, setCouponMsg] = React.useState('');
 
   React.useEffect(() => {
     if (!open) return;
@@ -91,6 +96,54 @@ export default function CartDrawer({
     };
   }, [pixOpen, pix?.order_id]);
 
+
+  React.useEffect(() => {
+    if (!couponInfo) return;
+    applyCoupon(couponInfo.code, { silent: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subtotal]);
+
+  async function applyCoupon(codeParam, opts = {}) {
+    const code = String(codeParam ?? couponCode).trim().toUpperCase();
+    if (!code) {
+      setCouponInfo(null);
+      setCouponMsg('');
+      return;
+    }
+    if (!authToken) {
+      onRequireLogin?.();
+      if (!opts.silent) setCouponMsg('Faça login para usar cupom.');
+      return;
+    }
+    if (!(subtotal > 0)) {
+      if (!opts.silent) setCouponMsg('Adicione itens ao carrinho antes.');
+      return;
+    }
+    try {
+      setCouponLoading(true);
+      const res = await fetch('/api/coupon-validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+        body: JSON.stringify({ code, subtotal: Number(Number(subtotal).toFixed(2)) }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || 'Cupom inválido');
+      setCouponInfo({ code, discount: Number(data.discount || 0), final_total: Number(data.final_total || subtotal), label: data.label || data?.coupon?.label || code });
+      setCouponCode(code);
+      try { window.localStorage.setItem('cc_coupon_last', code); } catch {}
+      if (!opts.silent) setCouponMsg('Cupom aplicado!');
+    } catch (e) {
+      if (!opts.silent) setCouponMsg(String(e?.message || e));
+      setCouponInfo(null);
+    } finally {
+      setCouponLoading(false);
+    }
+  }
+
+  function removeCoupon() {
+    setCouponInfo(null);
+    setCouponMsg('Cupom removido.');
+  }
 
   async function handlePix() {
     try {
@@ -166,7 +219,7 @@ export default function CartDrawer({
         },
         body: JSON.stringify({
           origin: window.location.origin,
-          amount: Number(Number(subtotal).toFixed(2)),
+          amount: Number(Number((couponInfo?.final_total ?? subtotal)).toFixed(2)),
           email: payerEmail.trim(),
           name: "Cliente",
           items: cart.map((i) => ({
@@ -178,6 +231,7 @@ export default function CartDrawer({
             id: i.id,
           })),
           description: "Pagamento via Pix",
+          coupon_code: couponInfo?.code || null,
         }),
       });
 
@@ -309,8 +363,32 @@ export default function CartDrawer({
             <span className="font-semibold">{subtotal > 0 ? fmtBRL(subtotal) : "Definir preços"}</span>
           </div>
 
+          <div className="rounded-xl bg-slate-800/40 ring-1 ring-white/10 p-3 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <label className="text-xs text-slate-300 font-semibold">Cupom</label>
+              {couponInfo ? <button onClick={removeCoupon} className="text-xs text-rose-300 hover:text-rose-200">Remover</button> : null}
+            </div>
+            <div className="flex gap-2">
+              <input value={couponCode} onChange={(e)=>setCouponCode(e.target.value.toUpperCase())} placeholder="CUBO-XXXX" className="flex-1 rounded-lg bg-slate-900/70 ring-1 ring-white/10 px-3 py-2 text-sm" />
+              <button onClick={()=>applyCoupon()} disabled={couponLoading || !(subtotal>0)} className="rounded-lg px-3 py-2 text-sm font-semibold bg-white/10 ring-1 ring-white/15 disabled:opacity-50">{couponLoading ? '...' : 'Aplicar'}</button>
+            </div>
+            {couponInfo && (
+              <div className="text-xs rounded-lg bg-emerald-500/10 ring-1 ring-emerald-400/20 p-2 text-emerald-200">
+                {couponInfo.label || couponInfo.code} • desconto {fmtBRL(couponInfo.discount)} • total {fmtBRL(couponInfo.final_total)}
+              </div>
+            )}
+            {couponMsg && <div className="text-xs text-slate-300">{couponMsg}</div>}
+          </div>
+
+          {couponInfo && (
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-slate-400">Total com cupom</span>
+              <span className="font-semibold text-emerald-300">{fmtBRL(couponInfo.final_total)}</span>
+            </div>
+          )}
+
           <button
-            onClick={onPay}
+            onClick={() => (onPayWithCoupon ? onPayWithCoupon(couponInfo) : onPay?.())}
             disabled={paying || cart.length === 0 || !(subtotal > 0)}
             className={`w-full text-center rounded-lg px-4 py-3 font-semibold ring-1 ring-white/10 transition \
               ${paying || cart.length === 0 || !(subtotal > 0)

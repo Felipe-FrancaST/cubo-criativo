@@ -16,6 +16,7 @@ export default function HomePage({
   onGoPromocoes,
   onGoFaq,
   onGoPoliticas,
+  onGoCupom,
 }) {
   const [depoimentos, setDepoimentos] = React.useState([]);
   const [loadingDepoimentos, setLoadingDepoimentos] = React.useState(true);
@@ -83,6 +84,12 @@ export default function HomePage({
                 Catálogo completo
               </button>
             </div>
+
+            {onGoCupom && (
+              <div className="mt-4">
+                <button onClick={onGoCupom} className="w-full sm:w-auto rounded-xl px-5 py-3 bg-amber-400 text-black font-bold ring-4 ring-amber-400/20">🎴 Jogo da memória da semana (cupom)</button>
+              </div>
+            )}
 
             {/* Anúncios */}
             <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
