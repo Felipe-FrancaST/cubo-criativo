@@ -13,6 +13,8 @@ export default function HomePage({
   onGoEstoque,
   onGoCatalogo,
   onGoPromocoes,
+  onGoFaq,
+  onGoPoliticas,
 }) {
   return (
     <main className="flex-1">
@@ -177,6 +179,44 @@ export default function HomePage({
               tabela <b>products</b>).
             </div>
           )}
+        </div>
+      </section>
+
+
+      {/* CONFIANÇA / INFORMAÇÕES */}
+      <section
+        className="mx-auto px-4 sm:px-6 lg:px-8 pb-10 sm:pb-14"
+        style={{ maxWidth: "var(--container-max, 1200px)" }}
+      >
+        <div className="grid lg:grid-cols-3 gap-4">
+          <div className="rounded-2xl p-5 bg-white/5 ring-1 ring-white/10">
+            <p className="text-xs text-slate-400">Prazo de produção</p>
+            <p className="mt-1 font-bold">Sob encomenda: 3–7 dias úteis</p>
+            <p className="mt-2 text-sm text-slate-300">Pode variar por complexidade, pintura e fila de produção.</p>
+          </div>
+          <div className="rounded-2xl p-5 bg-white/5 ring-1 ring-white/10">
+            <p className="text-xs text-slate-400">Envio e embalagem</p>
+            <p className="mt-1 font-bold">Rastreio + embalagem reforçada</p>
+            <p className="mt-2 text-sm text-slate-300">Envio para todo o Brasil após confirmação de pagamento.</p>
+          </div>
+          <div className="rounded-2xl p-5 bg-white/5 ring-1 ring-white/10">
+            <p className="text-xs text-slate-400">Atendimento</p>
+            <p className="mt-1 font-bold">Suporte por WhatsApp e e-mail</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button onClick={onGoFaq} className="rounded-lg px-3 py-2 text-xs ring-1 ring-white/15 hover:bg-white/5">FAQ</button>
+              <button onClick={onGoPoliticas} className="rounded-lg px-3 py-2 text-xs ring-1 ring-white/15 hover:bg-white/5">Políticas</button>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-2xl p-5 bg-gradient-to-r from-white/5 to-emerald-400/10 ring-1 ring-white/10">
+          <h3 className="font-bold">Clientes escolhem a Cubo Criativo por:</h3>
+          <ul className="mt-3 grid sm:grid-cols-2 lg:grid-cols-4 gap-2 text-sm text-slate-200">
+            <li className="rounded-xl bg-black/20 px-3 py-2">• Acabamento de coleção</li>
+            <li className="rounded-xl bg-black/20 px-3 py-2">• Produção sob demanda</li>
+            <li className="rounded-xl bg-black/20 px-3 py-2">• Atendimento rápido</li>
+            <li className="rounded-xl bg-black/20 px-3 py-2">• Checkout no site + WhatsApp</li>
+          </ul>
         </div>
       </section>
 

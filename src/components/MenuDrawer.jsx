@@ -1,5 +1,6 @@
 import React from "react";
 import brandConfig from "../data/config";
+import { trackEvent } from "../lib/analytics.js";
 
 function DrawerButton({ icon, children, onClick, right }) {
   return (
@@ -88,6 +89,15 @@ export default function MenuDrawer({
           <DrawerButton icon="groups" onClick={() => { onNavigate("/sobre"); onClose?.(); }}>
             Sobre nós
           </DrawerButton>
+          <DrawerButton icon="help" onClick={() => { onNavigate("/faq"); onClose?.(); }}>
+            FAQ
+          </DrawerButton>
+          <DrawerButton icon="gavel" onClick={() => { onNavigate("/termos"); onClose?.(); }}>
+            Termos
+          </DrawerButton>
+          <DrawerButton icon="policy" onClick={() => { onNavigate("/politica-de-privacidade"); onClose?.(); }}>
+            Privacidade
+          </DrawerButton>
 
           <div className="my-3 h-px bg-white/10" />
 
@@ -172,6 +182,7 @@ export default function MenuDrawer({
               rel="noreferrer"
               className="inline-flex items-center justify-center rounded-xl px-3 py-3 ring-1 ring-white/10 hover:bg-white/5"
               title="Instagram"
+              onClick={() => trackEvent("social_click", { network: "instagram", location: "menu" })}
             >
               <img src="/icons/instagram.svg" alt="Instagram" className="h-4 w-4" />
             </a>
@@ -181,6 +192,7 @@ export default function MenuDrawer({
               rel="noreferrer"
               className="inline-flex items-center justify-center rounded-xl px-3 py-3 ring-1 ring-white/10 hover:bg-white/5"
               title="TikTok"
+              onClick={() => trackEvent("social_click", { network: "tiktok", location: "menu" })}
             >
               <img src="/icons/tiktok.svg" alt="TikTok" className="h-4 w-4" />
             </a>
@@ -190,6 +202,7 @@ export default function MenuDrawer({
               rel="noreferrer"
               className="inline-flex items-center justify-center rounded-xl px-3 py-3 ring-1 ring-white/10 hover:bg-white/5"
               title="WhatsApp"
+              onClick={() => trackEvent("whatsapp_click", { location: "menu" })}
             >
               <img src="/icons/whatsapp.svg" alt="WhatsApp" className="h-4 w-4" />
             </a>

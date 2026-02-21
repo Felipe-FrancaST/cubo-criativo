@@ -1,5 +1,6 @@
 import React from "react";
 import brand from "../data/config";
+import { trackEvent } from "../lib/analytics.js";
 
 function Card({ icon, title, desc, children }) {
   return (
@@ -18,7 +19,7 @@ function Card({ icon, title, desc, children }) {
   );
 }
 
-export default function ContactPage({ onGoHome }) {
+export default function ContactPage({ onGoHome, onGoFaq, onGoPoliticas }) {
   const wa = String(brand.whatsapp || "").replace(/\D/g, "");
   const waLink = wa ? `https://wa.me/${wa}?text=${encodeURIComponent("Olá! Vim pelo site Cubo Criativo 🙂")}` : "";
   const email = brand.email || "";
@@ -54,6 +55,7 @@ export default function ContactPage({ onGoHome }) {
                   href={waLink}
                   target="_blank"
                   rel="noreferrer"
+                  onClick={() => trackEvent("whatsapp_click", { location: "contato" })}
                   className="inline-flex items-center justify-center gap-2 w-full rounded-2xl px-4 py-3 bg-emerald-400 text-black font-extrabold ring-4 ring-emerald-400/25 hover:brightness-110 transition"
                 >
                   <span className="material-icons text-[18px]">chat</span>
@@ -65,6 +67,7 @@ export default function ContactPage({ onGoHome }) {
               <Card icon="mail" title="E-mail" desc="Para comprovantes, arquivos e solicitações detalhadas.">
                 <a
                   href={mailLink}
+                  onClick={() => trackEvent("email_click", { location: "contato" })}
                   className="inline-flex items-center justify-center gap-2 w-full rounded-2xl px-4 py-3 ring-1 ring-white/15 hover:bg-white/5 transition font-semibold"
                 >
                   <span className="material-icons text-[18px]">send</span>
@@ -94,6 +97,10 @@ export default function ContactPage({ onGoHome }) {
                   Para agilizar o suporte, mande o <span className="text-emerald-200">número do pedido</span> (quando tiver)
                   e uma descrição do que você precisa.
                 </p>
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <button onClick={onGoFaq} className="rounded-xl px-3 py-2 ring-1 ring-white/15 hover:bg-white/5 text-xs">FAQ</button>
+                <button onClick={onGoPoliticas} className="rounded-xl px-3 py-2 ring-1 ring-white/15 hover:bg-white/5 text-xs">Políticas</button>
               </div>
             </div>
           </div>

@@ -1,21 +1,66 @@
 <!doctype html>
-<html lang="pt-br">
+<html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Cubo Criativo</title>
+    <title>Cubo Criativo | Miniaturas em Resina e Pintura Artística</title>
+    <meta
+      name="description"
+      content="Miniaturas em resina, pintura artística e peças colecionáveis. Promoções, catálogo e atendimento via WhatsApp com envio para todo o Brasil."
+    />
+    <meta name="robots" content="index,follow" />
+    <meta name="theme-color" content="#020617" />
 
-    <!-- Ícone da guia (troque o arquivo se quiser) -->
-    <link rel="icon" href="/public/icons/logo.svg" type="image/svg" />
+    <link rel="icon" href="/icons/logo.svg" type="image/svg+xml" />
+    <link rel="canonical" href="/" />
 
-    <!-- Material Icons (ícones de menu/carrinho se quiser usar) -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="pt_BR" />
+    <meta property="og:site_name" content="Cubo Criativo" />
+    <meta property="og:title" content="Cubo Criativo | Miniaturas em Resina e Pintura Artística" />
+    <meta
+      property="og:description"
+      content="Promoções, peças em estoque e encomendas personalizadas com envio para todo o Brasil."
+    />
+    <meta property="og:image" content="/images/logo.png" />
 
-    <!-- Tailwind via CDN (sem configuração) -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Cubo Criativo | Miniaturas em Resina e Pintura Artística" />
+    <meta
+      name="twitter:description"
+      content="Miniaturas em resina, pintura artística e peças colecionáveis com atendimento via WhatsApp."
+    />
+    <meta name="twitter:image" content="/images/logo.png" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "Cubo Criativo",
+        "url": "/",
+        "logo": "/images/logo.png",
+        "email": "cubocriativox0@gmail.com",
+        "sameAs": [
+          "https://instagram.com/_cubocriativo_",
+          "https://tiktok.com/@cubo.criativo"
+        ],
+        "contactPoint": {
+          "@type": "ContactPoint",
+          "contactType": "customer support",
+          "telephone": "+55 77 99821-1169",
+          "areaServed": "BR",
+          "availableLanguage": "pt-BR"
+        }
+      }
+    </script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
+
+    <!-- Mantido para evitar quebra no deploy atual. Ideal futuro: build local do Tailwind -->
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- Bloqueia overflow lateral e aplica resets básicos -->
     <style>
       html, body, #root { height:100%; margin:0; overflow-x:hidden; }
       *, *::before, *::after { box-sizing: border-box; }

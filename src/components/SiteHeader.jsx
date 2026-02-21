@@ -1,5 +1,6 @@
 import React from "react";
 import brandConfig from "../data/config";
+import { trackEvent } from "../lib/analytics.js";
 
 function IconButton({ title, onClick, children, className = "", ...rest }) {
   return (
@@ -98,6 +99,8 @@ export default function SiteHeader({
                 <a
                   href="https://instagram.com/_cubocriativo_"
                   target="_blank"
+                  rel="noreferrer"
+                  onClick={() => trackEvent("social_click", { network: "instagram", location: "header" })}
                   className="inline-flex items-center justify-center rounded-full p-2 ring-1 ring-white/12 hover:bg-white/5"
                   title="Instagram"
                 >
@@ -106,6 +109,8 @@ export default function SiteHeader({
                 <a
                   href="https://tiktok.com/@cubo.criativo"
                   target="_blank"
+                  rel="noreferrer"
+                  onClick={() => trackEvent("social_click", { network: "tiktok", location: "header" })}
                   className="inline-flex items-center justify-center rounded-full p-2 ring-1 ring-white/12 hover:bg-white/5"
                   title="TikTok"
                 >
@@ -118,6 +123,7 @@ export default function SiteHeader({
                   className="inline-flex items-center justify-center rounded-full p-2 ring-1 ring-white/12 hover:bg-white/5"
                   title="WhatsApp"
                   rel="noreferrer"
+                  onClick={() => trackEvent("whatsapp_click", { location: "header" })}
                 >
                   <img src="/icons/whatsapp.svg" alt="WhatsApp" className="h-4 w-4" />
                 </a>

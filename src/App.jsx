@@ -22,7 +22,13 @@ import PromocoesPage from "./pages/PromocoesPage.jsx";
 import SobrePage from "./pages/SobrePage.jsx";
 import ContactPage from "./pages/ContactPage.jsx";
 import AdminOrdersPage from "./pages/AdminOrdersPage.jsx";
+import FAQPage from "./pages/FAQPage.jsx";
+import PoliticaPrivacidadePage from "./pages/PoliticaPrivacidadePage.jsx";
+import TrocasPage from "./pages/TrocasPage.jsx";
+import TermosPage from "./pages/TermosPage.jsx";
 import { isAdminEmail } from "./lib/admin.js";
+import { applySeo } from "./lib/seo.js";
+import { trackEvent } from "./lib/analytics.js";
 
 // Lazy-load (carrega só quando abrir)
 const RPGPage = React.lazy(() => import("./rpg/RPGPage.jsx"));
@@ -156,6 +162,23 @@ export default function App() {
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
 
+  React.useEffect(() => {
+    const seoByRoute = {
+      "/": { title: "Cubo Criativo | Miniaturas em Resina e Pintura Artística", description: "Miniaturas em resina, peças colecionáveis, promoções e encomendas com envio para todo o Brasil.", path: "/" },
+      "/estoque": { title: "Em estoque | Cubo Criativo", description: "Peças prontas para envio com rastreio e embalagem reforçada.", path: "/estoque" },
+      "/catalogo": { title: "Catálogo | Cubo Criativo", description: "Catálogo completo de miniaturas e peças geek para coleção e RPG.", path: "/catalogo" },
+      "/promocoes": { title: "Promoções | Cubo Criativo", description: "Ofertas selecionadas em miniaturas e peças colecionáveis.", path: "/promocoes" },
+      "/contato": { title: "Contato | Cubo Criativo", description: "Atendimento via WhatsApp e e-mail para suporte, orçamento e pedidos.", path: "/contato" },
+      "/sobre": { title: "Sobre nós | Cubo Criativo", description: "Conheça a Cubo Criativo e nosso trabalho com miniaturas e peças personalizadas.", path: "/sobre" },
+      "/faq": { title: "FAQ | Cubo Criativo", description: "Perguntas frequentes sobre prazos, envio, pagamento e cuidados com as peças.", path: "/faq" },
+      "/politica-de-privacidade": { title: "Política de Privacidade | Cubo Criativo", description: "Como tratamos seus dados para cadastro, pagamento, envio e suporte.", path: "/politica-de-privacidade" },
+      "/trocas-e-devolucoes": { title: "Trocas e devoluções | Cubo Criativo", description: "Informações sobre trocas, devoluções e peças sob encomenda.", path: "/trocas-e-devolucoes" },
+      "/termos": { title: "Termos de uso | Cubo Criativo", description: "Condições gerais de navegação e compra no site da Cubo Criativo.", path: "/termos" },
+    };
+    applySeo(seoByRoute[route] || seoByRoute["/"]);
+    trackEvent("page_view", { route });
+  }, [route]);
+
   function navigate(path) {
     const normalized = path?.startsWith("/") ? path : `/${path || ""}`;
     window.location.hash = `#${normalized}`;
@@ -258,6 +281,8 @@ export default function App() {
     const price = typeof unitPrice === "number" ? unitPrice : p.preco || 0;
     const scale = escala || p.escala || "";
 
+    trackEvent("add_to_cart", { product_id: p?.id, product_name: p?.nome, escala: scale, price });
+
     setCart((prev) => {
       const found = prev.find((i) => i.id === p.id && i.escala === scale && i.unitPrice === price);
       if (found) {
@@ -288,6 +313,7 @@ export default function App() {
     }
     const price = typeof unitPrice === "number" ? unitPrice : p.preco || 0;
     const scale = escala || p.escala || "";
+    trackEvent("buy_now_click", { product_id: p?.id, product_name: p?.nome, escala: scale, price });
     setCart([{ ...p, qty: 1, unitPrice: price, escala: scale }]);
     setCartOpen(true);
   }
@@ -387,6 +413,7 @@ React.useEffect(() => {
         if (provider === "mercadopago" && orderId) {
           const paid = await pollOrderPaid(orderId);
           if (paid) {
+            trackEvent("payment_confirmed", { provider: "mercadopago", order_id: orderId });
             setCart([]);
             setCartOpen(false);
             showOnce("✅ Pedido finalizado!");
@@ -409,6 +436,7 @@ React.useEffect(() => {
         }
 
         // fallback (sem order_id): considera como sucesso e limpa o carrinho
+        trackEvent("payment_confirmed", { provider: provider || "unknown" });
         setCart([]);
         setCartOpen(false);
         showOnce("✅ Pagamento confirmado!");
@@ -520,6 +548,7 @@ React.useEffect(() => {
         throw new Error(data?.error || "Não foi possível iniciar o pagamento.");
       }
       if (!data?.url) throw new Error("Não foi possível iniciar o pagamento.");
+      trackEvent("checkout_started", { items: cart.length, subtotal });
       window.location.href = data.url;
     } catch (e) {
       console.error(e);
@@ -717,7 +746,19 @@ React.useEffect(() => {
       return <SobrePage onGoHome={() => navigate("/")} />;
     }
     if (route === "/contato") {
-      return <ContactPage onGoHome={() => navigate("/")} />;
+      return <ContactPage onGoHome={() => navigate("/")} onGoFaq={() => navigate("/faq")} onGoPoliticas={() => navigate("/politica-de-privacidade")} />;
+    }
+    if (route === "/faq") {
+      return <FAQPage onGoHome={() => navigate("/")} />;
+    }
+    if (route === "/politica-de-privacidade") {
+      return <PoliticaPrivacidadePage onGoHome={() => navigate("/")} />;
+    }
+    if (route === "/trocas-e-devolucoes") {
+      return <TrocasPage onGoHome={() => navigate("/")} />;
+    }
+    if (route === "/termos") {
+      return <TermosPage onGoHome={() => navigate("/")} />;
     }
     if (route === "/conta") {
       return <AccountPage onGoHome={() => navigate("/")} />;
@@ -735,6 +776,8 @@ React.useEffect(() => {
         onGoEstoque={() => navigate("/estoque")}
         onGoCatalogo={() => navigate("/catalogo")}
         onGoPromocoes={() => navigate("/promocoes")}
+        onGoFaq={() => navigate("/faq")}
+        onGoPoliticas={() => navigate("/politica-de-privacidade")}
       />
     );
   })();
@@ -825,6 +868,7 @@ React.useEffect(() => {
             <div>
               <p className="font-extrabold text-lg">{brand.name}</p>
               <p className="text-slate-400 mt-2">Cultura geek, qualidade de coleção.</p>
+              <p className="text-xs text-slate-500 mt-3">Produção sob encomenda: 3–7 dias úteis • envio com rastreio</p>
             </div>
             <div>
               <p className="font-bold">Pagamento</p>
@@ -840,6 +884,9 @@ React.useEffect(() => {
                 <li>E-mail: {brand.email}</li>
                 <li>Instagram: @_cubocriativo_</li>
                 <li>Cidade/UF: {brand.city}</li>
+                <li><button onClick={() => navigate("/faq")} className="underline decoration-dotted">FAQ</button></li>
+                <li><button onClick={() => navigate("/politica-de-privacidade")} className="underline decoration-dotted">Privacidade</button> • <button onClick={() => navigate("/termos")} className="underline decoration-dotted">Termos</button></li>
+                <li><button onClick={() => navigate("/trocas-e-devolucoes")} className="underline decoration-dotted">Trocas / devoluções</button></li>
               </ul>
             </div>
           </div>
