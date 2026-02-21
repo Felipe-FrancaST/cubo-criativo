@@ -25,7 +25,6 @@ import AdminOrdersPage from "./pages/AdminOrdersPage.jsx";
 import { isAdminEmail } from "./lib/admin.js";
 
 // Lazy-load (carrega só quando abrir)
-const ModelViewer3D = React.lazy(() => import("./components/ModelViewer3D.jsx"));
 const RPGPage = React.lazy(() => import("./rpg/RPGPage.jsx"));
 
 /* ========================================================================
@@ -88,7 +87,6 @@ function mapProductRow(row) {
     descricao: row?.description ? String(row.description) : "",
     img,
     imgs,
-    model: row?.model_url ? String(row.model_url) : "",
     status: row?.status ? String(row.status) : "catalogo",
     featured: !!row?.featured,
     promo: !!row?.promo,
@@ -229,10 +227,6 @@ export default function App() {
 
   // ===== Pagamento (Mercado Pago Checkout Pro + Pix) =====
   const [paying, setPaying] = React.useState(false);
-
-  // ===== Visualizador 3D =====
-  const [viewerOpen, setViewerOpen] = React.useState(false);
-  const [viewerModel, setViewerModel] = React.useState({ src: "", title: "" });
 
   // ===== Galeria =====
   const [galleryOpen, setGalleryOpen] = React.useState(false);
@@ -538,12 +532,6 @@ React.useEffect(() => {
     }
   }
 
-  function openViewer(modelSrc, title) {
-    if (!modelSrc) return;
-    setViewerModel({ src: modelSrc, title });
-    setViewerOpen(true);
-  }
-
   function openGallery(p) {
     const imgs = Array.isArray(p.imgs) && p.imgs.length > 0 ? p.imgs : [p.img];
     setGalleryData({ title: p.nome, imgs });
@@ -560,12 +548,12 @@ React.useEffect(() => {
 
   // Bloqueia scroll do body quando overlays estão abertos
   React.useEffect(() => {
-    const anyOverlayOpen = cartOpen || viewerOpen || galleryOpen || rpgMode || authOpen || ordersOpen || settingsOpen || menuDrawerOpen;
+    const anyOverlayOpen = cartOpen || galleryOpen || rpgMode || authOpen || ordersOpen || settingsOpen || menuDrawerOpen;
     document.body.style.overflow = anyOverlayOpen ? "hidden" : "";
     return () => {
       document.body.style.overflow = "";
     };
-  }, [cartOpen, viewerOpen, galleryOpen, rpgMode, authOpen, ordersOpen, settingsOpen, menuDrawerOpen]);
+  }, [cartOpen, galleryOpen, rpgMode, authOpen, ordersOpen, settingsOpen, menuDrawerOpen]);
 
   // fecha menu lateral quando muda rota
   React.useEffect(() => {
@@ -589,7 +577,7 @@ React.useEffect(() => {
         const { data, error } = await supabase
           .from("products")
           .select(
-            "id,slug,name,description,price_cents,currency,stock,active,featured,promo,image_url,images,model_url,status,tags,default_variant,variants,original_price_cents,category,created_at"
+            "id,slug,name,description,price_cents,currency,stock,active,featured,promo,image_url,images,status,tags,default_variant,variants,original_price_cents,category,created_at"
           )
           .eq("active", true)
           .order("created_at", { ascending: false });
@@ -696,7 +684,6 @@ React.useEffect(() => {
           error={productsError}
           addToCart={addToCart}
           buyNow={buyNow}
-          openViewer={openViewer}
           openGallery={openGallery}
           onGoHome={() => navigate("/")}
         />
@@ -710,7 +697,6 @@ React.useEffect(() => {
           error={productsError}
           addToCart={addToCart}
           buyNow={buyNow}
-          openViewer={openViewer}
           openGallery={openGallery}
         />
       );
@@ -723,7 +709,6 @@ React.useEffect(() => {
           error={productsError}
           addToCart={addToCart}
           buyNow={buyNow}
-          openViewer={openViewer}
           openGallery={openGallery}
         />
       );
@@ -746,7 +731,6 @@ React.useEffect(() => {
         productsError={productsError}
         addToCart={addToCart}
         buyNow={buyNow}
-        openViewer={openViewer}
         openGallery={openGallery}
         onGoEstoque={() => navigate("/estoque")}
         onGoCatalogo={() => navigate("/catalogo")}
@@ -907,17 +891,6 @@ React.useEffect(() => {
           toastT.current = setTimeout(() => setToastOpen(false), 1600);
         }}
       />
-
-      {/* MODAL 3D */}
-      <Modal open={viewerOpen} onClose={() => setViewerOpen(false)} title={`Visualizador 3D — ${viewerModel.title}`}>
-        {viewerOpen && viewerModel.src ? (
-          <React.Suspense fallback={<div className="p-6 text-slate-300">Carregando 3D…</div>}>
-            <ModelViewer3D src={viewerModel.src} />
-          </React.Suspense>
-        ) : (
-          <div className="text-slate-400 text-sm">Selecione um produto com modelo 3D.</div>
-        )}
-      </Modal>
 
       {/* MODAL GALERIA */}
       <Modal open={galleryOpen} onClose={() => setGalleryOpen(false)} title={`Fotos — ${galleryData.title}`}>

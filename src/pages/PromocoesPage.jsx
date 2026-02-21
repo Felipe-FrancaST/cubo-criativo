@@ -7,7 +7,6 @@ export default function PromocoesPage({
   error = "",
   addToCart,
   buyNow,
-  openViewer,
   openGallery,
   onGoHome,
 }) {
@@ -92,7 +91,6 @@ export default function PromocoesPage({
                     p={p}
                     addToCart={addToCart}
                     buyNow={buyNow}
-                    openViewer={openViewer}
                     openGallery={openGallery}
                   />
                 ))}

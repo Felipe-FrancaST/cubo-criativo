@@ -1,7 +1,7 @@
 import React from "react";
 import ProductCard from "../components/ProductCard.jsx";
 
-export default function StockPage({ items, loading = false, error = "", addToCart, buyNow, openViewer, openGallery }) {
+export default function StockPage({ items, loading = false, error = "", addToCart, buyNow, openGallery }) {
   return (
     <main className="flex-1">
       <section
@@ -47,7 +47,6 @@ export default function StockPage({ items, loading = false, error = "", addToCar
                   p={p}
                   addToCart={addToCart}
                   buyNow={buyNow}
-                  openViewer={openViewer}
                   openGallery={openGallery}
                 />
               ))}

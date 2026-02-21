@@ -6,10 +6,9 @@ import { fmtBRL, centsToBRL, getVariantPricingCents, percentOffCents } from "../
  * - p (produto)
  * - addToCart(p, {escala, unitPrice})
  * - buyNow(p, {escala, unitPrice})
- * - openViewer(modelSrc, title)   (opcional)
  * - openGallery(p)                (abre galeria com as imagens do produto)
  */
-export default function ProductCard({ p, addToCart, buyNow, openViewer, openGallery }) {
+export default function ProductCard({ p, addToCart, buyNow, openGallery }) {
   const defaultIndex = Math.max(0, p.variants?.findIndex((v) => v.label === p.defaultVariant));
   const [selIndex, setSelIndex] = React.useState(defaultIndex);
   const [addedFlash, setAddedFlash] = React.useState(false);
@@ -129,14 +128,6 @@ export default function ProductCard({ p, addToCart, buyNow, openViewer, openGall
           </button>
         </div>
 
-        {p.model && (
-          <button
-            onClick={() => openViewer?.(p.model, p.nome)}
-            className="mt-2 w-full rounded-lg px-3 py-2 ring-1 ring-white/15 hover:bg-white/5 text-sm"
-          >
-            Ver em 3D
-          </button>
-        )}
       </div>
     </article>
   );

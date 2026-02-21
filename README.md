@@ -19,7 +19,6 @@ Este repositório contém o código-fonte do site oficial, desenvolvido com **Re
 
 ## 📦 Funcionalidades
 ✔️ Catálogo organizado por categorias (anime, HQs, filmes, games)  
-✔️ Visualização em 3D dos modelos (`.glb`)  
 ✔️ Galeria de imagens com múltiplas perspectivas  
 ✔️ Filtros e barra de busca no catálogo  
 ✔️ Carrinho de compras dinâmico  

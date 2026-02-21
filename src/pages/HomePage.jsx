@@ -9,7 +9,6 @@ export default function HomePage({
   productsError = "",
   addToCart,
   buyNow,
-  openViewer,
   openGallery,
   onGoEstoque,
   onGoCatalogo,
@@ -168,7 +167,6 @@ export default function HomePage({
               p={p}
               addToCart={addToCart}
               buyNow={buyNow}
-              openViewer={openViewer}
               openGallery={openGallery}
             />
           ))}

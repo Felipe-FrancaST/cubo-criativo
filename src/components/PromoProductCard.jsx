@@ -5,7 +5,7 @@ import { fmtBRL, centsToBRL, getVariantPricingCents, percentOffCents } from "../
  * Card especial para promoções.
  * Mostra preço antigo riscado, preço atual em destaque e um selo chamativo.
  */
-export default function PromoProductCard({ p, addToCart, buyNow, openViewer, openGallery }) {
+export default function PromoProductCard({ p, addToCart, buyNow, openGallery }) {
   const defaultIndex = Math.max(0, p.variants?.findIndex((v) => v.label === p.defaultVariant));
   const [selIndex, setSelIndex] = React.useState(defaultIndex);
   const [addedFlash, setAddedFlash] = React.useState(false);
@@ -138,14 +138,6 @@ export default function PromoProductCard({ p, addToCart, buyNow, openViewer, ope
           </button>
         </div>
 
-        {p.model && (
-          <button
-            onClick={() => openViewer?.(p.model, p.nome)}
-            className="mt-2 w-full rounded-xl px-3 py-2 ring-1 ring-white/15 hover:bg-white/5 text-sm"
-          >
-            Ver em 3D
-          </button>
-        )}
       </div>
     </article>
   );
