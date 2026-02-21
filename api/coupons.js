@@ -66,6 +66,10 @@ async function handleGameComplete(req, res) {
   let couponRow = null;
   let couponCode = null;
   if (won) {
+    const perfectGame = score >= 1000;
+    const reward = perfectGame
+      ? { label: '20% OFF (Cubo Game Perfeito)', type: 'percent', percent_off: 20, min_order_value: 0 }
+      : plan;
     for (let i = 0; i < 5; i++) {
       couponCode = makeCouponCode();
       const expires = new Date();
@@ -73,15 +77,15 @@ async function handleGameComplete(req, res) {
       const ins = await sb.from('coupons').insert({
         code: couponCode,
         user_id: user.id,
-        label: plan.label,
-        discount_type: plan.type,
-        discount_value: plan.percent_off ?? plan.amount_off ?? 0,
-        min_order_value: plan.min_order_value ?? 0,
+        label: reward.label,
+        discount_type: reward.type,
+        discount_value: reward.percent_off ?? reward.amount_off ?? 0,
+        min_order_value: reward.min_order_value ?? 0,
         expires_at: expires.toISOString(),
         active: true,
         max_uses: 1,
         used_count: 0,
-        source: 'memory_game',
+        source: perfectGame ? 'memory_game_perfect' : 'memory_game',
         week_key: plan.week_key,
       }).select('*').maybeSingle();
       if (!ins.error && ins.data) { couponRow = ins.data; break; }

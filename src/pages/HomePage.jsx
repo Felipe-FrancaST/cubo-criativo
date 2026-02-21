@@ -87,7 +87,7 @@ export default function HomePage({
 
             {onGoCupom && (
               <div className="mt-4">
-                <button onClick={onGoCupom} className="w-full sm:w-auto rounded-xl px-5 py-3 bg-amber-400 text-black font-bold ring-4 ring-amber-400/20">🎴 Jogo da memória da semana (cupom)</button>
+                <button onClick={onGoCupom} className="w-full sm:w-auto rounded-xl px-5 py-3 bg-amber-400 text-black font-bold ring-4 ring-amber-400/20">🎴 Cubo Game</button>
               </div>
             )}
 

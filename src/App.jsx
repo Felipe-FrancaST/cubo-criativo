@@ -229,7 +229,7 @@ export default function App() {
       "/politica-de-privacidade": { title: "Política de Privacidade | Cubo Criativo", description: "Como tratamos seus dados para cadastro, pagamento, envio e suporte.", path: "/politica-de-privacidade" },
       "/trocas-e-devolucoes": { title: "Trocas e devoluções | Cubo Criativo", description: "Informações sobre trocas, devoluções e peças sob encomenda.", path: "/trocas-e-devolucoes" },
       "/termos": { title: "Termos de uso | Cubo Criativo", description: "Condições gerais de navegação e compra no site da Cubo Criativo.", path: "/termos" },
-      "/cupom": { title: "Jogo da memória e cupom | Cubo Criativo", description: "Jogue 1x por semana e concorra a cupom para usar no carrinho.", path: "/cupom" },
+      "/cupom": { title: "Cubo Game | Cubo Criativo", description: "Jogue 1x por semana no Cubo Game e ganhe cupom para usar no carrinho.", path: "/cupom" },
     };
     applySeo(seoByRoute[route] || seoByRoute["/"]);
     trackEvent("page_view", { route });

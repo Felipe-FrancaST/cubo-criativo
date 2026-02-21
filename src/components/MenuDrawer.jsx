@@ -84,7 +84,7 @@ export default function MenuDrawer({
             Catálogo
           </DrawerButton>
           <DrawerButton icon="redeem" onClick={() => { onNavigate("/cupom"); onClose?.(); }}>
-            Jogo da memória (cupom)
+            Cubo Game
           </DrawerButton>
           <DrawerButton icon="contact_support" onClick={() => { onNavigate("/contato"); onClose?.(); }}>
             Contato
