@@ -52,6 +52,10 @@ export default function CartDrawer({
   const [couponInfo, setCouponInfo] = React.useState(null);
   const [couponLoading, setCouponLoading] = React.useState(false);
   const [couponMsg, setCouponMsg] = React.useState('');
+  const hasValidSubtotal = Number.isFinite(Number(subtotal)) && Number(subtotal) > 0;
+  const hasCartItems = Array.isArray(cart) && cart.length > 0;
+  const canCheckout = hasCartItems && hasValidSubtotal;
+
 
   React.useEffect(() => {
     if (!open) return;
@@ -104,6 +108,12 @@ export default function CartDrawer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subtotal]);
 
+  React.useEffect(() => {
+    if (canCheckout) return;
+    if (couponInfo) setCouponInfo(null);
+    if (couponMsg) setCouponMsg('');
+  }, [canCheckout]);
+
   async function applyCoupon(codeParam, opts = {}) {
     const code = String(codeParam ?? couponCode).trim().toUpperCase();
     if (!code) {
@@ -116,8 +126,9 @@ export default function CartDrawer({
       if (!opts.silent) setCouponMsg('Faça login para usar cupom.');
       return;
     }
-    if (!(subtotal > 0)) {
-      if (!opts.silent) setCouponMsg('Adicione itens ao carrinho antes.');
+    if (!canCheckout) {
+      setCouponInfo(null);
+      if (!opts.silent) setCouponMsg('Adicione itens válidos ao carrinho antes de aplicar cupom.');
       return;
     }
     try {
@@ -155,7 +166,10 @@ export default function CartDrawer({
   async function handlePix() {
     try {
       setPixNotice(null);
-      if (pixLoading || cart.length === 0 || !(subtotal > 0)) return;
+      if (pixLoading || !canCheckout) {
+        showPixNotice('Não foi possível calcular o valor do pedido. Atualize o carrinho e tente novamente.', 'error', 4200);
+        return;
+      }
 
       if (!authToken) {
         onRequireLogin?.();
@@ -376,7 +390,7 @@ export default function CartDrawer({
         <div className="p-4 border-t border-white/10 space-y-3">
           <div className="flex items-center justify-between text-sm">
             <span className="text-slate-400">Subtotal</span>
-            <span className="font-semibold">{subtotal > 0 ? fmtBRL(subtotal) : "Definir preços"}</span>
+            <span className="font-semibold">{hasValidSubtotal ? fmtBRL(Number(subtotal)) : "Definir preços"}</span>
           </div>
 
           <div className="rounded-xl bg-slate-800/40 ring-1 ring-white/10 p-3 space-y-2">
@@ -386,17 +400,22 @@ export default function CartDrawer({
             </div>
             <div className="flex gap-2">
               <input value={couponCode} onChange={(e)=>setCouponCode(e.target.value.toUpperCase())} placeholder="CUBO-XXXX" className="flex-1 rounded-lg bg-slate-900/70 ring-1 ring-white/10 px-3 py-2 text-sm" />
-              <button onClick={()=>applyCoupon()} disabled={couponLoading || !(subtotal>0)} className="rounded-lg px-3 py-2 text-sm font-semibold bg-white/10 ring-1 ring-white/15 disabled:opacity-50">{couponLoading ? '...' : 'Aplicar'}</button>
+              <button onClick={()=>applyCoupon()} disabled={couponLoading || !canCheckout} className="rounded-lg px-3 py-2 text-sm font-semibold bg-white/10 ring-1 ring-white/15 disabled:opacity-50">{couponLoading ? '...' : 'Aplicar'}</button>
             </div>
-            {couponInfo && (
+            {couponInfo && canCheckout && (
               <div className="text-xs rounded-lg bg-emerald-500/10 ring-1 ring-emerald-400/20 p-2 text-emerald-200">
                 {couponInfo.label || couponInfo.code} • desconto {fmtBRL(couponInfo.discount)} • total {fmtBRL(couponInfo.final_total)}
               </div>
             )}
             {couponMsg && <div className="text-xs text-slate-300">{couponMsg}</div>}
+            {!canCheckout && (
+              <div className="text-xs text-amber-200 rounded-lg bg-amber-500/10 ring-1 ring-amber-400/20 p-2">
+                Defina os preços dos produtos para aplicar cupom e pagar.
+              </div>
+            )}
           </div>
 
-          {couponInfo && (
+          {couponInfo && canCheckout && (
             <div className="flex items-center justify-between text-sm">
               <span className="text-slate-400">Total com cupom</span>
               <span className="font-semibold text-emerald-300">{fmtBRL(couponInfo.final_total)}</span>
@@ -405,12 +424,12 @@ export default function CartDrawer({
 
           <button
             onClick={() => (onPayWithCoupon ? onPayWithCoupon(couponInfo) : onPay?.())}
-            disabled={paying || cart.length === 0 || !(subtotal > 0)}
+            disabled={paying || !canCheckout}
             className={`w-full text-center rounded-lg px-4 py-3 font-semibold ring-1 ring-white/10 transition \
-              ${paying || cart.length === 0 || !(subtotal > 0)
+              ${paying || !canCheckout
                 ? "bg-slate-700/50 text-slate-300 cursor-not-allowed"
                 : "bg-indigo-500 hover:bg-indigo-400 text-white"}`}
-            title={!(subtotal > 0) ? "Defina os preços dos produtos antes de pagar." : ""}
+            title={!canCheckout ? "Defina os preços dos produtos antes de pagar." : ""}
           >
             {paying ? "Abrindo pagamento…" : "Pagar com cartão"}
           </button>
@@ -440,9 +459,9 @@ export default function CartDrawer({
 
           <button
             onClick={handlePix}
-            disabled={pixLoading || cart.length === 0 || !(subtotal > 0)}
+            disabled={pixLoading || !canCheckout}
             className={`w-full rounded-lg px-4 py-3 font-semibold transition ${
-              pixLoading || cart.length === 0 || !(subtotal > 0)
+              pixLoading || !canCheckout
                 ? "bg-slate-700/50 text-slate-300 cursor-not-allowed"
                 : "bg-sky-500 hover:bg-sky-400 text-black"
             }`}

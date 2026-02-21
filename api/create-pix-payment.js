@@ -111,7 +111,7 @@ export default async function handler(req, res) {
     const body = safeBody(req);
     const mode = String(process.env.MP_MODE || "production").trim().toLowerCase();
 
-    const amount = toNumberBRL(body.amount);
+    const requestedAmount = Number(body.amount);
     const couponCode = String(body.coupon_code || "").trim().toUpperCase();
     const origin = String(body.origin || "").trim() || getBaseUrl(req);
 
@@ -130,18 +130,31 @@ export default async function handler(req, res) {
     }
 
     const items = Array.isArray(body.items) ? body.items : [];
+    let subtotal = 0;
+    for (const it of items) {
+      const qty = Number(it?.qty) || 0;
+      const price = Number(it?.price) || 0;
+      if (qty > 0 && price > 0) subtotal += qty * price;
+    }
+    subtotal = Number(subtotal.toFixed(2));
+    if (!Number.isFinite(subtotal) || subtotal <= 0) {
+      return res.status(400).json({ error: "Não foi possível calcular o valor do pedido. Atualize o carrinho e tente novamente." });
+    }
+    if (Number.isFinite(requestedAmount) && requestedAmount > 0 && Math.abs(Number(requestedAmount.toFixed(2)) - subtotal) > 0.01) {
+      return res.status(400).json({ error: "O carrinho foi alterado. Revise os valores e tente novamente." });
+    }
 
     // 1) Cria pedido no Supabase
     const sb = supabaseAdmin();
 
-    let finalAmount = amount;
+    let finalAmount = subtotal;
     let couponApplied = null;
     if (couponCode) {
       const { data: coupon } = await sb.from("coupons").select("*").eq("code", couponCode).maybeSingle();
       if (!coupon) return res.status(400).json({ error: "Cupom não encontrado." });
       const cpfGate = await ensureCouponCpfAllowed(sb, { coupon, currentUser: user });
       if (!cpfGate.ok) return res.status(cpfGate.status).json({ error: cpfGate.error });
-      const calc = calcCouponDiscount({ subtotal: amount, coupon });
+      const calc = calcCouponDiscount({ subtotal, coupon });
       if (!calc.valid) return res.status(400).json({ error: "Cupom inválido, expirado ou já usado." });
       finalAmount = calc.final_total;
       couponApplied = { code: coupon.code, discount: calc.discount, label: coupon.label || coupon.code };
