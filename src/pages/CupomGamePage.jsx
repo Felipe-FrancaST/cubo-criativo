@@ -220,11 +220,6 @@ export default function CupomGamePage({ onGoHome, user, accessToken }) {
               {status.error && <p className="text-rose-200">{status.error}</p>}
               <p className="text-xs text-slate-400">A rodada semanal reinicia na virada da semana (UTC).</p>
             </div>
-
-            <div className="rounded-2xl p-4 ring-1 ring-white/10 bg-amber-400/10 text-sm">
-              <p className="font-semibold text-amber-200">Dica visual para as cartas</p>
-              <p className="mt-1 text-slate-200">Use ícones do seu universo (dragão, poção, espada, escudo, dado, cristal) com fundo uniforme. Pode começar com emojis e depois trocar por artes PNG 1:1.</p>
-            </div>
           </aside>
         </div>
       </section>
