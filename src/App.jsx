@@ -27,7 +27,7 @@ import PoliticaPrivacidadePage from "./pages/PoliticaPrivacidadePage.jsx";
 import TrocasPage from "./pages/TrocasPage.jsx";
 import TermosPage from "./pages/TermosPage.jsx";
 import { isAdminEmail } from "./lib/admin.js";
-import { applySeo } from "./lib/seo.js";
+import { applySeo, setJsonLd, clearJsonLd } from "./lib/seo.js";
 import { trackEvent } from "./lib/analytics.js";
 
 // Lazy-load (carrega só quando abrir)
@@ -132,6 +132,60 @@ function Toast({ open, children }) {
       </div>
     </div>
   );
+}
+
+
+
+function buildProductSchemaList({ products = [], route = "/", listName = "Produtos" }) {
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const visible = (Array.isArray(products) ? products : []).filter(Boolean).slice(0, 24);
+  if (!visible.length) return null;
+
+  const itemList = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name: listName,
+    itemListOrder: "https://schema.org/ItemListUnordered",
+    numberOfItems: visible.length,
+    itemListElement: visible.map((p, idx) => {
+      const price = Number.isFinite(p?.preco) ? p.preco : 0;
+      const image = p?.img ? (String(p.img).startsWith("http") ? p.img : `${origin}${p.img}`) : undefined;
+      const inStock = typeof p?.stock === "number" ? p.stock > 0 : true;
+      const category = p?.category || (Array.isArray(p?.tags) && p.tags[0]) || "Miniatura";
+      const urlPath = route === "/" ? `/#/catalogo` : `/#${route}`;
+      return {
+        "@type": "ListItem",
+        position: idx + 1,
+        item: {
+          "@type": "Product",
+          name: String(p?.nome || "Produto"),
+          description: String(p?.descricao || "Miniatura em resina e pintura artística."),
+          image: image ? [image] : undefined,
+          sku: String(p?.id || idx + 1),
+          category,
+          brand: { "@type": "Brand", name: "Cubo Criativo" },
+          offers: {
+            "@type": "Offer",
+            priceCurrency: "BRL",
+            price: Number(price.toFixed ? price.toFixed(2) : price),
+            availability: inStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+            itemCondition: "https://schema.org/NewCondition",
+            url: `${origin}${urlPath}`
+          }
+        }
+      };
+    })
+  };
+
+  // remove undefined recursivo leve
+  const clean = (obj) => {
+    if (Array.isArray(obj)) return obj.map(clean).filter((v) => v !== undefined);
+    if (obj && typeof obj === "object") {
+      return Object.fromEntries(Object.entries(obj).map(([k,v]) => [k, clean(v)]).filter(([,v]) => v !== undefined));
+    }
+    return obj;
+  };
+  return clean(itemList);
 }
 
 function getRouteFromHash() {
@@ -699,6 +753,32 @@ React.useEffect(() => {
       return cat === "rpg" || tags.includes("rpg");
     });
   }, [products]);
+
+  React.useEffect(() => {
+    let listName = '';
+    let source = [];
+    if (route === "/") {
+      listName = 'Destaques Cubo Criativo';
+      source = featured;
+    } else if (route === "/estoque") {
+      listName = 'Produtos em estoque';
+      source = emEstoque;
+    } else if (route === "/catalogo") {
+      listName = 'Catálogo de miniaturas';
+      source = catalogo;
+    } else if (route === "/promocoes") {
+      listName = 'Promoções de miniaturas';
+      source = promocoes;
+    }
+
+    const payload = buildProductSchemaList({ products: source, route, listName });
+    if (payload) setJsonLd('seo-product-list', payload);
+    else clearJsonLd('seo-product-list');
+
+    return () => {
+      // limpa quando trocar para rotas institucionais/conta/admin
+    };
+  }, [route, featured, emEstoque, catalogo, promocoes]);
 
   // ===== Render da página =====
   const page = (() => {

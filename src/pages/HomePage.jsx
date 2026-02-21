@@ -2,6 +2,12 @@ import React from "react";
 import CarrosselPromo from "../components/CarrosselPromo.jsx";
 import ProductCard from "../components/ProductCard.jsx";
 
+const depoimentosMock = [
+  { nome: "Cliente 1", cidade: "Salvador/BA", texto: "Peça muito bem acabada, embalagem impecável e chegou dentro do prazo combinado.", nota: 5 },
+  { nome: "Cliente 2", cidade: "Brasília/DF", texto: "Atendimento rápido no WhatsApp e ótima qualidade de pintura. Recomendo para coleção.", nota: 5 },
+  { nome: "Cliente 3", cidade: "São Paulo/SP", texto: "Comprei para RPG e gostei bastante do acabamento. Pretendo pedir outras peças.", nota: 5 },
+];
+
 export default function HomePage({
   brand,
   featured,
@@ -217,6 +223,41 @@ export default function HomePage({
             <li className="rounded-xl bg-black/20 px-3 py-2">• Atendimento rápido</li>
             <li className="rounded-xl bg-black/20 px-3 py-2">• Checkout no site + WhatsApp</li>
           </ul>
+        </div>
+      </section>
+
+
+
+      {/* DEPOIMENTOS (layout pronto para trocar por depoimentos reais) */}
+      <section
+        className="mx-auto px-4 sm:px-6 lg:px-8 pb-10 sm:pb-14"
+        style={{ maxWidth: "var(--container-max, 1200px)" }}
+      >
+        <div className="flex items-end justify-between gap-3 flex-wrap">
+          <div>
+            <h2 className="text-2xl sm:text-3xl font-extrabold">Depoimentos</h2>
+            <p className="mt-1 text-sm text-slate-400">Layout pronto — troque estes textos pelos depoimentos reais dos seus clientes.</p>
+          </div>
+          <span className="text-[11px] sm:text-xs px-3 py-1 rounded-full bg-amber-400/20 text-amber-200 ring-1 ring-amber-300/20">Use prints/autorização do cliente</span>
+        </div>
+
+        <div className="mt-6 grid md:grid-cols-3 gap-4">
+          {depoimentosMock.map((d, idx) => (
+            <article key={idx} className="rounded-2xl p-5 bg-white/5 ring-1 ring-white/10">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="font-semibold">{d.nome}</p>
+                  <p className="text-xs text-slate-400">{d.cidade}</p>
+                </div>
+                <div className="text-amber-300 text-sm" aria-label={`${d.nota} de 5 estrelas`}>{"★".repeat(d.nota)}<span className="text-slate-600">{"☆".repeat(Math.max(0, 5 - d.nota))}</span></div>
+              </div>
+              <p className="mt-4 text-sm text-slate-200 leading-relaxed">“{d.texto}”</p>
+            </article>
+          ))}
+        </div>
+
+        <div className="mt-4 rounded-2xl p-4 bg-black/20 ring-1 ring-white/10 text-sm text-slate-300">
+          Dica: adicione nome (ou iniciais), cidade/UF, foto da peça e data aproximada para aumentar confiança e conversão.
         </div>
       </section>
 

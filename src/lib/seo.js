@@ -16,6 +16,28 @@ function ensureMeta(selector, attrs) {
   return el;
 }
 
+function ensureJsonLdScript(id) {
+  let el = document.head.querySelector(`script[data-seo-jsonld="${id}"]`);
+  if (!el) {
+    el = document.createElement('script');
+    el.type = 'application/ld+json';
+    el.setAttribute('data-seo-jsonld', id);
+    document.head.appendChild(el);
+  }
+  return el;
+}
+
+export function setJsonLd(id, payload) {
+  if (typeof document === 'undefined') return;
+  const el = ensureJsonLdScript(id);
+  el.textContent = JSON.stringify(payload);
+}
+
+export function clearJsonLd(id) {
+  if (typeof document === 'undefined') return;
+  document.head.querySelector(`script[data-seo-jsonld="${id}"]`)?.remove();
+}
+
 export function applySeo(input = {}) {
   if (typeof document === 'undefined') return;
   const data = { ...DEFAULTS, ...input };
