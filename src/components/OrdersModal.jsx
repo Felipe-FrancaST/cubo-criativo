@@ -3,6 +3,7 @@ import Modal from "./Modal.jsx";
 import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../auth/AuthProvider.jsx";
 import brand from "../data/config.js";
+import { trackEvent } from "../lib/analytics.js";
 
 const fmtBRL = (n) =>
   typeof n === "number" && isFinite(n)
@@ -53,6 +54,17 @@ export default function OrdersModal({ open, onClose }) {
     pix: null, // {qr_code, qr_code_base64, ticket_url}
     status: "pending",
     msg: "",
+  });
+
+  const [reviewsByOrder, setReviewsByOrder] = React.useState({});
+  const [reviewModal, setReviewModal] = React.useState({
+    open: false,
+    order: null,
+    rating: 5,
+    comment: "",
+    submitting: false,
+    error: "",
+    success: "",
   });
 
 
@@ -106,6 +118,94 @@ export default function OrdersModal({ open, onClose }) {
 
   function closePay() {
     setPayModal({ open: false, order: null, loading: false, checking: false, pix: null, status: "pending", msg: "" });
+  }
+
+  function closeReview() {
+    setReviewModal({ open: false, order: null, rating: 5, comment: "", submitting: false, error: "", success: "" });
+  }
+
+  function openReview(order) {
+    const existing = reviewsByOrder?.[String(order?.id || "")];
+    setReviewModal({
+      open: true,
+      order,
+      rating: Number(existing?.rating) || 5,
+      comment: String(existing?.comment || ""),
+      submitting: false,
+      error: "",
+      success: "",
+    });
+  }
+
+  async function submitReview() {
+    const order = reviewModal.order;
+    if (!order?.id || !user?.id) return;
+    const rating = Math.max(1, Math.min(5, Number(reviewModal.rating) || 5));
+    const comment = String(reviewModal.comment || "").trim();
+    if (comment.length < 8) {
+      setReviewModal((s) => ({ ...s, error: "Escreva um comentário um pouco maior (mínimo 8 caracteres)." }));
+      return;
+    }
+
+    setReviewModal((s) => ({ ...s, submitting: true, error: "", success: "" }));
+    try {
+      let profile = null;
+      const prof = await supabase
+        .from("profiles")
+        .select("full_name, city, state")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (!prof.error) profile = prof.data || null;
+
+      const itemNames = Array.isArray(order.order_items)
+        ? order.order_items.map((it) => String(it?.name || "").trim()).filter(Boolean)
+        : [];
+
+      const payload = {
+        order_id: order.id,
+        user_id: user.id,
+        rating,
+        comment,
+        display_name: String(profile?.full_name || user?.user_metadata?.full_name || user?.email || "Cliente").slice(0, 80),
+        city: String(profile?.city || "").slice(0, 60) || null,
+        state: String(profile?.state || "").slice(0, 2).toUpperCase() || null,
+        approved: true,
+        order_total: Number(order.total) || null,
+        product_names: itemNames.length ? itemNames : null,
+      };
+
+      const { data, error } = await supabase
+        .from("customer_reviews")
+        .upsert(payload, { onConflict: "order_id" })
+        .select("id, order_id, rating, comment, display_name, city, state, approved, created_at")
+        .single();
+
+      if (error) throw error;
+
+      const normalized = {
+        id: data?.id,
+        order_id: data?.order_id || order.id,
+        rating: Number(data?.rating) || rating,
+        comment: String(data?.comment || comment),
+        display_name: String(data?.display_name || payload.display_name || "Cliente"),
+        city: data?.city || payload.city || null,
+        state: data?.state || payload.state || null,
+        approved: data?.approved !== false,
+        created_at: data?.created_at || new Date().toISOString(),
+      };
+
+      setReviewsByOrder((prev) => ({ ...prev, [String(order.id)]: normalized }));
+      trackEvent("review_submitted", { order_id: order.id, rating });
+      setReviewModal((s) => ({ ...s, submitting: false, success: "Avaliação enviada com sucesso!", error: "" }));
+    } catch (e) {
+      console.error(e);
+      const msg = String(e?.message || "");
+      setReviewModal((s) => ({
+        ...s,
+        submitting: false,
+        error: msg.includes("customer_reviews") ? "Ative a tabela de avaliações no Supabase (arquivo SQL incluído no projeto)." : (msg || "Não foi possível enviar sua avaliação."),
+      }));
+    }
   }
 
   async function openPay(order) {
@@ -358,6 +458,7 @@ export default function OrdersModal({ open, onClose }) {
     const list = Array.isArray(ordersData) ? ordersData : [];
     if (list.length === 0) {
       setOrders([]);
+      setReviewsByOrder({});
       setLoading(false);
       return;
     }
@@ -470,6 +571,24 @@ export default function OrdersModal({ open, onClose }) {
     }
 
     setOrders(merged);
+
+    // 4) Carrega avaliações do usuário para exibir botão "Editar avaliação" e pré-preencher modal
+    try {
+      const { data: revs } = await supabase
+        .from("customer_reviews")
+        .select("id, order_id, rating, comment, display_name, city, state, approved, created_at")
+        .eq("user_id", user.id)
+        .in("order_id", ids);
+
+      const map = {};
+      (revs || []).forEach((r) => {
+        if (r?.order_id) map[String(r.order_id)] = r;
+      });
+      setReviewsByOrder(map);
+    } catch {
+      setReviewsByOrder({});
+    }
+
     setLoading(false);
   }, [user]);
 
@@ -622,25 +741,45 @@ export default function OrdersModal({ open, onClose }) {
   </div>
 )}
 
-    {String(o.production_status || "recebido").toLowerCase() !== "entregue" ? (
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        {String(o.status || "").toLowerCase() === "pending" &&
-        String(o.payment_provider || "").toLowerCase() === "mercado_pago" &&
-        o.provider_payment_id ? (
-          <button
-            onClick={() => openPay(o)}
-            className="text-sm rounded-xl px-3 py-2 bg-emerald-400 text-black font-semibold hover:bg-emerald-300"
-            title="Abrir pagamento Pix"
-          >
-            Pagar
-          </button>
-        ) : null}
+    <div className="mt-4 flex flex-wrap items-center gap-2">
+      {String(o.status || "").toLowerCase() === "pending" &&
+      String(o.payment_provider || "").toLowerCase() === "mercado_pago" &&
+      o.provider_payment_id ? (
+        <button
+          onClick={() => openPay(o)}
+          className="text-sm rounded-xl px-3 py-2 bg-emerald-400 text-black font-semibold hover:bg-emerald-300"
+          title="Abrir pagamento Pix"
+        >
+          Pagar
+        </button>
+      ) : null}
+
+      {String(o.production_status || "recebido").toLowerCase() !== "entregue" ? (
         <button
           onClick={() => openCancel(o)}
           className="text-sm rounded-xl px-3 py-2 ring-1 ring-white/15 hover:bg-white/5 text-slate-100"
         >
           Cancelar pedido
         </button>
+      ) : null}
+
+      {String(o.production_status || "").toLowerCase() === "entregue" ? (
+        <button
+          onClick={() => openReview(o)}
+          className="text-sm rounded-xl px-3 py-2 bg-amber-400 text-black font-semibold hover:bg-amber-300"
+        >
+          {reviewsByOrder?.[String(o.id)] ? "Editar avaliação" : "Avaliar pedido"}
+        </button>
+      ) : null}
+    </div>
+
+    {String(o.production_status || "").toLowerCase() === "entregue" && reviewsByOrder?.[String(o.id)] ? (
+      <div className="mt-3 rounded-xl bg-emerald-500/10 ring-1 ring-emerald-400/20 px-3 py-3">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm font-semibold text-emerald-100">Sua avaliação</p>
+          <span className="text-amber-300 text-sm">{"★".repeat(Math.max(1, Math.min(5, Number(reviewsByOrder[String(o.id)]?.rating) || 5)))}</span>
+        </div>
+        <p className="mt-1 text-sm text-slate-200">{reviewsByOrder[String(o.id)]?.comment}</p>
       </div>
     ) : null}
   </div>
@@ -835,6 +974,81 @@ export default function OrdersModal({ open, onClose }) {
                 </div>
               </div>
             ) : null}
+          </div>
+        ) : (
+          <p className="text-slate-300">Pedido não encontrado.</p>
+        )}
+      </div>
+    </Modal>
+
+    <Modal open={reviewModal.open} onClose={reviewModal.submitting ? undefined : closeReview} title="Avaliar pedido">
+      <div className="w-full max-w-lg">
+        {reviewModal.order ? (
+          <div className="text-sm text-slate-200">
+            <p className="text-xs text-slate-400">Pedido</p>
+            <p className="font-semibold break-all">{String(reviewModal.order.id)}</p>
+
+            <div className="mt-4">
+              <p className="text-xs text-slate-400">Sua nota</p>
+              <div className="mt-2 flex items-center gap-1">
+                {[1,2,3,4,5].map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setReviewModal((s) => ({ ...s, rating: n }))}
+                    className={`text-2xl leading-none ${n <= (Number(reviewModal.rating) || 0) ? "text-amber-300" : "text-slate-600"}`}
+                    aria-label={`${n} estrela${n > 1 ? 's' : ''}`}
+                    title={`${n} estrela${n > 1 ? 's' : ''}`}
+                  >
+                    ★
+                  </button>
+                ))}
+                <span className="ml-2 text-xs text-slate-400">{Number(reviewModal.rating) || 5}/5</span>
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <label className="text-xs text-slate-400" htmlFor="review-comment">Comentário</label>
+              <textarea
+                id="review-comment"
+                value={reviewModal.comment}
+                onChange={(e) => setReviewModal((s) => ({ ...s, comment: e.target.value, error: "", success: "" }))}
+                rows={4}
+                maxLength={500}
+                placeholder="Conte como foi sua experiência com a peça, acabamento, prazo e atendimento."
+                className="mt-2 w-full rounded-xl bg-slate-950/60 ring-1 ring-white/10 px-3 py-2 outline-none focus:ring-amber-300/40 text-slate-100"
+              />
+              <p className="mt-1 text-xs text-slate-500 text-right">{String(reviewModal.comment || "").length}/500</p>
+            </div>
+
+            {reviewModal.error ? (
+              <p className="mt-3 text-sm text-red-300 bg-red-500/10 ring-1 ring-red-500/30 rounded-lg px-3 py-2">
+                {reviewModal.error}
+              </p>
+            ) : null}
+
+            {reviewModal.success ? (
+              <p className="mt-3 text-sm text-emerald-200 bg-emerald-500/10 ring-1 ring-emerald-500/30 rounded-lg px-3 py-2">
+                {reviewModal.success}
+              </p>
+            ) : null}
+
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button
+                onClick={closeReview}
+                className="text-sm rounded-xl px-3 py-2 ring-1 ring-white/15 hover:bg-white/5 text-slate-100"
+                disabled={reviewModal.submitting}
+              >
+                Fechar
+              </button>
+              <button
+                onClick={submitReview}
+                className="text-sm rounded-xl px-3 py-2 bg-amber-400 text-black font-semibold hover:bg-amber-300 disabled:opacity-60"
+                disabled={reviewModal.submitting}
+              >
+                {reviewModal.submitting ? "Enviando…" : (reviewsByOrder?.[String(reviewModal.order.id)] ? "Salvar avaliação" : "Enviar avaliação")}
+              </button>
+            </div>
           </div>
         ) : (
           <p className="text-slate-300">Pedido não encontrado.</p>

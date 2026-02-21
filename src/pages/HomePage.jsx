@@ -1,12 +1,7 @@
 import React from "react";
 import CarrosselPromo from "../components/CarrosselPromo.jsx";
 import ProductCard from "../components/ProductCard.jsx";
-
-const depoimentosMock = [
-  { nome: "Cliente 1", cidade: "Salvador/BA", texto: "Peça muito bem acabada, embalagem impecável e chegou dentro do prazo combinado.", nota: 5 },
-  { nome: "Cliente 2", cidade: "Brasília/DF", texto: "Atendimento rápido no WhatsApp e ótima qualidade de pintura. Recomendo para coleção.", nota: 5 },
-  { nome: "Cliente 3", cidade: "São Paulo/SP", texto: "Comprei para RPG e gostei bastante do acabamento. Pretendo pedir outras peças.", nota: 5 },
-];
+import { supabase } from "../lib/supabaseClient";
 
 export default function HomePage({
   brand,
@@ -22,6 +17,34 @@ export default function HomePage({
   onGoFaq,
   onGoPoliticas,
 }) {
+  const [depoimentos, setDepoimentos] = React.useState([]);
+  const [loadingDepoimentos, setLoadingDepoimentos] = React.useState(true);
+
+  React.useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        setLoadingDepoimentos(true);
+        const { data, error } = await supabase
+          .from("customer_reviews")
+          .select("id, rating, comment, display_name, city, state, created_at")
+          .eq("approved", true)
+          .order("created_at", { ascending: false })
+          .limit(6);
+        if (error) throw error;
+        if (!alive) return;
+        setDepoimentos(Array.isArray(data) ? data : []);
+      } catch (e) {
+        if (!alive) return;
+        console.warn("Não foi possível carregar depoimentos:", e?.message || e);
+        setDepoimentos([]);
+      } finally {
+        if (alive) setLoadingDepoimentos(false);
+      }
+    })();
+    return () => { alive = false; };
+  }, []);
+
   return (
     <main className="flex-1">
       {/* HERO / PROMO */}
@@ -228,7 +251,7 @@ export default function HomePage({
 
 
 
-      {/* DEPOIMENTOS (layout pronto para trocar por depoimentos reais) */}
+      {/* DEPOIMENTOS */}
       <section
         className="mx-auto px-4 sm:px-6 lg:px-8 pb-10 sm:pb-14"
         style={{ maxWidth: "var(--container-max, 1200px)" }}
@@ -236,24 +259,49 @@ export default function HomePage({
         <div className="flex items-end justify-between gap-3 flex-wrap">
           <div>
             <h2 className="text-2xl sm:text-3xl font-extrabold">Depoimentos</h2>
+            <p className="mt-1 text-sm text-slate-400">Avaliações reais de pedidos entregues.</p>
           </div>
         </div>
 
-        <div className="mt-6 grid md:grid-cols-3 gap-4">
-          {depoimentosMock.map((d, idx) => (
-            <article key={idx} className="rounded-2xl p-5 bg-white/5 ring-1 ring-white/10">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="font-semibold">{d.nome}</p>
-                  <p className="text-xs text-slate-400">{d.cidade}</p>
-                </div>
-                <div className="text-amber-300 text-sm" aria-label={`${d.nota} de 5 estrelas`}>{"★".repeat(d.nota)}<span className="text-slate-600">{"☆".repeat(Math.max(0, 5 - d.nota))}</span></div>
+        {loadingDepoimentos ? (
+          <div className="mt-6 grid md:grid-cols-3 gap-4">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="rounded-2xl p-5 bg-white/5 ring-1 ring-white/10">
+                <div className="h-4 w-24 bg-slate-800/70 rounded animate-pulse" />
+                <div className="mt-2 h-3 w-16 bg-slate-800/70 rounded animate-pulse" />
+                <div className="mt-4 h-3 w-full bg-slate-800/70 rounded animate-pulse" />
+                <div className="mt-2 h-3 w-5/6 bg-slate-800/70 rounded animate-pulse" />
               </div>
-              <p className="mt-4 text-sm text-slate-200 leading-relaxed">“{d.texto}”</p>
-            </article>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : null}
 
+        {!loadingDepoimentos && depoimentos.length > 0 ? (
+          <div className="mt-6 grid md:grid-cols-3 gap-4">
+            {depoimentos.map((d) => {
+              const nota = Math.max(1, Math.min(5, Number(d?.rating) || 5));
+              const local = [d?.city, d?.state].filter(Boolean).join("/");
+              return (
+                <article key={d.id} className="rounded-2xl p-5 bg-white/5 ring-1 ring-white/10">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="font-semibold">{d?.display_name || "Cliente"}</p>
+                      {local ? <p className="text-xs text-slate-400">{local}</p> : null}
+                    </div>
+                    <div className="text-amber-300 text-sm" aria-label={`${nota} de 5 estrelas`}>{"★".repeat(nota)}<span className="text-slate-600">{"☆".repeat(Math.max(0, 5 - nota))}</span></div>
+                  </div>
+                  <p className="mt-4 text-sm text-slate-200 leading-relaxed">“{d?.comment || ""}”</p>
+                </article>
+              );
+            })}
+          </div>
+        ) : null}
+
+        {!loadingDepoimentos && depoimentos.length === 0 ? (
+          <div className="mt-6 rounded-2xl p-4 ring-1 ring-white/10 bg-white/5 text-sm text-slate-300">
+            Ainda não há avaliações publicadas. Elas aparecerão aqui quando clientes avaliarem pedidos entregues.
+          </div>
+        ) : null}
       </section>
 
       {/* SOBRE */}
