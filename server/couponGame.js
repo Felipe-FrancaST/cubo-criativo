@@ -40,12 +40,17 @@ export function calcCouponDiscount({ subtotal = 0, coupon }) {
   if (type === 'percent') discount = sub * ((Number(coupon.discount_value) || 0) / 100);
   else if (type === 'shipping_reduced') discount = Number(coupon.discount_value) || 0;
   else if (type === 'fixed_min') discount = Number(coupon.discount_value) || 0;
-  discount = Math.max(0, Math.min(sub, Number(discount.toFixed(2))));
+  discount = Math.max(0, Number(discount.toFixed(2)));
+  // Nunca permitir total final zerado/negativo (Mercado Pago exige transaction_amount > 0)
+  const maxDiscount = Math.max(0, Number((sub - 0.01).toFixed(2)));
+  discount = Math.min(discount, maxDiscount);
   if (!(discount > 0)) return { valid: false, reason: 'sem_desconto' };
+  const finalTotal = Number((sub - discount).toFixed(2));
+  if (!(finalTotal > 0)) return { valid: false, reason: 'valor_final_invalido' };
   return {
     valid: true,
     discount,
-    final_total: Number((sub - discount).toFixed(2)),
+    final_total: finalTotal,
     label: coupon.label || coupon.code,
     type,
     code: coupon.code,

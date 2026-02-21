@@ -45,6 +45,7 @@ export default function CartDrawer({
   const [checkingPix, setCheckingPix] = React.useState(false);
   const payHandled = React.useRef(false);
   const [pixLoginMsg, setPixLoginMsg] = React.useState("");
+  const [pixNotice, setPixNotice] = React.useState(null); // { type, message }
   const [copyToast, setCopyToast] = React.useState(null); // { type: 'success'|'error', message: string }
   const copyToastTimer = React.useRef(null);
   const [couponCode, setCouponCode] = React.useState(() => (typeof window !== 'undefined' ? window.localStorage.getItem('cc_coupon_last') || '' : ''));
@@ -145,8 +146,15 @@ export default function CartDrawer({
     setCouponMsg('Cupom removido.');
   }
 
+  function showPixNotice(message, type = "error", ms = 3800) {
+    setPixNotice({ type, message });
+    window.clearTimeout(showPixNotice._t);
+    showPixNotice._t = window.setTimeout(() => setPixNotice(null), ms);
+  }
+
   async function handlePix() {
     try {
+      setPixNotice(null);
       if (pixLoading || cart.length === 0 || !(subtotal > 0)) return;
 
       if (!authToken) {
@@ -247,7 +255,15 @@ export default function CartDrawer({
       setPixStatus(data?.status ? (data.status === "approved" ? "paid" : "pending") : "pending");
       setPixOpen(true);
     } catch (e) {
-      alert("Não foi possível gerar o Pix: " + (e?.message || String(e)));
+      let msg = e?.message || String(e);
+      try {
+        const parsed = JSON.parse(msg);
+        msg = parsed?.error || parsed?.message || msg;
+      } catch {}
+      if (typeof msg === "string" && msg.includes("transaction_amount must be positive")) {
+        msg = "Esse cupom deixou o valor do pedido inválido para Pix. Ajuste o cupom ou adicione mais itens.";
+      }
+      showPixNotice(msg, "error", 5200);
     } finally {
       setPixLoading(false);
       payHandled.current = false;
@@ -402,6 +418,23 @@ export default function CartDrawer({
           {pixLoginMsg && (
             <div className="rounded-full bg-emerald-500 text-black font-semibold px-4 py-2 shadow-lg ring-4 ring-emerald-400/30 text-center text-sm">
               {pixLoginMsg}
+            </div>
+          )}
+
+          {pixNotice && (
+            <div
+              className={`rounded-xl px-3 py-2 text-sm ring-1 flex items-start gap-2 ${
+                pixNotice.type === "success"
+                  ? "bg-emerald-500/10 text-emerald-200 ring-emerald-400/20"
+                  : "bg-rose-500/10 text-rose-200 ring-rose-400/20"
+              }`}
+              role="alert"
+              aria-live="assertive"
+            >
+              <span className="material-icons text-base mt-[1px]">
+                {pixNotice.type === "success" ? "check_circle" : "error_outline"}
+              </span>
+              <p className="leading-tight">{pixNotice.message}</p>
             </div>
           )}
 

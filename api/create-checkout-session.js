@@ -189,6 +189,11 @@ export default async function handler(req, res) {
       couponApplied = { code: coupon.code, discount: calc.discount, label: coupon.label || coupon.code };
     }
 
+    finalTotal = Number(Number(finalTotal).toFixed(2));
+    if (!Number.isFinite(finalTotal) || finalTotal <= 0) {
+      return res.status(400).json({ error: "O desconto deixou o valor do pedido inválido para pagamento." });
+    }
+
     const base = getBaseUrl(req);
     const orderId = crypto.randomUUID();
 
