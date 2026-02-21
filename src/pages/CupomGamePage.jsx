@@ -33,7 +33,7 @@ export default function CupomGamePage({ onGoHome, user, accessToken }) {
     }
     setStatus((s) => ({ ...s, loading: true }));
     try {
-      const res = await fetch('/api/coupon-game-status', { headers: { Authorization: `Bearer ${accessToken}` } });
+      const res = await fetch('/api/coupons?action=game-status', { headers: { Authorization: `Bearer ${accessToken}` } });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || 'Erro ao carregar jogo');
       setStatus({ loading: false, ...data });
@@ -70,7 +70,7 @@ export default function CupomGamePage({ onGoHome, user, accessToken }) {
   async function completeGame(payload) {
     if (!accessToken) return;
     try {
-      const res = await fetch('/api/coupon-game-complete', {
+      const res = await fetch('/api/coupons?action=game-complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
         body: JSON.stringify(payload),

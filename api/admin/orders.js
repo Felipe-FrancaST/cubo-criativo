@@ -7,8 +7,8 @@
  * - SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
  */
 
-import { supabaseAdmin } from "../_supabase.js";
-import { requireAdmin } from "./_admin.js";
+import { supabaseAdmin } from "../../server/supabase.js";
+import { requireAdmin } from "../../server/admin/adminAuth.js";
 
 export const config = { runtime: "nodejs" };
 

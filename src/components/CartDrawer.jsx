@@ -121,7 +121,7 @@ export default function CartDrawer({
     }
     try {
       setCouponLoading(true);
-      const res = await fetch('/api/coupon-validate', {
+      const res = await fetch('/api/coupons?action=validate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
         body: JSON.stringify({ code, subtotal: Number(Number(subtotal).toFixed(2)) }),

@@ -14,7 +14,7 @@
  * - SUPABASE_ANON_KEY=...
  */
 
-import { getUserFromAuthHeader, supabaseAdmin } from "./_supabase.js";
+import { getUserFromAuthHeader, supabaseAdmin } from "../server/supabase.js";
 
 export const config = { runtime: "nodejs" };
 

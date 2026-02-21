@@ -13,8 +13,8 @@
  */
 
 import crypto from "crypto";
-import { getUserFromAuthHeader, supabaseAdmin } from "./_supabase.js";
-import { calcCouponDiscount } from "./_couponGame.js";
+import { getUserFromAuthHeader, supabaseAdmin } from "../server/supabase.js";
+import { calcCouponDiscount } from "../server/couponGame.js";
 
 export const config = { runtime: "nodejs" };
 

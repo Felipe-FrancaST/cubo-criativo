@@ -13,7 +13,7 @@
  */
 
 import crypto from "crypto";
-import { supabaseAdmin } from "./_supabase.js";
+import { supabaseAdmin } from "../server/supabase.js";
 
 export const config = { runtime: "nodejs" };
 

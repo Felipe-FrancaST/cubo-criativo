@@ -76,7 +76,7 @@ async function fetchAuthUserEmail(userId) {
 
 async function getSupabaseAdminSafe() {
   try {
-    const mod = await import("./_supabase.js");
+    const mod = await import("../server/supabase.js");
     if (typeof mod?.supabaseAdmin !== "function") throw new Error("supabaseAdmin not found");
     return mod.supabaseAdmin();
   } catch (e) {
