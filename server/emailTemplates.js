@@ -330,3 +330,136 @@ export function buildAddressFromProfile(profile) {
 
   return parts.join(" • ");
 }
+
+
+function statusLabelPt(status) {
+  const s = String(status || '').toLowerCase();
+  return ({
+    recebido: 'Recebido',
+    em_producao: 'Em produção',
+    pronto: 'Pronto',
+    enviado: 'Enviado',
+    entregue: 'Entregue',
+    cancelado: 'Cancelado',
+    reembolsado: 'Reembolsado',
+  }[s] || (s ? s.replaceAll('_', ' ') : 'Atualizado'));
+}
+
+export function renderOrderStatusEmail(payload) {
+  const {
+    brandName,
+    orderId,
+    customerName,
+    nextStatus,
+    shippingTracking,
+    productionEta,
+    cancelledBy,
+    reviewLink,
+    supportEmail,
+    whatsapp,
+    total,
+    paymentMethod,
+  } = payload || {};
+
+  const shortId = orderId ? String(orderId).slice(0, 8) : '-';
+  const status = String(nextStatus || '').toLowerCase();
+  const titleByStatus = {
+    recebido: 'Pedido recebido',
+    em_producao: 'Sua peça entrou em produção',
+    pronto: 'Sua peça está pronta',
+    enviado: 'Seu pedido foi enviado',
+    entregue: 'Pedido entregue',
+    cancelado: 'Pedido cancelado',
+    reembolsado: 'Pedido reembolsado',
+  };
+  const subject = `${titleByStatus[status] || 'Atualização do pedido'} — Pedido ${shortId}`;
+
+  let intro = 'Seu pedido teve uma atualização de status.';
+  let highlight = '';
+  let ctaHref = '';
+  let ctaText = '';
+  let accent = 'rgba(6,182,212,.12)';
+  let accentBorder = 'rgba(6,182,212,.25)';
+  let accentColor = '#a5f3fc';
+
+  if (status === 'recebido') {
+    intro = 'Recebemos seu pedido e o pagamento foi confirmado. Em breve iniciaremos a produção da sua peça.';
+    highlight = 'Seu pedido entrou na fila de produção. Você receberá novas atualizações por email conforme o andamento.';
+    accent = 'rgba(34,197,94,.12)'; accentBorder = 'rgba(34,197,94,.25)'; accentColor = '#bbf7d0';
+  } else if (status === 'em_producao') {
+    intro = 'Boas notícias: sua peça já está em produção.';
+    highlight = productionEta ? `Estimativa informada pela loja: ${productionEta}.` : 'A produção já começou. Em breve enviaremos a próxima atualização.';
+  } else if (status === 'pronto') {
+    intro = 'Sua peça foi finalizada e está em preparação para envio.';
+    highlight = 'Assim que for postada, você receberá o código de rastreio por email.';
+  } else if (status === 'enviado') {
+    intro = 'Seu pedido foi enviado e já está a caminho.';
+    highlight = shippingTracking ? `Código de rastreio: ${shippingTracking}` : 'O envio foi realizado. Se o rastreio ainda não apareceu, ele pode ser atualizado em breve.';
+    accent = 'rgba(168,85,247,.12)'; accentBorder = 'rgba(168,85,247,.25)'; accentColor = '#ddd6fe';
+  } else if (status === 'entregue') {
+    intro = 'Seu pedido foi marcado como entregue. Esperamos que você tenha curtido sua peça 💚';
+    highlight = 'Sua avaliação ajuda muito nossa loja e outros clientes.';
+    ctaHref = reviewLink || '';
+    ctaText = 'Ir para avaliar meu pedido';
+    accent = 'rgba(34,197,94,.12)'; accentBorder = 'rgba(34,197,94,.25)'; accentColor = '#bbf7d0';
+  } else if (status === 'cancelado') {
+    intro = cancelledBy === 'customer'
+      ? 'Recebemos sua solicitação de cancelamento. Se houve pagamento, o reembolso será processado conforme a forma de pagamento.'
+      : 'Seu pedido foi cancelado pela loja. Se houve pagamento, o reembolso será processado conforme a forma de pagamento.';
+    highlight = cancelledBy === 'customer'
+      ? 'Se precisar de ajuda para refazer o pedido, conte com a gente.'
+      : 'Se quiser, responda este email para suporte e esclarecimentos.';
+    accent = 'rgba(239,68,68,.12)'; accentBorder = 'rgba(239,68,68,.25)'; accentColor = '#fecaca';
+  } else if (status === 'reembolsado') {
+    intro = 'Seu pedido foi reembolsado com sucesso.';
+    highlight = 'O valor será devolvido conforme o prazo da sua forma de pagamento e da operadora/banco.';
+    accent = 'rgba(245,158,11,.12)'; accentBorder = 'rgba(245,158,11,.25)'; accentColor = '#fde68a';
+  }
+
+  const pills = `
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin:0 0 12px;">
+      <span style="display:inline-block;padding:6px 10px;border-radius:999px;background:${accent};border:1px solid ${accentBorder};color:${accentColor};font-weight:800;font-size:12px;">${esc(statusLabelPt(status))}</span>
+      ${paymentMethod ? `<span style="display:inline-block;padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);color:#e2e8f0;font-weight:800;font-size:12px;">${esc(paymentMethod)}</span>` : ''}
+      ${Number.isFinite(Number(total)) ? `<span style="display:inline-block;padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);color:#e2e8f0;font-weight:800;font-size:12px;">${esc(fmtBRL(total))}</span>` : ''}
+    </div>`;
+
+  const meta = renderKeyValueCard('Resumo do pedido', [
+    { label: 'Pedido', value: shortId },
+    { label: 'Status', value: statusLabelPt(status) },
+    { label: 'Estimativa', value: productionEta || '' },
+    { label: 'Rastreio', value: shippingTracking || '' },
+  ]);
+
+  const supportBox = `
+    <div style="margin-top:14px;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);color:#cbd5e1;font-size:12px;line-height:1.55;">
+      ${whatsapp ? `WhatsApp: <b style="color:#e2e8f0;">${esc(whatsapp)}</b>` : ''}
+      ${whatsapp && supportEmail ? '<br/>' : ''}
+      ${supportEmail ? `Email: <b style="color:#e2e8f0;">${esc(supportEmail)}</b>` : ''}
+      ${!whatsapp && !supportEmail ? 'Se precisar de ajuda, responda este email.' : ''}
+    </div>`;
+
+  const cta = ctaHref ? `
+    <div style="margin-top:16px;">
+      <a href="${esc(ctaHref)}" style="display:inline-block;padding:11px 16px;border-radius:12px;background:linear-gradient(135deg,#22c55e,#06b6d4);color:#04110d;text-decoration:none;font-weight:800;">${esc(ctaText || 'Abrir pedido')}</a>
+    </div>` : '';
+
+  const contentHtml = `
+    ${pills}
+    <div style="color:#cbd5e1;font-size:13px;line-height:1.6;">Olá <b style="color:#e2e8f0;">${esc(customerName || 'cliente')}</b>!<br/>${esc(intro)}</div>
+    <div style="margin-top:14px;padding:12px 14px;border-radius:14px;background:${accent};border:1px solid ${accentBorder};color:${accentColor};font-size:12px;line-height:1.55;">${esc(highlight)}</div>
+    ${meta}
+    ${cta}
+    ${supportBox}
+  `;
+
+  return {
+    subject,
+    html: renderLayout({
+      title: titleByStatus[status] || 'Atualização do pedido',
+      preheader: `Pedido ${shortId} • ${statusLabelPt(status)}`,
+      brandName,
+      contentHtml,
+      footerNote: 'Mensagem automática de atualização do seu pedido.',
+    }),
+  };
+}

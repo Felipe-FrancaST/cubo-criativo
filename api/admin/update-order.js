@@ -1,6 +1,7 @@
 /** Admin: atualiza pedido + envia email por status */
 import { supabaseAdmin } from "../../server/supabase.js";
 import { requireAdmin } from "../../server/admin/adminAuth.js";
+import { renderOrderStatusEmail } from "../../server/emailTemplates.js";
 
 export const config = { runtime: "nodejs" };
 function safeBody(req){ if(!req.body) return {}; if(typeof req.body==='string'){ try{return JSON.parse(req.body)}catch{return {}} } return req.body; }
@@ -12,22 +13,27 @@ async function sendResendEmail({to,subject,html}){
   const r=await fetch('https://api.resend.com/emails',{method:'POST',headers:{Authorization:`Bearer ${apiKey}`,'Content-Type':'application/json'},body:JSON.stringify({from,to:[to],subject,html})});
   return { ok:r.ok, data: await r.json().catch(()=>({})) };
 }
-function emailHtml({title,msg,details,ctaHref,ctaText}){
-  return `<!doctype html><html><body style="margin:0;background:#0b1020;color:#e2e8f0;font-family:Arial,sans-serif"><div style="max-width:620px;margin:24px auto;padding:20px;border-radius:16px;background:#111827;border:1px solid rgba(255,255,255,.08)"><h2 style="margin:0 0 12px">${title}</h2><p style="color:#cbd5e1;line-height:1.6">${msg}</p>${details?`<div style="margin-top:14px;padding:12px;border-radius:12px;background:#0b1220;border:1px solid rgba(255,255,255,.06);color:#cbd5e1">${details}</div>`:''}${ctaHref?`<div style="margin-top:16px"><a href="${ctaHref}" style="display:inline-block;background:#22c55e;color:#00110a;text-decoration:none;padding:10px 14px;border-radius:10px;font-weight:700">${ctaText||'Abrir'}</a></div>`:''}<p style="margin-top:16px;color:#94a3b8;font-size:12px">Cubo Criativo</p></div></body></html>`;
-}
 async function notifyStatus({order,nextStatus,shipping_tracking,production_eta,cancelled_by}){
   const to = String(order?.customer_email||'').trim(); if(!to) return;
   const shortId = String(order.id||'').slice(0,8);
-  const baseUrl = String(process.env.APP_URL||process.env.NEXT_PUBLIC_SITE_URL||'').trim();
-  const reviewLink = baseUrl ? `${baseUrl}/` : null;
-  let title='Atualização do pedido'; let msg='Seu pedido foi atualizado.'; let details=`Pedido #${shortId}`;
-  if(nextStatus==='recebido') { title='Pedido recebido'; msg='Recebemos seu pedido e o pagamento foi confirmado. Em breve iniciaremos a produção da sua peça.'; }
-  if(nextStatus==='em_producao') { title='Sua peça entrou em produção'; msg='Boas notícias: sua peça já está em produção.'; details = `Pedido #${shortId}${production_eta?`<br/>Estimativa informada: <b>${String(production_eta)}</b>`:''}`; }
-  if(nextStatus==='enviado') { title='Seu pedido foi enviado'; msg='Seu pedido foi enviado e já está a caminho.'; details = `Pedido #${shortId}${shipping_tracking?`<br/>Código de rastreio: <b>${String(shipping_tracking)}</b>`:''}`; }
-  if(nextStatus==='entregue') { title='Pedido entregue'; msg='Seu pedido foi marcado como entregue. Obrigado por comprar com a Cubo Criativo 💚'; details = `Pedido #${shortId}<br/>Se puder, deixe sua avaliação em “Meus pedidos”.`; }
-  if(nextStatus==='cancelado') { title='Pedido cancelado'; msg=(cancelled_by==='customer') ? 'Recebemos seu cancelamento. Se houve pagamento, o reembolso será processado conforme a forma de pagamento.' : 'Seu pedido foi cancelado pela loja. Se houve pagamento, o reembolso será processado conforme a forma de pagamento.'; }
-  if(nextStatus==='reembolsado') { title='Pedido reembolsado'; msg='Seu pedido foi reembolsado com sucesso. O valor será devolvido conforme o prazo da sua forma de pagamento.'; }
-  await sendResendEmail({ to, subject: `${title} — Pedido ${shortId}`, html: emailHtml({ title, msg, details, ctaHref: nextStatus==='entregue'?reviewLink:null, ctaText:'Ir para o site e avaliar' }) });
+  const baseUrl = String(process.env.APP_URL||process.env.NEXT_PUBLIC_SITE_URL||'').trim().replace(/\/$/, '');
+  const reviewLink = baseUrl ? `${baseUrl}/#/conta` : '';
+  const brandName = process.env.BRAND_NAME || 'Cubo Criativo';
+  const supportEmail = process.env.SUPPORT_EMAIL || process.env.RESEND_FROM || '';
+  const whatsapp = process.env.WHATSAPP_NUMBER || process.env.SUPPORT_WHATSAPP || '';
+  const mail = renderOrderStatusEmail({
+    brandName,
+    orderId: order?.id,
+    customerName: order?.customer_name,
+    nextStatus,
+    shippingTracking: shipping_tracking || order?.shipping_tracking || '',
+    productionEta: production_eta || order?.production_eta || '',
+    cancelledBy: cancelled_by || '',
+    reviewLink,
+    supportEmail,
+    whatsapp,
+  });
+  await sendResendEmail({ to, subject: mail.subject || `Atualização do pedido — ${shortId}`, html: mail.html });
 }
 
 export default async function handler(req,res){
