@@ -437,6 +437,13 @@ export default function OrdersModal({ open, onClose }) {
     }
   }
 
+  const ordersStats = React.useMemo(() => ({
+    total: orders.length,
+    pendentes: orders.filter((o) => String(o.status || '').toLowerCase() === 'pending').length,
+    emProducao: orders.filter((o) => String(o.production_status || 'recebido').toLowerCase() === 'em_producao').length,
+    entregues: orders.filter((o) => String(o.production_status || '').toLowerCase() === 'entregue').length,
+  }), [orders]);
+
   const fetchOrders = React.useCallback(async () => {
     if (!user) return;
     setLoading(true);
@@ -611,7 +618,7 @@ export default function OrdersModal({ open, onClose }) {
   return (
     <>
     <Modal open={open} onClose={onClose}>
-      <div className="w-full max-w-2xl">
+      <div className="w-full max-w-3xl">
         <div className="flex items-center justify-between gap-3">
           <h3 className="font-bold text-lg">Meus pedidos</h3>
           <div className="flex items-center gap-2">
@@ -640,7 +647,28 @@ export default function OrdersModal({ open, onClose }) {
         )}
 
         {user && (
-          <div className="mt-4">
+          <div className="mt-4 space-y-4">
+            <div className="rounded-2xl bg-gradient-to-br from-white/5 to-white/0 ring-1 ring-white/10 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-slate-400">Resumo</p>
+                  <p className="text-sm text-slate-300">Acompanhe produção, envio e pagamentos em um só lugar.</p>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full sm:w-auto">
+                  {[
+                    ["Pedidos", ordersStats.total],
+                    ["Pendentes", ordersStats.pendentes],
+                    ["Produção", ordersStats.emProducao],
+                    ["Entregues", ordersStats.entregues],
+                  ].map(([label, value]) => (
+                    <div key={label} className="rounded-xl bg-slate-950/70 ring-1 ring-white/10 px-3 py-2 min-w-[92px]">
+                      <div className="text-[11px] text-slate-400">{label}</div>
+                      <div className="text-lg font-bold leading-tight">{value}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
             {loading && <p className="text-slate-300">Carregando…</p>}
             {error && (
               <p className="text-sm text-red-300 bg-red-500/10 ring-1 ring-red-500/30 rounded-lg px-3 py-2">
@@ -649,14 +677,14 @@ export default function OrdersModal({ open, onClose }) {
             )}
 
             {!loading && !error && orders.length === 0 && (
-              <p className="text-slate-400">Você ainda não tem pedidos.</p>
+              <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-5 text-slate-300">Você ainda não tem pedidos.</div>
             )}
 
             <div className="space-y-3">
               
 {orders.map((o) => (
-  <div key={o.id} className="rounded-2xl bg-slate-900 ring-1 ring-white/10 p-4 sm:p-5">
-    <div className="flex items-start justify-between gap-3">
+  <div key={o.id} className="rounded-2xl bg-gradient-to-b from-slate-900 to-slate-950 ring-1 ring-white/10 p-4 sm:p-5 shadow-xl shadow-black/20">
+    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
       <div className="min-w-0">
         <p className="text-xs text-slate-400">
           {new Date(o.created_at).toLocaleString("pt-BR")}
@@ -709,10 +737,10 @@ export default function OrdersModal({ open, onClose }) {
     </div>
 
     {Array.isArray(o.order_items) && o.order_items.length > 0 && (
-  <div className="mt-4 rounded-xl bg-white/5 ring-1 ring-white/10">
+  <div className="mt-4 rounded-2xl bg-white/5 ring-1 ring-white/10 overflow-hidden">
     <ul className="divide-y divide-white/10">
       {o.order_items.map((it, idx) => (
-        <li key={idx} className="flex items-center justify-between gap-3 px-3 py-2">
+        <li key={idx} className="flex items-center justify-between gap-3 px-3 py-3 hover:bg-white/[0.02]">
           <div className="flex items-center gap-3 min-w-0">
             {it.img ? (
               <img
@@ -741,7 +769,7 @@ export default function OrdersModal({ open, onClose }) {
   </div>
 )}
 
-    <div className="mt-4 flex flex-wrap items-center gap-2">
+    <div className="mt-4 flex flex-wrap items-center gap-2 pt-1 border-t border-white/10">
       {String(o.status || "").toLowerCase() === "pending" &&
       String(o.payment_provider || "").toLowerCase() === "mercado_pago" &&
       o.provider_payment_id ? (
@@ -945,7 +973,7 @@ export default function OrdersModal({ open, onClose }) {
                   </div>
                 ) : null}
 
-                <div className="mt-4 flex flex-wrap items-center gap-2">
+                <div className="mt-4 flex flex-wrap items-center gap-2 pt-1 border-t border-white/10">
                   {payModal.pix.ticket_url ? (
                     <a
                       href={payModal.pix.ticket_url}

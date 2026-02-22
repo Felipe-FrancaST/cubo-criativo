@@ -70,8 +70,28 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome }) {
   const [filterPay, setFilterPay] = React.useState("all");
   const [filterProd, setFilterProd] = React.useState("all");
   const [toast, setToast] = React.useState("");
+  const [statusActionModal, setStatusActionModal] = React.useState({ open: false, orderId: null, patch: null, fields: {} });
 
   const isAdmin = isAdminEmail(user?.email || "");
+
+  const closeStatusActionModal = () => setStatusActionModal({ open: false, orderId: null, patch: null, fields: {} });
+
+  const submitStatusActionModal = async () => {
+    const data = statusActionModal;
+    if (!data?.orderId || !data?.patch) return;
+    const extra = {};
+    if (String(data.patch.production_status || '').toLowerCase() === 'em_producao') {
+      const eta = String(data.fields.production_eta || '').trim();
+      if (!eta) return showToast('⚠️ Informe a estimativa de produção.');
+      extra.production_eta = eta;
+    }
+    if (String(data.patch.production_status || '').toLowerCase() === 'enviado') {
+      const tr = String(data.fields.shipping_tracking || '').trim();
+      if (tr) extra.shipping_tracking = tr;
+    }
+    closeStatusActionModal();
+    await updateOrder(data.orderId, { ...data.patch, ...extra });
+  };
 
   const showToast = (msg) => {
     setToast(msg);
@@ -109,13 +129,22 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome }) {
       if (Object.prototype.hasOwnProperty.call(finalPatch, 'production_status')) {
         const nextStatus = String(finalPatch.production_status || '').toLowerCase();
         if (nextStatus === 'em_producao' && !finalPatch.production_eta) {
-          const eta = window.prompt('Estimativa de produção (ex: 3 a 5 dias úteis):', '3 a 7 dias úteis');
-          if (eta === null) return;
-          finalPatch.production_eta = String(eta || '').trim();
+          setStatusActionModal({
+            open: true,
+            orderId,
+            patch: finalPatch,
+            fields: { production_eta: '3 a 7 dias úteis' },
+          });
+          return;
         }
         if (nextStatus === 'enviado' && !finalPatch.shipping_tracking) {
-          const tr = window.prompt('Código de rastreio (opcional):', '');
-          if (tr !== null && String(tr).trim()) finalPatch.shipping_tracking = String(tr).trim();
+          setStatusActionModal({
+            open: true,
+            orderId,
+            patch: finalPatch,
+            fields: { shipping_tracking: '' },
+          });
+          return;
         }
         if (nextStatus === 'cancelado' && !finalPatch.cancelled_by) {
           finalPatch.cancelled_by = 'admin';
@@ -187,7 +216,52 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome }) {
             </div>
           </div>
         </section>
-      </main>
+  
+      {statusActionModal.open ? (
+        <div className="fixed inset-0 z-[210] bg-black/60 backdrop-blur-sm grid place-items-center p-4">
+          <div className="w-full max-w-md rounded-2xl bg-slate-950 ring-1 ring-white/10 shadow-2xl p-5">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs text-slate-400">Atualizar pedido</p>
+                <h3 className="text-lg font-bold">{String(statusActionModal?.patch?.production_status || '').toLowerCase() === 'em_producao' ? 'Definir estimativa de produção' : 'Informar rastreio'}</h3>
+              </div>
+              <button onClick={closeStatusActionModal} className="rounded-lg p-2 ring-1 ring-white/10 hover:bg-white/5" aria-label="Fechar">
+                <span className="material-icons text-base">close</span>
+              </button>
+            </div>
+
+            {String(statusActionModal?.patch?.production_status || '').toLowerCase() === 'em_producao' ? (
+              <div className="mt-4">
+                <label className="text-sm text-slate-300 block mb-2">Estimativa que vai no e-mail do cliente</label>
+                <input
+                  autoFocus
+                  value={statusActionModal.fields.production_eta || ''}
+                  onChange={(e) => setStatusActionModal((prev) => ({ ...prev, fields: { ...prev.fields, production_eta: e.target.value } }))}
+                  placeholder="Ex.: 3 a 7 dias úteis"
+                  className="w-full rounded-xl bg-white/5 ring-1 ring-white/10 px-3 py-2.5 outline-none focus:ring-emerald-400/40"
+                />
+              </div>
+            ) : (
+              <div className="mt-4">
+                <label className="text-sm text-slate-300 block mb-2">Código de rastreio (opcional)</label>
+                <input
+                  autoFocus
+                  value={statusActionModal.fields.shipping_tracking || ''}
+                  onChange={(e) => setStatusActionModal((prev) => ({ ...prev, fields: { ...prev.fields, shipping_tracking: e.target.value } }))}
+                  placeholder="Ex.: NB123456789BR"
+                  className="w-full rounded-xl bg-white/5 ring-1 ring-white/10 px-3 py-2.5 outline-none focus:ring-emerald-400/40"
+                />
+              </div>
+            )}
+
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button onClick={closeStatusActionModal} className="rounded-xl px-3 py-2 text-sm ring-1 ring-white/15 hover:bg-white/5">Cancelar</button>
+              <button onClick={submitStatusActionModal} className="rounded-xl px-3 py-2 text-sm bg-emerald-400 text-black font-semibold hover:bg-emerald-300">Salvar e atualizar</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </main>
     );
   }
 
@@ -201,7 +275,52 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome }) {
             </div>
           </div>
         </section>
-      </main>
+  
+      {statusActionModal.open ? (
+        <div className="fixed inset-0 z-[210] bg-black/60 backdrop-blur-sm grid place-items-center p-4">
+          <div className="w-full max-w-md rounded-2xl bg-slate-950 ring-1 ring-white/10 shadow-2xl p-5">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs text-slate-400">Atualizar pedido</p>
+                <h3 className="text-lg font-bold">{String(statusActionModal?.patch?.production_status || '').toLowerCase() === 'em_producao' ? 'Definir estimativa de produção' : 'Informar rastreio'}</h3>
+              </div>
+              <button onClick={closeStatusActionModal} className="rounded-lg p-2 ring-1 ring-white/10 hover:bg-white/5" aria-label="Fechar">
+                <span className="material-icons text-base">close</span>
+              </button>
+            </div>
+
+            {String(statusActionModal?.patch?.production_status || '').toLowerCase() === 'em_producao' ? (
+              <div className="mt-4">
+                <label className="text-sm text-slate-300 block mb-2">Estimativa que vai no e-mail do cliente</label>
+                <input
+                  autoFocus
+                  value={statusActionModal.fields.production_eta || ''}
+                  onChange={(e) => setStatusActionModal((prev) => ({ ...prev, fields: { ...prev.fields, production_eta: e.target.value } }))}
+                  placeholder="Ex.: 3 a 7 dias úteis"
+                  className="w-full rounded-xl bg-white/5 ring-1 ring-white/10 px-3 py-2.5 outline-none focus:ring-emerald-400/40"
+                />
+              </div>
+            ) : (
+              <div className="mt-4">
+                <label className="text-sm text-slate-300 block mb-2">Código de rastreio (opcional)</label>
+                <input
+                  autoFocus
+                  value={statusActionModal.fields.shipping_tracking || ''}
+                  onChange={(e) => setStatusActionModal((prev) => ({ ...prev, fields: { ...prev.fields, shipping_tracking: e.target.value } }))}
+                  placeholder="Ex.: NB123456789BR"
+                  className="w-full rounded-xl bg-white/5 ring-1 ring-white/10 px-3 py-2.5 outline-none focus:ring-emerald-400/40"
+                />
+              </div>
+            )}
+
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button onClick={closeStatusActionModal} className="rounded-xl px-3 py-2 text-sm ring-1 ring-white/15 hover:bg-white/5">Cancelar</button>
+              <button onClick={submitStatusActionModal} className="rounded-xl px-3 py-2 text-sm bg-emerald-400 text-black font-semibold hover:bg-emerald-300">Salvar e atualizar</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </main>
     );
   }
 
@@ -466,6 +585,51 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome }) {
           </div>
         </div>
       </section>
+
+      {statusActionModal.open ? (
+        <div className="fixed inset-0 z-[210] bg-black/60 backdrop-blur-sm grid place-items-center p-4">
+          <div className="w-full max-w-md rounded-2xl bg-slate-950 ring-1 ring-white/10 shadow-2xl p-5">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs text-slate-400">Atualizar pedido</p>
+                <h3 className="text-lg font-bold">{String(statusActionModal?.patch?.production_status || '').toLowerCase() === 'em_producao' ? 'Definir estimativa de produção' : 'Informar rastreio'}</h3>
+              </div>
+              <button onClick={closeStatusActionModal} className="rounded-lg p-2 ring-1 ring-white/10 hover:bg-white/5" aria-label="Fechar">
+                <span className="material-icons text-base">close</span>
+              </button>
+            </div>
+
+            {String(statusActionModal?.patch?.production_status || '').toLowerCase() === 'em_producao' ? (
+              <div className="mt-4">
+                <label className="text-sm text-slate-300 block mb-2">Estimativa que vai no e-mail do cliente</label>
+                <input
+                  autoFocus
+                  value={statusActionModal.fields.production_eta || ''}
+                  onChange={(e) => setStatusActionModal((prev) => ({ ...prev, fields: { ...prev.fields, production_eta: e.target.value } }))}
+                  placeholder="Ex.: 3 a 7 dias úteis"
+                  className="w-full rounded-xl bg-white/5 ring-1 ring-white/10 px-3 py-2.5 outline-none focus:ring-emerald-400/40"
+                />
+              </div>
+            ) : (
+              <div className="mt-4">
+                <label className="text-sm text-slate-300 block mb-2">Código de rastreio (opcional)</label>
+                <input
+                  autoFocus
+                  value={statusActionModal.fields.shipping_tracking || ''}
+                  onChange={(e) => setStatusActionModal((prev) => ({ ...prev, fields: { ...prev.fields, shipping_tracking: e.target.value } }))}
+                  placeholder="Ex.: NB123456789BR"
+                  className="w-full rounded-xl bg-white/5 ring-1 ring-white/10 px-3 py-2.5 outline-none focus:ring-emerald-400/40"
+                />
+              </div>
+            )}
+
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button onClick={closeStatusActionModal} className="rounded-xl px-3 py-2 text-sm ring-1 ring-white/15 hover:bg-white/5">Cancelar</button>
+              <button onClick={submitStatusActionModal} className="rounded-xl px-3 py-2 text-sm bg-emerald-400 text-black font-semibold hover:bg-emerald-300">Salvar e atualizar</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }
