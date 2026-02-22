@@ -125,6 +125,13 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome }) {
 
   async function updateOrder(orderId, patch) {
     try {
+      const current = (orders || []).find((o) => o.id === orderId);
+      const currentPay = String(current?.status || "").toLowerCase();
+      const changingFlow = Object.prototype.hasOwnProperty.call(patch || {}, "production_status") || Object.prototype.hasOwnProperty.call(patch || {}, "shipping_tracking");
+      if (changingFlow && currentPay !== "paid") {
+        showToast("⚠️ Só pedidos pagos podem ter status/rastreio alterados.");
+        return;
+      }
       const finalPatch = { ...patch };
       if (Object.prototype.hasOwnProperty.call(finalPatch, 'production_status')) {
         const nextStatus = String(finalPatch.production_status || '').toLowerCase();
@@ -388,7 +395,7 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome }) {
               <select
                 value={filterPay}
                 onChange={(e) => setFilterPay(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl bg-slate-900 ring-1 ring-white/10 text-slate-100 focus:outline-none"
+                className="w-full px-3 py-2 rounded-xl bg-slate-900 ring-1 ring-white/10 text-slate-100 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <option value="all">Pagamento: todos</option>
                 <option value="paid">Pagamento: pago</option>
@@ -435,6 +442,7 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome }) {
 
               const pay = payStatusUI(o.status);
               const prod = prodStatusLabel(o.production_status);
+              const canEditFlow = String(o.status || '').toLowerCase() === 'paid';
 
               return (
                 <div key={o.id} className="rounded-2xl bg-slate-900/60 ring-1 ring-white/10 p-4 sm:p-5">
@@ -521,6 +529,7 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome }) {
                         <select
                           value={String(o.production_status || "recebido").toLowerCase()}
                           onChange={(e) => updateOrder(o.id, { production_status: e.target.value })}
+                          disabled={!canEditFlow}
                           className="w-full px-3 py-2 rounded-xl bg-slate-900 ring-1 ring-white/10 text-slate-100 focus:outline-none"
                         >
                           <option value="recebido">Recebido</option>
@@ -535,10 +544,14 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome }) {
                         <input
                           defaultValue={o.shipping_tracking || ""}
                           placeholder="Código de rastreio (opcional)"
-                          className="w-full px-3 py-2 rounded-xl bg-slate-900 ring-1 ring-white/10 text-slate-100 placeholder:text-slate-500 focus:outline-none"
+                          disabled={!canEditFlow}
+                          className="w-full px-3 py-2 rounded-xl bg-slate-900 ring-1 ring-white/10 text-slate-100 placeholder:text-slate-500 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                           onBlur={(e) => updateOrder(o.id, { shipping_tracking: e.target.value })}
                         />
                         <p className="text-xs text-slate-500">* digite e saia do campo para salvar</p>
+                        {!canEditFlow ? (
+                          <p className="text-xs text-amber-300/90">Pagamento pendente/falhou: alterações de status e rastreio ficam bloqueadas.</p>
+                        ) : null}
                       </div>
                     </div>
                   </div>
