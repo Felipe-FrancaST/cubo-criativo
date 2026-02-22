@@ -140,10 +140,6 @@ export default async function handler(req, res) {
     if (!Number.isFinite(subtotal) || subtotal <= 0) {
       return res.status(400).json({ error: "Não foi possível calcular o valor do pedido. Atualize o carrinho e tente novamente." });
     }
-    if (Number.isFinite(requestedAmount) && requestedAmount > 0 && Math.abs(Number(requestedAmount.toFixed(2)) - subtotal) > 0.01) {
-      return res.status(400).json({ error: "O carrinho foi alterado. Revise os valores e tente novamente." });
-    }
-
     // 1) Cria pedido no Supabase
     const sb = supabaseAdmin();
 
@@ -161,6 +157,9 @@ export default async function handler(req, res) {
     }
 
     finalAmount = Number(Number(finalAmount).toFixed(2));
+    if (Number.isFinite(requestedAmount) && requestedAmount > 0 && Math.abs(Number(requestedAmount.toFixed(2)) - finalAmount) > 0.01) {
+      return res.status(400).json({ error: "O carrinho foi alterado. Revise os valores e tente novamente." });
+    }
     if (!Number.isFinite(finalAmount) || finalAmount <= 0) {
       return res.status(400).json({ error: "O desconto deixou o valor do pedido inválido para Pix." });
     }

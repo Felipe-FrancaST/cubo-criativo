@@ -164,7 +164,6 @@ export default function CupomGamePage({ onGoHome, user, accessToken }) {
   }
 
   const reveal = (idx) => flipped.includes(idx) || deck[idx]?.matched;
-  const scorePreview = calcScore({ errors, won: false });
   const resetAt = nextWeeklyResetUTC(new Date(nowMs));
   const countdownText = formatCountdown(resetAt.getTime() - nowMs);
 
@@ -208,7 +207,6 @@ export default function CupomGamePage({ onGoHome, user, accessToken }) {
             <div className="rounded-2xl p-4 ring-1 ring-white/10 bg-white/5 space-y-2 text-sm">
               <div className="flex justify-between"><span className="text-slate-400">Tentativas</span><span>{attempts}</span></div>
               <div className="flex justify-between"><span className="text-slate-400">Erros</span><span>{errors}/{MAX_ERRORS}</span></div>
-              <div className="flex justify-between"><span className="text-slate-400">Pontuação</span><span className="font-semibold">{scorePreview}</span></div>
               <div className="flex justify-between"><span className="text-slate-400">Status</span><span>{status.loading ? 'Carregando…' : status.can_play ? 'Pode jogar' : 'Já jogou esta semana'}</span></div>
               <div className="flex justify-between gap-3"><span className="text-slate-400">Próxima rodada</span><span className="text-right font-medium">{countdownText}</span></div>
               {status.coupon?.code && (

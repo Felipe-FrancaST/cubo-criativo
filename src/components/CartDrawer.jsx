@@ -145,7 +145,11 @@ export default function CartDrawer({
       try { window.localStorage.setItem('cc_coupon_last', code); } catch {}
       if (!opts.silent) setCouponMsg('Cupom aplicado!');
     } catch (e) {
-      if (!opts.silent) setCouponMsg(String(e?.message || e));
+      const msg = String(e?.message || e);
+      if (!opts.silent) setCouponMsg(msg);
+      if (/cpf|perfil/i.test(msg)) {
+        onRequireProfile?.();
+      }
       setCouponInfo(null);
     } finally {
       setCouponLoading(false);
@@ -276,6 +280,9 @@ export default function CartDrawer({
       } catch {}
       if (typeof msg === "string" && msg.includes("transaction_amount must be positive")) {
         msg = "Esse cupom deixou o valor do pedido inválido para Pix. Ajuste o cupom ou adicione mais itens.";
+      }
+      if (typeof msg === "string" && /cpf|perfil/i.test(msg)) {
+        onRequireProfile?.();
       }
       showPixNotice(msg, "error", 5200);
     } finally {

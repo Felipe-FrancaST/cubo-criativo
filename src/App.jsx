@@ -240,6 +240,11 @@ export default function App() {
     window.location.hash = `#${normalized}`;
   }
 
+  function openSettings(tab = 'profile') {
+    setSettingsTab(tab === 'settings' ? 'settings' : 'profile');
+    setSettingsOpen(true);
+  }
+
   function scrollToId(id) {
     const el = document.getElementById(id);
     if (!el) return;
@@ -270,6 +275,7 @@ export default function App() {
   const [authOpen, setAuthOpen] = React.useState(false);
   const [ordersOpen, setOrdersOpen] = React.useState(false);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
+  const [settingsTab, setSettingsTab] = React.useState('profile');
   const [menuDrawerOpen, setMenuDrawerOpen] = React.useState(false);
 
   // ===== Carrinho =====
@@ -535,7 +541,7 @@ React.useEffect(() => {
         setToastOpen(true);
         clearTimeout(toastT.current);
         toastT.current = setTimeout(() => setToastOpen(false), 2600);
-        setSettingsOpen(true);
+        openSettings('profile');
         return false;
       }
       return true;
@@ -545,7 +551,7 @@ React.useEffect(() => {
       setToastOpen(true);
       clearTimeout(toastT.current);
       toastT.current = setTimeout(() => setToastOpen(false), 3000);
-      setSettingsOpen(true);
+      openSettings('profile');
       return false;
     }
   }
@@ -599,7 +605,7 @@ React.useEffect(() => {
           setToastOpen(true);
           clearTimeout(toastT.current);
           toastT.current = setTimeout(() => setToastOpen(false), 2600);
-          setSettingsOpen(true);
+          openSettings('profile');
           return;
         }
         throw new Error(data?.error || "Não foi possível iniciar o pagamento.");
@@ -892,7 +898,7 @@ React.useEffect(() => {
           clearTimeout(toastT.current);
           toastT.current = setTimeout(() => setToastOpen(false), 2400);
         }}
-        onOpenSettings={() => setSettingsOpen(true)}
+        onOpenSettings={(tab) => openSettings(tab)}
         onSignOut={() => signOut()}
         onToggleRpg={() => setRpgMode((v) => !v)}
         rpgMode={rpgMode}
@@ -918,7 +924,7 @@ React.useEffect(() => {
           clearTimeout(toastT.current);
           toastT.current = setTimeout(() => setToastOpen(false), 2400);
         }}
-        onOpenSettings={() => setSettingsOpen(true)}
+        onOpenSettings={(tab) => openSettings(tab)}
         onSignOut={() => signOut()}
         onToggleRpg={() => setRpgMode((v) => !v)}
         rpgMode={rpgMode}
@@ -1000,7 +1006,7 @@ React.useEffect(() => {
         userId={user?.id || ""}
         userEmail={user?.email || ""}
         onRequireLogin={() => setAuthOpen(true)}
-        onRequireProfile={() => setSettingsOpen(true)}
+        onRequireProfile={() => openSettings('profile')}
         onOpenOrders={() => setOrdersOpen(true)}
         onPaymentConfirmed={() => {
           setCart([]);
@@ -1018,6 +1024,8 @@ React.useEffect(() => {
 
       <ProfileSettingsModal
         open={settingsOpen}
+        initialTab={settingsTab}
+        onSignOut={() => signOut()}
         onClose={() => setSettingsOpen(false)}
         onSaved={() => {
           setToastMsg("Dados salvos!");

@@ -1,6 +1,7 @@
 import React from "react";
 import Modal from "./Modal.jsx";
 import { useAuth } from "../auth/AuthProvider.jsx";
+import { supabase } from "../lib/supabaseClient";
 import { fetchAddressFromCep, isValidCep, onlyDigits } from "../lib/cep.js";
 
 function Field({ label, children }) {
@@ -12,19 +13,20 @@ function Field({ label, children }) {
   );
 }
 
-export default function ProfileSettingsModal({ open, onClose, required = false, onSaved }) {
-  const { user, session } = useAuth();
+export default function ProfileSettingsModal({ open, onClose, required = false, onSaved, initialTab = "profile", onSignOut }) {
+  const { user, session, resetPassword } = useAuth();
   const jwt = session?.access_token || "";
 
   const [loading, setLoading] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState("");
   const [ok, setOk] = React.useState("");
+  const [activeTab, setActiveTab] = React.useState(initialTab === "settings" ? "settings" : "profile");
 
   const [fullName, setFullName] = React.useState("");
   const [phone, setPhone] = React.useState("");
   const [cpf, setCpf] = React.useState("");
-  const [birthdate, setBirthdate] = React.useState(""); // YYYY-MM-DD
+  const [birthdate, setBirthdate] = React.useState("");
 
   const [street, setStreet] = React.useState("");
   const [number, setNumber] = React.useState("");
@@ -33,6 +35,15 @@ export default function ProfileSettingsModal({ open, onClose, required = false, 
   const [city, setCity] = React.useState("");
   const [stateUF, setStateUF] = React.useState("");
   const [zip, setZip] = React.useState("");
+
+  const [avatarPreview, setAvatarPreview] = React.useState("");
+  const [avatarFileName, setAvatarFileName] = React.useState("");
+  const [newPassword, setNewPassword] = React.useState("");
+  const [newPassword2, setNewPassword2] = React.useState("");
+  const [pwdBusy, setPwdBusy] = React.useState(false);
+
+  const [cepBusy, setCepBusy] = React.useState(false);
+  const [cepHint, setCepHint] = React.useState("");
 
   function isValidCpf(raw) {
     const v = onlyDigits(raw);
@@ -49,8 +60,21 @@ export default function ProfileSettingsModal({ open, onClose, required = false, 
     return d1 === Number(v[9]) && d2 === Number(v[10]);
   }
 
-  const [cepBusy, setCepBusy] = React.useState(false);
-  const [cepHint, setCepHint] = React.useState("");
+  React.useEffect(() => {
+    if (!open) return;
+    setActiveTab(initialTab === "settings" ? "settings" : "profile");
+  }, [open, initialTab]);
+
+  React.useEffect(() => {
+    if (!open || !user) return;
+    try {
+      const local = window.localStorage.getItem(`cc_avatar_${user.id}`) || "";
+      const meta = String(user?.user_metadata?.avatar_url || "");
+      setAvatarPreview(local || meta || "");
+    } catch {
+      setAvatarPreview(String(user?.user_metadata?.avatar_url || ""));
+    }
+  }, [open, user]);
 
   const loadProfile = React.useCallback(async () => {
     if (!user) return;
@@ -75,7 +99,6 @@ export default function ProfileSettingsModal({ open, onClose, required = false, 
     setPhone(data?.phone || "");
     setCpf(data?.cpf || "");
     setBirthdate(data?.birthdate || "");
-
     setStreet(data?.address_line1 || "");
     setNumber(data?.address_number || "");
     setAddr2(data?.address_line2 || "");
@@ -87,31 +110,26 @@ export default function ProfileSettingsModal({ open, onClose, required = false, 
   }, [user, jwt]);
 
   React.useEffect(() => {
-    if (!open) return;
-    if (!user) return;
+    if (!open || !user) return;
     loadProfile();
   }, [open, user, loadProfile]);
 
-  // Auto-preenche pelo CEP
   React.useEffect(() => {
     const d = onlyDigits(zip);
     if (d.length !== 8) {
       setCepHint("");
       return;
     }
-
     let cancelled = false;
     const t = setTimeout(async () => {
       setCepBusy(true);
       const resp = await fetchAddressFromCep(d);
       if (cancelled) return;
       setCepBusy(false);
-
       if (!resp.ok) {
         setCepHint(resp.error || "Não foi possível consultar o CEP");
         return;
       }
-
       const a = resp.data;
       setCepHint("Endereço encontrado ✓");
       if (!street.trim() && a.street) setStreet(a.street);
@@ -119,30 +137,61 @@ export default function ProfileSettingsModal({ open, onClose, required = false, 
       if (!city.trim() && a.city) setCity(a.city);
       if (!stateUF.trim() && a.uf) setStateUF(a.uf);
     }, 350);
-
-    return () => {
-      cancelled = true;
-      clearTimeout(t);
-    };
+    return () => { cancelled = true; clearTimeout(t); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [zip]);
+
+  function handleAvatarFile(e) {
+    setError("");
+    const file = e?.target?.files?.[0];
+    if (!file) return;
+    if (!String(file.type || "").startsWith("image/")) {
+      setError("Selecione uma imagem válida para a foto de perfil.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = String(reader.result || "");
+      setAvatarPreview(dataUrl);
+      setAvatarFileName(file.name || "foto");
+      try { if (user?.id) window.localStorage.setItem(`cc_avatar_${user.id}`, dataUrl); } catch {}
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async function savePassword() {
+    setError("");
+    setOk("");
+    if (!newPassword || newPassword.length < 6) return setError("A nova senha deve ter pelo menos 6 caracteres.");
+    if (newPassword !== newPassword2) return setError("As senhas não coincidem.");
+    try {
+      setPwdBusy(true);
+      const { error: updErr } = await supabase.auth.updateUser({ password: newPassword });
+      if (updErr) throw updErr;
+      setNewPassword("");
+      setNewPassword2("");
+      setOk("Senha atualizada com sucesso ✅");
+    } catch (e) {
+      try {
+        await resetPassword({ email: String(user?.email || "") });
+        setOk("Enviamos um link para redefinir sua senha no e-mail ✅");
+      } catch (e2) {
+        setError(e2?.message || e?.message || "Não foi possível alterar a senha.");
+      }
+    } finally {
+      setPwdBusy(false);
+    }
+  }
 
   async function save() {
     if (!user) return;
     setError("");
     setOk("");
     setSaving(true);
+    const fail = (msg) => { setError(msg); setSaving(false); };
 
-    const fail = (msg) => {
-      setError(msg);
-      setSaving(false);
-    };
-
-    // validações (obrigatório)
     if (!fullName.trim()) return fail("Informe seu nome.");
     if (!phone.trim()) return fail("Informe seu telefone.");
-    // CPF e data de nascimento são opcionais aqui,
-    // mas serão exigidos antes de pagar (na finalização do pedido).
     if (cpf.trim() && !isValidCpf(cpf)) return fail("CPF inválido. Digite apenas números (11 dígitos).");
     if (!isValidCep(zip)) return fail("Informe um CEP válido.");
     if (!city.trim()) return fail("Informe sua cidade.");
@@ -165,19 +214,12 @@ export default function ProfileSettingsModal({ open, onClose, required = false, 
       state: stateUF.trim().toUpperCase(),
       zip: onlyDigits(zip),
     };
-
-    // remove strings vazias
-    Object.keys(payload).forEach((k) => {
-      if (payload[k] === "") delete payload[k];
-    });
+    Object.keys(payload).forEach((k) => { if (payload[k] === "") delete payload[k]; });
     payload.id = user.id;
 
     const resp = await fetch("/api/profile", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}),
-      },
+      headers: { "Content-Type": "application/json", ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}) },
       body: JSON.stringify({ profile: payload }),
     });
 
@@ -190,182 +232,106 @@ export default function ProfileSettingsModal({ open, onClose, required = false, 
 
     setOk("Dados salvos com sucesso ✅");
     try { onSaved?.(); } catch {}
-    // Fecha automaticamente após salvar
     setTimeout(() => { try { onClose?.(); } catch {} }, 200);
     setSaving(false);
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Configurações">
-      <div className="w-full max-w-2xl">
+    <Modal open={open} onClose={onClose} title={activeTab === "settings" ? "Configurações" : "Perfil"}>
+      <div className="w-full max-w-3xl">
         {!user ? (
           <p className="text-slate-300">Faça login para editar seus dados.</p>
         ) : (
           <div className="space-y-4">
-            <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
-              <p className="text-sm font-semibold text-slate-100">Dados do cliente</p>
-              <p className="mt-1 text-xs text-slate-400">Essas informações aparecem no seu pedido e facilitam a entrega.</p>
-
-              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Field label="Nome completo">
-                  <input
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    type="text"
-                    autoComplete="name"
-                    className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
-                    placeholder="Seu nome"
-                  />
-                </Field>
-                <Field label="Telefone (WhatsApp)">
-                  <input
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    type="tel"
-                    autoComplete="tel"
-                    className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
-                    placeholder="(11) 99999-9999"
-                  />
-                </Field>
-
-                <Field label="CPF (obrigatório para comprar)">
-                  <input
-                    value={cpf}
-                    onChange={(e) => setCpf(e.target.value)}
-                    type="text"
-                    inputMode="numeric"
-                    autoComplete="off"
-                    className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
-                    placeholder="000.000.000-00"
-                  />
-                </Field>
-
-                <Field label="Data de nascimento (obrigatório para comprar)">
-                  <input
-                    value={birthdate}
-                    onChange={(e) => setBirthdate(e.target.value)}
-                    type="date"
-                    autoComplete="bday"
-                    className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
-                  />
-                </Field>
-              </div>
-
-              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Field label="CEP">
-                  <input
-                    value={zip}
-                    onChange={(e) => setZip(e.target.value)}
-                    type="text"
-                    autoComplete="postal-code"
-                    className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
-                    placeholder="00000-000"
-                  />
-                  <div className="mt-1 text-[11px] text-slate-400">{cepBusy ? "Consultando CEP…" : cepHint || ""}</div>
-                </Field>
-
-                <Field label="UF">
-                  <input
-                    value={stateUF}
-                    onChange={(e) => setStateUF(e.target.value.toUpperCase())}
-                    type="text"
-                    autoComplete="address-level1"
-                    className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
-                    placeholder="SP"
-                    maxLength={2}
-                  />
-                </Field>
-              </div>
-
-              <div className="mt-3">
-                <Field label="Cidade">
-                  <input
-                    value={city}
-                    onChange={(e) => setCity(e.target.value)}
-                    type="text"
-                    autoComplete="address-level2"
-                    className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
-                    placeholder="Cidade"
-                  />
-                </Field>
-              </div>
-
-              <div className="mt-3">
-                <Field label="Bairro">
-                  <input
-                    value={neighborhood}
-                    onChange={(e) => setNeighborhood(e.target.value)}
-                    type="text"
-                    autoComplete="address-level3"
-                    className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
-                    placeholder="Bairro"
-                  />
-                </Field>
-              </div>
-
-              <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="sm:col-span-2">
-                  <Field label="Rua">
-                    <input
-                      value={street}
-                      onChange={(e) => setStreet(e.target.value)}
-                      type="text"
-                      autoComplete="address-line1"
-                      className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
-                      placeholder="Rua Exemplo"
-                    />
-                  </Field>
+            <div className="rounded-2xl bg-gradient-to-br from-indigo-500/15 via-fuchsia-500/10 to-teal-400/10 ring-1 ring-white/10 p-4">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                <div className="h-20 w-20 rounded-2xl ring-2 ring-white/15 bg-slate-800 overflow-hidden grid place-items-center">
+                  {avatarPreview ? <img src={avatarPreview} alt="Foto de perfil" className="h-full w-full object-cover" /> : <span className="material-icons text-4xl text-slate-300">account_circle</span>}
                 </div>
-
-                <Field label="Número">
-                  <input
-                    value={number}
-                    onChange={(e) => setNumber(e.target.value)}
-                    type="text"
-                    inputMode="numeric"
-                    autoComplete="address-line2"
-                    className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
-                    placeholder="123"
-                  />
-                </Field>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs uppercase tracking-wide text-slate-300/80">Minha conta</p>
+                  <p className="text-lg font-bold text-white truncate">{fullName || user.email || "Cliente Cubo"}</p>
+                  <p className="text-sm text-slate-300 break-all">{user.email}</p>
+                  {avatarFileName ? <p className="text-xs text-slate-400 mt-1">Foto selecionada: {avatarFileName}</p> : null}
+                </div>
               </div>
-
-              <div className="mt-3">
-                <Field label="Complemento (opcional)">
-                  <input
-                    value={addr2}
-                    onChange={(e) => setAddr2(e.target.value)}
-                    type="text"
-                    autoComplete="address-line2"
-                    className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
-                    placeholder="Apartamento, bloco, etc"
-                  />
-                </Field>
+              <div className="mt-4 grid grid-cols-2 gap-2 sm:w-fit">
+                <button type="button" onClick={() => setActiveTab("profile")} className={`rounded-xl px-4 py-2 text-sm font-semibold ring-1 transition ${activeTab === "profile" ? "bg-white/15 ring-white/20" : "bg-black/20 ring-white/10 hover:bg-white/5"}`}>Perfil</button>
+                <button type="button" onClick={() => setActiveTab("settings")} className={`rounded-xl px-4 py-2 text-sm font-semibold ring-1 transition ${activeTab === "settings" ? "bg-white/15 ring-white/20" : "bg-black/20 ring-white/10 hover:bg-white/5"}`}>Configurações</button>
               </div>
             </div>
 
-            {error ? (
-              <p className="text-sm text-red-300 bg-red-500/10 ring-1 ring-red-500/30 rounded-xl px-4 py-3">{error}</p>
-            ) : null}
-            {ok ? (
-              <p className="text-sm text-emerald-200 bg-emerald-500/10 ring-1 ring-emerald-500/30 rounded-xl px-4 py-3">{ok}</p>
-            ) : null}
+            {activeTab === "profile" ? (
+              <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-100">Perfil</p>
+                    <p className="mt-1 text-xs text-slate-400">Atualize seus dados de cadastro, entrega e foto de perfil.</p>
+                  </div>
+                  <label className="inline-flex items-center gap-2 rounded-xl px-3 py-2 bg-white/10 ring-1 ring-white/10 hover:bg-white/15 cursor-pointer text-sm">
+                    <span className="material-icons text-base">photo_camera</span>
+                    <span>Alterar foto</span>
+                    <input type="file" accept="image/*" className="hidden" onChange={handleAvatarFile} />
+                  </label>
+                </div>
+
+                <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Field label="Nome completo"><input value={fullName} onChange={(e)=>setFullName(e.target.value)} type="text" autoComplete="name" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="Seu nome" /></Field>
+                  <Field label="Telefone (WhatsApp)"><input value={phone} onChange={(e)=>setPhone(e.target.value)} type="tel" autoComplete="tel" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="(11) 99999-9999" /></Field>
+                  <Field label="CPF (obrigatório para comprar)"><input value={cpf} onChange={(e)=>setCpf(e.target.value)} type="text" inputMode="numeric" autoComplete="off" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="000.000.000-00" /></Field>
+                  <Field label="Data de nascimento (obrigatório para comprar)"><input value={birthdate} onChange={(e)=>setBirthdate(e.target.value)} type="date" autoComplete="bday" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" /></Field>
+                </div>
+
+                <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Field label="CEP">
+                    <input value={zip} onChange={(e)=>setZip(e.target.value)} type="text" autoComplete="postal-code" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="00000-000" />
+                    <div className="mt-1 text-[11px] text-slate-400">{cepBusy ? "Consultando CEP…" : cepHint || ""}</div>
+                  </Field>
+                  <Field label="UF"><input value={stateUF} onChange={(e)=>setStateUF(e.target.value.toUpperCase())} type="text" autoComplete="address-level1" maxLength={2} className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="SP" /></Field>
+                </div>
+
+                <div className="mt-3"><Field label="Cidade"><input value={city} onChange={(e)=>setCity(e.target.value)} type="text" autoComplete="address-level2" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="Cidade" /></Field></div>
+                <div className="mt-3"><Field label="Bairro"><input value={neighborhood} onChange={(e)=>setNeighborhood(e.target.value)} type="text" autoComplete="address-level3" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="Bairro" /></Field></div>
+                <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="sm:col-span-2"><Field label="Rua"><input value={street} onChange={(e)=>setStreet(e.target.value)} type="text" autoComplete="address-line1" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="Rua Exemplo" /></Field></div>
+                  <Field label="Número"><input value={number} onChange={(e)=>setNumber(e.target.value)} type="text" inputMode="numeric" autoComplete="address-line2" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="123" /></Field>
+                </div>
+                <div className="mt-3"><Field label="Complemento (opcional)"><input value={addr2} onChange={(e)=>setAddr2(e.target.value)} type="text" autoComplete="address-line2" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="Apartamento, bloco, etc" /></Field></div>
+              </div>
+            ) : (
+              <>
+                <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
+                  <p className="text-sm font-semibold text-slate-100">Segurança da conta</p>
+                  <p className="mt-1 text-xs text-slate-400">Troque sua senha aqui. Se necessário, você também pode receber o link por e-mail.</p>
+                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <Field label="Nova senha"><input value={newPassword} onChange={(e)=>setNewPassword(e.target.value)} type="password" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="Mínimo 6 caracteres" /></Field>
+                    <Field label="Confirmar nova senha"><input value={newPassword2} onChange={(e)=>setNewPassword2(e.target.value)} type="password" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="Repita a senha" /></Field>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button onClick={savePassword} disabled={pwdBusy} className={`rounded-xl px-4 py-2 font-semibold ring-1 ring-white/10 ${pwdBusy ? "bg-slate-700/50 text-slate-300" : "bg-indigo-400 hover:bg-indigo-300 text-black"}`}>{pwdBusy ? "Atualizando…" : "Trocar senha"}</button>
+                    <button onClick={async()=>{ try { setError(""); setOk(""); await resetPassword({ email: String(user.email || "") }); setOk("Enviamos um link de recuperação para seu e-mail ✅"); } catch (e) { setError(e?.message || "Não foi possível enviar o link."); } }} className="rounded-xl px-4 py-2 ring-1 ring-white/10 hover:bg-white/5">Enviar link por e-mail</button>
+                  </div>
+                </div>
+                <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
+                  <p className="text-sm font-semibold text-slate-100">Sessão</p>
+                  <p className="mt-1 text-xs text-slate-400">O botão sair agora fica dentro de Configurações.</p>
+                  <div className="mt-3">
+                    <button onClick={() => onSignOut?.()} className="rounded-xl px-4 py-2 bg-rose-500/15 text-rose-200 ring-1 ring-rose-400/30 hover:bg-rose-500/20">Sair da conta</button>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {error ? <p className="text-sm text-red-300 bg-red-500/10 ring-1 ring-red-500/30 rounded-xl px-4 py-3">{error}</p> : null}
+            {ok ? <p className="text-sm text-emerald-200 bg-emerald-500/10 ring-1 ring-emerald-500/30 rounded-xl px-4 py-3">{ok}</p> : null}
 
             <div className="flex items-center justify-end gap-2">
-              <button onClick={onClose} className="rounded-xl px-4 py-3 ring-1 ring-white/10 hover:bg-white/5">
-                Fechar
-              </button>
-              <button
-                onClick={save}
-                disabled={saving || loading}
-                className={`rounded-xl px-4 py-3 font-semibold ring-1 ring-white/10 transition ${
-                  saving || loading
-                    ? "bg-slate-700/50 text-slate-300 cursor-not-allowed"
-                    : "bg-emerald-400 hover:bg-emerald-300 text-black"
-                }`}
-              >
-                {saving ? "Salvando…" : "Salvar"}
-              </button>
+              {!required && <button onClick={onClose} className="rounded-xl px-4 py-3 ring-1 ring-white/10 hover:bg-white/5">Fechar</button>}
+              {activeTab === "profile" ? (
+                <button onClick={save} disabled={saving || loading} className={`rounded-xl px-4 py-3 font-semibold ring-1 ring-white/10 transition ${saving || loading ? "bg-slate-700/50 text-slate-300 cursor-not-allowed" : "bg-emerald-400 hover:bg-emerald-300 text-black"}`}>
+                  {saving ? "Salvando…" : "Salvar perfil"}
+                </button>
+              ) : null}
             </div>
           </div>
         )}
