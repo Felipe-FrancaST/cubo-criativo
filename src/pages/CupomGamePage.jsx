@@ -47,6 +47,7 @@ export default function CupomGamePage({ onGoHome, accessToken }) {
   const [startAt, setStartAt] = React.useState(null);
   const [finished, setFinished] = React.useState(false);
   const [resultMsg, setResultMsg] = React.useState('');
+  const [copyCouponMsg, setCopyCouponMsg] = React.useState('');
   const [nowMs, setNowMs] = React.useState(Date.now());
 
   async function loadStatus() {
@@ -113,7 +114,6 @@ export default function CupomGamePage({ onGoHome, accessToken }) {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || 'Erro ao salvar resultado');
       if (data?.coupon?.code) {
-        try { window.localStorage.setItem('cc_coupon_last', data.coupon.code); } catch {}
         const extra = data?.coupon?.label?.includes('20%') ? ' 🎉 Cupom especial perfeito!' : '';
         setResultMsg(`Parabéns! Seu cupom: ${data.coupon.code}${extra}`);
         trackEvent('memory_game_win', { coupon_code: data.coupon.code, attempts: payload.attempts, errors: payload.errors });
@@ -139,6 +139,19 @@ export default function CupomGamePage({ onGoHome, accessToken }) {
   const resetAt = nextWeeklyResetUTC(new Date(nowMs));
   const countdownText = formatCountdown(resetAt.getTime() - nowMs);
 
+  async function copyCouponCode(code) {
+    if (!code) return;
+    try {
+      await navigator.clipboard.writeText(String(code));
+      setCopyCouponMsg('Cupom copiado!');
+    } catch {
+      setCopyCouponMsg('Não foi possível copiar automaticamente.');
+    } finally {
+      window.clearTimeout(copyCouponCode._t);
+      copyCouponCode._t = window.setTimeout(() => setCopyCouponMsg(''), 2200);
+    }
+  }
+
   return (
     <main className="flex-1">
       <section className="mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8" style={{ maxWidth: 'var(--container-max, 1200px)' }}>
@@ -163,7 +176,17 @@ export default function CupomGamePage({ onGoHome, accessToken }) {
               </div>
               {status.coupon?.code ? (
                 <div className="mt-3 rounded-xl px-3 py-2 bg-black/20 ring-1 ring-emerald-300/20 text-sm text-emerald-100">
-                  Seu cupom gerado: <b>{status.coupon.code}</b>
+                  <div className="flex items-center justify-between gap-2">
+                    <span>Seu cupom gerado: <b>{status.coupon.code}</b></span>
+                    <button
+                      type="button"
+                      onClick={() => copyCouponCode(status.coupon.code)}
+                      className="shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-emerald-400/15 ring-1 ring-emerald-300/30 hover:bg-emerald-400/20"
+                    >
+                      Copiar
+                    </button>
+                  </div>
+                  {copyCouponMsg ? <p className="mt-2 text-xs text-emerald-200/90">{copyCouponMsg}</p> : null}
                 </div>
               ) : null}
             </div>

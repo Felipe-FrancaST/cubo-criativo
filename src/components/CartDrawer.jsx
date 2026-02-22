@@ -48,7 +48,7 @@ export default function CartDrawer({
   const [pixNotice, setPixNotice] = React.useState(null); // { type, message }
   const [copyToast, setCopyToast] = React.useState(null); // { type: 'success'|'error', message: string }
   const copyToastTimer = React.useRef(null);
-  const [couponCode, setCouponCode] = React.useState(() => (typeof window !== 'undefined' ? window.localStorage.getItem('cc_coupon_last') || '' : ''));
+  const [couponCode, setCouponCode] = React.useState('');
   const [couponInfo, setCouponInfo] = React.useState(null);
   const [couponLoading, setCouponLoading] = React.useState(false);
   const [couponMsg, setCouponMsg] = React.useState('');
@@ -142,7 +142,6 @@ export default function CartDrawer({
       if (!res.ok) throw new Error(data?.error || 'Cupom inválido');
       setCouponInfo({ code, discount: Number(data.discount || 0), final_total: Number(data.final_total || subtotal), label: data.label || data?.coupon?.label || code });
       setCouponCode(code);
-      try { window.localStorage.setItem('cc_coupon_last', code); } catch {}
       if (!opts.silent) setCouponMsg('Cupom aplicado!');
     } catch (e) {
       const msg = String(e?.message || e);
@@ -420,11 +419,6 @@ export default function CartDrawer({
               </div>
             )}
             {couponMsg && <div className="text-xs text-slate-300">{couponMsg}</div>}
-            {!canCheckout && (
-              <div className="text-xs text-amber-200 rounded-lg bg-amber-500/10 ring-1 ring-amber-400/20 p-2">
-                Defina os preços dos produtos para aplicar cupom e pagar.
-              </div>
-            )}
           </div>
 
           {couponInfo && canCheckout && (

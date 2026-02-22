@@ -331,8 +331,7 @@ export default function ProfileSettingsModal({ open, onClose, required = false, 
                 </div>
                 <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
                   <p className="text-sm font-semibold text-slate-100">Sessão</p>
-                  <p className="mt-1 text-xs text-slate-400">O botão sair agora fica dentro de Configurações.</p>
-                  <div className="mt-3">
+                                    <div className="mt-3">
                     <button onClick={() => onSignOut?.()} className="rounded-xl px-4 py-2 bg-rose-500/15 text-rose-200 ring-1 ring-rose-400/30 hover:bg-rose-500/20">Sair da conta</button>
                   </div>
                 </div>
