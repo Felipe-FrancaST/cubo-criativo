@@ -157,7 +157,7 @@ export default async function handler(req, res) {
     }
 
     finalAmount = Number(Number(finalAmount).toFixed(2));
-    if (Number.isFinite(requestedAmount) && requestedAmount > 0 && Math.abs(Number(requestedAmount.toFixed(2)) - finalAmount) > 0.01) {
+    if (!couponCode && Number.isFinite(requestedAmount) && requestedAmount > 0 && Math.abs(Number(requestedAmount.toFixed(2)) - finalAmount) > 0.05) {
       return res.status(400).json({ error: "O carrinho foi alterado. Revise os valores e tente novamente." });
     }
     if (!Number.isFinite(finalAmount) || finalAmount <= 0) {

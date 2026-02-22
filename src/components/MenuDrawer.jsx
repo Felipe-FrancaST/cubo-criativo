@@ -145,16 +145,6 @@ export default function MenuDrawer({
                 </DrawerButton>
               ) : null}
               <DrawerButton
-                icon="person"
-                right="chevron_right"
-                onClick={() => {
-                  onOpenSettings?.('profile');
-                  onClose?.();
-                }}
-              >
-                Perfil
-              </DrawerButton>
-              <DrawerButton
                 icon="settings"
                 right="chevron_right"
                 onClick={() => {

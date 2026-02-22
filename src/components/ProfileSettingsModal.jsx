@@ -38,6 +38,7 @@ export default function ProfileSettingsModal({ open, onClose, required = false, 
 
   const [avatarPreview, setAvatarPreview] = React.useState("");
   const [avatarFileName, setAvatarFileName] = React.useState("");
+  const [avatarFile, setAvatarFile] = React.useState(null);
   const [newPassword, setNewPassword] = React.useState("");
   const [newPassword2, setNewPassword2] = React.useState("");
   const [pwdBusy, setPwdBusy] = React.useState(false);
@@ -67,13 +68,7 @@ export default function ProfileSettingsModal({ open, onClose, required = false, 
 
   React.useEffect(() => {
     if (!open || !user) return;
-    try {
-      const local = window.localStorage.getItem(`cc_avatar_${user.id}`) || "";
-      const meta = String(user?.user_metadata?.avatar_url || "");
-      setAvatarPreview(local || meta || "");
-    } catch {
-      setAvatarPreview(String(user?.user_metadata?.avatar_url || ""));
-    }
+    setAvatarPreview(String(user?.user_metadata?.avatar_url || ""));
   }, [open, user]);
 
   const loadProfile = React.useCallback(async () => {
@@ -154,9 +149,27 @@ export default function ProfileSettingsModal({ open, onClose, required = false, 
       const dataUrl = String(reader.result || "");
       setAvatarPreview(dataUrl);
       setAvatarFileName(file.name || "foto");
-      try { if (user?.id) window.localStorage.setItem(`cc_avatar_${user.id}`, dataUrl); } catch {}
+      setAvatarFile(file)
     };
     reader.readAsDataURL(file);
+  }
+
+
+  async function uploadAvatarIfNeeded() {
+    if (!user || !avatarFile) return String(avatarPreview || user?.user_metadata?.avatar_url || '');
+    const ext = (avatarFile.name || 'jpg').split('.').pop() || 'jpg';
+    const path = `${user.id}/avatar-${Date.now()}.${ext}`;
+    const { error: upErr } = await supabase.storage.from('avatars').upload(path, avatarFile, { upsert: true, cacheControl: '3600' });
+    if (upErr) throw upErr;
+    const { data } = supabase.storage.from('avatars').getPublicUrl(path);
+    const publicUrl = String(data?.publicUrl || '');
+    if (publicUrl) {
+      const { error: metaErr } = await supabase.auth.updateUser({ data: { avatar_url: publicUrl } });
+      if (metaErr) throw metaErr;
+      setAvatarPreview(publicUrl);
+      setAvatarFile(null);
+    }
+    return publicUrl;
   }
 
   async function savePassword() {
@@ -200,6 +213,9 @@ export default function ProfileSettingsModal({ open, onClose, required = false, 
     if (!street.trim()) return fail("Informe a rua.");
     if (!number.trim()) return fail("Informe o número.");
 
+    let avatarUrl = '';
+    try { avatarUrl = await uploadAvatarIfNeeded(); } catch (e) { return fail(`Não foi possível salvar a foto de perfil: ${e?.message || e}`); }
+
     const payload = {
       id: user.id,
       full_name: fullName.trim(),
@@ -213,6 +229,7 @@ export default function ProfileSettingsModal({ open, onClose, required = false, 
       city: city.trim(),
       state: stateUF.trim().toUpperCase(),
       zip: onlyDigits(zip),
+      avatar_url: avatarUrl || undefined,
     };
     Object.keys(payload).forEach((k) => { if (payload[k] === "") delete payload[k]; });
     payload.id = user.id;

@@ -140,9 +140,7 @@ export default function HomePage({
                     <div className="text-xs sm:text-sm text-slate-100 font-semibold drop-shadow">
                       Toque para ver todas as promoções
                     </div>
-                    <div className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 bg-amber-400 text-black text-xs sm:text-sm font-extrabold ring-4 ring-amber-400/25 shadow">
-                      Ver promoções <span className="material-icons text-[16px]">chevron_right</span>
-                    </div>
+
                   </div>
                 </div>
               </div>

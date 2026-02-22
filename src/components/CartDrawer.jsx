@@ -261,8 +261,15 @@ export default function CartDrawer({
         }),
       });
 
-      if (!res.ok) throw new Error(await res.text());
-      const data = await res.json();
+      const rawText = await res.text();
+      let parsedResp = {};
+      try { parsedResp = JSON.parse(rawText || '{}'); } catch {}
+      if (!res.ok) {
+        const errMsg = parsedResp?.error?.message || parsedResp?.error || parsedResp?.message || rawText || 'Erro ao gerar Pix';
+        if (/cpf|perfil/i.test(String(errMsg))) onRequireProfile?.();
+        throw new Error(typeof errMsg === 'string' ? errMsg : JSON.stringify(errMsg));
+      }
+      const data = parsedResp && Object.keys(parsedResp).length ? parsedResp : JSON.parse(rawText || '{}');
 
       if (!data?.qr_code && !data?.qr_code_base64) {
         throw new Error("Pix gerado, mas sem QR Code retornado.");
@@ -281,9 +288,7 @@ export default function CartDrawer({
       if (typeof msg === "string" && msg.includes("transaction_amount must be positive")) {
         msg = "Esse cupom deixou o valor do pedido inválido para Pix. Ajuste o cupom ou adicione mais itens.";
       }
-      if (typeof msg === "string" && /cpf|perfil/i.test(msg)) {
-        onRequireProfile?.();
-      }
+      if (typeof msg === "string" && /cpf|perfil/i.test(msg)) onRequireProfile?.();
       showPixNotice(msg, "error", 5200);
     } finally {
       setPixLoading(false);

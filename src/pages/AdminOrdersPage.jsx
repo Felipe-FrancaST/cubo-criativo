@@ -105,20 +105,37 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome }) {
 
   async function updateOrder(orderId, patch) {
     try {
+      const finalPatch = { ...patch };
+      if (Object.prototype.hasOwnProperty.call(finalPatch, 'production_status')) {
+        const nextStatus = String(finalPatch.production_status || '').toLowerCase();
+        if (nextStatus === 'em_producao' && !finalPatch.production_eta) {
+          const eta = window.prompt('Estimativa de produção (ex: 3 a 5 dias úteis):', '3 a 7 dias úteis');
+          if (eta === null) return;
+          finalPatch.production_eta = String(eta || '').trim();
+        }
+        if (nextStatus === 'enviado' && !finalPatch.shipping_tracking) {
+          const tr = window.prompt('Código de rastreio (opcional):', '');
+          if (tr !== null && String(tr).trim()) finalPatch.shipping_tracking = String(tr).trim();
+        }
+        if (nextStatus === 'cancelado' && !finalPatch.cancelled_by) {
+          finalPatch.cancelled_by = 'admin';
+        }
+      }
+
       const resp = await fetch("/api/admin/update-order", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${accessToken}`,
         },
-        body: JSON.stringify({ order_id: orderId, ...patch }),
+        body: JSON.stringify({ order_id: orderId, ...finalPatch }),
       });
       const data = await resp.json().catch(() => ({}));
       if (!resp.ok) throw new Error(data?.error || "Não foi possível atualizar.");
       showToast("✅ Atualizado!");
       // atualiza localmente
       setOrders((prev) =>
-        prev.map((o) => (o.id === orderId ? { ...o, ...patch } : o))
+        prev.map((o) => (o.id === orderId ? { ...o, ...finalPatch } : o))
       );
     } catch (e) {
       showToast(`⚠️ ${e?.message || "Falha"}`);
@@ -147,6 +164,18 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome }) {
         return id.includes(query) || email.includes(query) || name.includes(query) || phone.includes(query) || tracking.includes(query);
       });
   }, [orders, q, filterPay, filterProd]);
+
+
+
+  const metrics = React.useMemo(() => {
+    const list = filtered || [];
+    return {
+      total: list.length,
+      pendentes: list.filter(o => String(o.status||'').toLowerCase() !== 'paid').length,
+      producao: list.filter(o => String(o.production_status||'recebido').toLowerCase() === 'em_producao').length,
+      enviados: list.filter(o => String(o.production_status||'recebido').toLowerCase() === 'enviado').length,
+    };
+  }, [filtered]);
 
   if (!user) {
     return (
@@ -210,7 +239,21 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome }) {
             </div>
           </div>
 
-          <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-3">
+          <div className="mt-6 grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {[
+              ['Pedidos', metrics.total],
+              ['Pendentes', metrics.pendentes],
+              ['Em produção', metrics.producao],
+              ['Enviados', metrics.enviados],
+            ].map(([label, value]) => (
+              <div key={label} className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
+                <div className="text-xs text-slate-400">{label}</div>
+                <div className="mt-1 text-2xl font-extrabold">{value}</div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-3">
             <div className="md:col-span-2">
               <div className="relative">
                 <span className="material-icons absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[20px]">search</span>

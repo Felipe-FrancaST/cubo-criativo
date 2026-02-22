@@ -1,6 +1,17 @@
 // api/cancel-order.js
 import { getUserFromAuthHeader, supabaseAdmin } from "../server/supabase.js";
 
+async function sendResendEmail({to,subject,html}){
+  const apiKey=String(process.env.RESEND_API_KEY||"" ).trim(); const from=String(process.env.RESEND_FROM||"" ).trim();
+  if(!apiKey||!from||!to) return;
+  try { await fetch("https://api.resend.com/emails",{method:"POST",headers:{Authorization:`Bearer ${apiKey}`,"Content-Type":"application/json"},body:JSON.stringify({from,to:[to],subject,html})}); } catch {}
+}
+function cancelEmailHtml(kind,id){
+  const title = kind==="customer" ? "Você cancelou seu pedido" : "Pedido cancelado pela loja";
+  const msg = kind==="customer" ? "Recebemos sua solicitação de cancelamento. Se houver pagamento, o reembolso será processado." : "A loja cancelou o seu pedido. Se houve pagamento, o reembolso será processado.";
+  return `<!doctype html><html><body style=\"margin:0;background:#0b1020;color:#e2e8f0;font-family:Arial,sans-serif\"><div style=\"max-width:620px;margin:24px auto;padding:20px;border-radius:16px;background:#111827;border:1px solid rgba(255,255,255,.08)\"><h2>${title}</h2><p style=\"color:#cbd5e1\">${msg}</p><p style=\"color:#94a3b8\">Pedido #${String(id||'').slice(0,8)}</p></div></body></html>`;
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
@@ -25,7 +36,7 @@ export default async function handler(req, res) {
 
     const attemptNew = await sb
       .from("orders")
-      .select("id, user_id, status, production_status, refund_requested, refund_requested_at")
+      .select("id, user_id, status, production_status, customer_email, refund_requested, refund_requested_at")
       .eq("id", orderId)
       .maybeSingle();
 
@@ -35,7 +46,7 @@ export default async function handler(req, res) {
     if (ordErr && /refund_requested/i.test(String(ordErr.message || ""))) {
       const attemptOld = await sb
         .from("orders")
-        .select("id, user_id, status, production_status")
+        .select("id, user_id, status, production_status, customer_email")
         .eq("id", orderId)
         .maybeSingle();
       order = attemptOld?.data || null;
@@ -91,6 +102,7 @@ export default async function handler(req, res) {
           return res.status(500).json({ error: mark.error.message || "DB error" });
         }
       }
+      await sendResendEmail({ to: order.customer_email, subject: `Cancelamento recebido — Pedido ${String(orderId).slice(0,8)}`, html: cancelEmailHtml("customer", orderId) });
       return res.status(200).json({ ok: true, order: { ...order, refund_requested: true }, refund_mode: refundMode || "info" });
     }
 
@@ -141,6 +153,7 @@ export default async function handler(req, res) {
 
     if (upErr) return res.status(500).json({ error: upErr.message || "Não foi possível cancelar." });
 
+    await sendResendEmail({ to: order.customer_email, subject: `Pedido cancelado — ${String(orderId).slice(0,8)}`, html: cancelEmailHtml("customer", orderId) });
     return res.status(200).json({ ok: true, order: updated, refund_mode: refundMode });
   } catch (e) {
     console.error(e);
