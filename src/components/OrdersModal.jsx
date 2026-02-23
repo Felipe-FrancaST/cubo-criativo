@@ -26,6 +26,12 @@ function copyToClipboard(text) {
   }
 }
 
+function productOrderItemHref(it) {
+  const key = String(it?.product_id || "").trim();
+  if (!key) return "#/catalogo";
+  return `#/catalogo?produto=${encodeURIComponent(key)}`;
+}
+
 export default function OrdersModal({ open, onClose }) {
   const { user, session } = useAuth();
   const accessToken = session?.access_token || "";
@@ -411,8 +417,11 @@ export default function OrdersModal({ open, onClose }) {
         prev.map((o) => (o.id === order.id ? { ...o, production_status: data?.order?.production_status || "cancelado", status: data?.order?.status || o.status } : o))
       );
 
-      const successMsg =
-        mode === "full"
+      const paymentStatusBeforeCancel = String(order?.status || "").toLowerCase();
+      const hasPaidBeforeCancel = paymentStatusBeforeCancel === "paid";
+      const successMsg = !hasPaidBeforeCancel
+        ? "Pedido cancelado."
+        : mode === "full"
           ? "Pedido cancelado. Seu reembolso será processado de forma integral."
           : mode === "partial30"
             ? "Pedido cancelado. Como o pedido já está pronto, o estorno será de 30% do valor."
@@ -741,7 +750,11 @@ export default function OrdersModal({ open, onClose }) {
     <ul className="divide-y divide-white/10">
       {o.order_items.map((it, idx) => (
         <li key={idx} className="flex items-center justify-between gap-3 px-3 py-3 hover:bg-white/[0.02]">
-          <div className="flex items-center gap-3 min-w-0">
+          <a
+            href={productOrderItemHref(it)}
+            className="flex items-center gap-3 min-w-0 rounded-lg hover:bg-white/5 px-1 py-1 -mx-1 -my-1"
+            title={it.name ? `Abrir ${it.name}` : "Abrir produto"}
+          >
             {it.img ? (
               <img
                 src={it.img}
@@ -755,12 +768,12 @@ export default function OrdersModal({ open, onClose }) {
               </div>
             )}
             <div className="min-w-0">
-              <p className="text-sm text-slate-200 truncate">{it.name || "Produto"}</p>
+              <p className="text-sm text-slate-200 truncate hover:text-emerald-200">{it.name || "Produto"}</p>
               {it.scale ? (
                 <p className="text-xs text-slate-400 truncate">Escala: {it.scale}</p>
               ) : null}
             </div>
-          </div>
+          </a>
 
           <p className="text-sm text-slate-300 shrink-0">{Number(it.qty) || 1}x</p>
         </li>

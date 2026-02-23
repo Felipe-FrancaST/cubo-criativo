@@ -163,6 +163,33 @@ export default async function handler(req, res) {
 
     if (upErr) return res.status(500).json({ error: upErr.message || "Não foi possível cancelar." });
 
+
+    // Se o pedido ainda não foi pago, devolve o cupom para novo uso (remove resgate e decrementa used_count)
+    try {
+      const payStatus = String(order.status || '').toLowerCase();
+      const unpaid = ['pending', 'failed', 'cancelled', 'canceled', 'rejected'].includes(payStatus);
+      if (unpaid) {
+        const { data: reds } = await sb
+          .from('coupon_redemptions')
+          .select('coupon_code')
+          .eq('order_id', orderId);
+
+        const couponCodes = Array.from(new Set((reds || []).map((r) => String(r?.coupon_code || '').trim()).filter(Boolean)));
+        if (couponCodes.length) {
+          const del = await sb.from('coupon_redemptions').delete().eq('order_id', orderId);
+          if (del?.error) console.error('coupon redemption rollback delete error', del.error);
+
+          for (const code of couponCodes) {
+            const { data: curr } = await sb.from('coupons').select('used_count').eq('code', code).maybeSingle();
+            const nextUsed = Math.max(0, (Number(curr?.used_count) || 0) - 1);
+            const upd = await sb.from('coupons').update({ used_count: nextUsed }).eq('code', code);
+            if (upd?.error) console.error('coupon use rollback update error', upd.error);
+          }
+        }
+      }
+    } catch (rollbackErr) {
+      console.error('coupon rollback on cancel error', rollbackErr);
+    }
     { const mail = buildCancelEmail('customer', { ...order, id: orderId }); await sendResendEmail({ to: order.customer_email, subject: mail.subject, html: mail.html }); }
     return res.status(200).json({ ok: true, order: updated, refund_mode: refundMode });
   } catch (e) {

@@ -209,6 +209,7 @@ export default function App() {
   // ===== Rotas (Hash router sem dependências) =====
   const [route, setRoute] = React.useState(() => (typeof window === "undefined" ? "/" : getRouteFromHash()));
   const pendingScroll = React.useRef(null);
+  const lastAutoOpenedProductRef = React.useRef("");
 
   React.useEffect(() => {
     if (!window.location.hash) window.location.hash = "#/";
@@ -694,6 +695,25 @@ React.useEffect(() => {
       alive = false;
     };
   }, []);
+
+
+  React.useEffect(() => {
+    if (route !== "/catalogo") return;
+    if (productsLoading || !Array.isArray(products) || products.length === 0) return;
+
+    const hash = typeof window !== "undefined" ? String(window.location.hash || "") : "";
+    const q = hash.includes("?") ? hash.split("?")[1] : "";
+    const productKey = new URLSearchParams(q).get("produto");
+    const key = String(productKey || "").trim();
+    if (!key) return;
+    if (lastAutoOpenedProductRef.current === key) return;
+
+    const found = products.find((p) => String(p.id || "") === key || String(p.slug || "") === key);
+    if (!found) return;
+
+    lastAutoOpenedProductRef.current = key;
+    openGallery(found);
+  }, [route, productsLoading, products]);
 
   const emEstoque = React.useMemo(
     () =>
