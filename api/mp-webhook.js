@@ -511,7 +511,21 @@ export default async function handler(req, res) {
 
     const customerEmailOk = isValidEmail(customerEmailRaw);
     const customerEmail = customerEmailOk ? customerEmailRaw : "";
-    const isVipOrder = String(order?.order_type || payment?.metadata?.order_type || "").toLowerCase() === "vip" || Boolean(order?.vip_plan_id || payment?.metadata?.vip_plan_id);
+    const orderTypeNorm = String(order?.order_type || payment?.metadata?.order_type || "").trim().toLowerCase();
+    const prodStatusNorm = String(order?.production_status || "").trim().toLowerCase();
+    const paymentDescNorm = String(payment?.description || "").trim().toLowerCase();
+    // Blindagem extra: pedido VIP pode chegar sem snapshot completo em alguns eventos do MP.
+    // Nesses casos, usamos múltiplos sinais para NÃO disparar email genérico de pedido confirmado ao cliente.
+    const isVipOrder = (
+      orderTypeNorm === "vip" ||
+      Boolean(String(order?.vip_plan_id || payment?.metadata?.vip_plan_id || "").trim()) ||
+      prodStatusNorm === "editavel" ||
+      paymentDescNorm.includes("assinatura cubo") ||
+      paymentDescNorm.includes("cubo level 1")
+    );
+    if (isVipOrder) {
+      try { console.log('[mp-webhook] VIP order detected, skipping generic customer confirmation email', { orderId, orderTypeNorm, prodStatusNorm }); } catch {}
+    }
     const customerName = String(order?.customer_name || profile?.full_name || "").trim();
     const customerPhone = String(order?.customer_phone || profile?.phone || "").trim();
 
