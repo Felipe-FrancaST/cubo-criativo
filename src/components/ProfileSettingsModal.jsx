@@ -27,6 +27,13 @@ export default function ProfileSettingsModal({ open, onClose, required = false, 
   const [phone, setPhone] = React.useState("");
   const [cpf, setCpf] = React.useState("");
   const [birthdate, setBirthdate] = React.useState("");
+  const [vipUntil, setVipUntil] = React.useState("");
+  const [vipPlan, setVipPlan] = React.useState("");
+
+  const [vipOptions, setVipOptions] = React.useState([]);
+  const [vipSelected, setVipSelected] = React.useState([]);
+  const [vipCycleKey, setVipCycleKey] = React.useState("");
+  const [vipBusy, setVipBusy] = React.useState(false);
 
   const [street, setStreet] = React.useState("");
   const [number, setNumber] = React.useState("");
@@ -94,6 +101,8 @@ export default function ProfileSettingsModal({ open, onClose, required = false, 
     setPhone(data?.phone || "");
     setCpf(data?.cpf || "");
     setBirthdate(data?.birthdate || "");
+    setVipUntil(data?.vip_until || "");
+    setVipPlan(data?.vip_plan || "");
     setStreet(data?.address_line1 || "");
     setNumber(data?.address_number || "");
     setAddr2(data?.address_line2 || "");
@@ -103,6 +112,80 @@ export default function ProfileSettingsModal({ open, onClose, required = false, 
     setZip(data?.zip || "");
     setLoading(false);
   }, [user, jwt]);
+
+  const isVip = React.useMemo(() => {
+    if (!vipUntil) return false;
+    const t = new Date(vipUntil).getTime();
+    return Number.isFinite(t) && t > Date.now();
+  }, [vipUntil]);
+
+  function cycleKeyUTC(date = new Date()) {
+    const y = date.getUTCFullYear();
+    const m = String(date.getUTCMonth() + 1).padStart(2, '0');
+    return `${y}-${m}`;
+  }
+
+  React.useEffect(() => {
+    if (!open || !user) return;
+    setVipCycleKey(cycleKeyUTC(new Date()));
+  }, [open, user]);
+
+  const loadVipData = React.useCallback(async () => {
+    if (!open || !user || !isVip) return;
+    try {
+      setVipBusy(true);
+      const { data: opts, error: oErr } = await supabase
+        .from('vip_mini_options')
+        .select('id,title,description,image_url,active')
+        .eq('active', true)
+        .order('sort_order', { ascending: true });
+      if (oErr) throw oErr;
+      setVipOptions(opts || []);
+
+      const { data: sel, error: sErr } = await supabase
+        .from('vip_mini_selections')
+        .select('selected_option_ids')
+        .eq('user_id', user.id)
+        .eq('cycle_key', vipCycleKey || cycleKeyUTC(new Date()))
+        .maybeSingle();
+      if (sErr && sErr.code !== 'PGRST116') throw sErr;
+      const ids = Array.isArray(sel?.selected_option_ids) ? sel.selected_option_ids : [];
+      setVipSelected(ids);
+    } catch (e) {
+      console.error('loadVipData error', e);
+    } finally {
+      setVipBusy(false);
+    }
+  }, [open, user, isVip, vipCycleKey]);
+
+  React.useEffect(() => { loadVipData(); }, [loadVipData]);
+
+  async function saveVipSelection() {
+    if (!user || !isVip) return;
+    setError('');
+    setOk('');
+    if (vipSelected.length !== 3) {
+      setError('Escolha exatamente 3 miniaturas para o mês.');
+      return;
+    }
+    try {
+      setVipBusy(true);
+      const payload = {
+        user_id: user.id,
+        cycle_key: vipCycleKey || cycleKeyUTC(new Date()),
+        selected_option_ids: vipSelected,
+      };
+      const { error: upErr } = await supabase
+        .from('vip_mini_selections')
+        .upsert(payload, { onConflict: 'user_id,cycle_key' });
+      if (upErr) throw upErr;
+      setOk('Escolhas VIP salvas ✅');
+    } catch (e) {
+      setError(e?.message || 'Não foi possível salvar suas escolhas VIP.');
+    } finally {
+      setVipBusy(false);
+    }
+  }
 
   React.useEffect(() => {
     if (!open || !user) return;
@@ -314,6 +397,85 @@ export default function ProfileSettingsModal({ open, onClose, required = false, 
                   <Field label="Número"><input value={number} onChange={(e)=>setNumber(e.target.value)} type="text" inputMode="numeric" autoComplete="address-line2" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="123" /></Field>
                 </div>
                 <div className="mt-3"><Field label="Complemento (opcional)"><input value={addr2} onChange={(e)=>setAddr2(e.target.value)} type="text" autoComplete="address-line2" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="Apartamento, bloco, etc" /></Field></div>
+
+                <div className="mt-6 rounded-2xl bg-black/20 ring-1 ring-white/10 p-4">
+                  <div className="flex items-start justify-between gap-3 flex-wrap">
+                    <div>
+                      <p className="text-sm font-extrabold text-slate-100">Área VIP</p>
+                      <p className="mt-1 text-xs text-slate-400">Assinantes podem escolher as miniaturas do mês aqui.</p>
+                    </div>
+                    {isVip ? (
+                      <span className="inline-flex items-center gap-2 rounded-full bg-violet-500/15 ring-1 ring-violet-400/25 px-3 py-1 text-xs text-violet-100">
+                        <span className="material-icons text-base">stars</span>
+                        VIP ativo • expira em {new Date(vipUntil).toLocaleDateString('pt-BR')}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-2 rounded-full bg-white/10 ring-1 ring-white/10 px-3 py-1 text-xs text-slate-200">
+                        <span className="material-icons text-base">lock</span>
+                        Não-VIP
+                      </span>
+                    )}
+                  </div>
+
+                  {isVip ? (
+                    <>
+                      <div className="mt-4 flex items-center justify-between gap-3 flex-wrap">
+                        <div className="text-sm text-slate-200">
+                          <span className="text-slate-400">Plano:</span> <b>{vipPlan || 'Cubo Level 1 RPG'}</b>
+                          <span className="text-slate-500"> • </span>
+                          <span className="text-slate-400">Mês:</span> <b>{vipCycleKey}</b>
+                        </div>
+                        <div className="text-xs text-slate-400">Escolha 3 de {vipOptions.length || 6}</div>
+                      </div>
+
+                      <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        {(vipOptions || []).map((opt) => {
+                          const selected = vipSelected.includes(opt.id);
+                          return (
+                            <button
+                              key={opt.id}
+                              type="button"
+                              disabled={vipBusy}
+                              onClick={() => {
+                                setVipSelected((prev) => {
+                                  const has = prev.includes(opt.id);
+                                  if (has) return prev.filter((x) => x !== opt.id);
+                                  if (prev.length >= 3) return prev;
+                                  return [...prev, opt.id];
+                                });
+                              }}
+                              className={`text-left rounded-2xl p-3 ring-1 transition ${selected ? 'bg-violet-500/15 ring-violet-400/30' : 'bg-white/5 ring-white/10 hover:bg-white/10'} ${vipBusy ? 'opacity-70' : ''}`}
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                  <p className="text-sm font-bold truncate">{opt.title}</p>
+                                  {opt.description ? <p className="mt-1 text-xs text-slate-400 line-clamp-2">{opt.description}</p> : null}
+                                </div>
+                                {selected ? <span className="material-icons text-violet-200">check_circle</span> : <span className="material-icons text-slate-500">radio_button_unchecked</span>}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <div className="mt-4 flex items-center justify-between gap-3 flex-wrap">
+                        <div className="text-sm text-slate-300">Selecionadas: <b>{vipSelected.length}</b>/3</div>
+                        <button
+                          type="button"
+                          disabled={vipBusy || vipSelected.length !== 3}
+                          onClick={saveVipSelection}
+                          className={`rounded-xl px-4 py-2 font-semibold ring-1 ring-white/10 ${vipBusy || vipSelected.length !== 3 ? 'bg-slate-700/40 text-slate-300 cursor-not-allowed' : 'bg-violet-300 text-black hover:bg-violet-200'}`}
+                        >
+                          {vipBusy ? 'Salvando…' : 'Salvar escolhas'}
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="mt-4 rounded-xl bg-white/5 ring-1 ring-white/10 p-3 text-sm text-slate-300">
+                      Para desbloquear, assine o <b>Cubo Level 1 RPG</b> na página do Clube VIP.
+                    </div>
+                  )}
+                </div>
               </div>
             ) : (
               <>

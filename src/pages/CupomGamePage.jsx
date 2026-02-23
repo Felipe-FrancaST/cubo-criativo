@@ -26,6 +26,13 @@ function nextWeeklyResetUTC(now = new Date()) {
   next.setUTCDate(next.getUTCDate() + daysUntilMonday);
   return next;
 }
+
+function nextDailyResetUTC(now = new Date()) {
+  const d = new Date(now);
+  const next = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 0, 0));
+  next.setUTCDate(next.getUTCDate() + 1);
+  return next;
+}
 function formatCountdown(ms) {
   const total = Math.max(0, Math.floor(ms / 1000));
   const days = Math.floor(total / 86400);
@@ -69,6 +76,10 @@ export default function CupomGamePage({ onGoHome, accessToken }) {
 
   React.useEffect(() => { loadStatus(); }, [accessToken]);
   React.useEffect(() => { const t = window.setInterval(() => setNowMs(Date.now()), 1000); return () => window.clearInterval(t); }, []);
+
+  const isVip = Boolean(status?.vip?.isVip);
+  const nextReset = isVip ? nextDailyResetUTC(new Date(nowMs)) : nextWeeklyResetUTC(new Date(nowMs));
+  const countdown = formatCountdown(nextReset.getTime() - nowMs);
 
   React.useEffect(() => {
     if (flipped.length !== 2) return;
@@ -136,8 +147,6 @@ export default function CupomGamePage({ onGoHome, accessToken }) {
   }
 
   const reveal = (idx) => flipped.includes(idx) || deck[idx]?.matched;
-  const resetAt = nextWeeklyResetUTC(new Date(nowMs));
-  const countdownText = formatCountdown(resetAt.getTime() - nowMs);
 
   async function copyCouponCode(code) {
     if (!code) return;
@@ -196,7 +205,7 @@ export default function CupomGamePage({ onGoHome, accessToken }) {
               <ul className="mt-3 space-y-2 text-sm text-slate-300">
                 <li>• Vire 2 cartas por vez e encontre os pares.</li>
                 <li>• Você pode errar no máximo <b>{MAX_ERRORS} vezes</b>.</li>
-                <li>• 1 partida por semana por conta.</li>
+                <li>• {isVip ? 'VIP: 1 partida por dia.' : '1 partida por semana por conta.'}</li>
                 <li>• O cupom gerado aparece aqui em cima e pode ser usado no carrinho.</li>
               </ul>
             </div>
@@ -213,7 +222,7 @@ export default function CupomGamePage({ onGoHome, accessToken }) {
                 </div>
               </div>
               <div className="flex justify-between gap-3"><span className="text-slate-400">Status</span><span className="text-right">{status.loading ? 'Carregando…' : status.can_play ? 'Pode jogar' : 'Já jogou esta semana'}</span></div>
-              <div className="flex justify-between gap-3"><span className="text-slate-400">Próxima rodada</span><span className="text-right font-medium">{countdownText}</span></div>
+              <div className="flex justify-between gap-3"><span className="text-slate-400">Próxima rodada</span><span className="text-right font-medium">{countdown}</span></div>
               {resultMsg ? <div className="rounded-xl bg-white/5 ring-1 ring-white/10 px-3 py-2 text-slate-100">{resultMsg}</div> : null}
               {status.error ? <div className="rounded-xl bg-rose-500/10 ring-1 ring-rose-400/20 px-3 py-2 text-rose-200">{status.error}</div> : null}
             </div>

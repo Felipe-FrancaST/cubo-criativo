@@ -147,16 +147,22 @@ export default async function handler(req, res) {
     }
 
     const body = safeBody(req);
+    const vipPlanId = String(body.vip_plan_id || '').trim();
     const items = Array.isArray(body.items) ? body.items : [];
     const couponCode = String(body.coupon_code || "").trim().toUpperCase();
-    if (items.length === 0) {
+    if (items.length === 0 && !vipPlanId) {
       return res.status(400).json({ error: "Carrinho vazio" });
     }
+
+    // Assinatura VIP: força item/preço e não aceita cupom
+    const effectiveItems = vipPlanId
+      ? [{ id: 'VIP_L1_RPG', name: 'Cubo Level 1 RPG (mensalidade)', qty: 1, price: 40, scale: '32mm', img: '' }]
+      : items;
 
     // Total no servidor
     let total = 0;
     const cleanItems = [];
-    for (const it of items) {
+    for (const it of effectiveItems) {
       const qty = Number(it.qty) || 0;
       const unit = Number(it.price) || 0;
       if (qty <= 0 || unit <= 0) continue;
@@ -178,7 +184,7 @@ export default async function handler(req, res) {
 
     let finalTotal = Number(total.toFixed(2));
     let couponApplied = null;
-    if (couponCode) {
+    if (couponCode && !vipPlanId) {
       const { data: coupon } = await sb.from("coupons").select("*").eq("code", couponCode).maybeSingle();
       if (!coupon) return res.status(400).json({ error: "Cupom não encontrado." });
       const cpfGate = await ensureCouponCpfAllowed(sb, { coupon, currentUser: user });
@@ -205,6 +211,8 @@ export default async function handler(req, res) {
       currency: "BRL",
       total: finalTotal,
       payment_provider: "mercadopago",
+      order_type: vipPlanId ? 'vip' : 'shop',
+      vip_plan_id: vipPlanId || null,
       customer_email: user.email || null,
     });
 
@@ -213,7 +221,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "Não foi possível criar o pedido." });
     }
 
-    const orderItems = items
+    const orderItems = effectiveItems
       .filter((it) => (Number(it.qty) || 0) > 0 && (Number(it.price) || 0) > 0)
       .map((it) => ({
         order_id: orderId,
@@ -257,10 +265,12 @@ export default async function handler(req, res) {
       metadata: {
         order_id: orderId,
         user_id: user.id,
+        order_type: vipPlanId ? 'vip' : 'shop',
+        vip_plan_id: vipPlanId || null,
         coupon_code: couponApplied?.code || null,
         coupon_discount: couponApplied?.discount || 0,
         items_json: JSON.stringify(
-          items.map((i) => ({
+          effectiveItems.map((i) => ({
             name: i.name || i.nome,
             qty: i.qty,
             price: i.price,

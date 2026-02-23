@@ -27,6 +27,7 @@ import PoliticaPrivacidadePage from "./pages/PoliticaPrivacidadePage.jsx";
 import TrocasPage from "./pages/TrocasPage.jsx";
 import TermosPage from "./pages/TermosPage.jsx";
 import CupomGamePage from "./pages/CupomGamePage.jsx";
+import VipRpgPage from "./pages/VipRpgPage.jsx";
 import { isAdminEmail } from "./lib/admin.js";
 import { applySeo, setJsonLd, clearJsonLd } from "./lib/seo.js";
 import { trackEvent } from "./lib/analytics.js";
@@ -231,6 +232,7 @@ export default function App() {
       "/trocas-e-devolucoes": { title: "Trocas e devoluções | Cubo Criativo", description: "Informações sobre trocas, devoluções e peças sob encomenda.", path: "/trocas-e-devolucoes" },
       "/termos": { title: "Termos de uso | Cubo Criativo", description: "Condições gerais de navegação e compra no site da Cubo Criativo.", path: "/termos" },
       "/cupom": { title: "Cubo Game | Cubo Criativo", description: "Jogue 1x por semana no Cubo Game e ganhe cupom para usar no carrinho.", path: "/cupom" },
+      "/vip": { title: "Cubo Level 1 RPG | Clube VIP", description: "Assine o Cubo Level 1 RPG: 3 miniaturas/mês e Cubo Game diário para VIPs.", path: "/vip" },
     };
     applySeo(seoByRoute[route] || seoByRoute["/"]);
     trackEvent("page_view", { route });
@@ -871,6 +873,9 @@ React.useEffect(() => {
     }
     if (route === "/cupom") {
       return <CupomGamePage onGoHome={() => navigate("/")} user={user} accessToken={accessToken} />;
+    }
+    if (route === "/vip") {
+      return <VipRpgPage user={user} accessToken={accessToken} onOpenAuth={() => setAuthOpen(true)} onOpenSettings={openSettings} onGoHome={() => navigate("/")} />;
     }
     if (route === "/conta") {
       return <AccountPage onGoHome={() => navigate("/")} />;

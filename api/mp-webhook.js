@@ -90,7 +90,7 @@ async function loadOrderSnapshot(sb, orderId) {
   const { data: order } = await sb
     .from("orders")
     .select(
-      "id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,production_status,shipping_tracking"
+      "id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,production_status,shipping_tracking,order_type,vip_plan_id"
     )
     .eq("id", orderId)
     .maybeSingle();
@@ -134,6 +134,46 @@ async function loadOrderSnapshot(sb, orderId) {
   }
 
   return { order, profile, items };
+}
+
+async function applyVipFromOrder(sb, { order, payment }) {
+  try {
+    if (!sb) return;
+    const orderType = String(order?.order_type || payment?.metadata?.order_type || '').trim();
+    if (orderType !== 'vip') return;
+    const userId = order?.user_id || payment?.metadata?.user_id;
+    if (!userId) return;
+    const planId = String(order?.vip_plan_id || payment?.metadata?.vip_plan_id || 'CUBO_L1_RPG').trim();
+
+    // Idempotência: não aplicar 2x o mesmo pagamento
+    const { data: existing } = await sb
+      .from('vip_subscriptions')
+      .select('id')
+      .eq('order_id', order.id)
+      .maybeSingle();
+    if (existing?.id) return;
+
+    const start = new Date();
+    const end = new Date(start.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const endIso = end.toISOString();
+
+    await sb.from('vip_subscriptions').insert({
+      user_id: userId,
+      plan_id: planId,
+      order_id: order.id,
+      starts_at: start.toISOString(),
+      ends_at: endIso,
+      status: 'active',
+    });
+
+    // Atualiza profile
+    const { data: prof } = await sb.from('profiles').select('vip_until').eq('id', userId).maybeSingle();
+    const currentUntil = prof?.vip_until ? new Date(prof.vip_until).getTime() : 0;
+    const nextUntil = Math.max(currentUntil, end.getTime());
+    await sb.from('profiles').update({ vip_until: new Date(nextUntil).toISOString(), vip_plan: 'Cubo Level 1 RPG' }).eq('id', userId);
+  } catch (e) {
+    console.error('applyVipFromOrder error', e);
+  }
 }
 
 function replyJson(res, code, payload) {
@@ -370,6 +410,11 @@ export default async function handler(req, res) {
     const { order, profile, items } = orderId && sb
       ? await loadOrderSnapshot(sb, orderId)
       : { order: null, profile: null, items: [] };
+
+    // Se for assinatura VIP, marca VIP no perfil (best-effort)
+    if (order && sb) {
+      await applyVipFromOrder(sb, { order, payment });
+    }
 
     // Idempotência: preferimos confiar no nosso banco.
     // Se o Mercado Pago já tiver metadata.email_sent=1, mas no banco ainda não há registro de envio,

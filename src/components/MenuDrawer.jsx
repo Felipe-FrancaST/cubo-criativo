@@ -86,6 +86,9 @@ export default function MenuDrawer({
           <DrawerButton icon="redeem" onClick={() => { onNavigate("/cupom"); onClose?.(); }}>
             Cubo Game
           </DrawerButton>
+          <DrawerButton icon="stars" onClick={() => { onNavigate("/vip"); onClose?.(); }}>
+            Clube VIP (RPG)
+          </DrawerButton>
           <DrawerButton icon="contact_support" onClick={() => { onNavigate("/contato"); onClose?.(); }}>
             Contato
           </DrawerButton>

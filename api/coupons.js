@@ -1,5 +1,5 @@
 import { getUserFromAuthHeader, supabaseAdmin } from '../server/supabase.js';
-import { getWeeklyRewardPlan, makeCouponCode, calcCouponDiscount } from '../server/couponGame.js';
+import { getGamePeriodInfo, makeCouponCode, calcCouponDiscount } from '../server/couponGame.js';
 
 function safeBody(req) {
   if (!req.body) return {};
@@ -46,17 +46,25 @@ async function ensureCouponCpfAllowed(sb, { coupon, currentUser }) {
   return { ok: true, currentCpf };
 }
 
+async function getVipInfo(sb, userId) {
+  const { data } = await sb.from('profiles').select('vip_until,vip_plan').eq('id', userId).maybeSingle();
+  const until = data?.vip_until ? new Date(data.vip_until) : null;
+  const isVip = Boolean(until && until.getTime() > Date.now());
+  return { isVip, vip_until: data?.vip_until || null, vip_plan: data?.vip_plan || null };
+}
+
 async function handleGameStatus(req, res) {
   const user = await getUserFromAuthHeader(req);
   if (!user) return res.status(401).json({ error: 'Faça login para jogar.' });
   const sb = supabaseAdmin();
-  const plan = getWeeklyRewardPlan();
+  const vip = await getVipInfo(sb, user.id);
+  const period = getGamePeriodInfo({ isVip: vip.isVip });
 
   const { data: session } = await sb
     .from('coupon_game_sessions')
-    .select('id, won, coupon_code, played_at, week_key')
+    .select('id, won, coupon_code, played_at, period_key, week_key')
     .eq('user_id', user.id)
-    .eq('week_key', plan.week_key)
+    .eq('period_key', period.period_key)
     .order('played_at', { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -75,7 +83,9 @@ async function handleGameStatus(req, res) {
     can_play: !session,
     played: !!session,
     session: session || null,
-    weekly_reward: plan,
+    weekly_reward: period.weekly_reward,
+    period_key: period.period_key,
+    vip,
     coupon,
   });
 }
@@ -89,17 +99,18 @@ async function handleGameComplete(req, res) {
   const score = Number(body.score || 0);
   const attempts = Number(body.attempts || 0);
   const duration_ms = Number(body.duration_ms || 0);
-  const plan = getWeeklyRewardPlan();
+  const vip = await getVipInfo(sb, user.id);
+  const period = getGamePeriodInfo({ isVip: vip.isVip });
 
   const { data: existing } = await sb
     .from('coupon_game_sessions')
     .select('id, coupon_code, won')
     .eq('user_id', user.id)
-    .eq('week_key', plan.week_key)
+    .eq('period_key', period.period_key)
     .maybeSingle();
 
   if (existing) {
-    return res.status(200).json({ already_played: true, session: existing, weekly_reward: plan });
+    return res.status(200).json({ already_played: true, session: existing, weekly_reward: period.weekly_reward, period_key: period.period_key, vip });
   }
 
   let couponRow = null;
@@ -108,7 +119,7 @@ async function handleGameComplete(req, res) {
     const perfectGame = score >= 1000;
     const reward = perfectGame
       ? { label: '20% OFF (Cubo Game Perfeito)', type: 'percent', percent_off: 20, min_order_value: 0 }
-      : plan;
+      : period.weekly_reward;
     for (let i = 0; i < 5; i++) {
       couponCode = makeCouponCode();
       const expires = new Date();
@@ -125,7 +136,7 @@ async function handleGameComplete(req, res) {
         max_uses: 1,
         used_count: 0,
         source: perfectGame ? 'memory_game_perfect' : 'memory_game',
-        week_key: plan.week_key,
+        week_key: period.week_key,
       }).select('*').maybeSingle();
       if (!ins.error && ins.data) { couponRow = ins.data; break; }
     }
@@ -134,21 +145,24 @@ async function handleGameComplete(req, res) {
 
   const { data: session, error: sessErr } = await sb.from('coupon_game_sessions').insert({
     user_id: user.id,
-    week_key: plan.week_key,
+    week_key: period.week_key,
+    period_key: period.period_key,
     won,
     score,
     attempts,
     duration_ms,
     coupon_code: couponCode,
-    reward_type: plan.type,
-    reward_label: plan.label,
+    reward_type: period.weekly_reward.type,
+    reward_label: period.weekly_reward.label,
   }).select('*').single();
   if (sessErr) throw sessErr;
 
   return res.status(200).json({
     ok: true,
     session,
-    weekly_reward: plan,
+    weekly_reward: period.weekly_reward,
+    period_key: period.period_key,
+    vip,
     coupon: couponRow ? {
       code: couponRow.code,
       label: couponRow.label,

@@ -21,6 +21,22 @@ export function getWeeklyRewardPlan(date = new Date()) {
   return { week_key: key, ...plans[idx] };
 }
 
+// VIP joga 1x por dia. Não-VIP joga 1x por semana.
+export function getGamePeriodInfo({ isVip }) {
+  const now = new Date();
+  const yyyy = now.getUTCFullYear();
+  const mm = String(now.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(now.getUTCDate()).padStart(2, '0');
+  const day_key = `${yyyy}-${mm}-${dd}`;
+  const weekly_reward = getWeeklyRewardPlan(now);
+  return {
+    weekly_reward,
+    week_key: weekly_reward.week_key,
+    day_key,
+    period_key: isVip ? `D:${day_key}` : `W:${weekly_reward.week_key}`,
+  };
+}
+
 export function makeCouponCode() {
   const rnd = crypto.randomBytes(3).toString('hex').toUpperCase();
   return `CUBO-${rnd}`;

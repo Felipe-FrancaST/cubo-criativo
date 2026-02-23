@@ -129,6 +129,7 @@ export default async function handler(req, res) {
       payerEmail = override || payerEmail || "test@testuser.com";
     }
 
+    const vipPlanId = String(body.vip_plan_id || '').trim();
     const items = Array.isArray(body.items) ? body.items : [];
     let subtotal = 0;
     for (const it of items) {
@@ -137,15 +138,26 @@ export default async function handler(req, res) {
       if (qty > 0 && price > 0) subtotal += qty * price;
     }
     subtotal = Number(subtotal.toFixed(2));
-    if (!Number.isFinite(subtotal) || subtotal <= 0) {
-      return res.status(400).json({ error: "Não foi possível calcular o valor do pedido. Atualize o carrinho e tente novamente." });
+
+    // Assinatura VIP pode vir sem itens no body; o servidor força o valor do plano.
+    if (!vipPlanId) {
+      if (!Number.isFinite(subtotal) || subtotal <= 0) {
+        return res.status(400).json({ error: "Não foi possível calcular o valor do pedido. Atualize o carrinho e tente novamente." });
+      }
     }
     // 1) Cria pedido no Supabase
     const sb = supabaseAdmin();
 
+    // Assinatura VIP: não aceita cupom e força o preço do plano
+    if (vipPlanId) {
+      // preço do plano Level 1 RPG (mensal)
+      const forced = 40;
+      subtotal = Number(forced.toFixed(2));
+    }
+
     let finalAmount = subtotal;
     let couponApplied = null;
-    if (couponCode) {
+    if (couponCode && !vipPlanId) {
       const { data: coupon } = await sb.from("coupons").select("*").eq("code", couponCode).maybeSingle();
       if (!coupon) return res.status(400).json({ error: "Cupom não encontrado." });
       const cpfGate = await ensureCouponCpfAllowed(sb, { coupon, currentUser: user });
@@ -173,6 +185,20 @@ export default async function handler(req, res) {
       .eq("id", user.id)
       .maybeSingle();
 
+    if (vipPlanId) {
+      // Para assinatura VIP, exigimos dados completos (mesmo padrão do cartão)
+      const { data: profFull } = await sb
+        .from('profiles')
+        .select('full_name, phone, cpf, birthdate, address_line1, address_number, neighborhood, city, state, zip')
+        .eq('id', user.id)
+        .maybeSingle();
+      const requiredFields = ['full_name','phone','cpf','birthdate','address_line1','address_number','neighborhood','city','state','zip'];
+      const missing = requiredFields.filter((k) => !String(profFull?.[k] || '').trim());
+      if (missing.length) {
+        return res.status(400).json({ error: 'Profile incomplete', code: 'profile_incomplete', missing });
+      }
+    }
+
     const { error: orderErr } = await sb.from("orders").insert({
       id: orderId,
       user_id: user.id,
@@ -180,6 +206,8 @@ export default async function handler(req, res) {
       currency: "BRL",
       total: finalAmount,
       payment_provider: "mercado_pago",
+      order_type: vipPlanId ? 'vip' : 'shop',
+      vip_plan_id: vipPlanId || null,
       // Sempre salva o email do usuário autenticado.
       customer_email: payerEmail,
       customer_name: prof?.full_name || null,
@@ -190,7 +218,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "Não foi possível criar o pedido." });
     }
 
-    const cleaned = items
+    const cleaned = (vipPlanId ? [{ name: 'Cubo Level 1 RPG (mensalidade)', qty: 1, price: 40, scale: '32mm', img: '' }] : items)
       .filter((it) => (Number(it.qty) || 0) > 0 && (Number(it.price) || 0) > 0)
       .map((it) => {
         const name = String(it.name || it.nome || "Item").trim();
@@ -257,7 +285,7 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         transaction_amount: finalAmount,
-        description: String(body.description || "Pagamento via Pix").slice(0, 120),
+        description: String(body.description || (vipPlanId ? 'Assinatura Cubo Level 1 RPG' : "Pagamento via Pix")).slice(0, 120),
         payment_method_id: "pix",
         payer: {
           email: payerEmail,
@@ -266,6 +294,8 @@ export default async function handler(req, res) {
         metadata: {
           order_id: orderId,
           user_id: user.id,
+          order_type: vipPlanId ? 'vip' : 'shop',
+          vip_plan_id: vipPlanId || null,
           coupon_code: couponApplied?.code || null,
           coupon_discount: couponApplied?.discount || 0,
           items_json: JSON.stringify(items).slice(0, 4500),
