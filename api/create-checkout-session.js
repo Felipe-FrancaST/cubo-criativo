@@ -211,6 +211,7 @@ export default async function handler(req, res) {
       currency: "BRL",
       total: finalTotal,
       payment_provider: "mercadopago",
+      production_status: vipPlanId ? 'editavel' : 'recebido',
       order_type: vipPlanId ? 'vip' : 'shop',
       vip_plan_id: vipPlanId || null,
       customer_email: user.email || null,

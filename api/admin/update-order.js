@@ -5,7 +5,7 @@ import { renderOrderStatusEmail } from "../../server/emailTemplates.js";
 
 export const config = { runtime: "nodejs" };
 function safeBody(req){ if(!req.body) return {}; if(typeof req.body==='string'){ try{return JSON.parse(req.body)}catch{return {}} } return req.body; }
-const ALLOWED_PROD_STATUS = new Set(["recebido","em_producao","pronto","enviado","entregue","cancelado","reembolsado"]);
+const ALLOWED_PROD_STATUS = new Set(["editavel","recebido","em_producao","pronto","enviado","entregue","cancelado","reembolsado"]);
 
 async function sendResendEmail({to,subject,html}){
   const apiKey=String(process.env.RESEND_API_KEY||'').trim(); const from=String(process.env.RESEND_FROM||'').trim();

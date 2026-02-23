@@ -206,6 +206,7 @@ export default async function handler(req, res) {
       currency: "BRL",
       total: finalAmount,
       payment_provider: "mercado_pago",
+      production_status: vipPlanId ? 'editavel' : 'recebido',
       order_type: vipPlanId ? 'vip' : 'shop',
       vip_plan_id: vipPlanId || null,
       // Sempre salva o email do usuário autenticado.

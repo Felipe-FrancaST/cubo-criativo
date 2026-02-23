@@ -461,7 +461,7 @@ export default function OrdersModal({ open, onClose }) {
     // 1) Carrega pedidos (sem join) para evitar erro de relationship no schema cache
     const { data: ordersData, error: ordersErr } = await supabase
       .from("orders")
-      .select("id, status, total, payment_provider, provider_payment_id, created_at, production_status, shipping_tracking")
+      .select("id, status, total, payment_provider, provider_payment_id, created_at, production_status, shipping_tracking, order_type")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
 
@@ -471,7 +471,9 @@ export default function OrdersModal({ open, onClose }) {
       return;
     }
 
-    const list = Array.isArray(ordersData) ? ordersData : [];
+    const listAll = Array.isArray(ordersData) ? ordersData : [];
+    // Assinatura VIP não aparece em "Meus pedidos" (fica só no painel VIP)
+    const list = listAll.filter((o) => String(o.order_type || "shop").toLowerCase() !== "vip");
     if (list.length === 0) {
       setOrders([]);
       setReviewsByOrder({});

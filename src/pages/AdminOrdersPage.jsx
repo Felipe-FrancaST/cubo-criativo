@@ -9,6 +9,8 @@ const fmtBRL = (n) =>
 const prodStatusLabel = (s) => {
   const v = String(s || "recebido").toLowerCase();
   switch (v) {
+    case "editavel":
+      return { label: "Editável", cls: "bg-violet-500/15 text-violet-100 ring-violet-400/30" };
     case "recebido":
       return { label: "Recebido", cls: "bg-slate-500/15 text-slate-200 ring-white/15" };
     case "em_producao":
@@ -409,6 +411,7 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome }) {
                 className="w-full px-3 py-2 rounded-xl bg-slate-900 ring-1 ring-white/10 text-slate-100 focus:outline-none"
               >
                 <option value="all">Produção: todos</option>
+                <option value="editavel">Editável</option>
                 <option value="recebido">Recebido</option>
                 <option value="em_producao">Em produção</option>
                 <option value="pronto">Pronto</option>
@@ -451,6 +454,12 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome }) {
                       <p className="text-xs text-slate-400">{new Date(o.created_at).toLocaleString("pt-BR")}</p>
                       <p className="mt-1 font-bold text-lg truncate">{customerName}</p>
                       <div className="mt-2 flex flex-wrap items-center gap-2">
+                        {String(o.order_type || "").toLowerCase() === "vip" ? (
+                          <span className="inline-flex items-center gap-1 text-xs rounded-full px-2 py-1 ring-1 ring-violet-400/30 bg-violet-500/15 text-violet-100">
+                            <span className="material-icons text-[14px]">stars</span>
+                            VIP
+                          </span>
+                        ) : null}
                         <span className={`inline-flex items-center gap-1 text-xs rounded-full px-2 py-1 ring-1 ${pay.cls}`}>
                           Pagamento: {pay.label}
                         </span>
@@ -532,6 +541,7 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome }) {
                           disabled={!canEditFlow}
                           className="w-full px-3 py-2 rounded-xl bg-slate-900 ring-1 ring-white/10 text-slate-100 focus:outline-none"
                         >
+                        <option value="editavel">Editável</option>
                           <option value="recebido">Recebido</option>
                           <option value="em_producao">Em produção</option>
                           <option value="pronto">Pronto</option>

@@ -9,16 +9,47 @@ function Badge({ children }) {
   );
 }
 
-export default function VipRpgPage({ user, accessToken, onOpenAuth, onOpenSettings, onGoHome }) {
+export default function VipRpgPage({ user, accessToken, onOpenAuth, onOpenSettings, onOpenVipArea, onGoHome }) {
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState('');
   const [ok, setOk] = React.useState('');
+  const [pix, setPix] = React.useState(null);
+  const [pendingStart, setPendingStart] = React.useState(null); // 'pix' | 'card'
+
+  async function ensureProfileComplete() {
+    const res = await fetch('/api/profile', { headers: { Authorization: `Bearer ${accessToken}` } });
+    const data = await res.json().catch(() => ({}));
+    const p = data?.profile || {};
+    const hasCpf = String(p.cpf || '').trim().length >= 11;
+    const hasAddr = String(p.address_line1 || '').trim() && String(p.address_number || '').trim() && String(p.city || '').trim() && String(p.state || '').trim() && String(p.zip || '').trim();
+    const hasBirth = String(p.birthdate || '').trim();
+    return Boolean(hasCpf && hasAddr && hasBirth);
+  }
+
+  React.useEffect(() => {
+    const onSaved = async () => {
+      if (!pendingStart) return;
+      const method = pendingStart;
+      setPendingStart(null);
+      if (method === 'pix') startPix();
+      else startCard();
+    };
+    window.addEventListener('profile:saved', onSaved);
+    return () => window.removeEventListener('profile:saved', onSaved);
+  }, [pendingStart]);
 
   async function startPix() {
     setError('');
     setOk('');
+    setPix(null);
     if (!accessToken) {
       onOpenAuth?.();
+      return;
+    }
+    if (!(await ensureProfileComplete())) {
+      setPendingStart('pix');
+      onOpenSettings?.('profile', { autoClose: true });
+      setError('Complete seus dados no perfil (CPF e endereço) para assinar.');
       return;
     }
     try {
@@ -31,18 +62,19 @@ export default function VipRpgPage({ user, accessToken, onOpenAuth, onOpenSettin
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         if (data?.code === 'profile_incomplete') {
-          onOpenSettings?.('profile');
-          setError('Complete seus dados no perfil para assinar (CPF e endereço).');
+          setPendingStart('pix');
+          onOpenSettings?.('profile', { autoClose: true });
+          setError('Complete seus dados no perfil (CPF e endereço) para assinar.');
           return;
         }
         throw new Error(data?.error || 'Não foi possível gerar o Pix.');
       }
-      // abre o link do MP se vier, senão mostra QR
-      if (data?.ticket_url) {
-        window.location.href = data.ticket_url;
-        return;
-      }
-      setOk('Pix gerado! Abra o checkout para concluir.');
+      setPix({
+        qr_code: data?.qr_code || '',
+        qr_code_base64: data?.qr_code_base64 || '',
+        ticket_url: data?.ticket_url || '',
+      });
+      setOk('Pix gerado! Escaneie o QR Code ou copie o código.');
       trackEvent('vip_pix_created', { plan_id: 'CUBO_L1_RPG' });
     } catch (e) {
       setError(String(e?.message || e));
@@ -58,6 +90,12 @@ export default function VipRpgPage({ user, accessToken, onOpenAuth, onOpenSettin
       onOpenAuth?.();
       return;
     }
+    if (!(await ensureProfileComplete())) {
+      setPendingStart('card');
+      onOpenSettings?.('profile', { autoClose: true });
+      setError('Complete seus dados no perfil (CPF e endereço) para assinar.');
+      return;
+    }
     try {
       setBusy(true);
       const res = await fetch('/api/create-checkout-session', {
@@ -68,8 +106,9 @@ export default function VipRpgPage({ user, accessToken, onOpenAuth, onOpenSettin
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         if (data?.code === 'profile_incomplete') {
-          onOpenSettings?.('profile');
-          setError('Complete seus dados no perfil para assinar (CPF e endereço).');
+          setPendingStart('card');
+          onOpenSettings?.('profile', { autoClose: true });
+          setError('Complete seus dados no perfil (CPF e endereço) para assinar.');
           return;
         }
         throw new Error(data?.error || 'Não foi possível iniciar o pagamento.');
@@ -162,16 +201,63 @@ export default function VipRpgPage({ user, accessToken, onOpenAuth, onOpenSettin
                   </button>
                 </div>
 
+                {pix ? (
+                  <div className="mt-4 rounded-2xl bg-black/20 ring-1 ring-white/10 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-extrabold">Pix do VIP</p>
+                        <p className="mt-1 text-xs text-slate-400">Escaneie o QR Code ou copie o código abaixo.</p>
+                      </div>
+                      {pix.ticket_url ? (
+                        <a
+                          href={pix.ticket_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="rounded-xl px-3 py-2 text-xs ring-1 ring-white/10 hover:bg-white/5"
+                        >
+                          Abrir no Mercado Pago
+                        </a>
+                      ) : null}
+                    </div>
+
+                    {pix.qr_code_base64 ? (
+                      <div className="mt-3 rounded-xl bg-white p-3 inline-flex">
+                        <img alt="QR Code Pix" className="h-44 w-44" src={`data:image/png;base64,${pix.qr_code_base64}`} />
+                      </div>
+                    ) : null}
+
+                    {pix.qr_code ? (
+                      <div className="mt-3">
+                        <div className="flex gap-2">
+                          <input
+                            readOnly
+                            value={pix.qr_code}
+                            className="w-full rounded-xl bg-slate-900 ring-1 ring-white/10 px-3 py-2 text-xs text-slate-200"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => navigator.clipboard.writeText(String(pix.qr_code || ''))}
+                            className="rounded-xl px-3 py-2 text-xs font-semibold bg-emerald-400/15 ring-1 ring-emerald-300/30 hover:bg-emerald-400/20"
+                          >
+                            Copiar
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+
                 <div className="mt-3 text-xs text-slate-400">
                   Após o pagamento, seu perfil será marcado como VIP e você poderá escolher as 3 miniaturas do mês.
                 </div>
+
               </div>
             </div>
 
             <div className="mt-8 flex flex-wrap gap-2">
               <button onClick={onGoHome} className="rounded-xl px-4 py-2 text-sm ring-1 ring-white/10 hover:bg-white/5">Voltar</button>
               {user ? (
-                <button onClick={() => onOpenSettings?.('profile')} className="rounded-xl px-4 py-2 text-sm ring-1 ring-white/10 hover:bg-white/5">Abrir Área VIP</button>
+                <button onClick={() => onOpenVipArea?.()} className="rounded-xl px-4 py-2 text-sm ring-1 ring-violet-400/25 bg-violet-500/10 hover:bg-violet-500/15">Abrir Área VIP</button>
               ) : (
                 <button onClick={onOpenAuth} className="rounded-xl px-4 py-2 text-sm ring-1 ring-white/10 hover:bg-white/5">Entrar para assinar</button>
               )}

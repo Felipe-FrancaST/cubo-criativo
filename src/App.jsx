@@ -9,6 +9,7 @@ import AuthModal from "./components/AuthModal.jsx";
 import OrdersModal from "./components/OrdersModal.jsx";
 import MenuDrawer from "./components/MenuDrawer.jsx";
 import ProfileSettingsModal from "./components/ProfileSettingsModal.jsx";
+import VipAreaModal from "./components/VipAreaModal.jsx";
 import SiteHeader from "./components/SiteHeader.jsx";
 import { useAuth } from "./auth/AuthProvider.jsx";
 import { supabase } from "./lib/supabaseClient";
@@ -243,8 +244,9 @@ export default function App() {
     window.location.hash = `#${normalized}`;
   }
 
-  function openSettings(tab = 'profile') {
+  function openSettings(tab = 'profile', opts = {}) {
     setSettingsTab(tab === 'settings' ? 'settings' : 'profile');
+    setSettingsAutoClose(Boolean(opts?.autoClose));
     setSettingsOpen(true);
   }
 
@@ -279,6 +281,8 @@ export default function App() {
   const [ordersOpen, setOrdersOpen] = React.useState(false);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [settingsTab, setSettingsTab] = React.useState('profile');
+  const [settingsAutoClose, setSettingsAutoClose] = React.useState(false);
+  const [vipAreaOpen, setVipAreaOpen] = React.useState(false);
   const [menuDrawerOpen, setMenuDrawerOpen] = React.useState(false);
 
   // ===== Carrinho =====
@@ -875,7 +879,7 @@ React.useEffect(() => {
       return <CupomGamePage onGoHome={() => navigate("/")} user={user} accessToken={accessToken} />;
     }
     if (route === "/vip") {
-      return <VipRpgPage user={user} accessToken={accessToken} onOpenAuth={() => setAuthOpen(true)} onOpenSettings={openSettings} onGoHome={() => navigate("/")} />;
+      return <VipRpgPage user={user} accessToken={accessToken} onOpenAuth={() => setAuthOpen(true)} onOpenSettings={openSettings} onOpenVipArea={() => setVipAreaOpen(true)} onGoHome={() => navigate("/")} />;
     }
     if (route === "/conta") {
       return <AccountPage onGoHome={() => navigate("/")} />;
@@ -941,6 +945,7 @@ React.useEffect(() => {
         onGoHomeSection={goHomeSection}
         onOpenAuth={() => setAuthOpen(true)}
         onOpenOrders={() => setOrdersOpen(true)}
+        onOpenVipArea={() => setVipAreaOpen(true)}
         onPaymentConfirmed={() => {
           setCart([]);
           setCartOpen(false);
@@ -1047,16 +1052,30 @@ React.useEffect(() => {
 
       <OrdersModal open={ordersOpen} onClose={() => setOrdersOpen(false)} />
 
+      <VipAreaModal open={vipAreaOpen} onClose={() => setVipAreaOpen(false)} />
+
       <ProfileSettingsModal
         open={settingsOpen}
         initialTab={settingsTab}
         onSignOut={() => signOut()}
-        onClose={() => setSettingsOpen(false)}
+        onClose={() => {
+          setSettingsOpen(false);
+          setSettingsAutoClose(false);
+        }}
+        autoCloseOnSave={settingsAutoClose}
         onSaved={() => {
+          if (settingsAutoClose) {
+            setSettingsOpen(false);
+            setSettingsAutoClose(false);
+          }
           setToastMsg("Dados salvos!");
           setToastOpen(true);
           clearTimeout(toastT.current);
           toastT.current = setTimeout(() => setToastOpen(false), 1600);
+          if (settingsAutoClose) {
+            setSettingsOpen(false);
+            setSettingsAutoClose(false);
+          }
         }}
       />
 

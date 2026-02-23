@@ -27,6 +27,7 @@ export default function MenuDrawer({
   onGoHomeSection,
   onOpenAuth,
   onOpenOrders,
+  onOpenVipArea,
   onOpenSettings,
   onSignOut,
   onToggleRpg,
@@ -83,6 +84,16 @@ export default function MenuDrawer({
           <DrawerButton icon="view_module" onClick={() => { onNavigate("/catalogo"); onClose?.(); }}>
             Catálogo
           </DrawerButton>
+          <DrawerButton
+            icon="receipt_long"
+            onClick={() => {
+              if (user) onOpenOrders?.();
+              else onOpenAuth?.();
+              onClose?.();
+            }}
+          >
+            Meus pedidos
+          </DrawerButton>
           <DrawerButton icon="redeem" onClick={() => { onNavigate("/cupom"); onClose?.(); }}>
             Cubo Game
           </DrawerButton>
@@ -124,17 +135,29 @@ export default function MenuDrawer({
                 <p className="text-xs text-slate-400">Logado como</p>
                 <p className="mt-1 text-sm text-slate-100 break-all">{user.email}</p>
               </div>
-              <DrawerButton
-                icon="receipt_long"
-                right="chevron_right"
-                onClick={() => {
-                  onOpenOrders?.();
-                  onClose?.();
-                }}
-              >
-                Meus pedidos
-              </DrawerButton>
 
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => {
+                    onOpenSettings?.('profile');
+                    onClose?.();
+                  }}
+                  className="rounded-xl px-4 py-3 text-sm ring-1 ring-white/10 hover:bg-white/5 transition flex items-center gap-2 justify-center"
+                >
+                  <span className="material-icons text-[18px]">person</span>
+                  Perfil
+                </button>
+                <button
+                  onClick={() => {
+                    onOpenVipArea?.();
+                    onClose?.();
+                  }}
+                  className="rounded-xl px-4 py-3 text-sm ring-1 ring-violet-400/25 bg-violet-500/10 hover:bg-violet-500/15 transition flex items-center gap-2 justify-center"
+                >
+                  <span className="material-icons text-[18px]">stars</span>
+                  Área VIP
+                </button>
+              </div>
               {isAdmin ? (
                 <DrawerButton
                   icon="admin_panel_settings"

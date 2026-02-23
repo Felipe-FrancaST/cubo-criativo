@@ -331,6 +331,9 @@ export default function ProfileSettingsModal({ open, onClose, required = false, 
     }
 
     setOk("Dados salvos com sucesso ✅");
+    try {
+      window.dispatchEvent(new CustomEvent('profile:saved'));
+    } catch {}
     try { onSaved?.(); } catch {}
     setTimeout(() => { try { onClose?.(); } catch {} }, 200);
     setSaving(false);
@@ -398,84 +401,9 @@ export default function ProfileSettingsModal({ open, onClose, required = false, 
                 </div>
                 <div className="mt-3"><Field label="Complemento (opcional)"><input value={addr2} onChange={(e)=>setAddr2(e.target.value)} type="text" autoComplete="address-line2" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="Apartamento, bloco, etc" /></Field></div>
 
-                <div className="mt-6 rounded-2xl bg-black/20 ring-1 ring-white/10 p-4">
-                  <div className="flex items-start justify-between gap-3 flex-wrap">
-                    <div>
-                      <p className="text-sm font-extrabold text-slate-100">Área VIP</p>
-                      <p className="mt-1 text-xs text-slate-400">Assinantes podem escolher as miniaturas do mês aqui.</p>
-                    </div>
-                    {isVip ? (
-                      <span className="inline-flex items-center gap-2 rounded-full bg-violet-500/15 ring-1 ring-violet-400/25 px-3 py-1 text-xs text-violet-100">
-                        <span className="material-icons text-base">stars</span>
-                        VIP ativo • expira em {new Date(vipUntil).toLocaleDateString('pt-BR')}
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-2 rounded-full bg-white/10 ring-1 ring-white/10 px-3 py-1 text-xs text-slate-200">
-                        <span className="material-icons text-base">lock</span>
-                        Não-VIP
-                      </span>
-                    )}
-                  </div>
 
-                  {isVip ? (
-                    <>
-                      <div className="mt-4 flex items-center justify-between gap-3 flex-wrap">
-                        <div className="text-sm text-slate-200">
-                          <span className="text-slate-400">Plano:</span> <b>{vipPlan || 'Cubo Level 1 RPG'}</b>
-                          <span className="text-slate-500"> • </span>
-                          <span className="text-slate-400">Mês:</span> <b>{vipCycleKey}</b>
-                        </div>
-                        <div className="text-xs text-slate-400">Escolha 3 de {vipOptions.length || 6}</div>
-                      </div>
 
-                      <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
-                        {(vipOptions || []).map((opt) => {
-                          const selected = vipSelected.includes(opt.id);
-                          return (
-                            <button
-                              key={opt.id}
-                              type="button"
-                              disabled={vipBusy}
-                              onClick={() => {
-                                setVipSelected((prev) => {
-                                  const has = prev.includes(opt.id);
-                                  if (has) return prev.filter((x) => x !== opt.id);
-                                  if (prev.length >= 3) return prev;
-                                  return [...prev, opt.id];
-                                });
-                              }}
-                              className={`text-left rounded-2xl p-3 ring-1 transition ${selected ? 'bg-violet-500/15 ring-violet-400/30' : 'bg-white/5 ring-white/10 hover:bg-white/10'} ${vipBusy ? 'opacity-70' : ''}`}
-                            >
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="min-w-0">
-                                  <p className="text-sm font-bold truncate">{opt.title}</p>
-                                  {opt.description ? <p className="mt-1 text-xs text-slate-400 line-clamp-2">{opt.description}</p> : null}
-                                </div>
-                                {selected ? <span className="material-icons text-violet-200">check_circle</span> : <span className="material-icons text-slate-500">radio_button_unchecked</span>}
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
 
-                      <div className="mt-4 flex items-center justify-between gap-3 flex-wrap">
-                        <div className="text-sm text-slate-300">Selecionadas: <b>{vipSelected.length}</b>/3</div>
-                        <button
-                          type="button"
-                          disabled={vipBusy || vipSelected.length !== 3}
-                          onClick={saveVipSelection}
-                          className={`rounded-xl px-4 py-2 font-semibold ring-1 ring-white/10 ${vipBusy || vipSelected.length !== 3 ? 'bg-slate-700/40 text-slate-300 cursor-not-allowed' : 'bg-violet-300 text-black hover:bg-violet-200'}`}
-                        >
-                          {vipBusy ? 'Salvando…' : 'Salvar escolhas'}
-                        </button>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="mt-4 rounded-xl bg-white/5 ring-1 ring-white/10 p-3 text-sm text-slate-300">
-                      Para desbloquear, assine o <b>Cubo Level 1 RPG</b> na página do Clube VIP.
-                    </div>
-                  )}
-                </div>
               </div>
             ) : (
               <>
