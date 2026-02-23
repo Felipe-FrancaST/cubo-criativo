@@ -1,3 +1,4 @@
+import { renderVipWelcomeEmail } from "../server/emailTemplates.js";
 /**
  * Vercel Serverless Function
  * Route: /api/mp-webhook
@@ -171,6 +172,16 @@ async function applyVipFromOrder(sb, { order, payment }) {
     const currentUntil = prof?.vip_until ? new Date(prof.vip_until).getTime() : 0;
     const nextUntil = Math.max(currentUntil, end.getTime());
     await sb.from('profiles').update({ vip_until: new Date(nextUntil).toISOString(), vip_plan: 'Cubo Level 1 RPG' }).eq('id', userId);
+    try {
+      const to = String(order?.customer_email || payment?.payer?.email || '').trim();
+      const apiKey = String(process.env.RESEND_API_KEY || '').trim();
+      const from = String(process.env.RESEND_FROM || '').trim();
+      const baseUrl = String(process.env.APP_URL || process.env.NEXT_PUBLIC_SITE_URL || '').trim().replace(/\/$/, '');
+      if (to && apiKey && from) {
+        const mail = renderVipWelcomeEmail({ brandName: process.env.BRAND_NAME || 'Cubo Criativo', orderId: order?.id, customerName: order?.customer_name || payment?.payer?.first_name || 'cliente', reviewLink: baseUrl ? `${baseUrl}/#/conta` : '', supportEmail: process.env.SUPPORT_EMAIL || process.env.RESEND_FROM || '', whatsapp: process.env.WHATSAPP_NUMBER || process.env.SUPPORT_WHATSAPP || '', vipPlanId: planId, total: Number(order?.total) || undefined, paymentMethod: 'Mercado Pago' });
+        await sendResendEmail({ apiKey, from, to: [to], subject: mail.subject, html: mail.html });
+      }
+    } catch (mailErr) { console.error('vip welcome email (webhook) error', mailErr); }
   } catch (e) {
     console.error('applyVipFromOrder error', e);
   }

@@ -117,10 +117,30 @@ export default async function handler(req, res) {
     const profileById = new Map();
     (profiles || []).forEach((p) => profileById.set(p.id, p));
 
+    const currentCycle = new Date().toISOString().slice(0, 7);
+    const vipUserIds = Array.from(new Set(list.filter((o) => String(o.order_type || '').toLowerCase() === 'vip').map((o) => o.user_id).filter(Boolean)));
+    const vipSelByUser = new Map();
+    if (vipUserIds.length) {
+      const [{ data: sels }, { data: opts }] = await Promise.all([
+        sb.from('vip_mini_selections').select('user_id,cycle_key,selected_option_ids,updated_at').in('user_id', vipUserIds).eq('cycle_key', currentCycle),
+        sb.from('vip_mini_options').select('id,title'),
+      ]);
+      const titlesById = new Map((opts || []).map((o) => [String(o.id), o.title]));
+      (sels || []).forEach((sel) => {
+        const ids = Array.isArray(sel.selected_option_ids) ? sel.selected_option_ids : [];
+        vipSelByUser.set(String(sel.user_id), {
+          cycle_key: sel.cycle_key,
+          updated_at: sel.updated_at || null,
+          selected_titles: ids.map((id) => titlesById.get(String(id))).filter(Boolean),
+        });
+      });
+    }
+
     const merged = list.map((o) => ({
       ...o,
       profile: o.user_id ? profileById.get(o.user_id) || null : null,
       order_items: itemsByOrder.get(o.id) || [],
+      vip_selection: String(o.order_type || '').toLowerCase() === 'vip' && o.user_id ? (vipSelByUser.get(String(o.user_id)) || null) : null,
     }));
 
     return res.status(200).json({ orders: merged });

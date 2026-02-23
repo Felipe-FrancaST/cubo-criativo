@@ -1,3 +1,4 @@
+import { renderVipWelcomeEmail } from "../server/emailTemplates.js";
 import { getUserFromAuthHeader, supabaseAdmin } from "../server/supabase.js";
 
 export const config = { runtime: "nodejs" };
@@ -27,6 +28,13 @@ function mapOrderStatus(mpStatus) {
   return "pending";
 }
 
+async function sendResendEmail({ to, subject, html }) {
+  const apiKey = String(process.env.RESEND_API_KEY || '').trim();
+  const from = String(process.env.RESEND_FROM || '').trim();
+  if (!apiKey || !from || !to) return;
+  await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ from, to: [to], subject, html }) });
+}
+
 async function applyVipFromOrder(sb, order) {
   try {
     if (!order || String(order.order_type || '').toLowerCase() !== 'vip') return;
@@ -52,6 +60,14 @@ async function applyVipFromOrder(sb, order) {
     const currentUntil = prof?.vip_until ? new Date(prof.vip_until).getTime() : 0;
     const nextUntil = Math.max(currentUntil, end.getTime());
     await sb.from('profiles').update({ vip_until: new Date(nextUntil).toISOString(), vip_plan: 'Cubo Level 1 RPG' }).eq('id', userId);
+    try {
+      const to = String(order.customer_email || '').trim();
+      const baseUrl = String(process.env.APP_URL || process.env.NEXT_PUBLIC_SITE_URL || '').trim().replace(/\/$/, '');
+      if (to) {
+        const mail = renderVipWelcomeEmail({ brandName: process.env.BRAND_NAME || 'Cubo Criativo', orderId: order.id, customerName: order.customer_name || 'cliente', reviewLink: baseUrl ? `${baseUrl}/#/conta` : '', supportEmail: process.env.SUPPORT_EMAIL || process.env.RESEND_FROM || '', whatsapp: process.env.WHATSAPP_NUMBER || process.env.SUPPORT_WHATSAPP || '', vipPlanId: planId, total: Number(order.total) || undefined, paymentMethod: 'Pix' });
+        await sendResendEmail({ to, subject: mail.subject, html: mail.html });
+      }
+    } catch (emailErr) { console.error('vip welcome email (pix verify) error', emailErr); }
   } catch (e) {
     console.error('pix-payment applyVipFromOrder error', e);
   }
@@ -77,7 +93,7 @@ async function loadUserAndOrder(req, res, purposeText) {
   const sb = supabaseAdmin();
   const { data: order, error: orderErr } = await sb
     .from("orders")
-    .select("id,user_id,status,payment_provider,provider_payment_id,order_type,vip_plan_id")
+    .select("id,user_id,status,total,customer_email,customer_name,payment_provider,provider_payment_id,order_type,vip_plan_id")
     .eq("id", orderId)
     .maybeSingle();
   if (orderErr) {

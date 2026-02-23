@@ -359,10 +359,13 @@ export function renderOrderStatusEmail(payload) {
     whatsapp,
     total,
     paymentMethod,
+    orderType,
+    vipPlanId,
   } = payload || {};
 
   const shortId = orderId ? String(orderId).slice(0, 8) : '-';
   const status = String(nextStatus || '').toLowerCase();
+  const isVipOrder = String(orderType || '').toLowerCase() === 'vip';
   const titleByStatus = {
     recebido: 'Pedido recebido',
     em_producao: 'Sua peça entrou em produção',
@@ -372,7 +375,8 @@ export function renderOrderStatusEmail(payload) {
     cancelado: 'Pedido cancelado',
     reembolsado: 'Pedido reembolsado',
   };
-  const subject = `${titleByStatus[status] || 'Atualização do pedido'} — Pedido ${shortId}`;
+  const baseTitle = (isVipOrder && status === 'recebido') ? 'Assinatura VIP confirmada' : (titleByStatus[status] || 'Atualização do pedido');
+  const subject = `${baseTitle} — Pedido ${shortId}`;
 
   let intro = 'Seu pedido teve uma atualização de status.';
   let highlight = '';
@@ -383,8 +387,15 @@ export function renderOrderStatusEmail(payload) {
   let accentColor = '#a5f3fc';
 
   if (status === 'recebido') {
-    intro = 'Recebemos seu pedido e o pagamento foi confirmado. Em breve iniciaremos a produção da sua peça.';
-    highlight = 'Seu pedido entrou na fila de produção. Você receberá novas atualizações por email conforme o andamento.';
+    if (isVipOrder) {
+      intro = 'Obrigado por adquirir o Cubo Level 1 RPG! Sua assinatura VIP foi ativada com sucesso.';
+      highlight = 'Benefícios ativos: 3 miniaturas 32mm em resina premium por mês + Cubo Game diário. Lembrete: acesse sua Área VIP e escolha suas miniaturas.';
+      ctaHref = reviewLink || '';
+      ctaText = 'Acessar Área VIP';
+    } else {
+      intro = 'Recebemos seu pedido e o pagamento foi confirmado. Em breve iniciaremos a produção da sua peça.';
+      highlight = 'Seu pedido entrou na fila de produção. Você receberá novas atualizações por email conforme o andamento.';
+    }
     accent = 'rgba(34,197,94,.12)'; accentBorder = 'rgba(34,197,94,.25)'; accentColor = '#bbf7d0';
   } else if (status === 'em_producao') {
     intro = 'Boas notícias: sua peça já está em produção.';
@@ -397,10 +408,10 @@ export function renderOrderStatusEmail(payload) {
     highlight = shippingTracking ? `Código de rastreio: ${shippingTracking}` : 'O envio foi realizado. Se o rastreio ainda não apareceu, ele pode ser atualizado em breve.';
     accent = 'rgba(168,85,247,.12)'; accentBorder = 'rgba(168,85,247,.25)'; accentColor = '#ddd6fe';
   } else if (status === 'entregue') {
-    intro = 'Seu pedido foi marcado como entregue. Esperamos que você tenha curtido sua peça 💚';
+    intro = isVipOrder ? 'Seu envio VIP foi marcado como entregue. Esperamos que você tenha curtido suas miniaturas 💚' : 'Seu pedido foi marcado como entregue. Esperamos que você tenha curtido sua peça 💚';
     highlight = 'Sua avaliação ajuda muito nossa loja e outros clientes.';
     ctaHref = reviewLink || '';
-    ctaText = 'Ir para avaliar meu pedido';
+    ctaText = isVipOrder ? 'Ir para avaliar meu envio VIP' : 'Ir para avaliar meu pedido';
     accent = 'rgba(34,197,94,.12)'; accentBorder = 'rgba(34,197,94,.25)'; accentColor = '#bbf7d0';
   } else if (status === 'cancelado') {
     intro = cancelledBy === 'customer'
@@ -419,6 +430,8 @@ export function renderOrderStatusEmail(payload) {
   const pills = `
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin:0 0 12px;">
       <span style="display:inline-block;padding:6px 10px;border-radius:999px;background:${accent};border:1px solid ${accentBorder};color:${accentColor};font-weight:800;font-size:12px;">${esc(statusLabelPt(status))}</span>
+      ${isVipOrder ? `<span style="display:inline-block;padding:6px 10px;border-radius:999px;background:rgba(168,85,247,.12);border:1px solid rgba(168,85,247,.25);color:#ddd6fe;font-weight:800;font-size:12px;">Clube VIP</span>` : ''}
+      ${vipPlanId ? `<span style="display:inline-block;padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);color:#e2e8f0;font-weight:800;font-size:12px;">${esc(String(vipPlanId).replaceAll('_',' '))}</span>` : ''}
       ${paymentMethod ? `<span style="display:inline-block;padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);color:#e2e8f0;font-weight:800;font-size:12px;">${esc(paymentMethod)}</span>` : ''}
       ${Number.isFinite(Number(total)) ? `<span style="display:inline-block;padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);color:#e2e8f0;font-weight:800;font-size:12px;">${esc(fmtBRL(total))}</span>` : ''}
     </div>`;
@@ -455,11 +468,15 @@ export function renderOrderStatusEmail(payload) {
   return {
     subject,
     html: renderLayout({
-      title: titleByStatus[status] || 'Atualização do pedido',
+      title: baseTitle,
       preheader: `Pedido ${shortId} • ${statusLabelPt(status)}`,
       brandName,
       contentHtml,
       footerNote: 'Mensagem automática de atualização do seu pedido.',
     }),
   };
+}
+
+export function renderVipWelcomeEmail(payload) {
+  return renderOrderStatusEmail({ ...(payload || {}), nextStatus: 'recebido', orderType: 'vip' });
 }

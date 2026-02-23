@@ -446,6 +446,7 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome }) {
               const pay = payStatusUI(o.status);
               const prod = prodStatusLabel(o.production_status);
               const canEditFlow = String(o.status || '').toLowerCase() === 'paid';
+              const vipSelection = o.vip_selection || null;
 
               return (
                 <div key={o.id} className="rounded-2xl bg-slate-900/60 ring-1 ring-white/10 p-4 sm:p-5">
@@ -479,6 +480,24 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome }) {
                           {o.refund_requested_at ? (
                             <span className="text-amber-200/80"> {" "}({new Date(o.refund_requested_at).toLocaleString("pt-BR")})</span>
                           ) : null}
+                        </div>
+                      ) : null}
+
+                      {String(o.order_type || '').toLowerCase() === 'vip' ? (
+                        <div className="mt-3 rounded-xl bg-violet-500/10 ring-1 ring-violet-400/25 px-3 py-2 text-sm text-violet-100">
+                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <span className="font-semibold">Miniaturas VIP escolhidas</span>
+                            <span className="text-xs text-violet-200/80">{vipSelection?.cycle_key || 'ciclo atual'}</span>
+                          </div>
+                          {Array.isArray(vipSelection?.selected_titles) && vipSelection.selected_titles.length ? (
+                            <ul className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              {vipSelection.selected_titles.map((name, idx) => (
+                                <li key={`${o.id}-vipsel-${idx}`} className="rounded-lg bg-black/20 ring-1 ring-white/10 px-2 py-1 text-xs">• {name}</li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <div className="mt-2 text-xs text-violet-200/80">Cliente ainda não escolheu as miniaturas deste ciclo.</div>
+                          )}
                         </div>
                       ) : null}
                     </div>

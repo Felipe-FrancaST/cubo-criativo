@@ -32,6 +32,8 @@ async function notifyStatus({order,nextStatus,shipping_tracking,production_eta,c
     reviewLink,
     supportEmail,
     whatsapp,
+    orderType: order?.order_type || 'shop',
+    vipPlanId: order?.vip_plan_id || '',
   });
   await sendResendEmail({ to, subject: mail.subject || `Atualização do pedido — ${shortId}`, html: mail.html });
 }
@@ -42,7 +44,7 @@ export default async function handler(req,res){
     const auth=await requireAdmin(req); if(!auth.ok) return res.status(auth.status).json({error:auth.error});
     const body=safeBody(req); const order_id=String(body.order_id||'').trim(); if(!order_id) return res.status(400).json({error:'Missing order_id'});
     const sb=supabaseAdmin();
-    const { data: currentOrder, error: currentErr } = await sb.from('orders').select('id,status,production_status,shipping_tracking,customer_email,customer_name').eq('id', order_id).maybeSingle();
+    const { data: currentOrder, error: currentErr } = await sb.from('orders').select('id,user_id,order_type,vip_plan_id,status,production_status,shipping_tracking,customer_email,customer_name').eq('id', order_id).maybeSingle();
     if (currentErr) return res.status(500).json({ error: currentErr.message || 'Failed to load order' });
     if (!currentOrder) return res.status(404).json({ error: 'Pedido não encontrado.' });
     const next={};
@@ -65,7 +67,16 @@ export default async function handler(req,res){
     }
     if(updateResp?.error) return res.status(500).json({error:updateResp.error.message||'Update failed'});
 
-    const { data: order } = await sb.from('orders').select('id,customer_email,customer_name,production_status,shipping_tracking').eq('id', order_id).maybeSingle();
+    if (String(next.production_status || '').toLowerCase() === 'cancelado' && cancelled_by === 'admin' && String(currentOrder?.order_type || '').toLowerCase() === 'vip' && currentOrder?.user_id) {
+      try {
+        await sb.from('vip_subscriptions').update({ status: 'cancelled_by_admin', ends_at: new Date().toISOString() }).eq('order_id', order_id);
+        await sb.from('profiles').update({ vip_until: null, vip_plan: null }).eq('id', currentOrder.user_id);
+      } catch (vipCancelErr) {
+        console.error('vip cancel on admin status error', vipCancelErr);
+      }
+    }
+
+    const { data: order } = await sb.from('orders').select('id,customer_email,customer_name,production_status,shipping_tracking,order_type,vip_plan_id').eq('id', order_id).maybeSingle();
     if (next.production_status) {
       await notifyStatus({ order: { ...order, id: order_id }, nextStatus: next.production_status, shipping_tracking: next.shipping_tracking ?? order?.shipping_tracking, production_eta, cancelled_by });
     }
