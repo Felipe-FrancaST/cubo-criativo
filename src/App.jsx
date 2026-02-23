@@ -1057,6 +1057,7 @@ React.useEffect(() => {
       <ProfileSettingsModal
         open={settingsOpen}
         initialTab={settingsTab}
+        onNavigate={navigate}
         onSignOut={() => signOut()}
         onClose={() => {
           setSettingsOpen(false);
