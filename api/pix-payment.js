@@ -19,6 +19,23 @@ async function mpFetch(token, url) {
   return { ok: resp.ok, status: resp.status, data };
 }
 
+
+function isValidEmail(value) {
+  const s = String(value || "").trim();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+}
+
+async function fetchAuthUserEmail(sb, userId) {
+  try {
+    if (!sb?.auth?.admin || !userId) return "";
+    const resp = await sb.auth.admin.getUserById(userId);
+    return String(resp?.data?.user?.email || "").trim();
+  } catch (e) {
+    console.error("pix-payment fetchAuthUserEmail error", e);
+    return "";
+  }
+}
+
 function mapOrderStatus(mpStatus) {
   if (mpStatus === "approved") return "paid";
   if (["rejected", "cancelled", "refunded", "charged_back"].includes(mpStatus)) return "failed";
@@ -97,8 +114,15 @@ async function applyVipFromOrder(sb, order, payment) {
         emailMeta = metaResp?.data || null;
         alreadySent = Boolean(metaResp?.data?.vip_activation_email_sent_at);
       }
-      const to = String(emailMeta?.customer_email || order.customer_email || payment?.payer?.email || "").trim();
-      if (to && !alreadySent) {
+      let to = String(emailMeta?.customer_email || order.customer_email || payment?.payer?.email || "").trim();
+      if (!isValidEmail(to)) {
+        const authEmail = await fetchAuthUserEmail(sb, userId);
+        if (isValidEmail(authEmail)) {
+          to = authEmail;
+          try { await sb.from("orders").update({ customer_email: authEmail }).eq("id", order.id); } catch {}
+        }
+      }
+      if (isValidEmail(to) && !alreadySent) {
         const baseUrl = String(process.env.APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "").trim().replace(/\/$/, "");
         const mail = renderVipWelcomeEmail({
           brandName: process.env.BRAND_NAME || "Cubo Criativo",

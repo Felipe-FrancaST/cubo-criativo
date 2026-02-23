@@ -155,8 +155,16 @@ async function revokeVipFromOrder(sb, { order, payment, reason = "payment_failed
 async function applyVipFromOrder(sb, { order, payment }) {
   try {
     if (!sb) return;
-    const orderType = String(order?.order_type || payment?.metadata?.order_type || '').trim();
-    if (orderType !== 'vip') return;
+    const orderTypeNorm = String(order?.order_type || payment?.metadata?.order_type || '').trim().toLowerCase();
+    const paymentDescNorm = String(payment?.description || '').trim().toLowerCase();
+    const looksVip = (
+      orderTypeNorm === 'vip' ||
+      Boolean(String(order?.vip_plan_id || payment?.metadata?.vip_plan_id || '').trim()) ||
+      String(order?.production_status || '').trim().toLowerCase() === 'editavel' ||
+      paymentDescNorm.includes('assinatura cubo') ||
+      paymentDescNorm.includes('cubo level 1')
+    );
+    if (!looksVip) return;
     const userId = order?.user_id || payment?.metadata?.user_id;
     if (!userId) return;
     const planId = String(order?.vip_plan_id || payment?.metadata?.vip_plan_id || 'CUBO_L1_RPG').trim();
@@ -197,11 +205,18 @@ async function applyVipFromOrder(sb, { order, payment }) {
         emailMeta = metaResp?.data || null;
         alreadySent = Boolean(metaResp?.data?.vip_activation_email_sent_at);
       }
-      const to = String(emailMeta?.customer_email || order?.customer_email || payment?.payer?.email || '').trim();
+      let to = String(emailMeta?.customer_email || order?.customer_email || payment?.payer?.email || '').trim();
+      if (!isValidEmail(to)) {
+        const authEmail = await fetchAuthUserEmail(userId);
+        if (isValidEmail(authEmail)) {
+          to = authEmail;
+          try { await sb.from('orders').update({ customer_email: authEmail }).eq('id', order.id); } catch {}
+        }
+      }
       const apiKey = String(process.env.RESEND_API_KEY || '').trim();
       const from = String(process.env.RESEND_FROM || '').trim();
       const baseUrl = String(process.env.APP_URL || process.env.NEXT_PUBLIC_SITE_URL || '').trim().replace(/\/$/, '');
-      if (to && apiKey && from && !alreadySent) {
+      if (isValidEmail(to) && apiKey && from && !alreadySent) {
         const mail = renderVipWelcomeEmail({ brandName: process.env.BRAND_NAME || 'Cubo Criativo', orderId: order?.id, customerName: emailMeta?.customer_name || order?.customer_name || payment?.payer?.first_name || 'cliente', reviewLink: baseUrl ? `${baseUrl}/#/conta` : '', supportEmail: process.env.SUPPORT_EMAIL || process.env.RESEND_FROM || '', whatsapp: process.env.WHATSAPP_NUMBER || process.env.SUPPORT_WHATSAPP || '', vipPlanId: planId, total: Number(emailMeta?.total || order?.total) || undefined, paymentMethod: 'Mercado Pago' });
         const sendResp = await sendResendEmail({ apiKey, from, to: [to], subject: mail.subject, html: mail.html });
         if (sendResp?.ok) await sb.from('orders').update({ vip_activation_email_sent_at: new Date().toISOString() }).eq('id', order.id);
