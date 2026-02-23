@@ -511,6 +511,7 @@ export default async function handler(req, res) {
 
     const customerEmailOk = isValidEmail(customerEmailRaw);
     const customerEmail = customerEmailOk ? customerEmailRaw : "";
+    const isVipOrder = String(order?.order_type || payment?.metadata?.order_type || "").toLowerCase() === "vip" || Boolean(order?.vip_plan_id || payment?.metadata?.vip_plan_id);
     const customerName = String(order?.customer_name || profile?.full_name || "").trim();
     const customerPhone = String(order?.customer_phone || profile?.phone || "").trim();
 
@@ -613,8 +614,12 @@ export default async function handler(req, res) {
       ownerErr = e?.message || String(e);
     }
 
-    // Envia para o cliente somente se email for válido
-    if (customerEmailOk) {
+    // Envia para o cliente somente se email for válido e NÃO for assinatura VIP
+    // (VIP recebe email de adesão/ativação em applyVipFromOrder)
+    if (isVipOrder) {
+      customerResp = { ok: true, skipped: true, reason: "vip_activation_email_sent_separately" };
+      customerErr = null;
+    } else if (customerEmailOk) {
       try {
         customerResp = await sendResendEmail({ apiKey, from, to: [customerEmailRaw], subject: customerSubject, html: customerHtml });
         if (!customerResp.ok) customerErr = `resend_${customerResp.status}`;
@@ -632,7 +637,7 @@ export default async function handler(req, res) {
           .from("orders")
           .update({
             owner_email_sent_at: ownerResp.ok ? new Date().toISOString() : null,
-            customer_email_sent_at: customerResp.ok && customerEmailOk ? new Date().toISOString() : null,
+            customer_email_sent_at: customerResp.ok && customerEmailOk && !isVipOrder ? new Date().toISOString() : null,
             customer_email_error: customerErr,
             owner_email_error: ownerErr,
           })
@@ -648,7 +653,7 @@ export default async function handler(req, res) {
         ok: true,
         email: "error",
         owner: ownerResp.ok ? "sent" : ownerResp.data,
-        customer: customerEmailOk ? (customerResp.ok ? "sent" : customerResp.data) : "skipped_invalid_email",
+        customer: isVipOrder ? "skipped_vip_activation_email" : (customerEmailOk ? (customerResp.ok ? "sent" : customerResp.data) : "skipped_invalid_email"),
       });
     }
 
@@ -669,7 +674,7 @@ export default async function handler(req, res) {
 
     return res
       .status(200)
-      .json({ ok: true, email: "sent", owner: "sent", customer: customerEmailOk ? "sent" : "skipped_invalid_email" });
+      .json({ ok: true, email: "sent", owner: "sent", customer: isVipOrder ? "skipped_vip_activation_email" : (customerEmailOk ? "sent" : "skipped_invalid_email") });
   } catch (err) {
     console.error("mp-webhook error:", err);
     // Sempre 200 pra não gerar retry infinito
