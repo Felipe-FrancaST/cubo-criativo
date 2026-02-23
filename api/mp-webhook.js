@@ -565,8 +565,18 @@ export default async function handler(req, res) {
         </div>
 
         <div>
-          <div style="color:#94a3b8;font-size:12px;font-weight:700;margin-bottom:8px;">Itens do pedido</div>
-          ${itemsTable}
+          <div style="color:#94a3b8;font-size:12px;font-weight:700;margin-bottom:8px;">${isVipOrder ? 'Assinatura / detalhes' : 'Itens do pedido'}</div>
+          ${isVipOrder
+            ? `<div style="background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.20);border-radius:12px;padding:12px;color:#e9d5ff;font-size:13px;line-height:1.5;">
+                <div style="font-weight:900;color:#f5f3ff;">Assinatura VIP • ${escapeHtml(String(order?.vip_plan_id || payment?.metadata?.vip_plan_id || 'CUBO_L1_RPG').replaceAll('_',' '))}</div>
+                <div style="margin-top:6px;color:#ddd6fe;">Plano Cubo Level 1 RPG (mensalidade)</div>
+                <ul style="margin:8px 0 0 18px;padding:0;">
+                  <li>3 miniaturas 32mm em resina premium por mês</li>
+                  <li>Cubo Game liberado diariamente</li>
+                  <li>Cliente deve escolher 3 miniaturas na Área VIP</li>
+                </ul>
+              </div>`
+            : itemsTable}
         </div>
       </div>
     `;
@@ -597,13 +607,13 @@ export default async function handler(req, res) {
       </div>
     `;
 
-    const ownerSubject = `Novo pedido aprovado — ${escapeHtml(fmtBRL(totalBRL))} — ${customerEmail || "(sem email)"}`;
+    const ownerSubject = isVipOrder ? `Nova adesão VIP aprovada — ${escapeHtml(fmtBRL(totalBRL))} — ${customerEmail || "(sem email)"}` : `Novo pedido aprovado — ${escapeHtml(fmtBRL(totalBRL))} — ${customerEmail || "(sem email)"}`;
     const customerSubject = `Pedido confirmado — Cubo Criativo (${String(orderCode).slice(0, 8)})`;
 
     const ownerHtml = renderEmailLayout({
-      title: "Novo pedido confirmado",
-      subtitle: "Controle interno • Produção",
-      badgeText: "PAGO",
+      title: isVipOrder ? "Nova adesão VIP confirmada" : "Novo pedido confirmado",
+      subtitle: isVipOrder ? "Controle interno • Assinaturas" : "Controle interno • Produção",
+      badgeText: isVipOrder ? "VIP PAGO" : "PAGO",
       contentHtml: ownerContent,
     });
 

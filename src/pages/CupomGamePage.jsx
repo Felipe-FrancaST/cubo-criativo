@@ -243,12 +243,6 @@ export default function CupomGamePage({ onGoHome, accessToken }) {
                 </button>
               ))}
             </div>
-            {!status.can_play && !status.loading ? (
-              <div className="mt-4 flex flex-col sm:flex-row gap-2">
-                <button onClick={loadStatus} className="rounded-xl px-4 py-2 ring-1 ring-white/15 hover:bg-white/5">Atualizar status</button>
-                <button onClick={() => { setDeck(buildDeck()); setFlipped([]); setAttempts(0); setErrors(0); setStartAt(null); setFinished(false); setResultMsg(''); }} className="rounded-xl px-4 py-2 ring-1 ring-white/15 hover:bg-white/5">Treinar tabuleiro</button>
-              </div>
-            ) : null}
           </div>
         </div>
       </section>

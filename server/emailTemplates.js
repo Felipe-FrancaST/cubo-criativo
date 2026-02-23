@@ -478,5 +478,70 @@ export function renderOrderStatusEmail(payload) {
 }
 
 export function renderVipWelcomeEmail(payload) {
-  return renderOrderStatusEmail({ ...(payload || {}), nextStatus: 'recebido', orderType: 'vip' });
+  const p = payload || {};
+  const brandName = p.brandName || 'Cubo Criativo';
+  const customerName = p.customerName || 'cliente';
+  const orderId = p.orderId || '';
+  const shortId = String(orderId || '').slice(0, 8) || 'VIP';
+  const vipAreaUrl = p.reviewLink || p.vipAreaUrl || '';
+  const total = Number.isFinite(Number(p.total)) ? Number(p.total) : null;
+  const paymentMethod = p.paymentMethod || 'Pagamento';
+  const supportEmail = p.supportEmail || '';
+  const whatsapp = p.whatsapp || '';
+  const planName = p.planName || 'Cubo Level 1 — RPG';
+  const benefits = Array.isArray(p.benefits) && p.benefits.length ? p.benefits : [
+    '3 miniaturas por mês (32mm) em resina premium',
+    'Acesso ao Cubo Game todos os dias',
+    'Área VIP para escolher 3 miniaturas entre 6 opções',
+  ];
+
+  const benefitList = `<ul style="margin:10px 0 0 18px;padding:0;color:#e2e8f0;font-size:13px;line-height:1.65;">${benefits.map((b)=>`<li style="margin:0 0 4px 0;">${esc(String(b))}</li>`).join('')}</ul>`;
+  const meta = renderMetaPills([
+    { label: 'Assinatura', value: planName },
+    { label: 'Pedido', value: shortId },
+    { label: 'Status', value: 'VIP ativo' },
+    { label: 'Pagamento', value: paymentMethod },
+    ...(total != null ? [{ label: 'Valor', value: fmtBRL(total) }] : []),
+  ]);
+
+  const supportBox = `
+    <div style="margin-top:14px;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);color:#cbd5e1;font-size:12px;line-height:1.55;">
+      ${whatsapp ? `WhatsApp: <b style="color:#e2e8f0;">${esc(whatsapp)}</b>` : ''}
+      ${whatsapp && supportEmail ? '<br/>' : ''}
+      ${supportEmail ? `Email: <b style="color:#e2e8f0;">${esc(supportEmail)}</b>` : ''}
+      ${!whatsapp && !supportEmail ? 'Se precisar de ajuda, responda este email.' : ''}
+    </div>`;
+
+  const cta = vipAreaUrl ? `
+    <div style="margin-top:16px;">
+      <a href="${esc(vipAreaUrl)}" style="display:inline-block;padding:11px 16px;border-radius:12px;background:linear-gradient(135deg,#a78bfa,#22d3ee);color:#09090b;text-decoration:none;font-weight:800;">Acessar Área VIP e escolher miniaturas</a>
+    </div>` : '';
+
+  const contentHtml = `
+    <div style="color:#cbd5e1;font-size:13px;line-height:1.6;">
+      Olá <b style="color:#e2e8f0;">${esc(customerName)}</b>!<br/>
+      Obrigado por adquirir a sua <b style="color:#f8fafc;">assinatura VIP</b>. Sua adesão foi ativada com sucesso ✅
+    </div>
+    <div style="margin-top:14px;padding:12px 14px;border-radius:14px;background:rgba(168,85,247,.10);border:1px solid rgba(168,85,247,.25);color:#f5d0fe;font-size:12px;line-height:1.55;">
+      <b>Importante:</b> lembre de acessar sua <b>Área VIP</b> para escolher as 3 miniaturas do mês.
+    </div>
+    ${meta}
+    <div style="margin-top:14px;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);">
+      <div style="color:#94a3b8;font-size:12px;font-weight:700;margin-bottom:4px;">Benefícios ativos</div>
+      ${benefitList}
+    </div>
+    ${cta}
+    ${supportBox}
+  `;
+
+  return {
+    subject: `Bem-vindo ao ${brandName} VIP 👑 Sua assinatura foi ativada`,
+    html: renderLayout({
+      title: 'Adesão VIP confirmada',
+      preheader: `Assinatura ativa • Pedido ${shortId}`,
+      brandName,
+      contentHtml,
+      footerNote: 'Mensagem automática de ativação da sua assinatura VIP.',
+    }),
+  };
 }

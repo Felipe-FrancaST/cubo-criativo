@@ -149,6 +149,8 @@ export default async function handler(req, res) {
 
     // Tenta localizar o pedido criado no checkout
     const orderId = session?.client_reference_id || session?.metadata?.order_id || null;
+    const isVipOrder = String(session?.metadata?.order_type || '').toLowerCase() === 'vip' || Boolean(String(session?.metadata?.vip_plan_id || '').trim());
+    const vipPlanId = String(session?.metadata?.vip_plan_id || 'CUBO_L1_RPG');
 
     // Atualiza o pedido no Supabase (best-effort)
     if (orderId) {
@@ -182,18 +184,20 @@ export default async function handler(req, res) {
          ${addressObj.postal_code || ""} - ${addressObj.country || ""}`.trim()
       : "(não coletado)";
 
-    const itemsHtml = items
-      .map((li) => {
-        const name = li?.description || "Item";
-        const qty = li?.quantity || 1;
-        const price = ((li?.amount_total ?? 0) / 100).toFixed(2);
-        return `<li>${qty}× ${name} — R$ ${price}</li>`;
-      })
-      .join("");
+    const itemsHtml = isVipOrder
+      ? `<li><b>Assinatura VIP:</b> ${vipPlanId.replaceAll('_', ' ')}</li><li>Plano mensal Cubo Level 1 RPG</li><li>3 miniaturas 32mm em resina premium / mês</li><li>Cubo Game diário (VIP)</li>`
+      : items
+          .map((li) => {
+            const name = li?.description || "Item";
+            const qty = li?.quantity || 1;
+            const price = ((li?.amount_total ?? 0) / 100).toFixed(2);
+            return `<li>${qty}× ${name} — R$ ${price}</li>`;
+          })
+          .join("");
 
-    const subject = `Novo pedido pago — R$ ${amountTotal.toFixed(2)} — ${customerEmail}`;
+    const subject = isVipOrder ? `Nova adesão VIP paga — R$ ${amountTotal.toFixed(2)} — ${customerEmail}` : `Novo pedido pago — R$ ${amountTotal.toFixed(2)} — ${customerEmail}`;
     const html = `
-      <h2>Novo pedido pago ✅</h2>
+      <h2>${isVipOrder ? 'Nova adesão VIP paga 👑' : 'Novo pedido pago ✅'}</h2>
       <p><b>Checkout Session:</b> ${sessionId}</p>
       <p><b>Valor total:</b> R$ ${amountTotal.toFixed(2)}</p>
 
