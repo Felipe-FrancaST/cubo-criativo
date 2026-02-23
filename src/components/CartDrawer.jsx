@@ -146,13 +146,20 @@ export default function CartDrawer({
     } catch (e) {
       const msg = String(e?.message || e);
       if (!opts.silent) setCouponMsg(msg);
-      if (/cpf|perfil/i.test(msg)) {
+      if (shouldOpenProfileForError(msg)) {
         onRequireProfile?.();
       }
       setCouponInfo(null);
     } finally {
       setCouponLoading(false);
     }
+  }
+
+  function shouldOpenProfileForError(message) {
+    const msg = String(message || '').toLowerCase();
+    if (!msg) return false;
+    if (/(já utilizado|ja utilizado|cupom.*utilizado|cpf.*já usou|cpf.*ja usou|já usado|ja usado)/i.test(msg)) return false;
+    return /(complete seu perfil|completar perfil|perfil incompleto|cadastro incompleto|informe seu cpf|cpf obrigatório|cpf obrigatorio|cpf inválido|cpf invalido|sem cpf|perfil.*cpf)/i.test(msg);
   }
 
   function removeCoupon() {
@@ -265,7 +272,7 @@ export default function CartDrawer({
       try { parsedResp = JSON.parse(rawText || '{}'); } catch {}
       if (!res.ok) {
         const errMsg = parsedResp?.error?.message || parsedResp?.error || parsedResp?.message || rawText || 'Erro ao gerar Pix';
-        if (/cpf|perfil/i.test(String(errMsg))) onRequireProfile?.();
+        if (shouldOpenProfileForError(String(errMsg))) onRequireProfile?.();
         throw new Error(typeof errMsg === 'string' ? errMsg : JSON.stringify(errMsg));
       }
       const data = parsedResp && Object.keys(parsedResp).length ? parsedResp : JSON.parse(rawText || '{}');
@@ -287,7 +294,7 @@ export default function CartDrawer({
       if (typeof msg === "string" && msg.includes("transaction_amount must be positive")) {
         msg = "Esse cupom deixou o valor do pedido inválido para Pix. Ajuste o cupom ou adicione mais itens.";
       }
-      if (typeof msg === "string" && /cpf|perfil/i.test(msg)) onRequireProfile?.();
+      if (typeof msg === "string" && shouldOpenProfileForError(msg)) onRequireProfile?.();
       showPixNotice(msg, "error", 5200);
     } finally {
       setPixLoading(false);
