@@ -13,8 +13,25 @@ async function sendResendEmail({to,subject,html}){
   const r=await fetch('https://api.resend.com/emails',{method:'POST',headers:{Authorization:`Bearer ${apiKey}`,'Content-Type':'application/json'},body:JSON.stringify({from,to:[to],subject,html})});
   return { ok:r.ok, data: await r.json().catch(()=>({})) };
 }
-async function notifyStatus({order,nextStatus,shipping_tracking,production_eta,cancelled_by}){
-  const to = String(order?.customer_email||'').trim(); if(!to) return;
+
+async function resolveCustomerEmail(sb, order){
+  let email = String(order?.customer_email || '').trim();
+  if (email && /@/.test(email)) return email;
+  const userId = order?.user_id;
+  if (!userId) return '';
+  try {
+    const resp = await sb.auth.admin.getUserById(userId);
+    const authEmail = String(resp?.data?.user?.email || '').trim();
+    if (authEmail && /@/.test(authEmail)) {
+      try { await sb.from('orders').update({ customer_email: authEmail }).eq('id', order.id); } catch {}
+      return authEmail;
+    }
+  } catch (e) { console.error('resolveCustomerEmail error', e); }
+  return '';
+}
+
+async function notifyStatus({sb,order,nextStatus,shipping_tracking,production_eta,cancelled_by}){
+  const to = await resolveCustomerEmail(sb, order); if(!to) return;
   const shortId = String(order.id||'').slice(0,8);
   const baseUrl = String(process.env.APP_URL||process.env.NEXT_PUBLIC_SITE_URL||'').trim().replace(/\/$/, '');
   const reviewLink = baseUrl ? `${baseUrl}/#/conta` : '';
@@ -67,9 +84,10 @@ export default async function handler(req,res){
     }
     if(updateResp?.error) return res.status(500).json({error:updateResp.error.message||'Update failed'});
 
-    if (String(next.production_status || '').toLowerCase() === 'cancelado' && cancelled_by === 'admin' && String(currentOrder?.order_type || '').toLowerCase() === 'vip' && currentOrder?.user_id) {
+    if (['cancelado','reembolsado'].includes(String(next.production_status || '').toLowerCase()) && String(currentOrder?.order_type || '').toLowerCase() === 'vip' && currentOrder?.user_id) {
       try {
-        await sb.from('vip_subscriptions').update({ status: 'cancelled_by_admin', ends_at: new Date().toISOString() }).eq('order_id', order_id);
+        const vipStatus = String(next.production_status || '').toLowerCase() === 'reembolsado' ? 'refunded' : (cancelled_by === 'admin' ? 'cancelled_by_admin' : 'cancelled');
+        await sb.from('vip_subscriptions').update({ status: vipStatus, ends_at: new Date().toISOString() }).eq('order_id', order_id);
         await sb.from('profiles').update({ vip_until: null, vip_plan: null }).eq('id', currentOrder.user_id);
       } catch (vipCancelErr) {
         console.error('vip cancel on admin status error', vipCancelErr);
@@ -78,7 +96,7 @@ export default async function handler(req,res){
 
     const { data: order } = await sb.from('orders').select('id,customer_email,customer_name,production_status,shipping_tracking,order_type,vip_plan_id').eq('id', order_id).maybeSingle();
     if (next.production_status) {
-      await notifyStatus({ order: { ...order, id: order_id }, nextStatus: next.production_status, shipping_tracking: next.shipping_tracking ?? order?.shipping_tracking, production_eta, cancelled_by });
+      await notifyStatus({ sb, order: { ...currentOrder, ...order, id: order_id }, nextStatus: next.production_status, shipping_tracking: next.shipping_tracking ?? order?.shipping_tracking, production_eta, cancelled_by });
     }
     return res.status(200).json({ ok:true });
   } catch(e){ console.error('admin/update-order error', e); return res.status(500).json({error:e?.message||String(e)}); }

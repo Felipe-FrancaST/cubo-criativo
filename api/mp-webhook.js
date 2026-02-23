@@ -137,6 +137,21 @@ async function loadOrderSnapshot(sb, orderId) {
   return { order, profile, items };
 }
 
+async function revokeVipFromOrder(sb, { order, payment, reason = "payment_failed" }) {
+  try {
+    if (!sb) return;
+    const orderType = String(order?.order_type || payment?.metadata?.order_type || '').trim().toLowerCase();
+    if (orderType !== 'vip') return;
+    const userId = order?.user_id || payment?.metadata?.user_id;
+    if (!userId || !order?.id) return;
+    const nowIso = new Date().toISOString();
+    await sb.from('vip_subscriptions').update({ status: reason, ends_at: nowIso }).eq('order_id', order.id);
+    const { data: others } = await sb.from('vip_subscriptions').select('id,ends_at,status').eq('user_id', userId).neq('order_id', order.id).eq('status','active');
+    const hasOtherActive = Array.isArray(others) && others.some((r)=>{ const t = r?.ends_at ? new Date(r.ends_at).getTime() : 0; return Number.isFinite(t) && t > Date.now(); });
+    if (!hasOtherActive) await sb.from('profiles').update({ vip_until: null, vip_plan: null }).eq('id', userId);
+  } catch (e) { console.error('revokeVipFromOrder error', e); }
+}
+
 async function applyVipFromOrder(sb, { order, payment }) {
   try {
     if (!sb) return;
@@ -152,13 +167,13 @@ async function applyVipFromOrder(sb, { order, payment }) {
       .select('id')
       .eq('order_id', order.id)
       .maybeSingle();
-    if (existing?.id) return;
+    const hasSubscription = Boolean(existing?.id);
 
     const start = new Date();
     const end = new Date(start.getTime() + 30 * 24 * 60 * 60 * 1000);
     const endIso = end.toISOString();
 
-    await sb.from('vip_subscriptions').insert({
+    if (!hasSubscription) await sb.from('vip_subscriptions').insert({
       user_id: userId,
       plan_id: planId,
       order_id: order.id,
@@ -173,13 +188,23 @@ async function applyVipFromOrder(sb, { order, payment }) {
     const nextUntil = Math.max(currentUntil, end.getTime());
     await sb.from('profiles').update({ vip_until: new Date(nextUntil).toISOString(), vip_plan: 'Cubo Level 1 RPG' }).eq('id', userId);
     try {
-      const to = String(order?.customer_email || payment?.payer?.email || '').trim();
+      let emailMeta = null; let alreadySent = false;
+      const metaResp = await sb.from('orders').select('customer_email,customer_name,total,vip_activation_email_sent_at').eq('id', order.id).maybeSingle();
+      if (metaResp?.error && /vip_activation_email_sent_at/i.test(String(metaResp.error.message||''))) {
+        const fallbackMeta = await sb.from('orders').select('customer_email,customer_name,total').eq('id', order.id).maybeSingle();
+        emailMeta = fallbackMeta?.data || null;
+      } else {
+        emailMeta = metaResp?.data || null;
+        alreadySent = Boolean(metaResp?.data?.vip_activation_email_sent_at);
+      }
+      const to = String(emailMeta?.customer_email || order?.customer_email || payment?.payer?.email || '').trim();
       const apiKey = String(process.env.RESEND_API_KEY || '').trim();
       const from = String(process.env.RESEND_FROM || '').trim();
       const baseUrl = String(process.env.APP_URL || process.env.NEXT_PUBLIC_SITE_URL || '').trim().replace(/\/$/, '');
-      if (to && apiKey && from) {
-        const mail = renderVipWelcomeEmail({ brandName: process.env.BRAND_NAME || 'Cubo Criativo', orderId: order?.id, customerName: order?.customer_name || payment?.payer?.first_name || 'cliente', reviewLink: baseUrl ? `${baseUrl}/#/conta` : '', supportEmail: process.env.SUPPORT_EMAIL || process.env.RESEND_FROM || '', whatsapp: process.env.WHATSAPP_NUMBER || process.env.SUPPORT_WHATSAPP || '', vipPlanId: planId, total: Number(order?.total) || undefined, paymentMethod: 'Mercado Pago' });
-        await sendResendEmail({ apiKey, from, to: [to], subject: mail.subject, html: mail.html });
+      if (to && apiKey && from && !alreadySent) {
+        const mail = renderVipWelcomeEmail({ brandName: process.env.BRAND_NAME || 'Cubo Criativo', orderId: order?.id, customerName: emailMeta?.customer_name || order?.customer_name || payment?.payer?.first_name || 'cliente', reviewLink: baseUrl ? `${baseUrl}/#/conta` : '', supportEmail: process.env.SUPPORT_EMAIL || process.env.RESEND_FROM || '', whatsapp: process.env.WHATSAPP_NUMBER || process.env.SUPPORT_WHATSAPP || '', vipPlanId: planId, total: Number(emailMeta?.total || order?.total) || undefined, paymentMethod: 'Mercado Pago' });
+        const sendResp = await sendResendEmail({ apiKey, from, to: [to], subject: mail.subject, html: mail.html });
+        if (sendResp?.ok) await sb.from('orders').update({ vip_activation_email_sent_at: new Date().toISOString() }).eq('id', order.id);
       }
     } catch (mailErr) { console.error('vip welcome email (webhook) error', mailErr); }
   } catch (e) {
@@ -405,6 +430,9 @@ export default async function handler(req, res) {
 
         // Se ainda não está aprovado, só atualiza e encerra (sem e-mail)
         if (mapped !== "paid") {
+          if (mapped === "failed" && sb && orderId) {
+            try { const snap = await loadOrderSnapshot(sb, orderId); await revokeVipFromOrder(sb, { order: snap?.order, payment, reason: 'payment_failed' }); } catch (e) { console.error('vip revoke on webhook non-paid error', e); }
+          }
           return res.status(200).json({ ok: true, status, mapped });
         }
         }
