@@ -18,6 +18,15 @@ export default function VipRpgPage({ user, accessToken, onOpenAuth, onOpenSettin
   const [pixChecking, setPixChecking] = React.useState(false);
   const [pixStatus, setPixStatus] = React.useState('');
 
+  function pixStatusPtLabel(v) {
+    const st = String(v || '').toLowerCase();
+    if (!st || st === 'pending' || st === 'in_process') return 'Pendente';
+    if (st === 'paid' || st === 'approved') return 'Pago';
+    if (st === 'rejected' || st === 'failed' || st === 'cancelled') return 'Recusado';
+    return st.replaceAll('_', ' ');
+  }
+
+
   async function ensureProfileComplete() {
     const res = await fetch('/api/profile', { headers: { Authorization: `Bearer ${accessToken}` } });
     const data = await res.json().catch(() => ({}));
@@ -302,15 +311,15 @@ export default function VipRpgPage({ user, accessToken, onOpenAuth, onOpenSettin
 
                         <div className="mt-3 flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
                           <div className="text-xs text-slate-300">
-                            Status do Pix: <b className="uppercase">{pixStatus || 'pending'}</b>
+                            Status do Pix: <b className="uppercase">{pixStatusPtLabel(pixStatus || 'pending')}</b>
                           </div>
                           <button
                             type="button"
                             onClick={handleVipPixPaidClick}
                             disabled={pixChecking}
-                            className="rounded-xl px-3 py-2 text-xs font-extrabold bg-white/10 ring-1 ring-white/15 hover:bg-white/15 disabled:opacity-60"
+                            className={`rounded-xl px-3 py-2 text-xs font-extrabold ring-1 disabled:opacity-60 ${['paid','approved'].includes(String(pixStatus||'').toLowerCase()) ? 'bg-emerald-500/20 text-emerald-100 ring-emerald-300/30' : 'bg-white/10 ring-white/15 hover:bg-white/15'}` }
                           >
-                            {pixChecking ? 'Verificando...' : 'Já paguei'}
+                            {pixChecking ? 'Verificando...' : (['paid','approved'].includes(String(pixStatus||'').toLowerCase()) ? 'Pago ✓' : 'Já paguei')}
                           </button>
                         </div>
                       </div>

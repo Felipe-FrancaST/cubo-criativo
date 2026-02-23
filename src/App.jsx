@@ -1052,7 +1052,7 @@ React.useEffect(() => {
 
       <OrdersModal open={ordersOpen} onClose={() => setOrdersOpen(false)} />
 
-      <VipAreaModal open={vipAreaOpen} onClose={() => setVipAreaOpen(false)} />
+      <VipAreaModal open={vipAreaOpen} onClose={() => setVipAreaOpen(false)} onGoVip={() => { setVipAreaOpen(false); navigate("/vip"); }} />
 
       <ProfileSettingsModal
         open={settingsOpen}

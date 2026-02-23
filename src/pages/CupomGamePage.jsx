@@ -68,7 +68,7 @@ export default function CupomGamePage({ onGoHome, accessToken }) {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || 'Erro ao carregar jogo');
       setStatus({ loading: false, ...data });
-      if (data?.session?.won) setResultMsg('Você já venceu nesta semana ✅');
+      if (data?.session?.won) setResultMsg('Você já venceu neste período ✅');
     } catch (e) {
       setStatus({ loading: false, can_play: false, weekly_reward: null, coupon: null, played: false, error: String(e?.message || e) });
     }
@@ -128,8 +128,8 @@ export default function CupomGamePage({ onGoHome, accessToken }) {
         const extra = data?.coupon?.label?.includes('20%') ? ' 🎉 Cupom especial perfeito!' : '';
         setResultMsg(`Parabéns! Seu cupom: ${data.coupon.code}${extra}`);
         trackEvent('memory_game_win', { coupon_code: data.coupon.code, attempts: payload.attempts, errors: payload.errors });
-      } else if (data?.already_played) setResultMsg('Você já jogou nesta semana.');
-      else setResultMsg(payload?.won ? 'Vitória registrada. Volte na próxima semana!' : 'Partida registrada. Volte na próxima semana!');
+      } else if (data?.already_played) setResultMsg('Você já jogou neste período.');
+      else setResultMsg(payload?.won ? `Vitória registrada. Volte ${isVip ? 'amanhã' : 'na próxima semana'}!` : `Partida registrada. Volte ${isVip ? 'amanhã' : 'na próxima semana'}!`);
       await loadStatus();
     } catch (e) {
       setResultMsg(String(e?.message || e));
@@ -167,7 +167,7 @@ export default function CupomGamePage({ onGoHome, accessToken }) {
         <div className="flex items-center justify-between gap-3 mb-4">
           <div>
             <h1 className="text-2xl sm:text-3xl font-extrabold">Cubo Game</h1>
-            <p className="text-sm text-slate-400 mt-1">Jogo da memória semanal com cupom geek 🎴</p>
+            <p className="text-sm text-slate-400 mt-1">Jogo da memória com cupom geek 🎴</p>
           </div>
           <button onClick={onGoHome} className="rounded-xl px-4 py-2 ring-1 ring-white/15 hover:bg-white/5">Voltar</button>
         </div>
@@ -206,6 +206,7 @@ export default function CupomGamePage({ onGoHome, accessToken }) {
                 <li>• Vire 2 cartas por vez e encontre os pares.</li>
                 <li>• Você pode errar no máximo <b>{MAX_ERRORS} vezes</b>.</li>
                 <li>• {isVip ? 'VIP: 1 partida por dia.' : '1 partida por semana por conta.'}</li>
+                {isVip ? (<li className="text-emerald-200">• Agora você é VIP poderá jogar todo dia.</li>) : null}
                 <li>• O cupom gerado aparece aqui em cima e pode ser usado no carrinho.</li>
               </ul>
             </div>
@@ -221,7 +222,7 @@ export default function CupomGamePage({ onGoHome, accessToken }) {
                   <p className="font-bold text-lg">{errors}/{MAX_ERRORS}</p>
                 </div>
               </div>
-              <div className="flex justify-between gap-3"><span className="text-slate-400">Status</span><span className="text-right">{status.loading ? 'Carregando…' : status.can_play ? 'Pode jogar' : 'Já jogou esta semana'}</span></div>
+              <div className="flex justify-between gap-3"><span className="text-slate-400">Status</span><span className="text-right">{status.loading ? 'Carregando…' : status.can_play ? 'Pode jogar' : (isVip ? 'Já jogou hoje' : 'Já jogou esta semana')}</span></div>
               <div className="flex justify-between gap-3"><span className="text-slate-400">Próxima rodada</span><span className="text-right font-medium">{countdown}</span></div>
               {resultMsg ? <div className="rounded-xl bg-white/5 ring-1 ring-white/10 px-3 py-2 text-slate-100">{resultMsg}</div> : null}
               {status.error ? <div className="rounded-xl bg-rose-500/10 ring-1 ring-rose-400/20 px-3 py-2 text-rose-200">{status.error}</div> : null}
