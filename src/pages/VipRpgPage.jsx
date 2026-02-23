@@ -17,6 +17,11 @@ export default function VipRpgPage({ user, accessToken, onOpenAuth, onOpenSettin
   const [pendingStart, setPendingStart] = React.useState(null); // 'pix' | 'card'
   const [pixChecking, setPixChecking] = React.useState(false);
   const [pixStatus, setPixStatus] = React.useState('');
+  const [vipProfile, setVipProfile] = React.useState(null);
+  const [vipLoading, setVipLoading] = React.useState(false);
+
+  const vipUntil = vipProfile?.vip_until || null;
+  const isVip = Boolean(vipUntil && new Date(vipUntil) > new Date());
 
   function pixStatusPtLabel(v) {
     const st = String(v || '').toLowerCase();
@@ -26,6 +31,26 @@ export default function VipRpgPage({ user, accessToken, onOpenAuth, onOpenSettin
     return st.replaceAll('_', ' ');
   }
 
+
+  React.useEffect(() => {
+    let alive = true;
+    async function loadVipProfile() {
+      if (!accessToken) { if (alive) setVipProfile(null); return; }
+      try {
+        setVipLoading(true);
+        const res = await fetch('/api/profile', { headers: { Authorization: `Bearer ${accessToken}` } });
+        const data = await res.json().catch(() => ({}));
+        if (!alive) return;
+        setVipProfile(data?.profile || null);
+      } catch {
+        if (alive) setVipProfile(null);
+      } finally {
+        if (alive) setVipLoading(false);
+      }
+    }
+    loadVipProfile();
+    return () => { alive = false; };
+  }, [accessToken, ok]);
 
   async function ensureProfileComplete() {
     const res = await fetch('/api/profile', { headers: { Authorization: `Bearer ${accessToken}` } });
@@ -218,6 +243,44 @@ export default function VipRpgPage({ user, accessToken, onOpenAuth, onOpenSettin
               </div>
             </div>
 
+            {isVip ? (
+              <div className="mt-8 space-y-4">
+                <div className="rounded-2xl bg-emerald-500/10 ring-1 ring-emerald-400/25 p-5 sm:p-6">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge>👑 VIP ativo</Badge>
+                    {vipUntil ? <Badge>Válido até {new Date(vipUntil).toLocaleDateString('pt-BR')}</Badge> : null}
+                  </div>
+                  <h2 className="mt-3 text-2xl sm:text-3xl font-extrabold text-emerald-100">Você já é VIP</h2>
+                  <p className="mt-2 text-sm sm:text-base text-emerald-50/80">Seu plano Cubo Level 1 — RPG está ativo. Acesse a Área VIP para escolher suas miniaturas do mês e acompanhar o status da produção/envio.</p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-5">
+                    <p className="text-sm font-extrabold">Benefícios ativos</p>
+                    <ul className="mt-3 space-y-2 text-sm text-slate-200">
+                      <li className="flex gap-2"><span className="text-emerald-300">✓</span> <span><b>3 miniaturas 32mm</b> em resina premium por ciclo</span></li>
+                      <li className="flex gap-2"><span className="text-emerald-300">✓</span> <span><b>Escolha 3 de 6</b> opções na Área VIP</span></li>
+                      <li className="flex gap-2"><span className="text-emerald-300">✓</span> <span><b>Cubo Game diário</b> enquanto o VIP estiver ativo</span></li>
+                      <li className="flex gap-2"><span className="text-emerald-300">✓</span> <span>Acompanhamento de status do mês na Área VIP</span></li>
+                    </ul>
+                  </div>
+                  <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-5">
+                    <p className="text-sm font-extrabold">Próximos passos</p>
+                    <p className="mt-2 text-sm text-slate-300">Abra sua Área VIP para selecionar suas miniaturas deste mês. Se sua assinatura estiver perto de vencer, você pode renovar antecipadamente.</p>
+                    <div className="mt-4 grid grid-cols-1 gap-2">
+                      <button onClick={() => onOpenVipArea?.()} className="rounded-xl px-4 py-3 font-extrabold bg-violet-400 text-black ring-4 ring-violet-400/20 hover:bg-violet-300">Acessar Área VIP</button>
+                      <button
+                        type="button"
+                        onClick={() => { setError(''); setOk('Renovação antecipada em breve. Se quiser, posso liberar esta opção agora.'); }}
+                        className="rounded-xl px-4 py-3 font-semibold ring-1 ring-white/15 hover:bg-white/5"
+                      >
+                        Renovar antecipadamente (em breve)
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
             <div className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-4">
               <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-5">
                 <p className="text-sm font-extrabold">O que você recebe</p>
@@ -333,6 +396,8 @@ export default function VipRpgPage({ user, accessToken, onOpenAuth, onOpenSettin
 
               </div>
             </div>
+
+            )}
 
             <div className="mt-8 flex flex-wrap gap-2">
               <button onClick={onGoHome} className="rounded-xl px-4 py-2 text-sm ring-1 ring-white/10 hover:bg-white/5">Voltar</button>
