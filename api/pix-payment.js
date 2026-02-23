@@ -27,6 +27,36 @@ function mapOrderStatus(mpStatus) {
   return "pending";
 }
 
+async function applyVipFromOrder(sb, order) {
+  try {
+    if (!order || String(order.order_type || '').toLowerCase() !== 'vip') return;
+    const userId = order.user_id;
+    if (!userId) return;
+    const planId = String(order.vip_plan_id || 'CUBO_L1_RPG');
+
+    const { data: existing } = await sb.from('vip_subscriptions').select('id').eq('order_id', order.id).maybeSingle();
+    if (existing?.id) return;
+
+    const start = new Date();
+    const end = new Date(start.getTime() + 30 * 24 * 60 * 60 * 1000);
+    await sb.from('vip_subscriptions').insert({
+      user_id: userId,
+      plan_id: planId,
+      order_id: order.id,
+      starts_at: start.toISOString(),
+      ends_at: end.toISOString(),
+      status: 'active',
+    });
+
+    const { data: prof } = await sb.from('profiles').select('vip_until').eq('id', userId).maybeSingle();
+    const currentUntil = prof?.vip_until ? new Date(prof.vip_until).getTime() : 0;
+    const nextUntil = Math.max(currentUntil, end.getTime());
+    await sb.from('profiles').update({ vip_until: new Date(nextUntil).toISOString(), vip_plan: 'Cubo Level 1 RPG' }).eq('id', userId);
+  } catch (e) {
+    console.error('pix-payment applyVipFromOrder error', e);
+  }
+}
+
 async function loadUserAndOrder(req, res, purposeText) {
   const token = String(process.env.MP_ACCESS_TOKEN || "").trim();
   if (!token) {
@@ -47,7 +77,7 @@ async function loadUserAndOrder(req, res, purposeText) {
   const sb = supabaseAdmin();
   const { data: order, error: orderErr } = await sb
     .from("orders")
-    .select("id,user_id,status,payment_provider,provider_payment_id")
+    .select("id,user_id,status,payment_provider,provider_payment_id,order_type,vip_plan_id")
     .eq("id", orderId)
     .maybeSingle();
   if (orderErr) {
@@ -109,6 +139,7 @@ async function handleVerify(req, res) {
     provider_payment_id: String(mp.id || paymentId),
     customer_email: mp?.payer?.email || null,
   }).eq("id", orderId);
+  if (newStatus === "paid") await applyVipFromOrder(sb, ctx.order);
   return res.status(200).json({ ok: true, order_id: orderId, mp_status: mpStatus, status: newStatus, paid: newStatus === "paid" });
 }
 

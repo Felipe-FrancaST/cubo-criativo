@@ -30,6 +30,7 @@ export default function VipAreaModal({ open, onClose, onGoVip }) {
   const [selected, setSelected] = React.useState([]);
   const [saving, setSaving] = React.useState(false);
   const [msg, setMsg] = React.useState("");
+  const [preview, setPreview] = React.useState(null);
 
   const cycle = React.useMemo(() => cycleKeyUTC(), []);
   const isVip = vipUntil ? new Date(vipUntil).getTime() > Date.now() : false;
@@ -44,7 +45,7 @@ export default function VipAreaModal({ open, onClose, onGoVip }) {
     try {
       const [{ data: prof }, { data: opts }, { data: lastVipOrder }, { data: sel }] = await Promise.all([
         supabase.from("profiles").select("vip_until,vip_plan").eq("id", user.id).maybeSingle(),
-        supabase.from("vip_mini_options").select("id,title,description,image_url,sort_order,active").eq("active", true).order("sort_order", { ascending: true }).limit(24),
+        supabase.from("vip_mini_options").select("id,title,description,image_url,gallery_images,sort_order,active").eq("active", true).order("sort_order", { ascending: true }).limit(6),
         supabase
           .from("orders")
           .select("id,production_status,created_at")
@@ -155,37 +156,95 @@ export default function VipAreaModal({ open, onClose, onGoVip }) {
                 <div className="text-sm text-slate-200">Selecionadas: <b>{selected.length}</b>/3</div>
               </div>
 
-              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {options.map((opt) => {
                   const isSel = selected.includes(opt.id);
                   return (
-                    <button
+                    <div
                       key={opt.id}
-                      type="button"
-                      disabled={!editable || saving}
-                      onClick={() => {
-                        setSelected((prev) => {
-                          const has = prev.includes(opt.id);
-                          if (has) return prev.filter((x) => x !== opt.id);
-                          if (prev.length >= 3) return prev;
-                          return [...prev, opt.id];
-                        });
-                      }}
-                      className={`rounded-2xl p-4 text-left ring-1 transition ${isSel ? "bg-violet-500/15 ring-violet-400/30" : "bg-white/5 ring-white/10 hover:bg-white/10"} ${(!editable || saving) ? "opacity-60 cursor-not-allowed" : ""}`}
+                      className={`rounded-2xl overflow-hidden ring-1 transition ${isSel ? "bg-violet-500/10 ring-violet-400/30" : "bg-white/5 ring-white/10"}`}
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="text-sm font-extrabold text-slate-100 truncate">{opt.title}</p>
-                          {opt.description ? (
-                            <p className="mt-1 text-xs text-slate-400 line-clamp-2">{opt.description}</p>
-                          ) : null}
+                      <button
+                        type="button"
+                        onClick={() => setPreview(opt)}
+                        className="block w-full text-left"
+                      >
+                        <div className="aspect-square bg-slate-900/80">
+                          {opt.image_url ? (
+                            <img src={opt.image_url} alt={opt.title} className="h-full w-full object-cover" loading="lazy" />
+                          ) : (
+                            <div className="h-full w-full grid place-items-center text-slate-500 text-xs">Sem imagem</div>
+                          )}
                         </div>
-                        <span className={`material-icons ${isSel ? "text-violet-200" : "text-slate-500"}`}>{isSel ? "check_circle" : "radio_button_unchecked"}</span>
+                      </button>
+
+                      <div className="p-2.5">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="text-xs sm:text-sm font-extrabold text-slate-100 truncate">{opt.title}</p>
+                            {opt.description ? (
+                              <p className="mt-1 text-[11px] text-slate-400 line-clamp-2">{opt.description}</p>
+                            ) : null}
+                          </div>
+                          <button
+                            type="button"
+                            disabled={!editable || saving}
+                            onClick={() => {
+                              setSelected((prev) => {
+                                const has = prev.includes(opt.id);
+                                if (has) return prev.filter((x) => x !== opt.id);
+                                if (prev.length >= 3) return prev;
+                                return [...prev, opt.id];
+                              });
+                            }}
+                            className={`shrink-0 rounded-lg p-1.5 ring-1 ${isSel ? "bg-violet-500/20 ring-violet-300/30 text-violet-100" : "bg-white/5 ring-white/10 text-slate-300"} ${(!editable || saving) ? "opacity-60 cursor-not-allowed" : "hover:bg-white/10"}`}
+                            aria-label={isSel ? 'Remover miniatura' : 'Selecionar miniatura'}
+                          >
+                            <span className="material-icons text-[18px]">{isSel ? "check_circle" : "add_circle"}</span>
+                          </button>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setPreview(opt)}
+                          className="mt-2 text-[11px] text-sky-300 hover:text-sky-200"
+                        >
+                          Ver imagens
+                        </button>
                       </div>
-                    </button>
+                    </div>
                   );
                 })}
               </div>
+
+              {preview ? (
+                <div className="fixed inset-0 z-[70] bg-black/75 backdrop-blur-sm p-4" onClick={() => setPreview(null)}>
+                  <div className="mx-auto mt-4 max-w-lg rounded-2xl bg-slate-950 ring-1 ring-white/10 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                    <div className="p-4 border-b border-white/10 flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h3 className="text-lg font-extrabold text-white truncate">{preview.title}</h3>
+                        {preview.description ? <p className="mt-1 text-sm text-slate-400">{preview.description}</p> : null}
+                      </div>
+                      <button onClick={() => setPreview(null)} className="rounded-lg p-2 ring-1 ring-white/10 hover:bg-white/5">
+                        <span className="material-icons text-[18px]">close</span>
+                      </button>
+                    </div>
+                    <div className="p-4 space-y-3">
+                      {preview.image_url ? (
+                        <img src={preview.image_url} alt={preview.title} className="w-full aspect-square object-cover rounded-xl ring-1 ring-white/10" />
+                      ) : null}
+                      {Array.isArray(preview.gallery_images) && preview.gallery_images.length ? (
+                        <div className="grid grid-cols-3 gap-2">
+                          {preview.gallery_images.map((url, idx) => (
+                            <img key={idx} src={url} alt={`${preview.title} ${idx + 1}`} className="w-full aspect-square object-cover rounded-lg ring-1 ring-white/10" />
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-xs text-slate-400">Sem imagens adicionais para esta miniatura.</div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
 
               <div className="mt-5 flex items-center justify-between gap-3 flex-wrap">
                 <div className="text-xs text-slate-400">Dica: você pode mudar as escolhas enquanto o status estiver <b>Editável</b>.</div>

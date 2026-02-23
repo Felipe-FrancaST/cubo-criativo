@@ -15,6 +15,8 @@ export default function VipRpgPage({ user, accessToken, onOpenAuth, onOpenSettin
   const [ok, setOk] = React.useState('');
   const [pix, setPix] = React.useState(null);
   const [pendingStart, setPendingStart] = React.useState(null); // 'pix' | 'card'
+  const [pixChecking, setPixChecking] = React.useState(false);
+  const [pixStatus, setPixStatus] = React.useState('');
 
   async function ensureProfileComplete() {
     const res = await fetch('/api/profile', { headers: { Authorization: `Bearer ${accessToken}` } });
@@ -26,6 +28,43 @@ export default function VipRpgPage({ user, accessToken, onOpenAuth, onOpenSettin
     return Boolean(hasCpf && hasAddr && hasBirth);
   }
 
+
+
+  async function verifyVipPix(orderId) {
+    if (!orderId) return false;
+    try {
+      setPixChecking(true);
+      const res = await fetch('/api/pix-payment?action=verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ order_id: orderId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || 'Não foi possível verificar o pagamento Pix.');
+      const st = String(data?.status || data?.mp_status || '').toLowerCase();
+      setPixStatus(st);
+      if (st === 'paid' || st === 'approved') {
+        setOk('Pagamento confirmado! Seu VIP será ativado em instantes.');
+        setError('');
+        trackEvent('vip_pix_paid_confirmed', { plan_id: 'CUBO_L1_RPG' });
+        return true;
+      }
+      if (st === 'failed' || st === 'rejected') {
+        setError('Pagamento Pix não foi aprovado. Tente novamente.');
+      }
+      return false;
+    } catch (e) {
+      setError(String(e?.message || e));
+      return false;
+    } finally {
+      setPixChecking(false);
+    }
+  }
+
+  async function handleVipPixPaidClick() {
+    if (!pix?.order_id) return;
+    await verifyVipPix(pix.order_id);
+  }
   React.useEffect(() => {
     const onSaved = async () => {
       if (!pendingStart) return;
@@ -38,6 +77,21 @@ export default function VipRpgPage({ user, accessToken, onOpenAuth, onOpenSettin
     return () => window.removeEventListener('profile:saved', onSaved);
   }, [pendingStart]);
 
+
+
+  React.useEffect(() => {
+    if (!pix?.order_id || !accessToken) return;
+    let stopped = false;
+    const t = setInterval(async () => {
+      if (stopped) return;
+      const done = await verifyVipPix(pix.order_id);
+      if (done) {
+        stopped = true;
+        clearInterval(t);
+      }
+    }, 5000);
+    return () => { stopped = true; clearInterval(t); };
+  }, [pix?.order_id, accessToken]);
   async function startPix() {
     setError('');
     setOk('');
@@ -70,11 +124,14 @@ export default function VipRpgPage({ user, accessToken, onOpenAuth, onOpenSettin
         throw new Error(data?.error || 'Não foi possível gerar o Pix.');
       }
       setPix({
+        order_id: data?.order_id || '',
+        payment_id: data?.id || '',
         qr_code: data?.qr_code || '',
         qr_code_base64: data?.qr_code_base64 || '',
         ticket_url: data?.ticket_url || '',
       });
-      setOk('Pix gerado! Escaneie o QR Code ou copie o código.');
+      setPixStatus(String(data?.status || '').toLowerCase());
+      setOk('Pix gerado! Escaneie o QR Code ou copie o código. A confirmação é automática.');
       trackEvent('vip_pix_created', { plan_id: 'CUBO_L1_RPG' });
     } catch (e) {
       setError(String(e?.message || e));
@@ -240,6 +297,20 @@ export default function VipRpgPage({ user, accessToken, onOpenAuth, onOpenSettin
                             className="rounded-xl px-3 py-2 text-xs font-semibold bg-emerald-400/15 ring-1 ring-emerald-300/30 hover:bg-emerald-400/20"
                           >
                             Copiar
+                          </button>
+                        </div>
+
+                        <div className="mt-3 flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
+                          <div className="text-xs text-slate-300">
+                            Status do Pix: <b className="uppercase">{pixStatus || 'pending'}</b>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleVipPixPaidClick}
+                            disabled={pixChecking}
+                            className="rounded-xl px-3 py-2 text-xs font-extrabold bg-white/10 ring-1 ring-white/15 hover:bg-white/15 disabled:opacity-60"
+                          >
+                            {pixChecking ? 'Verificando...' : 'Já paguei'}
                           </button>
                         </div>
                       </div>
