@@ -123,7 +123,7 @@ async function handleGameComplete(req, res) {
     for (let i = 0; i < 5; i++) {
       couponCode = makeCouponCode();
       const expires = new Date();
-      expires.setUTCDate(expires.getUTCDate() + 7);
+      expires.setUTCDate(expires.getUTCDate() + 3);
       const ins = await sb.from('coupons').insert({
         code: couponCode,
         user_id: user.id,
@@ -200,6 +200,25 @@ async function handleValidate(req, res) {
   return res.status(200).json({ ok: true, coupon: { code: coupon.code, label: coupon.label }, ...result });
 }
 
+
+async function handleMyCoupons(req, res) {
+  const user = await getUserFromAuthHeader(req);
+  if (!user) return res.status(401).json({ error: 'Faça login para ver seus cupons.' });
+  const sb = supabaseAdmin();
+  const { data, error } = await sb
+    .from('coupons')
+    .select('code,label,discount_type,discount_value,min_order_value,expires_at,active,used_count,max_uses,source,created_at')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  const now = Date.now();
+  const rows = (data || []).filter((c) => {
+    const exp = c?.expires_at ? new Date(c.expires_at).getTime() : 0;
+    return !Number.isFinite(exp) || exp > (now - 3 * 24 * 60 * 60 * 1000);
+  });
+  return res.status(200).json({ coupons: rows });
+}
+
 export default async function handler(req, res) {
   try {
     const action = String(req.query?.action || '').toLowerCase();
@@ -216,6 +235,10 @@ export default async function handler(req, res) {
     if (action === 'validate') {
       if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
       return await handleValidate(req, res);
+    }
+    if (action === 'my-coupons') {
+      if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+      return await handleMyCoupons(req, res);
     }
 
     return res.status(404).json({ error: 'Ação inválida.' });

@@ -100,21 +100,6 @@ export default function MenuDrawer({
           <DrawerButton icon="stars" onClick={() => { onNavigate("/vip"); onClose?.(); }}>
             Clube VIP (RPG)
           </DrawerButton>
-          <DrawerButton icon="contact_support" onClick={() => { onNavigate("/contato"); onClose?.(); }}>
-            Contato
-          </DrawerButton>
-          <DrawerButton icon="groups" onClick={() => { onNavigate("/sobre"); onClose?.(); }}>
-            Sobre nós
-          </DrawerButton>
-          <DrawerButton icon="help" onClick={() => { onNavigate("/faq"); onClose?.(); }}>
-            FAQ
-          </DrawerButton>
-          <DrawerButton icon="gavel" onClick={() => { onNavigate("/termos"); onClose?.(); }}>
-            Termos
-          </DrawerButton>
-          <DrawerButton icon="policy" onClick={() => { onNavigate("/politica-de-privacidade"); onClose?.(); }}>
-            Privacidade
-          </DrawerButton>
 
           <div className="my-3 h-px bg-white/10" />
 
@@ -182,18 +167,6 @@ export default function MenuDrawer({
               </DrawerButton>
             </>
           )}
-
-          <div className="my-3 h-px bg-white/10" />
-
-          <DrawerButton
-            icon={rpgMode ? "close" : "casino"}
-            onClick={() => {
-              onToggleRpg?.();
-              onClose?.();
-            }}
-          >
-            {rpgMode ? "Sair do modo RPG" : "Modo RPG"}
-          </DrawerButton>
 
           <div className="mt-4 grid grid-cols-3 gap-2">
             <a
