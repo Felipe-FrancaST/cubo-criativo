@@ -647,6 +647,19 @@ React.useEffect(() => {
 
   // Bloqueia scroll do body quando overlays estão abertos
   React.useEffect(() => {
+    const onOrderPaid = () => {
+      setCart([]);
+      setCartOpen(false);
+      setToastMsg("✅ Pedido finalizado!");
+      setToastOpen(true);
+      clearTimeout(toastT.current);
+      toastT.current = setTimeout(() => setToastOpen(false), 2400);
+    };
+    window.addEventListener("order:paid", onOrderPaid);
+    return () => window.removeEventListener("order:paid", onOrderPaid);
+  }, []);
+
+  React.useEffect(() => {
     const anyOverlayOpen = cartOpen || galleryOpen || rpgMode || authOpen || ordersOpen || settingsOpen || menuDrawerOpen;
     document.body.style.overflow = anyOverlayOpen ? "hidden" : "";
     return () => {

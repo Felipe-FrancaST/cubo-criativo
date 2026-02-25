@@ -1,4 +1,5 @@
 import { renderVipWelcomeEmail } from "../server/emailTemplates.js";
+import { getVipPlanById } from "../server/vipPlans.js";
 /**
  * Vercel Serverless Function
  * Route: /api/mp-webhook
@@ -225,6 +226,27 @@ async function applyVipFromOrder(sb, { order, payment }) {
   } catch (e) {
     console.error('applyVipFromOrder error', e);
   }
+}
+
+
+async function applyStockDeductionIfNeeded(sb, order) {
+  try {
+    if (!sb || !order?.id) return;
+    if (String(order.order_type || '').toLowerCase() === 'vip') return;
+    const ck = await sb.from('orders').select('stock_deducted_at').eq('id', order.id).maybeSingle();
+    if (ck?.data?.stock_deducted_at) return;
+    const q = await sb.from('order_items').select('product_id,qty').eq('order_id', order.id);
+    const rows = q?.data || [];
+    const byPid = new Map();
+    for (const it of rows) { const pid = String(it?.product_id || '').trim(); if (!pid) continue; byPid.set(pid, (byPid.get(pid)||0) + (Number(it?.qty)||0)); }
+    for (const [pid, qty] of byPid) {
+      if (qty <= 0) continue;
+      const { data: prod } = await sb.from('products').select('stock').eq('id', pid).maybeSingle();
+      if (!prod || prod.stock === null || prod.stock === undefined) continue;
+      await sb.from('products').update({ stock: Math.max(0, (Number(prod.stock)||0) - qty) }).eq('id', pid);
+    }
+    await sb.from('orders').update({ stock_deducted_at: new Date().toISOString() }).eq('id', order.id).is('stock_deducted_at', null);
+  } catch (e) { console.error('mp-webhook stock deduction error', e); }
 }
 
 function replyJson(res, code, payload) {
@@ -468,6 +490,7 @@ export default async function handler(req, res) {
     // Se for assinatura VIP, marca VIP no perfil (best-effort)
     if (order && sb) {
       await applyVipFromOrder(sb, { order, payment });
+      await applyStockDeductionIfNeeded(sb, order);
     }
 
     // Idempotência: preferimos confiar no nosso banco.

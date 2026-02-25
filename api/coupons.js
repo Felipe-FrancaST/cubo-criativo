@@ -214,7 +214,9 @@ async function handleMyCoupons(req, res) {
   const now = Date.now();
   const rows = (data || []).filter((c) => {
     const exp = c?.expires_at ? new Date(c.expires_at).getTime() : 0;
-    return !Number.isFinite(exp) || exp > (now - 3 * 24 * 60 * 60 * 1000);
+    const withinWindow = !Number.isFinite(exp) || exp > (now - 3 * 24 * 60 * 60 * 1000);
+    const used = (Number(c?.used_count) || 0) >= (Number(c?.max_uses) || 1);
+    return withinWindow && !used;
   });
   return res.status(200).json({ coupons: rows });
 }

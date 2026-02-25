@@ -26,6 +26,7 @@ export default function VipAreaModal({ open, onClose, onGoVip }) {
   const [vipUntil, setVipUntil] = React.useState(null);
   const [vipPlan, setVipPlan] = React.useState("");
   const [orderStatus, setOrderStatus] = React.useState("editavel");
+  const [shippingTracking, setShippingTracking] = React.useState("");
   const [options, setOptions] = React.useState([]);
   const [selected, setSelected] = React.useState([]);
   const [saving, setSaving] = React.useState(false);
@@ -48,7 +49,7 @@ export default function VipAreaModal({ open, onClose, onGoVip }) {
         supabase.from("vip_mini_options").select("id,title,description,image_url,gallery_images,sort_order,active").eq("active", true).order("sort_order", { ascending: true }).limit(6),
         supabase
           .from("orders")
-          .select("id,production_status,created_at")
+          .select("id,production_status,shipping_tracking,created_at")
           .eq("user_id", user.id)
           .eq("order_type", "vip")
           .eq("status", "paid")
@@ -63,6 +64,7 @@ export default function VipAreaModal({ open, onClose, onGoVip }) {
 
       const order = Array.isArray(lastVipOrder) ? lastVipOrder[0] : null;
       setOrderStatus(String(order?.production_status || "editavel").toLowerCase());
+      setShippingTracking(String(order?.shipping_tracking || "").trim());
 
       const ids = Array.isArray(sel?.selected_option_ids) ? sel.selected_option_ids : [];
       setSelected(ids);
@@ -146,6 +148,18 @@ export default function VipAreaModal({ open, onClose, onGoVip }) {
             </div>
           ) : (
             <>
+
+              {String(orderStatus || '').toLowerCase() === 'enviado' && shippingTracking ? (
+                <div className="mt-4 rounded-2xl bg-amber-500/10 ring-1 ring-amber-400/20 p-4">
+                  <p className="text-sm font-semibold text-amber-100">Código de rastreio</p>
+                  <div className="mt-2 flex flex-col sm:flex-row gap-2 sm:items-center">
+                    <code className="rounded-lg bg-black/30 px-3 py-2 text-xs text-amber-50 ring-1 ring-amber-200/10">{shippingTracking}</code>
+                    <button type="button" onClick={() => navigator.clipboard.writeText(String(shippingTracking || ''))} className="rounded-lg px-3 py-2 text-xs font-semibold ring-1 ring-amber-300/20 hover:bg-white/5">Copiar</button>
+                    <a href={`https://rastreamento.correios.com.br/app/index.php?objetos=${encodeURIComponent(shippingTracking)}`} target="_blank" rel="noreferrer" className="rounded-lg px-3 py-2 text-xs font-semibold bg-amber-300 text-black hover:bg-amber-200">Rastrear pedido</a>
+                  </div>
+                </div>
+              ) : null}
+
               <div className="mt-6 flex items-center justify-between gap-3 flex-wrap">
                 <div className="text-sm text-slate-300">
                   Escolha <b>3</b> miniaturas entre <b>{options.length}</b> opções do mês.

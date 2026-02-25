@@ -15,6 +15,7 @@
 import crypto from "crypto";
 import { getUserFromAuthHeader, supabaseAdmin } from "../server/supabase.js";
 import { calcCouponDiscount } from "../server/couponGame.js";
+import { getVipPlanById, vipPlanDisplayName } from "../server/vipPlans.js";
 
 export const config = { runtime: "nodejs" };
 
@@ -148,11 +149,12 @@ export default async function handler(req, res) {
     // 1) Cria pedido no Supabase
     const sb = supabaseAdmin();
 
-    // Assinatura VIP: não aceita cupom e força o preço do plano
+    // Assinatura VIP: não aceita cupom e força o preço do plano (configurável)
+    let vipPlan = null;
     if (vipPlanId) {
-      // preço do plano Level 1 RPG (mensal)
-      const forced = 40;
-      subtotal = Number(forced.toFixed(2));
+      vipPlan = await getVipPlanById(sb, vipPlanId);
+      if (!vipPlan) return res.status(400).json({ error: 'Plano VIP inválido.' });
+      subtotal = Number(Number(vipPlan.price_brl || 0).toFixed(2));
     }
 
     let finalAmount = subtotal;
@@ -219,7 +221,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "Não foi possível criar o pedido." });
     }
 
-    const cleaned = (vipPlanId ? [{ name: 'Cubo Level 1 RPG (mensalidade)', qty: 1, price: 40, scale: '32mm', img: '' }] : items)
+    const cleaned = (vipPlanId ? [{ name: `${vipPlanDisplayName(vipPlan)} (mensalidade)`, qty: 1, price: Number(vipPlan?.price_brl || 0), scale: vipPlan?.scale || '32mm', img: '' }] : items)
       .filter((it) => (Number(it.qty) || 0) > 0 && (Number(it.price) || 0) > 0)
       .map((it) => {
         const name = String(it.name || it.nome || "Item").trim();

@@ -19,6 +19,8 @@ export default function VipRpgPage({ user, accessToken, onOpenAuth, onOpenSettin
   const [pixStatus, setPixStatus] = React.useState('');
   const [vipProfile, setVipProfile] = React.useState(null);
   const [vipLoading, setVipLoading] = React.useState(false);
+  const [plans, setPlans] = React.useState([]);
+  const [selectedPlanId, setSelectedPlanId] = React.useState('CUBO_L1_RPG');
 
   const vipUntil = vipProfile?.vip_until || null;
   const isVip = Boolean(vipUntil && new Date(vipUntil) > new Date());
@@ -126,7 +128,21 @@ export default function VipRpgPage({ user, accessToken, onOpenAuth, onOpenSettin
     }, 5000);
     return () => { stopped = true; clearInterval(t); };
   }, [pix?.order_id, accessToken]);
-  async function startPix() {
+
+  React.useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const res = await fetch('/api/vip-plans');
+        const data = await res.json().catch(() => ({}));
+        if (!alive) return;
+        setPlans(Array.isArray(data?.plans) ? data.plans : []);
+      } catch { if (alive) setPlans([]); }
+    })();
+    return () => { alive = false; };
+  }, []);
+
+  async function startPix(planId = "CUBO_L1_RPG") {
     setError('');
     setOk('');
     setPix(null);
@@ -145,7 +161,7 @@ export default function VipRpgPage({ user, accessToken, onOpenAuth, onOpenSettin
       const res = await fetch('/api/create-pix-payment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ vip_plan_id: 'CUBO_L1_RPG', description: 'Assinatura Cubo Level 1 RPG' }),
+        body: JSON.stringify({ vip_plan_id: planId, description: `Assinatura ${planId}` }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -174,7 +190,7 @@ export default function VipRpgPage({ user, accessToken, onOpenAuth, onOpenSettin
     }
   }
 
-  async function startCard() {
+  async function startCard(planId = "CUBO_L1_RPG") {
     setError('');
     setOk('');
     if (!accessToken) {
@@ -192,7 +208,7 @@ export default function VipRpgPage({ user, accessToken, onOpenAuth, onOpenSettin
       const res = await fetch('/api/create-checkout-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ vip_plan_id: 'CUBO_L1_RPG' }),
+        body: JSON.stringify({ vip_plan_id: planId }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -209,7 +225,7 @@ export default function VipRpgPage({ user, accessToken, onOpenAuth, onOpenSettin
         return;
       }
       setOk('Checkout criado.');
-      trackEvent('vip_card_checkout_created', { plan_id: 'CUBO_L1_RPG' });
+      trackEvent('vip_card_checkout_created', { plan_id: planId });
     } catch (e) {
       setError(String(e?.message || e));
     } finally {
@@ -267,7 +283,21 @@ export default function VipRpgPage({ user, accessToken, onOpenAuth, onOpenSettin
                   <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-5">
                     <p className="text-sm font-extrabold">Próximos passos</p>
                     <p className="mt-2 text-sm text-slate-300">Abra sua Área VIP para selecionar suas miniaturas deste mês. Se sua assinatura estiver perto de vencer, você pode renovar antecipadamente.</p>
-                    <div className="mt-4 grid grid-cols-1 gap-2">
+                    <div className="mt-4 space-y-3">
+                  <div className="grid grid-cols-1 gap-2">
+                    {(plans.length ? plans : [{ id: 'CUBO_L1_RPG', name: 'Cubo Level 1 — RPG', price_brl: 40, miniatures_count: 3, boss_count: 0 }, { id: 'CUBO_L2_RPG', name: 'Cubo Level 2 — RPG', price_brl: 69.9, miniatures_count: 4, boss_count: 1 }]).map((pl) => (
+                      <button key={pl.id} type="button" onClick={() => setSelectedPlanId(pl.id)} className={`text-left rounded-xl p-3 ring-1 ${selectedPlanId===pl.id ? 'ring-teal-300 bg-teal-400/10' : 'ring-white/10 bg-white/5 hover:bg-white/10'}`}>
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <div className="font-bold">{pl.name || pl.id}</div>
+                            <div className="text-xs text-slate-300">{Number(pl.miniatures_count||0)} miniaturas{Number(pl.boss_count||0)?` + ${Number(pl.boss_count)} boss`:''}</div>
+                          </div>
+                          <div className="font-extrabold">R$ {Number(pl.price_brl||0).toFixed(2).replace('.', ',')}</div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-1 gap-2">
                       <button onClick={() => onOpenVipArea?.()} className="rounded-xl px-4 py-3 font-extrabold bg-violet-400 text-black ring-4 ring-violet-400/20 hover:bg-violet-300">Acessar Área VIP</button>
                       <button
                         type="button"
@@ -313,17 +343,31 @@ export default function VipRpgPage({ user, accessToken, onOpenAuth, onOpenSettin
                   <div className="mt-3 rounded-2xl bg-emerald-500/10 ring-1 ring-emerald-500/20 p-3 text-sm text-emerald-100">{ok}</div>
                 ) : null}
 
-                <div className="mt-4 grid grid-cols-1 gap-2">
+                <div className="mt-4 space-y-3">
+                  <div className="grid grid-cols-1 gap-2">
+                    {(plans.length ? plans : [{ id: 'CUBO_L1_RPG', name: 'Cubo Level 1 — RPG', price_brl: 40, miniatures_count: 3, boss_count: 0 }, { id: 'CUBO_L2_RPG', name: 'Cubo Level 2 — RPG', price_brl: 69.9, miniatures_count: 4, boss_count: 1 }]).map((pl) => (
+                      <button key={pl.id} type="button" onClick={() => setSelectedPlanId(pl.id)} className={`text-left rounded-xl p-3 ring-1 ${selectedPlanId===pl.id ? 'ring-teal-300 bg-teal-400/10' : 'ring-white/10 bg-white/5 hover:bg-white/10'}`}>
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <div className="font-bold">{pl.name || pl.id}</div>
+                            <div className="text-xs text-slate-300">{Number(pl.miniatures_count||0)} miniaturas{Number(pl.boss_count||0)?` + ${Number(pl.boss_count)} boss`:''}</div>
+                          </div>
+                          <div className="font-extrabold">R$ {Number(pl.price_brl||0).toFixed(2).replace('.', ',')}</div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-1 gap-2">
                   <button
                     disabled={busy}
-                    onClick={startCard}
+                    onClick={() => startCard(selectedPlanId)}
                     className="rounded-xl px-4 py-3 font-extrabold bg-teal-400 text-black ring-4 ring-teal-400/20 disabled:opacity-60"
                   >
                     Assinar com cartão
                   </button>
                   <button
                     disabled={busy}
-                    onClick={startPix}
+                    onClick={() => startPix(selectedPlanId)}
                     className="rounded-xl px-4 py-3 font-semibold ring-1 ring-white/15 hover:bg-white/5 disabled:opacity-60"
                   >
                     Assinar com Pix

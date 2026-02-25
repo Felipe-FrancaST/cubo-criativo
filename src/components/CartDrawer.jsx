@@ -52,6 +52,9 @@ export default function CartDrawer({
   const [couponInfo, setCouponInfo] = React.useState(null);
   const [couponLoading, setCouponLoading] = React.useState(false);
   const [couponMsg, setCouponMsg] = React.useState('');
+  const [myCouponsOpen, setMyCouponsOpen] = React.useState(false);
+  const [myCouponsBusy, setMyCouponsBusy] = React.useState(false);
+  const [myCoupons, setMyCoupons] = React.useState([]);
   const hasValidSubtotal = Number.isFinite(Number(subtotal)) && Number(subtotal) > 0;
   const hasCartItems = Array.isArray(cart) && cart.length > 0;
   const canCheckout = hasCartItems && hasValidSubtotal;
@@ -160,6 +163,22 @@ export default function CartDrawer({
     if (!msg) return false;
     if (/(já utilizado|ja utilizado|cupom.*utilizado|cpf.*já usou|cpf.*ja usou|já usado|ja usado)/i.test(msg)) return false;
     return /(complete seu perfil|completar perfil|perfil incompleto|cadastro incompleto|informe seu cpf|cpf obrigatório|cpf obrigatorio|cpf inválido|cpf invalido|sem cpf|perfil.*cpf)/i.test(msg);
+  }
+
+
+  async function loadMyCoupons() {
+    if (!authToken) { onRequireLogin?.(); return; }
+    try {
+      setMyCouponsBusy(true);
+      const resp = await fetch('/api/coupons?action=my-coupons', { headers: { Authorization: `Bearer ${authToken}` } });
+      const json = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(json?.error || 'Não foi possível carregar cupons.');
+      setMyCoupons(Array.isArray(json?.coupons) ? json.coupons : []);
+    } catch (e) {
+      setCouponMsg(String(e?.message || e));
+    } finally {
+      setMyCouponsBusy(false);
+    }
   }
 
   function removeCoupon() {
@@ -426,6 +445,30 @@ export default function CartDrawer({
               </div>
             )}
             {couponMsg && <div className="text-xs text-slate-300">{couponMsg}</div>}
+            <div className="pt-1">
+              <button
+                type="button"
+                onClick={async () => { const next = !myCouponsOpen; setMyCouponsOpen(next); if (next && myCoupons.length === 0) await loadMyCoupons(); }}
+                className="text-xs rounded-lg px-2 py-1 ring-1 ring-white/10 hover:bg-white/5"
+              >
+                {myCouponsOpen ? 'Ocultar meus cupons' : 'Meus cupons'}
+              </button>
+              {myCouponsOpen ? (
+                <div className="mt-2 rounded-lg bg-slate-900/40 ring-1 ring-white/10 p-2 space-y-2">
+                  {myCouponsBusy ? <div className="text-xs text-slate-400">Carregando cupons…</div> : null}
+                  {!myCouponsBusy && myCoupons.length === 0 ? <div className="text-xs text-slate-400">Você não tem cupons disponíveis.</div> : null}
+                  {!myCouponsBusy && myCoupons.map((c) => (
+                    <div key={c.code} className="flex items-center justify-between gap-2 text-xs bg-white/5 rounded-lg px-2 py-2">
+                      <div className="min-w-0">
+                        <div className="font-semibold text-slate-100 truncate">{c.code}</div>
+                        <div className="text-slate-400 truncate">{c.label || c.code}</div>
+                      </div>
+                      <button type="button" onClick={() => { setCouponCode(String(c.code || '').toUpperCase()); applyCoupon(String(c.code || '').toUpperCase()); }} className="shrink-0 rounded-md px-2 py-1 bg-white/10 ring-1 ring-white/10 hover:bg-white/15">Usar</button>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </div>
           </div>
 
           {couponInfo && canCheckout && (

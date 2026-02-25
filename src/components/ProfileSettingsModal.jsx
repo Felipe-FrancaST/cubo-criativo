@@ -444,7 +444,6 @@ export default function ProfileSettingsModal({ open, onClose, required = false, 
                     <button type="button" onClick={() => goSettingsRoute('/sobre')} className="rounded-xl px-3 py-2 text-sm ring-1 ring-white/10 hover:bg-white/5">Sobre nós</button>
                     <button type="button" onClick={() => goSettingsRoute('/contato')} className="rounded-xl px-3 py-2 text-sm ring-1 ring-white/10 hover:bg-white/5">Contato</button>
                     <button type="button" onClick={() => setSettingsSection('password')} className={`rounded-xl px-3 py-2 text-sm ring-1 ${settingsSection === 'password' ? 'bg-indigo-400 text-black ring-indigo-300' : 'ring-white/10 hover:bg-white/5'}`}>Mudar senha</button>
-                    <button type="button" onClick={async () => { setSettingsSection('coupons'); await loadMyCoupons(); }} className={`col-span-2 sm:col-span-3 rounded-xl px-3 py-2 text-sm ring-1 ${settingsSection === 'coupons' ? 'bg-amber-400 text-black ring-amber-300' : 'ring-white/10 hover:bg-white/5'}`}>Meus cupons</button>
                   </div>
                 </div>
 

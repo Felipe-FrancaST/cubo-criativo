@@ -1,5 +1,6 @@
 import { renderVipWelcomeEmail } from "../server/emailTemplates.js";
 import { getUserFromAuthHeader, supabaseAdmin } from "../server/supabase.js";
+import { getVipPlanById } from "../server/vipPlans.js";
 
 export const config = { runtime: "nodejs" };
 
@@ -101,7 +102,8 @@ async function applyVipFromOrder(sb, order, payment) {
     const { data: prof } = await sb.from("profiles").select("vip_until").eq("id", userId).maybeSingle();
     const currentUntil = prof?.vip_until ? new Date(prof.vip_until).getTime() : 0;
     const nextUntil = Math.max(currentUntil, end.getTime());
-    await sb.from("profiles").update({ vip_until: new Date(nextUntil).toISOString(), vip_plan: "Cubo Level 1 RPG" }).eq("id", userId);
+    const vipPlan = await getVipPlanById(sb, planId);
+    await sb.from("profiles").update({ vip_until: new Date(nextUntil).toISOString(), vip_plan: vipPlan?.name || "Cubo Level 1 RPG" }).eq("id", userId);
 
     // Envio de email de adesão com idempotência separada do email genérico
     try {
@@ -146,6 +148,35 @@ async function applyVipFromOrder(sb, order, payment) {
   } catch (e) {
     console.error("pix-payment applyVipFromOrder error", e);
   }
+}
+
+
+async function applyStockDeductionIfNeeded(sb, order) {
+  try {
+    if (!order?.id) return;
+    if (String(order.order_type || '').toLowerCase() === 'vip') return;
+    const current = await sb.from('orders').select('stock_deducted_at,status').eq('id', order.id).maybeSingle();
+    if (current?.data?.stock_deducted_at) return;
+    let items = [];
+    const qNew = await sb.from('order_items').select('product_id,qty').eq('order_id', order.id);
+    if (qNew?.error) {
+      const qOld = await sb.from('order_items').select('product_id,qty').eq('order_id', order.id);
+      items = qOld?.data || [];
+    } else items = qNew.data || [];
+    const byPid = new Map();
+    for (const it of items) {
+      const pid = String(it?.product_id || '').trim(); if (!pid) continue;
+      byPid.set(pid, (byPid.get(pid)||0) + (Number(it?.qty)||0));
+    }
+    for (const [pid, qty] of byPid) {
+      if (qty <= 0) continue;
+      const { data: prod } = await sb.from('products').select('stock').eq('id', pid).maybeSingle();
+      if (!prod || prod.stock === null || prod.stock === undefined) continue;
+      const next = Math.max(0, (Number(prod.stock)||0) - qty);
+      await sb.from('products').update({ stock: next }).eq('id', pid);
+    }
+    await sb.from('orders').update({ stock_deducted_at: new Date().toISOString() }).eq('id', order.id).is('stock_deducted_at', null);
+  } catch (e) { console.error('applyStockDeductionIfNeeded error', e); }
 }
 
 async function loadUserAndOrder(req, res, purposeText) {
@@ -211,7 +242,7 @@ async function handleVerify(req, res) {
     customer_email: mp?.payer?.email || order.customer_email || null,
   }).eq("id", orderId);
 
-  if (newStatus === "paid") await applyVipFromOrder(sb, order, mp);
+  if (newStatus === "paid") { await applyVipFromOrder(sb, order, mp); await applyStockDeductionIfNeeded(sb, order); }
   if (newStatus === "failed") await revokeVipFromOrder(sb, order, "payment_failed");
 
   return res.status(200).json({ ok: true, order_id: orderId, mp_status: mpStatus, status: newStatus, paid: newStatus === "paid" });

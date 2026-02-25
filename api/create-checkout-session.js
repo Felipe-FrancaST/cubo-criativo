@@ -16,6 +16,7 @@
 import crypto from "crypto";
 import { getUserFromAuthHeader, supabaseAdmin } from "../server/supabase.js";
 import { calcCouponDiscount } from "../server/couponGame.js";
+import { getVipPlanById, vipPlanDisplayName } from "../server/vipPlans.js";
 
 export const config = { runtime: "nodejs" };
 
@@ -155,8 +156,13 @@ export default async function handler(req, res) {
     }
 
     // Assinatura VIP: força item/preço e não aceita cupom
+    let vipPlan = null;
+    if (vipPlanId) {
+      vipPlan = await getVipPlanById(sb, vipPlanId);
+      if (!vipPlan) return res.status(400).json({ error: 'Plano VIP inválido.' });
+    }
     const effectiveItems = vipPlanId
-      ? [{ id: 'VIP_L1_RPG', name: 'Cubo Level 1 RPG (mensalidade)', qty: 1, price: 40, scale: '32mm', img: '' }]
+      ? [{ id: vipPlan.id, name: `${vipPlanDisplayName(vipPlan)} (mensalidade)`, qty: 1, price: Number(vipPlan.price_brl || 0), scale: vipPlan.scale || '32mm', img: '' }]
       : items;
 
     // Total no servidor
