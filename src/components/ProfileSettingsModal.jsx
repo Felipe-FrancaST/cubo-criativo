@@ -13,6 +13,17 @@ function Field({ label, children }) {
   );
 }
 
+const FALLBACK_VIP_PLANS = [
+  { id: "CUBO_L1_RPG", slug: "level-1", name: "Cubo Level 1 — RPG", short_name: "Level 1", miniatures_count: 3, boss_count: 0, items_per_month: 3 },
+  { id: "CUBO_L2_RPG", slug: "level-2", name: "Cubo Level 2 — RPG", short_name: "Level 2", miniatures_count: 4, boss_count: 1, items_per_month: 5 },
+  { id: "CUBO_L3_RPG", slug: "level-3", name: "Cubo Level 3 — RPG", short_name: "Level 3", miniatures_count: 8, boss_count: 2, items_per_month: 10 },
+];
+function normVipText(v) { return String(v || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim(); }
+function findVipPlanForProfile(plans, profilePlan) {
+  const q = normVipText(profilePlan); if (!q) return null;
+  return (plans || []).find((p) => [p?.id,p?.slug,p?.name,p?.short_name,p?.title].map(normVipText).some((c)=> c && (c===q || q.includes(c) || c.includes(q)))) || null;
+}
+
 export default function ProfileSettingsModal({ open, onClose, required = false, onSaved, initialTab = "profile", onSignOut, onNavigate }) {
   const { user, session, resetPassword } = useAuth();
   const jwt = session?.access_token || "";
@@ -34,6 +45,7 @@ export default function ProfileSettingsModal({ open, onClose, required = false, 
   const [vipSelected, setVipSelected] = React.useState([]);
   const [vipCycleKey, setVipCycleKey] = React.useState("");
   const [vipBusy, setVipBusy] = React.useState(false);
+  const [vipPlans, setVipPlans] = React.useState(FALLBACK_VIP_PLANS);
 
   const [street, setStreet] = React.useState("");
   const [number, setNumber] = React.useState("");
@@ -118,6 +130,9 @@ export default function ProfileSettingsModal({ open, onClose, required = false, 
     setLoading(false);
   }, [user, jwt]);
 
+  const selectedVipPlanObj = React.useMemo(() => findVipPlanForProfile(vipPlans, vipPlan) || FALLBACK_VIP_PLANS[0], [vipPlans, vipPlan]);
+  const vipSelectionLimit = React.useMemo(() => Math.max(0, Number(selectedVipPlanObj?.items_per_month ?? ((Number(selectedVipPlanObj?.miniatures_count)||0) + (Number(selectedVipPlanObj?.boss_count)||0) || 3)) || 0), [selectedVipPlanObj]);
+
   const isVip = React.useMemo(() => {
     if (!vipUntil) return false;
     const t = new Date(vipUntil).getTime();
@@ -139,6 +154,11 @@ export default function ProfileSettingsModal({ open, onClose, required = false, 
     if (!open || !user || !isVip) return;
     try {
       setVipBusy(true);
+      try {
+        const resp = await fetch('/api/vip-plans');
+        const json = await resp.json().catch(() => ({}));
+        if (resp.ok && Array.isArray(json?.plans) && json.plans.length) setVipPlans(json.plans);
+      } catch {}
       const { data: opts, error: oErr } = await supabase
         .from('vip_mini_options')
         .select('id,title,description,image_url,active')
@@ -169,12 +189,17 @@ export default function ProfileSettingsModal({ open, onClose, required = false, 
     if (!user || !isVip) return;
     setError('');
     setOk('');
-    if (vipSelected.length !== 3) {
-      setError('Escolha exatamente 3 miniaturas para o mês.');
+    if (vipSelected.length !== vipSelectionLimit) {
+      setError(`Escolha exatamente ${vipSelectionLimit} item(ns) para o mês no seu plano.`);
       return;
     }
     try {
       setVipBusy(true);
+      try {
+        const resp = await fetch('/api/vip-plans');
+        const json = await resp.json().catch(() => ({}));
+        if (resp.ok && Array.isArray(json?.plans) && json.plans.length) setVipPlans(json.plans);
+      } catch {}
       const payload = {
         user_id: user.id,
         cycle_key: vipCycleKey || cycleKeyUTC(new Date()),

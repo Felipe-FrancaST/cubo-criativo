@@ -42,6 +42,7 @@ export default function VipRpgPage({
     () => [
       { id: 'CUBO_L1_RPG', name: 'Cubo Level 1 — RPG', price_brl: 40, miniatures_count: 3, boss_count: 0 },
       { id: 'CUBO_L2_RPG', name: 'Cubo Level 2 — RPG', price_brl: 69.9, miniatures_count: 4, boss_count: 1 },
+      { id: 'CUBO_L3_RPG', name: 'Cubo Level 3 — RPG', price_brl: 99.9, miniatures_count: 8, boss_count: 2 },
     ],
     []
   );

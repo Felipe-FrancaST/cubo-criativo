@@ -1,6 +1,7 @@
 export const DEFAULT_VIP_PLANS = [
   { id: "CUBO_L1_RPG", slug: "level-1", name: "Cubo Level 1 — RPG", short_name: "Level 1", price_brl: 40.0, miniatures_count: 3, boss_count: 0, scale: "32mm", active: true, sort_order: 1 },
   { id: "CUBO_L2_RPG", slug: "level-2", name: "Cubo Level 2 — RPG", short_name: "Level 2", price_brl: 69.9, miniatures_count: 4, boss_count: 1, scale: "32mm", active: true, sort_order: 2 },
+  { id: "CUBO_L3_RPG", slug: "level-3", name: "Cubo Level 3 — RPG", short_name: "Level 3", price_brl: 99.9, miniatures_count: 8, boss_count: 2, scale: "32mm", active: true, sort_order: 3 },
 ];
 
 export function getDefaultVipPlanById(id) {

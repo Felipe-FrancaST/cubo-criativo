@@ -19,6 +19,27 @@ function statusLabel(s) {
   return { label: v.replaceAll("_", " "), cls: "bg-white/5 ring-white/15 text-slate-200" };
 }
 
+
+
+const FALLBACK_VIP_PLANS = [
+  { id: "CUBO_L1_RPG", slug: "level-1", name: "Cubo Level 1 — RPG", short_name: "Level 1", miniatures_count: 3, boss_count: 0, items_per_month: 3 },
+  { id: "CUBO_L2_RPG", slug: "level-2", name: "Cubo Level 2 — RPG", short_name: "Level 2", miniatures_count: 4, boss_count: 1, items_per_month: 5 },
+  { id: "CUBO_L3_RPG", slug: "level-3", name: "Cubo Level 3 — RPG", short_name: "Level 3", miniatures_count: 8, boss_count: 2, items_per_month: 10 },
+];
+
+function normalizeText(v) {
+  return String(v || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+}
+
+function findPlanByProfileValue(plans, profilePlan) {
+  const q = normalizeText(profilePlan);
+  if (!q) return null;
+  return (plans || []).find((p) => {
+    const candidates = [p?.id, p?.slug, p?.name, p?.short_name, p?.title].map(normalizeText);
+    return candidates.some((c) => c && (c === q || q.includes(c) || c.includes(q)));
+  }) || null;
+}
+
 export default function VipAreaModal({ open, onClose, onGoVip }) {
   const { user } = useAuth();
   const [loading, setLoading] = React.useState(false);
@@ -32,11 +53,16 @@ export default function VipAreaModal({ open, onClose, onGoVip }) {
   const [saving, setSaving] = React.useState(false);
   const [msg, setMsg] = React.useState("");
   const [preview, setPreview] = React.useState(null);
+  const [vipPlans, setVipPlans] = React.useState(FALLBACK_VIP_PLANS);
 
   const cycle = React.useMemo(() => cycleKeyUTC(), []);
   const isVip = vipUntil ? new Date(vipUntil).getTime() > Date.now() : false;
   const st = statusLabel(orderStatus);
   const editable = isVip && (String(orderStatus || "").toLowerCase() === "editavel" || String(orderStatus || "").toLowerCase() === "recebido");
+  const selectedPlan = React.useMemo(() => findPlanByProfileValue(vipPlans, vipPlan) || FALLBACK_VIP_PLANS[0], [vipPlans, vipPlan]);
+  const miniLimit = Math.max(0, Number(selectedPlan?.miniatures_count ?? selectedPlan?.items_per_month ?? 3) || 0);
+  const bossLimit = Math.max(0, Number(selectedPlan?.boss_count ?? 0) || 0);
+  const totalLimit = Math.max(0, Number(selectedPlan?.items_per_month ?? (miniLimit + bossLimit)) || (miniLimit + bossLimit));
 
   async function load() {
     if (!user) return;
@@ -44,6 +70,11 @@ export default function VipAreaModal({ open, onClose, onGoVip }) {
     setError("");
     setMsg("");
     try {
+      try {
+        const plansResp = await fetch('/api/vip-plans');
+        const plansJson = await plansResp.json().catch(() => ({}));
+        if (plansResp.ok && Array.isArray(plansJson?.plans) && plansJson.plans.length) setVipPlans(plansJson.plans);
+      } catch {}
       const [{ data: prof }, { data: opts }, { data: lastVipOrder }, { data: sel }] = await Promise.all([
         supabase.from("profiles").select("vip_until,vip_plan").eq("id", user.id).maybeSingle(),
         supabase.from("vip_mini_options").select("id,title,description,image_url,gallery_images,sort_order,active").eq("active", true).order("sort_order", { ascending: true }).limit(6),
@@ -81,8 +112,8 @@ export default function VipAreaModal({ open, onClose, onGoVip }) {
 
   async function saveSelection() {
     if (!editable) return;
-    if (selected.length !== 3) {
-      setMsg("Escolha exatamente 3 miniaturas.");
+    if (selected.length !== totalLimit) {
+      setMsg(`Escolha exatamente ${totalLimit} item(ns) para o seu plano (${miniLimit} miniatura(s)${bossLimit ? ` + ${bossLimit} boss(es)` : ""}).`);
       return;
     }
     try {
@@ -162,12 +193,12 @@ export default function VipAreaModal({ open, onClose, onGoVip }) {
 
               <div className="mt-6 flex items-center justify-between gap-3 flex-wrap">
                 <div className="text-sm text-slate-300">
-                  Escolha <b>3</b> miniaturas entre <b>{options.length}</b> opções do mês.
+                  Escolha <b>{totalLimit}</b> item(ns) do mês ({miniLimit} miniatura(s){bossLimit ? ` + ${bossLimit} boss(es)` : ""}) entre <b>{options.length}</b> opções.
                   {!editable ? (
                     <span className="ml-2 text-slate-400">(Escolhas bloqueadas: status {st.label})</span>
                   ) : null}
                 </div>
-                <div className="text-sm text-slate-200">Selecionadas: <b>{selected.length}</b>/3</div>
+                <div className="text-sm text-slate-200">Selecionadas: <b>{selected.length}</b>/{totalLimit}</div>
               </div>
 
               <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -207,7 +238,7 @@ export default function VipAreaModal({ open, onClose, onGoVip }) {
                               setSelected((prev) => {
                                 const has = prev.includes(opt.id);
                                 if (has) return prev.filter((x) => x !== opt.id);
-                                if (prev.length >= 3) return prev;
+                                if (prev.length >= totalLimit) return prev;
                                 return [...prev, opt.id];
                               });
                             }}
@@ -264,9 +295,9 @@ export default function VipAreaModal({ open, onClose, onGoVip }) {
                 <div className="text-xs text-slate-400">Dica: você pode mudar as escolhas enquanto o status estiver <b>Editável</b>.</div>
                 <button
                   type="button"
-                  disabled={!editable || saving || selected.length !== 3}
+                  disabled={!editable || saving || selected.length !== totalLimit}
                   onClick={saveSelection}
-                  className={`rounded-xl px-4 py-2 font-extrabold ring-1 ring-white/10 ${(!editable || saving || selected.length !== 3) ? "bg-slate-700/40 text-slate-300" : "bg-emerald-300 text-black hover:bg-emerald-200"}`}
+                  className={`rounded-xl px-4 py-2 font-extrabold ring-1 ring-white/10 ${(!editable || saving || selected.length !== totalLimit) ? "bg-slate-700/40 text-slate-300" : "bg-emerald-300 text-black hover:bg-emerald-200"}`}
                 >
                   {saving ? "Salvando…" : "Salvar escolhas"}
                 </button>
