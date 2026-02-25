@@ -60,7 +60,10 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized }) {
     pix: null, // {qr_code, qr_code_base64, ticket_url}
     status: "pending",
     msg: "",
+    finalized: false,
   });
+
+  const paidHandledRef = React.useRef(new Set());
 
   // Quando um Pix vira "paid", devemos:
   // - sumir QR code e mostrar finalizado
@@ -69,32 +72,35 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized }) {
   const finalizePaid = React.useCallback(
     (orderId) => {
       if (!orderId) return;
+      // evita duplicar (polling + realtime podem disparar juntos)
+      if (paidHandledRef.current.has(orderId)) return;
+      paidHandledRef.current.add(orderId);
+
       setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: "paid" } : o)));
       setPayModal((s) => ({
         ...s,
         status: "paid",
         pix: null,
-        msg: "Pedido finalizado.",
+        msg: "",
+        finalized: true,
         checking: false,
         loading: false,
       }));
-      // Fecha a aba e limpa carrinho (mesmo comportamento do carrinho)
-      // 1) callback do App (limpa carrinho e fecha modais)
-      try {
-        if (typeof onPaymentFinalized === "function") onPaymentFinalized(orderId);
-      } catch {
-        // ignore
-      }
-      // 2) garante fechamento mesmo se o callback não existir
-      try {
-        if (typeof onClose === "function") onClose();
-      } catch {
-        // ignore
-      }
-      // 3) fecha também o modal interno de Pix
+
+      // Mostra confirmação por um curto período e então fecha + limpa carrinho
       setTimeout(() => {
+        try {
+          if (typeof onPaymentFinalized === "function") onPaymentFinalized(orderId);
+        } catch {
+          // ignore
+        }
+        try {
+          if (typeof onClose === "function") onClose();
+        } catch {
+          // ignore
+        }
         setPayModal((s) => ({ ...s, open: false }));
-      }, 50);
+      }, 1200);
     },
     [onPaymentFinalized, onClose]
   );
@@ -160,7 +166,7 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized }) {
   }
 
   function closePay() {
-    setPayModal({ open: false, order: null, loading: false, checking: false, pix: null, status: "pending", msg: "" });
+    setPayModal({ open: false, order: null, loading: false, checking: false, pix: null, status: "pending", msg: "", finalized: false });
   }
 
   function closeReview() {
@@ -281,7 +287,7 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized }) {
       return;
     }
 
-    setPayModal({ open: true, order, loading: true, checking: false, pix: null, status: "pending", msg: "" });
+    setPayModal({ open: true, order, loading: true, checking: false, pix: null, status: "pending", msg: "", finalized: false });
 
     try {
       const resp = await fetch("/api/pix-payment?action=get", {
@@ -1050,7 +1056,21 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized }) {
               </span>
             </div>
 
-            {payModal.msg ? (
+            {payModal.finalized ? (
+              <div className="mt-3 rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-400 text-black font-bold">
+                    ✓
+                  </div>
+                  <div>
+                    <div className="text-emerald-200 font-semibold">Pedido Finalizado</div>
+                    <div className="text-emerald-200/80 text-xs">
+                      Pagamento confirmado. Obrigado!
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : payModal.msg ? (
               <p className="mt-3 text-sm text-red-300 bg-red-500/10 ring-1 ring-red-500/30 rounded-lg px-3 py-2">
                 {payModal.msg}
               </p>
