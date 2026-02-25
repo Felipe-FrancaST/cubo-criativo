@@ -32,7 +32,7 @@ function productOrderItemHref(it) {
   return `#/catalogo?produto=${encodeURIComponent(key)}`;
 }
 
-export default function OrdersModal({ open, onClose }) {
+export default function OrdersModal({ open, onClose, onPaymentFinalized }) {
   const { user, session } = useAuth();
   const accessToken = session?.access_token || "";
   const [orders, setOrders] = React.useState([]);
@@ -61,6 +61,32 @@ export default function OrdersModal({ open, onClose }) {
     status: "pending",
     msg: "",
   });
+
+  // Quando um Pix vira "paid", devemos:
+  // - sumir QR code e mostrar finalizado
+  // - fechar a aba (modal)
+  // - limpar carrinho (feito no App via callback)
+  const finalizePaid = React.useCallback(
+    (orderId) => {
+      if (!orderId) return;
+      setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: "paid" } : o)));
+      setPayModal((s) => ({
+        ...s,
+        status: "paid",
+        pix: null,
+        msg: "Pedido finalizado.",
+        checking: false,
+        loading: false,
+      }));
+      // fecha a aba e limpa carrinho pelo App
+      try {
+        if (typeof onPaymentFinalized === "function") onPaymentFinalized(orderId);
+      } catch {
+        // ignore
+      }
+    },
+    [onPaymentFinalized]
+  );
 
   const [reviewsByOrder, setReviewsByOrder] = React.useState({});
   const [reviewModal, setReviewModal] = React.useState({
@@ -276,6 +302,11 @@ export default function OrdersModal({ open, onClose }) {
       if (data?.status) {
         setOrders((prev) => prev.map((o) => (o.id === order.id ? { ...o, status: data.status } : o)));
       }
+
+      // Se já chegou como pago, finaliza imediatamente.
+      if (String(data?.status || "").toLowerCase() === "paid") {
+        finalizePaid(order.id);
+      }
     } catch (e) {
       console.error(e);
       setPayModal((s) => ({ ...s, loading: false, msg: "Erro ao carregar o Pix. Tente novamente." }));
@@ -302,6 +333,10 @@ export default function OrdersModal({ open, onClose }) {
       if (data?.status) {
         setPayModal((s) => ({ ...s, checking: false, status: data.status }));
         setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: data.status } : o)));
+
+        if (String(data.status).toLowerCase() === "paid") {
+          finalizePaid(orderId);
+        }
       } else {
         setPayModal((s) => ({ ...s, checking: false }));
       }
@@ -310,6 +345,32 @@ export default function OrdersModal({ open, onClose }) {
       setPayModal((s) => ({ ...s, checking: false, msg: "Erro ao verificar. Tente novamente." }));
     }
   }
+
+  // Auto-atualização do QR/status enquanto o modal do Pix estiver aberto.
+  // Isso resolve o caso: gera Pix no carrinho e paga pela aba "Meus pedidos".
+  React.useEffect(() => {
+    if (!payModal?.open) return;
+    const orderId = payModal?.order?.id;
+    const st = String(payModal?.status || "pending").toLowerCase();
+    if (!orderId) return;
+    if (st === "paid") return;
+
+    let alive = true;
+    const tick = () => {
+      if (!alive) return;
+      // reusa o endpoint verify, silencioso
+      verifyPay(orderId);
+    };
+    // primeira verificação rápida
+    const t0 = setTimeout(tick, 1200);
+    // e polling contínuo
+    const t = setInterval(tick, 5000);
+    return () => {
+      alive = false;
+      clearTimeout(t0);
+      clearInterval(t);
+    };
+  }, [payModal?.open, payModal?.order?.id, payModal?.status]);
 
   async function openCancel(order) {
     const prod = String(order?.production_status || "recebido").toLowerCase();

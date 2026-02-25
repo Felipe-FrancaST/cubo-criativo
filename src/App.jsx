@@ -1063,7 +1063,20 @@ React.useEffect(() => {
 
       <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
 
-      <OrdersModal open={ordersOpen} onClose={() => setOrdersOpen(false)} />
+      <OrdersModal
+        open={ordersOpen}
+        onClose={() => setOrdersOpen(false)}
+        onPaymentFinalized={() => {
+          // Quando o usuário paga um Pix pela aba "Meus pedidos",
+          // precisamos replicar o mesmo comportamento do carrinho:
+          // limpar carrinho e fechar a aba.
+          setCart([]);
+          setOrdersOpen(false);
+          setCartOpen(false);
+          // feedback leve
+          showOnce("Pedido finalizado. Obrigado!");
+        }}
+      />
 
       <VipAreaModal open={vipAreaOpen} onClose={() => setVipAreaOpen(false)} onGoVip={() => { setVipAreaOpen(false); navigate("/vip"); }} />
 
