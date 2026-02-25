@@ -49,7 +49,12 @@ export default function VipAreaModal({ open, onClose, onGoVip }) {
   const [orderStatus, setOrderStatus] = React.useState("editavel");
   const [shippingTracking, setShippingTracking] = React.useState("");
   const [options, setOptions] = React.useState([]);
+  // selected: escolhas em edição (não necessariamente salvas)
   const [selected, setSelected] = React.useState([]);
+  // savedSelected: escolhas já salvas no ciclo
+  const [savedSelected, setSavedSelected] = React.useState([]);
+  // Quando false, a UI fica travada e o botão vira "Editar".
+  const [editing, setEditing] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
   const [msg, setMsg] = React.useState("");
   const [preview, setPreview] = React.useState(null);
@@ -59,6 +64,11 @@ export default function VipAreaModal({ open, onClose, onGoVip }) {
   const isVip = vipUntil ? new Date(vipUntil).getTime() > Date.now() : false;
   const st = statusLabel(orderStatus);
   const editable = isVip && (String(orderStatus || "").toLowerCase() === "editavel" || String(orderStatus || "").toLowerCase() === "recebido");
+
+  // IDs que serão exibidos como selecionados na UI:
+  // - editando: usa selected
+  // - travado: usa savedSelected
+  const displaySelected = React.useMemo(() => (editing ? selected : savedSelected), [editing, selected, savedSelected]);
   const selectedPlan = React.useMemo(() => findPlanByProfileValue(vipPlans, vipPlan) || FALLBACK_VIP_PLANS[0], [vipPlans, vipPlan]);
   const miniLimit = Math.max(0, Number(selectedPlan?.miniatures_count ?? selectedPlan?.items_per_month ?? 3) || 0);
   const bossLimit = Math.max(0, Number(selectedPlan?.boss_count ?? 0) || 0);
@@ -76,13 +86,13 @@ export default function VipAreaModal({ open, onClose, onGoVip }) {
   const selectedCounts = React.useMemo(() => {
     let mini = 0;
     let boss = 0;
-    for (const id of (selected || [])) {
+    for (const id of (displaySelected || [])) {
       const t = optionTypeById.get(id) || 'miniature';
       if (t === 'boss') boss += 1;
       else mini += 1;
     }
     return { mini, boss, total: (mini + boss) };
-  }, [selected, optionTypeById]);
+  }, [displaySelected, optionTypeById]);
 
   function canAdd(optionId) {
     const t = optionTypeById.get(optionId) || 'miniature';
@@ -113,7 +123,8 @@ export default function VipAreaModal({ open, onClose, onGoVip }) {
           .eq("status", "paid")
           .order("created_at", { ascending: false })
           .limit(1),
-        supabase.from("vip_mini_selections").select("selected_option_ids").eq("user_id", user.id).eq("cycle_key", cycle).maybeSingle(),
+        // saved_at ajuda a diferenciar seleção realmente salva de um registro antigo/placeholder
+        supabase.from("vip_mini_selections").select("selected_option_ids,saved_at").eq("user_id", user.id).eq("cycle_key", cycle).maybeSingle(),
       ]);
 
       setVipUntil(prof?.vip_until || null);
@@ -124,8 +135,21 @@ export default function VipAreaModal({ open, onClose, onGoVip }) {
       setOrderStatus(String(order?.production_status || "editavel").toLowerCase());
       setShippingTracking(String(order?.shipping_tracking || "").trim());
 
-      const ids = Array.isArray(sel?.selected_option_ids) ? sel.selected_option_ids : [];
-      setSelected(ids);
+      // Regra: ao abrir a tela após assinatura, não deve vir nada pré-selecionado.
+      // Só exibimos escolhas se houver saved_at (seleção confirmada no ciclo).
+      const hasSaved = !!sel?.saved_at;
+      const ids = (hasSaved && Array.isArray(sel?.selected_option_ids)) ? sel.selected_option_ids : [];
+      setSavedSelected(ids);
+
+      // Em edição: começa vazio se não houver seleção salva no ciclo.
+      // Se já existe seleção salva, começa travado e o usuário clica em "Editar".
+      if (ids.length) {
+        setEditing(false);
+        setSelected([]);
+      } else {
+        setEditing(true);
+        setSelected([]);
+      }
     } catch (e) {
       setError(e?.message || "Não foi possível carregar a Área VIP.");
     } finally {
@@ -139,6 +163,7 @@ export default function VipAreaModal({ open, onClose, onGoVip }) {
 
   async function saveSelection() {
     if (!editable) return;
+    if (!editing) return;
     if (selectedCounts.mini !== miniLimit || selectedCounts.boss !== bossLimit || selectedCounts.total !== totalLimit) {
       setMsg(`Escolha exatamente ${totalLimit} item(ns) para o seu plano (${miniLimit} miniatura(s)${bossLimit ? ` + ${bossLimit} boss(es)` : ""}).`);
       return;
@@ -146,12 +171,21 @@ export default function VipAreaModal({ open, onClose, onGoVip }) {
     try {
       setSaving(true);
       setMsg("");
-      const payload = { user_id: user.id, cycle_key: cycle, selected_option_ids: selected };
+      const payload = { user_id: user.id, cycle_key: cycle, selected_option_ids: selected, saved_at: new Date().toISOString() };
       const { error: upErr } = await supabase.from("vip_mini_selections").upsert(payload, { onConflict: "user_id,cycle_key" });
       if (upErr) throw upErr;
+      setSavedSelected(selected);
+      setSelected([]);
+      setEditing(false);
       setMsg("Escolhas salvas ✅");
     } catch (e) {
-      setMsg(e?.message || "Não foi possível salvar.");
+      const raw = String(e?.message || "");
+      // Não mostrar mensagens técnicas do Postgres na UI
+      if (raw.toLowerCase().includes("violates check constraint") || raw.toLowerCase().includes("new row for relation")) {
+        setMsg("Não foi possível salvar. Confira se você selecionou a quantidade correta do seu plano.");
+      } else {
+        setMsg("Não foi possível salvar. Tente novamente.");
+      }
     } finally {
       setSaving(false);
     }
@@ -234,14 +268,20 @@ export default function VipAreaModal({ open, onClose, onGoVip }) {
 
               <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {options.map((opt) => {
-                  const isSel = selected.includes(opt.id);
+                  const isSel = displaySelected.includes(opt.id);
                   const kind = (String(opt?.item_type || 'miniature').toLowerCase() === 'boss') ? 'boss' : 'miniature';
-                  const addBlocked = !isSel && !canAdd(opt.id);
+                  const addBlocked = editing && !isSel && !canAdd(opt.id);
                   return (
                     <div
                       key={opt.id}
-                      className={`rounded-2xl overflow-hidden ring-1 transition ${isSel ? "bg-violet-500/10 ring-violet-400/30" : "bg-white/5 ring-white/10"}`}
+                      className={`rounded-2xl overflow-hidden ring-1 transition relative ${isSel ? "bg-violet-500/15 ring-violet-300/40 shadow-[0_0_0_1px_rgba(167,139,250,0.25)]" : "bg-white/5 ring-white/10"}`}
                     >
+                      {isSel ? (
+                        <div className="absolute top-2 left-2 z-10 inline-flex items-center gap-1 rounded-full bg-violet-500/25 text-violet-50 ring-1 ring-violet-300/30 px-2 py-1 text-[10px] font-extrabold">
+                          <span className="material-icons text-[14px]">check</span>
+                          Selecionado
+                        </div>
+                      ) : null}
                       <button
                         type="button"
                         onClick={() => setPreview(opt)}
@@ -271,8 +311,9 @@ export default function VipAreaModal({ open, onClose, onGoVip }) {
                           </div>
                           <button
                             type="button"
-                            disabled={!editable || saving || addBlocked}
+                            disabled={!editable || !editing || saving || addBlocked}
                             onClick={() => {
+                              if (!editing) return;
                               setSelected((prev) => {
                                 const has = prev.includes(opt.id);
                                 if (has) return prev.filter((x) => x !== opt.id);
@@ -292,7 +333,7 @@ export default function VipAreaModal({ open, onClose, onGoVip }) {
                                 return [...prev, opt.id];
                               });
                             }}
-                            className={`shrink-0 rounded-lg p-1.5 ring-1 ${isSel ? "bg-violet-500/20 ring-violet-300/30 text-violet-100" : "bg-white/5 ring-white/10 text-slate-300"} ${(!editable || saving) ? "opacity-60 cursor-not-allowed" : "hover:bg-white/10"}`}
+                            className={`shrink-0 rounded-lg p-1.5 ring-1 ${isSel ? "bg-violet-500/25 ring-violet-300/30 text-violet-50" : "bg-white/5 ring-white/10 text-slate-300"} ${(!editable || !editing || saving) ? "opacity-60 cursor-not-allowed" : "hover:bg-white/10"}`}
                             aria-label={isSel ? 'Remover miniatura' : 'Selecionar miniatura'}
                           >
                             <span className="material-icons text-[18px]">{isSel ? "check_circle" : "add_circle"}</span>
@@ -342,15 +383,31 @@ export default function VipAreaModal({ open, onClose, onGoVip }) {
               ) : null}
 
               <div className="mt-5 flex items-center justify-between gap-3 flex-wrap">
-                <div className="text-xs text-slate-400">Dica: você pode mudar as escolhas enquanto o status estiver <b>Editável</b>.</div>
-                <button
-                  type="button"
-                  disabled={!editable || saving || selectedCounts.mini !== miniLimit || selectedCounts.boss !== bossLimit || selectedCounts.total !== totalLimit}
-                  onClick={saveSelection}
-                  className={`rounded-xl px-4 py-2 font-extrabold ring-1 ring-white/10 ${(!editable || saving || selectedCounts.mini !== miniLimit || selectedCounts.boss !== bossLimit || selectedCounts.total !== totalLimit) ? "bg-slate-700/40 text-slate-300" : "bg-emerald-300 text-black hover:bg-emerald-200"}`}
-                >
-                  {saving ? "Salvando…" : "Salvar escolhas"}
-                </button>
+                <div />
+                {editing ? (
+                  <button
+                    type="button"
+                    disabled={!editable || saving || selectedCounts.mini !== miniLimit || selectedCounts.boss !== bossLimit || selectedCounts.total !== totalLimit}
+                    onClick={saveSelection}
+                    className={`rounded-xl px-4 py-2 font-extrabold ring-1 ring-white/10 ${(!editable || saving || selectedCounts.mini !== miniLimit || selectedCounts.boss !== bossLimit || selectedCounts.total !== totalLimit) ? "bg-slate-700/40 text-slate-300" : "bg-emerald-300 text-black hover:bg-emerald-200"}`}
+                  >
+                    {saving ? "Salvando…" : "Salvar escolhas"}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={!editable}
+                    onClick={() => {
+                      if (!editable) return;
+                      setSelected(Array.isArray(savedSelected) ? savedSelected : []);
+                      setEditing(true);
+                      setMsg("");
+                    }}
+                    className={`rounded-xl px-4 py-2 font-extrabold ring-1 ring-white/10 ${!editable ? "bg-slate-700/40 text-slate-300" : "bg-violet-300 text-black hover:bg-violet-200"}`}
+                  >
+                    Editar
+                  </button>
+                )}
               </div>
               {msg ? <div className="mt-3 text-sm text-slate-200">{msg}</div> : null}
             </>
