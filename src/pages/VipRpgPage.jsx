@@ -294,6 +294,7 @@ export default function VipRpgPage({ user, accessToken, onOpenAuth, onOpenSettin
                       </button>
                     </div>
                   </div>
+                </div>
               </div>
             ) : (
             <div className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-4">
