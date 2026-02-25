@@ -28,8 +28,8 @@ function copyToClipboard(text) {
 
 function productOrderItemHref(it) {
   const key = String(it?.product_id || "").trim();
-  if (!key) return "#/catalogo";
-  return `#/catalogo?produto=${encodeURIComponent(key)}`;
+  if (!key) return "/catalogo";
+  return `/catalogo?produto=${encodeURIComponent(key)}`;
 }
 
 export default function OrdersModal({ open, onClose, onPaymentFinalized }) {

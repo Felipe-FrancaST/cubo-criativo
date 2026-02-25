@@ -12,7 +12,7 @@
     <meta name="theme-color" content="#020617" />
 
     <link rel="icon" href="/icons/logo.svg" type="image/svg+xml" />
-    <link rel="canonical" href="/" />
+    <link rel="canonical" href="https://www.cubocriativo3d.com.br/" />
 
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="pt_BR" />
@@ -37,7 +37,7 @@
         "@context": "https://schema.org",
         "@type": "Organization",
         "name": "Cubo Criativo",
-        "url": "/",
+        "url": "https://www.cubocriativo3d.com.br/",
         "logo": "/images/logo.png",
         "email": "cubocriativox0@gmail.com",
         "sameAs": [
@@ -69,6 +69,35 @@
   </head>
   <body class="bg-black">
     <div id="root"></div>
+
+    <!--
+      Links estáticos exigidos pela verificação de branding do Google OAuth.
+      Eles ficam fora do React para estarem visíveis mesmo antes do JS carregar.
+      Use estas URLs no Google Cloud (Tela de permissão OAuth):
+      - Página inicial: https://www.cubocriativo3d.com.br/
+      - Política:       https://www.cubocriativo3d.com.br/privacy.html
+      - Termos:         https://www.cubocriativo3d.com.br/terms.html
+    -->
+    <footer
+      id="static-branding-footer"
+      style="
+        padding: 16px;
+        display: flex;
+        gap: 16px;
+        justify-content: center;
+        align-items: center;
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial;
+        font-size: 14px;
+        background: #020617;
+        color: #cbd5e1;
+        border-top: 1px solid rgba(148, 163, 184, 0.15);
+      "
+    >
+      <a href="/privacy.html" style="color:#cbd5e1; text-decoration: underline;">Política de Privacidade</a>
+      <span style="opacity:.5">•</span>
+      <a href="/terms.html" style="color:#cbd5e1; text-decoration: underline;">Termos de Serviço</a>
+    </footer>
+
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

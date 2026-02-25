@@ -155,7 +155,8 @@ function buildProductSchemaList({ products = [], route = "/", listName = "Produt
       const image = p?.img ? (String(p.img).startsWith("http") ? p.img : `${origin}${p.img}`) : undefined;
       const inStock = typeof p?.stock === "number" ? p.stock > 0 : true;
       const category = p?.category || (Array.isArray(p?.tags) && p.tags[0]) || "Miniatura";
-      const urlPath = route === "/" ? `/#/catalogo` : `/#${route}`;
+      // Rotas sem hash (history API)
+      const urlPath = route === "/" ? `/catalogo` : `${route}`;
       return {
         "@type": "ListItem",
         position: idx + 1,
@@ -200,6 +201,25 @@ function getRouteFromHash() {
   return path || "/";
 }
 
+function normalizePathname(pathname) {
+  const p = String(pathname || "/");
+  if (!p || p === "/index.html") return "/";
+  // remove trailing slash exceto raiz
+  if (p.length > 1 && p.endsWith("/")) return p.slice(0, -1);
+  return p;
+}
+
+function getRouteFromLocation() {
+  // Preferimos rotas limpas (sem #). Mantemos fallback do hash se existir.
+  const h = typeof window !== "undefined" ? String(window.location.hash || "") : "";
+  if (h.startsWith("#/")) {
+    const raw = h.slice(1);
+    const path = raw.split("?")[0];
+    return path || "/";
+  }
+  return normalizePathname(typeof window !== "undefined" ? window.location.pathname : "/");
+}
+
 /* ========================================================================
    APP
    ======================================================================== */
@@ -208,16 +228,20 @@ export default function App() {
   const accessToken = session?.access_token || "";
   const isAdmin = isAdminEmail(user?.email || "");
 
-  // ===== Rotas (Hash router sem dependências) =====
-  const [route, setRoute] = React.useState(() => (typeof window === "undefined" ? "/" : getRouteFromHash()));
+  // ===== Rotas (history API sem dependências) =====
+  const [route, setRoute] = React.useState(() => (typeof window === "undefined" ? "/" : getRouteFromLocation()));
   const pendingScroll = React.useRef(null);
   const lastAutoOpenedProductRef = React.useRef("");
 
   React.useEffect(() => {
-    if (!window.location.hash) window.location.hash = "#/";
-    const onHash = () => setRoute(getRouteFromHash());
-    window.addEventListener("hashchange", onHash);
-    return () => window.removeEventListener("hashchange", onHash);
+    const onPop = () => setRoute(getRouteFromLocation());
+    window.addEventListener("popstate", onPop);
+    // compat: links antigos com hash
+    window.addEventListener("hashchange", onPop);
+    return () => {
+      window.removeEventListener("popstate", onPop);
+      window.removeEventListener("hashchange", onPop);
+    };
   }, []);
 
   React.useEffect(() => {
@@ -241,7 +265,17 @@ export default function App() {
 
   function navigate(path) {
     const normalized = path?.startsWith("/") ? path : `/${path || ""}`;
-    window.location.hash = `#${normalized}`;
+    if (typeof window !== "undefined") {
+      window.history.pushState({}, "", normalized);
+      // mantemos o estado de rota somente como pathname
+      try {
+        const u = new URL(normalized, window.location.origin);
+        setRoute(normalizePathname(u.pathname));
+      } catch {
+        setRoute(normalizePathname(normalized.split("?")[0]));
+      }
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
   }
 
   function openSettings(tab = 'profile', opts = {}) {
@@ -428,7 +462,7 @@ React.useEffect(() => {
     params.delete("payment");
     params.delete("provider");
     params.delete("order_id");
-    const next = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ""}${window.location.hash || ""}`;
+    const next = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ""}`;
     window.history.replaceState({}, "", next);
   };
 
@@ -720,9 +754,7 @@ React.useEffect(() => {
     if (route !== "/catalogo") return;
     if (productsLoading || !Array.isArray(products) || products.length === 0) return;
 
-    const hash = typeof window !== "undefined" ? String(window.location.hash || "") : "";
-    const q = hash.includes("?") ? hash.split("?")[1] : "";
-    const productKey = new URLSearchParams(q).get("produto");
+    const productKey = new URLSearchParams(window.location.search || "").get("produto");
     const key = String(productKey || "").trim();
     if (!key) return;
     if (lastAutoOpenedProductRef.current === key) return;
