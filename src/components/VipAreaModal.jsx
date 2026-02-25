@@ -77,7 +77,7 @@ export default function VipAreaModal({ open, onClose, onGoVip }) {
       } catch {}
       const [{ data: prof }, { data: opts }, { data: lastVipOrder }, { data: sel }] = await Promise.all([
         supabase.from("profiles").select("vip_until,vip_plan").eq("id", user.id).maybeSingle(),
-        supabase.from("vip_mini_options").select("id,title,description,image_url,gallery_images,sort_order,active").eq("active", true).order("sort_order", { ascending: true }).limit(6),
+        supabase.from("vip_mini_options").select("id,title,description,image_url,gallery_images,sort_order,active").eq("active", true).order("sort_order", { ascending: true }),
         supabase
           .from("orders")
           .select("id,production_status,shipping_tracking,created_at")
