@@ -64,6 +64,33 @@ export default function VipAreaModal({ open, onClose, onGoVip }) {
   const bossLimit = Math.max(0, Number(selectedPlan?.boss_count ?? 0) || 0);
   const totalLimit = Math.max(0, Number(selectedPlan?.items_per_month ?? (miniLimit + bossLimit)) || (miniLimit + bossLimit));
 
+  const optionTypeById = React.useMemo(() => {
+    const map = new Map();
+    for (const o of (options || [])) {
+      const t = String(o?.item_type || 'miniature').toLowerCase();
+      map.set(o.id, (t === 'boss') ? 'boss' : 'miniature');
+    }
+    return map;
+  }, [options]);
+
+  const selectedCounts = React.useMemo(() => {
+    let mini = 0;
+    let boss = 0;
+    for (const id of (selected || [])) {
+      const t = optionTypeById.get(id) || 'miniature';
+      if (t === 'boss') boss += 1;
+      else mini += 1;
+    }
+    return { mini, boss, total: (mini + boss) };
+  }, [selected, optionTypeById]);
+
+  function canAdd(optionId) {
+    const t = optionTypeById.get(optionId) || 'miniature';
+    if (selectedCounts.total >= totalLimit) return false;
+    if (t === 'boss') return selectedCounts.boss < bossLimit;
+    return selectedCounts.mini < miniLimit;
+  }
+
   async function load() {
     if (!user) return;
     setLoading(true);
@@ -77,7 +104,7 @@ export default function VipAreaModal({ open, onClose, onGoVip }) {
       } catch {}
       const [{ data: prof }, { data: opts }, { data: lastVipOrder }, { data: sel }] = await Promise.all([
         supabase.from("profiles").select("vip_until,vip_plan").eq("id", user.id).maybeSingle(),
-        supabase.from("vip_mini_options").select("id,title,description,image_url,gallery_images,sort_order,active").eq("active", true).order("sort_order", { ascending: true }),
+        supabase.from("vip_mini_options").select("id,title,description,image_url,gallery_images,sort_order,active,item_type").eq("active", true).order("sort_order", { ascending: true }),
         supabase
           .from("orders")
           .select("id,production_status,shipping_tracking,created_at")
@@ -112,7 +139,7 @@ export default function VipAreaModal({ open, onClose, onGoVip }) {
 
   async function saveSelection() {
     if (!editable) return;
-    if (selected.length !== totalLimit) {
+    if (selectedCounts.mini !== miniLimit || selectedCounts.boss !== bossLimit || selectedCounts.total !== totalLimit) {
       setMsg(`Escolha exatamente ${totalLimit} item(ns) para o seu plano (${miniLimit} miniatura(s)${bossLimit ? ` + ${bossLimit} boss(es)` : ""}).`);
       return;
     }
@@ -198,12 +225,18 @@ export default function VipAreaModal({ open, onClose, onGoVip }) {
                     <span className="ml-2 text-slate-400">(Escolhas bloqueadas: status {st.label})</span>
                   ) : null}
                 </div>
-                <div className="text-sm text-slate-200">Selecionadas: <b>{selected.length}</b>/{totalLimit}</div>
+                <div className="text-sm text-slate-200">
+                  Selecionadas: <b>{selectedCounts.total}</b>/{totalLimit}
+                  <span className="ml-2 text-slate-400">• Mini: <b className="text-slate-200">{selectedCounts.mini}</b>/{miniLimit}</span>
+                  <span className="ml-2 text-slate-400">• Boss: <b className="text-slate-200">{selectedCounts.boss}</b>/{bossLimit}</span>
+                </div>
               </div>
 
               <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {options.map((opt) => {
                   const isSel = selected.includes(opt.id);
+                  const kind = (String(opt?.item_type || 'miniature').toLowerCase() === 'boss') ? 'boss' : 'miniature';
+                  const addBlocked = !isSel && !canAdd(opt.id);
                   return (
                     <div
                       key={opt.id}
@@ -227,18 +260,35 @@ export default function VipAreaModal({ open, onClose, onGoVip }) {
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
                             <p className="text-xs sm:text-sm font-extrabold text-slate-100 truncate">{opt.title}</p>
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] ring-1 ${kind === 'boss' ? 'bg-amber-500/10 ring-amber-400/25 text-amber-100' : 'bg-emerald-500/10 ring-emerald-400/25 text-emerald-100'}`}>
+                                {kind === 'boss' ? 'Boss' : 'Miniatura'}
+                              </span>
+                            </div>
                             {opt.description ? (
                               <p className="mt-1 text-[11px] text-slate-400 line-clamp-2">{opt.description}</p>
                             ) : null}
                           </div>
                           <button
                             type="button"
-                            disabled={!editable || saving}
+                            disabled={!editable || saving || addBlocked}
                             onClick={() => {
                               setSelected((prev) => {
                                 const has = prev.includes(opt.id);
                                 if (has) return prev.filter((x) => x !== opt.id);
-                                if (prev.length >= totalLimit) return prev;
+                                // Recalcula contadores usando o estado "prev" para evitar race condition
+                                let mini = 0;
+                                let boss = 0;
+                                for (const id of prev) {
+                                  const t = optionTypeById.get(id) || 'miniature';
+                                  if (t === 'boss') boss += 1;
+                                  else mini += 1;
+                                }
+                                const total = mini + boss;
+                                const tNew = optionTypeById.get(opt.id) || 'miniature';
+                                if (total >= totalLimit) return prev;
+                                if (tNew === 'boss' && boss >= bossLimit) return prev;
+                                if (tNew !== 'boss' && mini >= miniLimit) return prev;
                                 return [...prev, opt.id];
                               });
                             }}
@@ -295,9 +345,9 @@ export default function VipAreaModal({ open, onClose, onGoVip }) {
                 <div className="text-xs text-slate-400">Dica: você pode mudar as escolhas enquanto o status estiver <b>Editável</b>.</div>
                 <button
                   type="button"
-                  disabled={!editable || saving || selected.length !== totalLimit}
+                  disabled={!editable || saving || selectedCounts.mini !== miniLimit || selectedCounts.boss !== bossLimit || selectedCounts.total !== totalLimit}
                   onClick={saveSelection}
-                  className={`rounded-xl px-4 py-2 font-extrabold ring-1 ring-white/10 ${(!editable || saving || selected.length !== totalLimit) ? "bg-slate-700/40 text-slate-300" : "bg-emerald-300 text-black hover:bg-emerald-200"}`}
+                  className={`rounded-xl px-4 py-2 font-extrabold ring-1 ring-white/10 ${(!editable || saving || selectedCounts.mini !== miniLimit || selectedCounts.boss !== bossLimit || selectedCounts.total !== totalLimit) ? "bg-slate-700/40 text-slate-300" : "bg-emerald-300 text-black hover:bg-emerald-200"}`}
                 >
                   {saving ? "Salvando…" : "Salvar escolhas"}
                 </button>
