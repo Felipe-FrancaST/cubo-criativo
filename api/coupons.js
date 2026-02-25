@@ -205,6 +205,20 @@ async function handleMyCoupons(req, res) {
   const user = await getUserFromAuthHeader(req);
   if (!user) return res.status(401).json({ error: 'Faça login para ver seus cupons.' });
   const sb = supabaseAdmin();
+
+  // Também removemos cupons já resgatados pelo usuário (mesmo que used_count não tenha sido atualizado)
+  let redeemedSet = new Set();
+  try {
+    const reds = await sb
+      .from('coupon_redemptions')
+      .select('coupon_code')
+      .eq('user_id', user.id);
+    const arr = reds?.data || [];
+    redeemedSet = new Set(arr.map((r) => String(r?.coupon_code || '').trim().toUpperCase()).filter(Boolean));
+  } catch {
+    // ignore (tabela pode não existir em alguns ambientes)
+  }
+
   const { data, error } = await sb
     .from('coupons')
     .select('code,label,discount_type,discount_value,min_order_value,expires_at,active,used_count,max_uses,source,created_at')
@@ -216,7 +230,9 @@ async function handleMyCoupons(req, res) {
     const exp = c?.expires_at ? new Date(c.expires_at).getTime() : 0;
     const withinWindow = !Number.isFinite(exp) || exp > (now - 3 * 24 * 60 * 60 * 1000);
     const used = (Number(c?.used_count) || 0) >= (Number(c?.max_uses) || 1);
-    return withinWindow && !used;
+    const code = String(c?.code || '').trim().toUpperCase();
+    const redeemed = code && redeemedSet.has(code);
+    return withinWindow && !used && !redeemed;
   });
   return res.status(200).json({ coupons: rows });
 }

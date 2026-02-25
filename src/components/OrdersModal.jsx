@@ -78,14 +78,25 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized }) {
         checking: false,
         loading: false,
       }));
-      // fecha a aba e limpa carrinho pelo App
+      // Fecha a aba e limpa carrinho (mesmo comportamento do carrinho)
+      // 1) callback do App (limpa carrinho e fecha modais)
       try {
         if (typeof onPaymentFinalized === "function") onPaymentFinalized(orderId);
       } catch {
         // ignore
       }
+      // 2) garante fechamento mesmo se o callback não existir
+      try {
+        if (typeof onClose === "function") onClose();
+      } catch {
+        // ignore
+      }
+      // 3) fecha também o modal interno de Pix
+      setTimeout(() => {
+        setPayModal((s) => ({ ...s, open: false }));
+      }, 50);
     },
-    [onPaymentFinalized]
+    [onPaymentFinalized, onClose]
   );
 
   const [reviewsByOrder, setReviewsByOrder] = React.useState({});
@@ -371,6 +382,39 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized }) {
       clearInterval(t);
     };
   }, [payModal?.open, payModal?.order?.id, payModal?.status]);
+
+  // Realtime: se o status do pedido mudar no banco (webhook, admin, etc.)
+  // atualiza a tela automaticamente e aplica o comportamento de finalização.
+  React.useEffect(() => {
+    if (!payModal?.open) return;
+    const orderId = payModal?.order?.id;
+    if (!orderId) return;
+
+    const channel = supabase
+      .channel(`orders_paid_watch_${orderId}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "orders", filter: `id=eq.${orderId}` },
+        (payload) => {
+          const next = payload?.new || {};
+          const nextStatus = String(next?.status || "").toLowerCase();
+          if (nextStatus) {
+            setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: nextStatus } : o)));
+            setPayModal((s) => ({ ...s, status: nextStatus }));
+          }
+          if (nextStatus === "paid") finalizePaid(orderId);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      try {
+        supabase.removeChannel(channel);
+      } catch {
+        // ignore
+      }
+    };
+  }, [payModal?.open, payModal?.order?.id, finalizePaid]);
 
   async function openCancel(order) {
     const prod = String(order?.production_status || "recebido").toLowerCase();
