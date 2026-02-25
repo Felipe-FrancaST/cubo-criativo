@@ -284,31 +284,16 @@ export default function VipRpgPage({ user, accessToken, onOpenAuth, onOpenSettin
                     <p className="text-sm font-extrabold">Próximos passos</p>
                     <p className="mt-2 text-sm text-slate-300">Abra sua Área VIP para selecionar suas miniaturas deste mês. Se sua assinatura estiver perto de vencer, você pode renovar antecipadamente.</p>
                     <div className="mt-4 space-y-3">
-                  <div className="grid grid-cols-1 gap-2">
-                    {(plans.length ? plans : [{ id: 'CUBO_L1_RPG', name: 'Cubo Level 1 — RPG', price_brl: 40, miniatures_count: 3, boss_count: 0 }, { id: 'CUBO_L2_RPG', name: 'Cubo Level 2 — RPG', price_brl: 69.9, miniatures_count: 4, boss_count: 1 }]).map((pl) => (
-                      <button key={pl.id} type="button" onClick={() => setSelectedPlanId(pl.id)} className={`text-left rounded-xl p-3 ring-1 ${selectedPlanId===pl.id ? 'ring-teal-300 bg-teal-400/10' : 'ring-white/10 bg-white/5 hover:bg-white/10'}`}>
-                        <div className="flex items-center justify-between gap-3">
-                          <div>
-                            <div className="font-bold">{pl.name || pl.id}</div>
-                            <div className="text-xs text-slate-300">{Number(pl.miniatures_count||0)} miniaturas{Number(pl.boss_count||0)?` + ${Number(pl.boss_count)} boss`:''}</div>
-                          </div>
-                          <div className="font-extrabold">R$ {Number(pl.price_brl||0).toFixed(2).replace('.', ',')}</div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                  <div className="grid grid-cols-1 gap-2">
-                      <button onClick={() => onOpenVipArea?.()} className="rounded-xl px-4 py-3 font-extrabold bg-violet-400 text-black ring-4 ring-violet-400/20 hover:bg-violet-300">Acessar Área VIP</button>
+                      <button onClick={() => onOpenVipArea?.()} className="w-full rounded-xl px-4 py-3 font-extrabold bg-violet-400 text-black ring-4 ring-violet-400/20 hover:bg-violet-300">Acessar Área VIP</button>
                       <button
                         type="button"
                         onClick={() => { setError(''); setOk('Renovação antecipada em breve. Se quiser, posso liberar esta opção agora.'); }}
-                        className="rounded-xl px-4 py-3 font-semibold ring-1 ring-white/15 hover:bg-white/5"
+                        className="w-full rounded-xl px-4 py-3 font-semibold ring-1 ring-white/15 hover:bg-white/5"
                       >
                         Renovar antecipadamente (em breve)
                       </button>
                     </div>
                   </div>
-                </div>
               </div>
             ) : (
             <div className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-4">
