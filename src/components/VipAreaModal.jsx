@@ -78,6 +78,7 @@ export default function VipAreaModal({ open, onClose, onGoVip }) {
   const [upgradeBusy, setUpgradeBusy] = React.useState(false);
   const [upgradePayOpen, setUpgradePayOpen] = React.useState(false);
   const [upgradePayMethod, setUpgradePayMethod] = React.useState(null); // 'pix' | 'card'
+  const [upgradeSuccess, setUpgradeSuccess] = React.useState(false);
 
   const cycle = React.useMemo(() => cycleKeyUTC(), []);
   const isVip = vipUntil ? new Date(vipUntil).getTime() > Date.now() : false;
@@ -350,16 +351,34 @@ export default function VipAreaModal({ open, onClose, onGoVip }) {
     const t = setInterval(async () => {
       if (stopped) return;
       try {
-        const res = await fetch(`/api/pix-payment?action=verify&order_id=${encodeURIComponent(upgrade.order_id)}`);
+        const session = await supabase.auth.getSession();
+        const jwt = session?.data?.session?.access_token;
+        if (!jwt) return;
+
+        const res = await fetch(`/api/pix-payment?action=verify`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` },
+          body: JSON.stringify({ order_id: upgrade.order_id }),
+        });
         const data = await res.json().catch(() => ({}));
         const st = String(data?.status || '').toLowerCase();
         if (st) setUpgrade((p) => ({ ...(p || {}), status: st }));
+
         if (st === 'paid') {
           stopped = true;
           clearInterval(t);
-          setMsg('Upgrade confirmado ✅');
+          setUpgrade(null); // some o QR code
+          setUpgradePayMethod(null);
+          setUpgradeSuccess(true);
+          setMsg('Você subiu de nível ✅');
           await load();
-          setUpgrade(null);
+          setTimeout(() => setUpgradeSuccess(false), 12000);
+        }
+
+        if (st === 'failed') {
+          stopped = true;
+          clearInterval(t);
+          setMsg('Pagamento recusado ou cancelado. Se precisar, gere um novo Pix.');
         }
       } catch {}
     }, 5000);
@@ -555,6 +574,20 @@ export default function VipAreaModal({ open, onClose, onGoVip }) {
                     {upgrade?.ticket_url ? (
                       <a className="text-sm font-semibold text-teal-200 hover:underline" href={upgrade.ticket_url} target="_blank" rel="noreferrer">Abrir no Mercado Pago</a>
                     ) : null}
+
+              {upgradeSuccess ? (
+                <div className="mt-4 rounded-2xl bg-emerald-500/10 ring-1 ring-emerald-400/20 p-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-xs uppercase tracking-wide text-emerald-200/90">Upgrade concluído</div>
+                      <div className="mt-1 text-xl font-extrabold text-emerald-100">Você subiu de nível ✅</div>
+                      <div className="mt-2 text-sm text-slate-200/80">Seu novo nível já está ativo. Pode continuar escolhendo as miniaturas do seu plano.</div>
+                    </div>
+                    <span className="material-icons text-emerald-200">verified</span>
+                  </div>
+                </div>
+              ) : null}
+
                   </div>
                   <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="rounded-2xl bg-black/30 ring-1 ring-white/10 p-4 flex items-center justify-center">
