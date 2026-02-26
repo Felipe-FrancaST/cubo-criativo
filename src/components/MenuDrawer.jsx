@@ -71,104 +71,165 @@ export default function MenuDrawer({
           </button>
         </div>
 
-        <div className="p-4 space-y-2 overflow-y-auto max-h-[calc(100vh-76px)]">
-          <DrawerButton icon="home" onClick={() => { onNavigate("/"); onClose?.(); }}>
-            Início
-          </DrawerButton>
-          <DrawerButton icon="local_offer" onClick={() => { onNavigate("/promocoes"); onClose?.(); }}>
-            Promoções
-          </DrawerButton>
-          <DrawerButton icon="inventory_2" onClick={() => { onNavigate("/estoque"); onClose?.(); }}>
-            Estoque
-          </DrawerButton>
-          <DrawerButton icon="view_module" onClick={() => { onNavigate("/catalogo"); onClose?.(); }}>
-            Catálogo
-          </DrawerButton>
-          <DrawerButton
-            icon="receipt_long"
+        
+<div className="p-4 space-y-5 overflow-y-auto max-h-[calc(100vh-76px)]">
+  <div className="space-y-2">
+    <p className="text-xs font-semibold tracking-wider text-slate-500 uppercase px-1">Loja</p>
+    <DrawerButton icon="home" onClick={() => { onNavigate("/"); onClose?.(); }}>
+      Início
+    </DrawerButton>
+    <DrawerButton icon="inventory_2" onClick={() => { onNavigate("/estoque"); onClose?.(); }}>
+      Estoque
+    </DrawerButton>
+    <DrawerButton icon="view_module" onClick={() => { onNavigate("/catalogo"); onClose?.(); }}>
+      Catálogo
+    </DrawerButton>
+    <DrawerButton icon="local_offer" onClick={() => { onNavigate("/promocoes"); onClose?.(); }}>
+      Promoções
+    </DrawerButton>
+    <DrawerButton icon="stars" onClick={() => { onNavigate("/vip"); onClose?.(); }}>
+      Clube VIP (RPG)
+    </DrawerButton>
+    <DrawerButton icon="redeem" onClick={() => { onNavigate("/cupom"); onClose?.(); }}>
+      Cubo Game (cupons)
+    </DrawerButton>
+  </div>
+
+  <div className="space-y-2">
+    <p className="text-xs font-semibold tracking-wider text-slate-500 uppercase px-1">Minha conta</p>
+
+    <DrawerButton
+      icon="receipt_long"
+      onClick={() => {
+        if (user) onOpenOrders?.();
+        else onOpenAuth?.();
+        onClose?.();
+      }}
+      right="chevron_right"
+    >
+      Meus pedidos
+    </DrawerButton>
+
+    {!user ? (
+      <DrawerButton
+        icon="person"
+        right="chevron_right"
+        onClick={() => {
+          onOpenAuth?.();
+          onClose?.();
+        }}
+      >
+        Entrar / Criar conta
+      </DrawerButton>
+    ) : (
+      <>
+        <div className="rounded-xl bg-white/5 ring-1 ring-white/10 px-4 py-3">
+          <p className="text-xs text-slate-400">Logado como</p>
+          <p className="mt-1 text-sm text-slate-100 break-all">{user.email}</p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <button
             onClick={() => {
-              if (user) onOpenOrders?.();
-              else onOpenAuth?.();
+              onOpenSettings?.("profile");
+              onClose?.();
+            }}
+            className="rounded-xl px-4 py-3 text-sm ring-1 ring-white/10 hover:bg-white/5 transition flex items-center gap-2 justify-center"
+          >
+            <span className="material-icons text-[18px]">person</span>
+            Perfil
+          </button>
+
+          <button
+            onClick={() => {
+              onOpenVipArea?.();
+              onClose?.();
+            }}
+            className="rounded-xl px-4 py-3 text-sm ring-1 ring-violet-400/25 bg-violet-500/10 hover:bg-violet-500/15 transition flex items-center gap-2 justify-center"
+          >
+            <span className="material-icons text-[18px]">stars</span>
+            Área VIP
+          </button>
+        </div>
+
+        {isAdmin ? (
+          <DrawerButton
+            icon="admin_panel_settings"
+            right="chevron_right"
+            onClick={() => {
+              onNavigate("/admin");
               onClose?.();
             }}
           >
-            Meus pedidos
+            Admin — Pedidos
           </DrawerButton>
-          <DrawerButton icon="redeem" onClick={() => { onNavigate("/cupom"); onClose?.(); }}>
-            Cubo Game
-          </DrawerButton>
-          <DrawerButton icon="stars" onClick={() => { onNavigate("/vip"); onClose?.(); }}>
-            Clube VIP (RPG)
-          </DrawerButton>
+        ) : null}
 
-          <div className="my-3 h-px bg-white/10" />
+        <DrawerButton
+          icon="settings"
+          right="chevron_right"
+          onClick={() => {
+            onOpenSettings?.("settings");
+            onClose?.();
+          }}
+        >
+          Configurações
+        </DrawerButton>
 
-          {!user ? (
-            <DrawerButton
-              icon="person"
-              right="chevron_right"
-              onClick={() => {
-                onOpenAuth?.();
-                onClose?.();
-              }}
-            >
-              Entrar / Criar conta
-            </DrawerButton>
-          ) : (
-            <>
-              <div className="rounded-xl bg-white/5 ring-1 ring-white/10 px-4 py-3">
-                <p className="text-xs text-slate-400">Logado como</p>
-                <p className="mt-1 text-sm text-slate-100 break-all">{user.email}</p>
-              </div>
+        <DrawerButton
+          icon="logout"
+          onClick={() => {
+            onSignOut?.();
+            onClose?.();
+          }}
+        >
+          Sair
+        </DrawerButton>
+      </>
+    )}
+  </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => {
-                    onOpenSettings?.('profile');
-                    onClose?.();
-                  }}
-                  className="rounded-xl px-4 py-3 text-sm ring-1 ring-white/10 hover:bg-white/5 transition flex items-center gap-2 justify-center"
-                >
-                  <span className="material-icons text-[18px]">person</span>
-                  Perfil
-                </button>
-                <button
-                  onClick={() => {
-                    onOpenVipArea?.();
-                    onClose?.();
-                  }}
-                  className="rounded-xl px-4 py-3 text-sm ring-1 ring-violet-400/25 bg-violet-500/10 hover:bg-violet-500/15 transition flex items-center gap-2 justify-center"
-                >
-                  <span className="material-icons text-[18px]">stars</span>
-                  Área VIP
-                </button>
-              </div>
-              {isAdmin ? (
-                <DrawerButton
-                  icon="admin_panel_settings"
-                  right="chevron_right"
-                  onClick={() => {
-                    onNavigate("/admin");
-                    onClose?.();
-                  }}
-                >
-                  Admin — Pedidos
-                </DrawerButton>
-              ) : null}
-              <DrawerButton
-                icon="settings"
-                right="chevron_right"
-                onClick={() => {
-                  onOpenSettings?.('settings');
-                  onClose?.();
-                }}
-              >
-                Configurações
-              </DrawerButton>
-            </>
-          )}
+  <div className="space-y-2">
+    <p className="text-xs font-semibold tracking-wider text-slate-500 uppercase px-1">Ajuda</p>
+    <DrawerButton icon="help_outline" onClick={() => { onNavigate("/faq"); onClose?.(); }}>
+      FAQ
+    </DrawerButton>
+    <DrawerButton icon="swap_horiz" onClick={() => { onNavigate("/trocas-e-devolucoes"); onClose?.(); }}>
+      Trocas / devoluções
+    </DrawerButton>
+    <DrawerButton icon="info" onClick={() => { onNavigate("/sobre"); onClose?.(); }}>
+      Sobre a empresa
+    </DrawerButton>
+    <DrawerButton icon="support_agent" onClick={() => { onNavigate("/contato"); onClose?.(); }}>
+      Contato
+    </DrawerButton>
 
-          <div className="mt-4 grid grid-cols-3 gap-2">
+    <a
+      href="/privacy.html"
+      className="w-full flex items-center justify-between gap-3 rounded-xl px-4 py-3 ring-1 ring-white/10 hover:bg-white/5 transition"
+      onClick={() => { trackEvent("legal_click", { page: "privacy", location: "menu" }); onClose?.(); }}
+    >
+      <span className="flex items-center gap-3 min-w-0">
+        <span className="material-icons text-[20px] text-slate-200">policy</span>
+        <span className="text-sm text-slate-100 truncate">Política de Privacidade</span>
+      </span>
+      <span className="material-icons text-[18px] text-slate-400">open_in_new</span>
+    </a>
+
+    <a
+      href="/terms.html"
+      className="w-full flex items-center justify-between gap-3 rounded-xl px-4 py-3 ring-1 ring-white/10 hover:bg-white/5 transition"
+      onClick={() => { trackEvent("legal_click", { page: "terms", location: "menu" }); onClose?.(); }}
+    >
+      <span className="flex items-center gap-3 min-w-0">
+        <span className="material-icons text-[20px] text-slate-200">gavel</span>
+        <span className="text-sm text-slate-100 truncate">Termos de Serviço</span>
+      </span>
+      <span className="material-icons text-[18px] text-slate-400">open_in_new</span>
+    </a>
+  </div>
+
+<div className="mt-4 grid grid-cols-3 gap-2">
             <a
               href="https://instagram.com/_cubocriativo_"
               target="_blank"

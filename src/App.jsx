@@ -1090,9 +1090,9 @@ React.useEffect(() => {
                 <li>E-mail: {brand.email}</li>
                 <li>Instagram: @_cubocriativo_</li>
                 <li>Cidade/UF: {brand.city}</li>
-                <li><button onClick={() => navigate("/faq")} className="underline decoration-dotted">FAQ</button></li>
-                <li><button onClick={() => navigate("/politica-de-privacidade")} className="underline decoration-dotted">Privacidade</button> • <button onClick={() => navigate("/termos")} className="underline decoration-dotted">Termos</button></li>
-                <li><button onClick={() => navigate("/trocas-e-devolucoes")} className="underline decoration-dotted">Trocas / devoluções</button></li>
+                <li><a href="/faq" className="underline decoration-dotted">FAQ</a></li>
+                <li><a href="/privacy.html" className="underline decoration-dotted">Política de Privacidade</a> • <a href="/terms.html" className="underline decoration-dotted">Termos</a></li>
+                <li><a href="/trocas-e-devolucoes" className="underline decoration-dotted">Trocas / devoluções</a></li>
               </ul>
             </div>
           </div>

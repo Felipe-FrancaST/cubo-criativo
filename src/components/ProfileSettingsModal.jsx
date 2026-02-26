@@ -463,46 +463,18 @@ export default function ProfileSettingsModal({ open, onClose, required = false, 
                   <p className="text-sm font-semibold text-slate-100">Atalhos de Configurações</p>
                   <p className="mt-1 text-xs text-slate-400">Centralize páginas e ações da sua conta em um só lugar.</p>
                   <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    <button type="button" onClick={() => goSettingsRoute('/termos')} className="rounded-xl px-3 py-2 text-sm ring-1 ring-white/10 hover:bg-white/5">Termos</button>
-                    <button type="button" onClick={() => goSettingsRoute('/politica-de-privacidade')} className="rounded-xl px-3 py-2 text-sm ring-1 ring-white/10 hover:bg-white/5">Privacidade</button>
-                    <button type="button" onClick={() => goSettingsRoute('/faq')} className="rounded-xl px-3 py-2 text-sm ring-1 ring-white/10 hover:bg-white/5">FAQ</button>
-                    <button type="button" onClick={() => goSettingsRoute('/sobre')} className="rounded-xl px-3 py-2 text-sm ring-1 ring-white/10 hover:bg-white/5">Sobre nós</button>
-                    <button type="button" onClick={() => goSettingsRoute('/contato')} className="rounded-xl px-3 py-2 text-sm ring-1 ring-white/10 hover:bg-white/5">Contato</button>
-                    <button type="button" onClick={() => setSettingsSection('password')} className={`rounded-xl px-3 py-2 text-sm ring-1 ${settingsSection === 'password' ? 'bg-indigo-400 text-black ring-indigo-300' : 'ring-white/10 hover:bg-white/5'}`}>Mudar senha</button>
+
+<a href="/terms.html" target="_blank" rel="noreferrer" className="rounded-xl px-3 py-2 text-sm ring-1 ring-white/10 hover:bg-white/5 text-center">Termos</a>
+<a href="/privacy.html" target="_blank" rel="noreferrer" className="rounded-xl px-3 py-2 text-sm ring-1 ring-white/10 hover:bg-white/5 text-center">Privacidade</a>
+<button type="button" onClick={() => goSettingsRoute('/trocas-e-devolucoes')} className="rounded-xl px-3 py-2 text-sm ring-1 ring-white/10 hover:bg-white/5">Trocas / devoluções</button>
+<button type="button" onClick={() => goSettingsRoute('/faq')} className="rounded-xl px-3 py-2 text-sm ring-1 ring-white/10 hover:bg-white/5">FAQ</button>
+<button type="button" onClick={() => goSettingsRoute('/sobre')} className="rounded-xl px-3 py-2 text-sm ring-1 ring-white/10 hover:bg-white/5">Sobre nós</button>
+<button type="button" onClick={() => goSettingsRoute('/contato')} className="rounded-xl px-3 py-2 text-sm ring-1 ring-white/10 hover:bg-white/5">Contato</button>
+<button type="button" onClick={() => setSettingsSection('password')} className={`rounded-xl px-3 py-2 text-sm ring-1 ${settingsSection === 'password' ? 'bg-indigo-400 text-black ring-indigo-300' : 'ring-white/10 hover:bg-white/5'}`}>Segurança</button>
                   </div>
                 </div>
 
-                {settingsSection === 'coupons' ? (
-                  <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
-                    <div className="flex items-center justify-between gap-2">
-                      <div>
-                        <p className="text-sm font-semibold text-slate-100">Meus cupons</p>
-                        <p className="mt-1 text-xs text-slate-400">Cupons ficam disponíveis por até 3 dias após a obtenção.</p>
-                      </div>
-                      <button type="button" onClick={loadMyCoupons} className="rounded-lg px-3 py-1.5 text-xs ring-1 ring-white/10 hover:bg-white/5">Atualizar</button>
-                    </div>
-                    <div className="mt-3 space-y-2">
-                      {couponsBusy ? <p className="text-sm text-slate-400">Carregando cupons…</p> : null}
-                      {!couponsBusy && myCoupons.length === 0 ? <p className="text-sm text-slate-400">Você ainda não tem cupons recentes.</p> : null}
-                      {!couponsBusy && myCoupons.map((c) => {
-                        const expires = c?.expires_at ? new Date(c.expires_at) : null;
-                        const used = Number(c?.used_count || 0) >= Number(c?.max_uses || 1);
-                        return (
-                          <div key={c.code} className="rounded-xl bg-slate-900/70 ring-1 ring-white/10 p-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:justify-between">
-                            <div>
-                              <p className="font-bold text-amber-200 tracking-wide">{c.code}</p>
-                              <p className="text-xs text-slate-300">{c.label || 'Cupom'}</p>
-                              <p className="text-[11px] text-slate-400 mt-1">{used ? 'Usado' : 'Disponível'}{expires ? ` • expira em ${expires.toLocaleDateString('pt-BR')} ${expires.toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' })}` : ''}</p>
-                            </div>
-                            <button type="button" disabled={used} onClick={async () => { try { await navigator.clipboard.writeText(String(c.code || '')); setOk('Cupom copiado ✅'); } catch { setError('Não foi possível copiar o cupom.'); } }} className={`rounded-lg px-3 py-2 text-xs font-semibold ring-1 ${used ? 'opacity-50 ring-white/10' : 'ring-amber-300/30 bg-amber-400/10 hover:bg-amber-400/15 text-amber-100'}`}>Copiar código</button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ) : null}
-
-                <div className={`rounded-2xl bg-white/5 ring-1 ring-white/10 p-4 ${settingsSection === "coupons" ? "hidden" : ""}`}>
+                <div className={`rounded-2xl bg-white/5 ring-1 ring-white/10 p-4 `}>
                   <p className="text-sm font-semibold text-slate-100">Segurança da conta</p>
                   <p className="mt-1 text-xs text-slate-400">Troque sua senha aqui. Se necessário, você também pode receber o link por e-mail.</p>
                   <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -514,7 +486,7 @@ export default function ProfileSettingsModal({ open, onClose, required = false, 
                     <button onClick={async()=>{ try { setError(""); setOk(""); await resetPassword({ email: String(user.email || "") }); setOk("Enviamos um link de recuperação para seu e-mail ✅"); } catch (e) { setError(e?.message || "Não foi possível enviar o link."); } }} className="rounded-xl px-4 py-2 ring-1 ring-white/10 hover:bg-white/5">Enviar link por e-mail</button>
                   </div>
                 </div>
-                <div className={`rounded-2xl bg-white/5 ring-1 ring-white/10 p-4 ${settingsSection === "coupons" ? "hidden" : ""}`}>
+                <div className={`rounded-2xl bg-white/5 ring-1 ring-white/10 p-4 `}>
                   <p className="text-sm font-semibold text-slate-100">Sessão</p>
                                     <div className="mt-3">
                     <button onClick={() => onSignOut?.()} className="rounded-xl px-4 py-2 bg-rose-500/15 text-rose-200 ring-1 ring-rose-400/30 hover:bg-rose-500/20">Sair da conta</button>
