@@ -77,8 +77,7 @@ export default function ProfileSettingsModal({ open, onClose, required = false, 
   const [deliveredOrders, setDeliveredOrders] = React.useState([]);
   const [reviewsByOrder, setReviewsByOrder] = React.useState({});
   const [reviewModal, setReviewModal] = React.useState({ open: false, order: null, rating: 5, comment: "", busy: false });
-  const [myCoupons, setMyCoupons] = React.useState([]);
-  const [couponsBusy, setCouponsBusy] = React.useState(false);
+
 
   const [cepBusy, setCepBusy] = React.useState(false);
   const [cepHint, setCepHint] = React.useState("");
@@ -540,23 +539,6 @@ export default function ProfileSettingsModal({ open, onClose, required = false, 
     try { onSaved?.(); } catch {}
     setTimeout(() => { try { onClose?.(); } catch {} }, 200);
     setSaving(false);
-  }
-
-
-
-  async function loadMyCoupons() {
-    if (!jwt) return;
-    try {
-      setCouponsBusy(true);
-      const resp = await fetch('/api/coupons?action=my-coupons', { headers: { ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}) } });
-      const json = await resp.json().catch(() => ({}));
-      if (!resp.ok) throw new Error(json?.error || 'Não foi possível carregar cupons.');
-      setMyCoupons(Array.isArray(json?.coupons) ? json.coupons : []);
-    } catch (e) {
-      setError(e?.message || 'Não foi possível carregar cupons.');
-    } finally {
-      setCouponsBusy(false);
-    }
   }
 
   function goSettingsRoute(path) {
