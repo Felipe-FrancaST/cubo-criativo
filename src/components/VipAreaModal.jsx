@@ -76,6 +76,8 @@ export default function VipAreaModal({ open, onClose, onGoVip }) {
   // Upgrade de level (Pix)
   const [upgrade, setUpgrade] = React.useState(null); // {order_id, qr_code, qr_code_base64, ticket_url, status}
   const [upgradeBusy, setUpgradeBusy] = React.useState(false);
+  const [upgradePayOpen, setUpgradePayOpen] = React.useState(false);
+  const [upgradePayMethod, setUpgradePayMethod] = React.useState(null); // 'pix' | 'card'
 
   const cycle = React.useMemo(() => cycleKeyUTC(), []);
   const isVip = vipUntil ? new Date(vipUntil).getTime() > Date.now() : false;
@@ -304,6 +306,44 @@ export default function VipAreaModal({ open, onClose, onGoVip }) {
     }
   }
 
+  async function startUpgradeCard() {
+    if (!user || !isVip) return;
+    if (!nextPlan?.id) return;
+    try {
+      setUpgradeBusy(true);
+      setMsg('');
+      const session = await supabase.auth.getSession();
+      const jwt = session?.data?.session?.access_token;
+      if (!jwt) {
+        setMsg('Faça login novamente para continuar.');
+        return;
+      }
+      const res = await fetch('/api/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` },
+        body: JSON.stringify({ mode: 'vip_upgrade', to_plan_id: nextPlan.id }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (data?.code === 'profile_incomplete') {
+          setMsg('Complete seus dados no perfil (CPF e endereço) para continuar.');
+          return;
+        }
+        throw new Error(data?.error || 'Não foi possível iniciar o pagamento.');
+      }
+      if (data?.url) {
+        window.location.href = data.url;
+        return;
+      }
+      setMsg('Checkout criado.');
+    } catch (e) {
+      setMsg(String(e?.message || 'Não foi possível iniciar o pagamento.'));
+    } finally {
+      setUpgradeBusy(false);
+    }
+  }
+
+
   React.useEffect(() => {
     if (!upgrade?.order_id) return;
     let stopped = false;
@@ -446,7 +486,7 @@ export default function VipAreaModal({ open, onClose, onGoVip }) {
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <div className="text-xs uppercase tracking-wide text-slate-300">Upgrade</div>
-                      <div className="mt-1 font-extrabold text-slate-50">Subir de level</div>
+                      <div className="mt-1 font-extrabold text-slate-50">Subir de Nível</div>
                       <div className="mt-2 text-sm text-slate-200/80">
                         {nextPlan ? <>Próximo: <b>{nextPlan?.short_name || nextPlan?.name}</b></> : <>Você já está no maior nível.</>}
                       </div>
@@ -461,14 +501,49 @@ export default function VipAreaModal({ open, onClose, onGoVip }) {
                   {nextPlan ? (
                     <button
                       disabled={upgradeBusy}
-                      onClick={startUpgradePix}
+                      onClick={() => setUpgradePayOpen(true)}
                       className="mt-4 w-full rounded-xl px-4 py-3 font-extrabold bg-violet-400 text-black ring-4 ring-violet-400/20 hover:opacity-95 disabled:opacity-60"
                     >
-                      {upgradeBusy ? 'Gerando Pix…' : `Subir por ${fmtBRLFromCents(upgradeDiffCents)}`}
+                      {'Subir de Nível'}
                     </button>
                   ) : null}
                 </div>
               </div>
+
+              {upgradePayOpen ? (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+                  <div className="absolute inset-0 bg-black/70" onClick={() => setUpgradePayOpen(false)} />
+                  <div className="relative w-full max-w-md rounded-2xl bg-slate-950 ring-1 ring-white/10 p-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="text-xs uppercase tracking-wide text-slate-400">Upgrade de Nível</div>
+                        <div className="mt-1 text-xl font-extrabold text-slate-100">Escolha a forma de pagamento</div>
+                        <div className="mt-2 text-sm text-slate-300">Valor: <b>{fmtBRLFromCents(upgradeDiffCents)}</b></div>
+                      </div>
+                      <button onClick={() => setUpgradePayOpen(false)} className="rounded-xl p-2 ring-1 ring-white/15 hover:bg-white/5" aria-label="Fechar">
+                        <span className="material-icons">close</span>
+                      </button>
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-1 gap-2">
+                      <button
+                        disabled={upgradeBusy}
+                        onClick={() => { setUpgradePayMethod('card'); setUpgradePayOpen(false); startUpgradeCard(); }}
+                        className="rounded-xl px-4 py-3 font-extrabold bg-teal-400 text-black ring-4 ring-teal-400/20 hover:opacity-95 disabled:opacity-60"
+                      >
+                        Pagar com cartão
+                      </button>
+                      <button
+                        disabled={upgradeBusy}
+                        onClick={() => { setUpgradePayMethod('pix'); setUpgradePayOpen(false); startUpgradePix(); }}
+                        className="rounded-xl px-4 py-3 font-semibold ring-1 ring-white/15 hover:bg-white/5 disabled:opacity-60"
+                      >
+                        Pagar com Pix
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
 
               {upgrade?.order_id ? (
                 <div className="mt-4 rounded-2xl bg-white/5 ring-1 ring-white/10 p-5">

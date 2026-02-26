@@ -16,7 +16,7 @@
 import crypto from "crypto";
 import { getUserFromAuthHeader, supabaseAdmin } from "../server/supabase.js";
 import { calcCouponDiscount } from "../server/couponGame.js";
-import { getVipPlanById, vipPlanDisplayName } from "../server/vipPlans.js";
+import { getVipPlanById, listVipPlans, vipPlanDisplayName } from "../server/vipPlans.js";
 
 export const config = { runtime: "nodejs" };
 
@@ -43,6 +43,31 @@ function getBaseUrl(req) {
   const host = req.headers["x-forwarded-host"] || req.headers.host;
   return `${proto}://${host}`;
 }
+
+function getQueryParam(req, key) {
+  try {
+    const proto = req.headers['x-forwarded-proto'] || 'https';
+    const host = req.headers['x-forwarded-host'] || req.headers.host || 'localhost';
+    const url = new URL(req.url || '', `${proto}://${host}`);
+    return url.searchParams.get(key);
+  } catch {
+    return null;
+  }
+}
+
+function normalizeText(v) {
+  return String(v || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+}
+
+function findPlanByProfileValue(plans, profilePlan) {
+  const q = normalizeText(profilePlan);
+  if (!q) return null;
+  return (plans || []).find((p) => {
+    const candidates = [p?.id, p?.slug, p?.name, p?.short_name, p?.title].map(normalizeText);
+    return candidates.some((c) => c && (c === q || q.includes(c) || c.includes(q)));
+  }) || null;
+}
+
 
 function sanitizeItemName(name) {
   const s = String(name || "Item").trim();
@@ -148,9 +173,54 @@ export default async function handler(req, res) {
     }
 
     const body = safeBody(req);
-    const vipPlanId = String(body.vip_plan_id || '').trim();
-    const items = Array.isArray(body.items) ? body.items : [];
+    let vipPlanId = String(body.vip_plan_id || '').trim();
+    let items = Array.isArray(body.items) ? body.items : [];
     const couponCode = String(body.coupon_code || "").trim().toUpperCase();
+
+    const modeParam = String(getQueryParam(req, 'mode') || '').trim().toLowerCase();
+    const modeBody = String(body.mode || '').trim().toLowerCase();
+    const isVipUpgrade = (modeParam === 'vip_upgrade' || modeBody === 'vip_upgrade');
+    const vipUpgradeToPlanId = String(body?.to_plan_id || body?.toPlanId || '').trim();
+
+    // Upgrade VIP via Checkout Pro (cartão/pix no MP) — cobra apenas a diferença
+    if (isVipUpgrade) {
+      if (!vipUpgradeToPlanId) return res.status(400).json({ error: 'Plano de destino inválido.' });
+      // precisa estar com VIP ativo
+      const { data: prof } = await sb.from('profiles').select('vip_until,vip_plan').eq('id', user.id).maybeSingle();
+      const vipUntilTs = prof?.vip_until ? new Date(prof.vip_until).getTime() : 0;
+      if (!vipUntilTs || vipUntilTs <= Date.now()) return res.status(403).json({ error: 'Você precisa estar com VIP ativo para fazer upgrade.' });
+
+      const plans = await listVipPlans(sb);
+      const ordered = [...(plans || [])].sort((a, b) => (Number(a?.sort_order) || 0) - (Number(b?.sort_order) || 0));
+
+      let currentPlanId = null;
+      try {
+        const { data: sub } = await sb
+          .from('vip_subscriptions')
+          .select('plan_id,ends_at,status')
+          .eq('user_id', user.id)
+          .eq('status', 'active')
+          .order('ends_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (sub?.plan_id) currentPlanId = String(sub.plan_id);
+      } catch {}
+
+      const currentPlan = (currentPlanId ? ordered.find((p) => String(p?.id) === currentPlanId) : null) || findPlanByProfileValue(ordered, prof?.vip_plan) || ordered[0];
+      const toPlan = ordered.find((p) => String(p?.id) === String(vipUpgradeToPlanId));
+      if (!toPlan) return res.status(400).json({ error: 'Plano de destino não encontrado.' });
+
+      const fromPrice = Number(currentPlan?.price_brl || 0);
+      const toPrice = Number(toPlan?.price_brl || 0);
+      const diff = Number((toPrice - fromPrice).toFixed(2));
+      if (!Number.isFinite(diff) || diff <= 0) return res.status(400).json({ error: 'Este upgrade não está disponível.' });
+
+      // Força o checkout para o plano de destino, mas cobrando apenas a diferença
+      vipPlanId = String(toPlan.id);
+      // sobrescreve itens para evitar cobrar a mensalidade cheia
+      items = [{ id: 'VIP_UPGRADE', name: `Upgrade VIP ${vipPlanDisplayName(currentPlan)} → ${vipPlanDisplayName(toPlan)}`, qty: 1, price: diff }];
+    }
+
     if (items.length === 0 && !vipPlanId) {
       return res.status(400).json({ error: "Carrinho vazio" });
     }
@@ -161,9 +231,11 @@ export default async function handler(req, res) {
       vipPlan = await getVipPlanById(sb, vipPlanId);
       if (!vipPlan) return res.status(400).json({ error: 'Plano VIP inválido.' });
     }
-    const effectiveItems = vipPlanId
-      ? [{ id: vipPlan.id, name: `${vipPlanDisplayName(vipPlan)} (mensalidade)`, qty: 1, price: Number(vipPlan.price_brl || 0), scale: vipPlan.scale || '32mm', img: '' }]
-      : items;
+    const effectiveItems = isVipUpgrade
+      ? items
+      : vipPlanId
+        ? [{ id: vipPlan.id, name: `${vipPlanDisplayName(vipPlan)} (mensalidade)`, qty: 1, price: Number(vipPlan.price_brl || 0), scale: vipPlan.scale || '32mm', img: '' }]
+        : items;
 
     // Total no servidor
     let total = 0;
@@ -217,8 +289,8 @@ export default async function handler(req, res) {
       currency: "BRL",
       total: finalTotal,
       payment_provider: "mercadopago",
-      production_status: vipPlanId ? 'editavel' : 'recebido',
-      order_type: vipPlanId ? 'vip' : 'shop',
+      production_status: isVipUpgrade ? 'upgrade' : (vipPlanId ? 'editavel' : 'recebido'),
+      order_type: isVipUpgrade ? 'vip_upgrade' : (vipPlanId ? 'vip' : 'shop'),
       vip_plan_id: vipPlanId || null,
       customer_email: user.email || null,
     });
@@ -272,7 +344,7 @@ export default async function handler(req, res) {
       metadata: {
         order_id: orderId,
         user_id: user.id,
-        order_type: vipPlanId ? 'vip' : 'shop',
+        order_type: isVipUpgrade ? 'vip_upgrade' : (vipPlanId ? 'vip' : 'shop'),
         vip_plan_id: vipPlanId || null,
         coupon_code: couponApplied?.code || null,
         coupon_discount: couponApplied?.discount || 0,
