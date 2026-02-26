@@ -43,7 +43,10 @@ export default function ProductCard({ p, addToCart, buyNow, openGallery }) {
 
 
   return (
-    <article className="w-full max-w-[320px] group rounded-2xl overflow-hidden ring-1 ring-white/10 bg-slate-900/60 hover:ring-teal-400/30 transition">
+    <article
+      id={p?.id ? `product-${p.id}` : undefined}
+      className="w-full max-w-[320px] group rounded-2xl overflow-hidden ring-1 ring-white/10 bg-slate-900/60 hover:ring-teal-400/30 transition"
+    >
       {/* Imagem -> abre galeria */}
       <button
         type="button"

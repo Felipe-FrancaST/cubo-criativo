@@ -2,6 +2,38 @@ import React from "react";
 import ProductCard from "../components/ProductCard.jsx";
 
 export default function StockPage({ items, loading = false, error = "", addToCart, buyNow, openGallery }) {
+  // Deep link: /estoque?product=<id>&open=1
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    const sp = new URLSearchParams(window.location.search || "");
+    const pid = sp.get("product");
+    if (!pid) return;
+    if (loading) return;
+
+    const prod = items.find((p) => String(p.id) === String(pid));
+    if (!prod) return;
+
+    // Scroll até o card
+    const el = document.getElementById(`product-${pid}`);
+    if (el) {
+      const top = el.getBoundingClientRect().top + window.scrollY - 92;
+      window.scrollTo({ top, behavior: "smooth" });
+    }
+
+    // Abre o produto (galeria) se solicitado
+    if (sp.get("open") === "1") {
+      // pequeno atraso para garantir render
+      setTimeout(() => openGallery?.(prod), 250);
+    }
+
+    // limpa a query para não reabrir ao voltar/atualizar
+    try {
+      window.history.replaceState({}, "", "/estoque");
+    } catch {
+      // ignore
+    }
+  }, [loading, items, openGallery]);
+
   return (
     <main className="flex-1">
       <section

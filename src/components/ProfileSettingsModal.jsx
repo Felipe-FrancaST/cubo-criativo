@@ -727,10 +727,14 @@ export default function ProfileSettingsModal({ open, onClose, required = false, 
                                 <p className="text-xs text-slate-400 line-clamp-2">{p.descricao || ''}</p>
                                 <div className="mt-2 flex flex-wrap gap-2">
                                   <button
-                                    onClick={() => { onNavigate?.('/estoque'); onClose?.(); }}
+                                    onClick={() => {
+                                      const pid = encodeURIComponent(String(p.id || ""));
+                                      onNavigate?.(`/estoque?product=${pid}&open=1`);
+                                      onClose?.();
+                                    }}
                                     className="rounded-xl px-3 py-2 text-xs ring-1 ring-white/10 hover:bg-white/5"
                                   >
-                                    Ver no estoque
+                                    Ver produto
                                   </button>
                                   <button
                                     onClick={() => toggleFavorite(p.id)}
