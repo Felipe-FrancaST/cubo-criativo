@@ -157,14 +157,8 @@ async function applyVipFromOrder(sb, { order, payment }) {
   try {
     if (!sb) return;
     const orderTypeNorm = String(order?.order_type || payment?.metadata?.order_type || '').trim().toLowerCase();
-    const paymentDescNorm = String(payment?.description || '').trim().toLowerCase();
-    const looksVip = (
-      orderTypeNorm === 'vip' ||
-      Boolean(String(order?.vip_plan_id || payment?.metadata?.vip_plan_id || '').trim()) ||
-      String(order?.production_status || '').trim().toLowerCase() === 'editavel' ||
-      paymentDescNorm.includes('assinatura cubo') ||
-      paymentDescNorm.includes('cubo level 1')
-    );
+    const hasVipPlanId = Boolean(String(order?.vip_plan_id || payment?.metadata?.vip_plan_id || '').trim());
+    const looksVip = (orderTypeNorm === 'vip' || orderTypeNorm === 'vip_upgrade' || hasVipPlanId);
     if (!looksVip) return;
     const userId = order?.user_id || payment?.metadata?.user_id;
     if (!userId) return;
@@ -178,24 +172,40 @@ async function applyVipFromOrder(sb, { order, payment }) {
       .maybeSingle();
     const hasSubscription = Boolean(existing?.id);
 
-    const start = new Date();
-    const end = new Date(start.getTime() + 30 * 24 * 60 * 60 * 1000);
-    const endIso = end.toISOString();
+    if (orderTypeNorm === 'vip') {
+      const start = new Date();
+      const end = new Date(start.getTime() + 30 * 24 * 60 * 60 * 1000);
+      const endIso = end.toISOString();
 
-    if (!hasSubscription) await sb.from('vip_subscriptions').insert({
-      user_id: userId,
-      plan_id: planId,
-      order_id: order.id,
-      starts_at: start.toISOString(),
-      ends_at: endIso,
-      status: 'active',
-    });
+      if (!hasSubscription) await sb.from('vip_subscriptions').insert({
+        user_id: userId,
+        plan_id: planId,
+        order_id: order.id,
+        starts_at: start.toISOString(),
+        ends_at: endIso,
+        status: 'active',
+      });
 
-    // Atualiza profile
-    const { data: prof } = await sb.from('profiles').select('vip_until').eq('id', userId).maybeSingle();
-    const currentUntil = prof?.vip_until ? new Date(prof.vip_until).getTime() : 0;
-    const nextUntil = Math.max(currentUntil, end.getTime());
-    await sb.from('profiles').update({ vip_until: new Date(nextUntil).toISOString(), vip_plan: 'Cubo Level 1 RPG' }).eq('id', userId);
+      // Atualiza profile (usa o ID real do plano)
+      const { data: prof } = await sb.from('profiles').select('vip_until').eq('id', userId).maybeSingle();
+      const currentUntil = prof?.vip_until ? new Date(prof.vip_until).getTime() : 0;
+      const nextUntil = Math.max(currentUntil, end.getTime());
+      await sb.from('profiles').update({ vip_until: new Date(nextUntil).toISOString(), vip_plan: planId }).eq('id', userId);
+    }
+
+    if (orderTypeNorm === 'vip_upgrade') {
+      // Upgrade não estende o tempo; apenas troca o plano ativo.
+      try {
+        await sb.from('vip_subscriptions')
+          .update({ plan_id: planId })
+          .eq('user_id', userId)
+          .eq('status', 'active');
+      } catch {}
+      await sb.from('profiles').update({ vip_plan: planId }).eq('id', userId);
+    }
+    // Email de boas-vindas apenas na assinatura (não no upgrade)
+    if (orderTypeNorm !== 'vip') return;
+
     try {
       let emailMeta = null; let alreadySent = false;
       const metaResp = await sb.from('orders').select('customer_email,customer_name,total,vip_activation_email_sent_at').eq('id', order.id).maybeSingle();

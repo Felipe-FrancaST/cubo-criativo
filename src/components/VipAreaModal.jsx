@@ -60,6 +60,17 @@ export default function VipAreaModal({ open, onClose, onGoVip }) {
   const [preview, setPreview] = React.useState(null);
   const [vipPlans, setVipPlans] = React.useState(FALLBACK_VIP_PLANS);
 
+  // Votação (tema do próximo mês)
+  const [poll, setPoll] = React.useState(null);
+  const [pollOptions, setPollOptions] = React.useState([]);
+  const [myVote, setMyVote] = React.useState(null);
+  const [voteCounts, setVoteCounts] = React.useState({});
+  const [voteBusy, setVoteBusy] = React.useState(false);
+
+  // Upgrade de level (Pix)
+  const [upgrade, setUpgrade] = React.useState(null); // {order_id, qr_code, qr_code_base64, ticket_url, status}
+  const [upgradeBusy, setUpgradeBusy] = React.useState(false);
+
   const cycle = React.useMemo(() => cycleKeyUTC(), []);
   const isVip = vipUntil ? new Date(vipUntil).getTime() > Date.now() : false;
   const st = statusLabel(orderStatus);
@@ -70,6 +81,14 @@ export default function VipAreaModal({ open, onClose, onGoVip }) {
   // - travado: usa savedSelected
   const displaySelected = React.useMemo(() => (editing ? selected : savedSelected), [editing, selected, savedSelected]);
   const selectedPlan = React.useMemo(() => findPlanByProfileValue(vipPlans, vipPlan) || FALLBACK_VIP_PLANS[0], [vipPlans, vipPlan]);
+
+  const nextPlan = React.useMemo(() => {
+    const plans = Array.isArray(vipPlans) && vipPlans.length ? vipPlans : FALLBACK_VIP_PLANS;
+    const ordered = [...plans].sort((a, b) => (Number(a?.sort_order) || 0) - (Number(b?.sort_order) || 0));
+    const idx = ordered.findIndex((p) => String(p?.id) === String(selectedPlan?.id));
+    if (idx >= 0 && idx + 1 < ordered.length) return ordered[idx + 1];
+    return null;
+  }, [vipPlans, selectedPlan?.id]);
   const miniLimit = Math.max(0, Number(selectedPlan?.miniatures_count ?? selectedPlan?.items_per_month ?? 3) || 0);
   const bossLimit = Math.max(0, Number(selectedPlan?.boss_count ?? 0) || 0);
   const totalLimit = Math.max(0, Number(selectedPlan?.items_per_month ?? (miniLimit + bossLimit)) || (miniLimit + bossLimit));
@@ -131,6 +150,39 @@ export default function VipAreaModal({ open, onClose, onGoVip }) {
       setVipPlan(prof?.vip_plan || "Cubo Level 1 — RPG");
       setOptions(Array.isArray(opts) ? opts : []);
 
+      // Votação do tema (best-effort). Se as tabelas não existirem ainda, só omitimos a seção.
+      try {
+        const { data: p } = await supabase
+          .from('vip_theme_polls')
+          .select('id,month_key,title,status')
+          .eq('status', 'open')
+          .order('month_key', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        setPoll(p || null);
+        if (p?.id) {
+          const [{ data: opts2 }, { data: mine }, { data: counts }] = await Promise.all([
+            supabase.from('vip_theme_options').select('id,poll_id,title,description,image_url,sort_order,active').eq('poll_id', p.id).eq('active', true).order('sort_order', { ascending: true }),
+            supabase.from('vip_theme_votes').select('option_id').eq('poll_id', p.id).eq('user_id', user.id).maybeSingle(),
+            supabase.rpc('vip_theme_counts', { p_poll_id: p.id }),
+          ]);
+          setPollOptions(Array.isArray(opts2) ? opts2 : []);
+          setMyVote(mine?.option_id || null);
+          const map = {};
+          for (const r of (counts || [])) map[String(r.option_id)] = Number(r.votes) || 0;
+          setVoteCounts(map);
+        } else {
+          setPollOptions([]);
+          setMyVote(null);
+          setVoteCounts({});
+        }
+      } catch {
+        setPoll(null);
+        setPollOptions([]);
+        setMyVote(null);
+        setVoteCounts({});
+      }
+
       const order = Array.isArray(lastVipOrder) ? lastVipOrder[0] : null;
       setOrderStatus(String(order?.production_status || "editavel").toLowerCase());
       setShippingTracking(String(order?.shipping_tracking || "").trim());
@@ -160,6 +212,97 @@ export default function VipAreaModal({ open, onClose, onGoVip }) {
   React.useEffect(() => {
     if (open) load();
   }, [open]);
+
+  async function refreshVoteCounts(pollId) {
+    try {
+      const { data: counts } = await supabase.rpc('vip_theme_counts', { p_poll_id: pollId });
+      const map = {};
+      for (const r of (counts || [])) map[String(r.option_id)] = Number(r.votes) || 0;
+      setVoteCounts(map);
+    } catch {}
+  }
+
+  async function vote(optionId) {
+    if (!user || !poll?.id) return;
+    if (!isVip) {
+      setMsg('A votação é exclusiva para membros VIP.');
+      return;
+    }
+    try {
+      setVoteBusy(true);
+      setMsg('');
+      const payload = { poll_id: poll.id, option_id: optionId, user_id: user.id };
+      const { error: upErr } = await supabase.from('vip_theme_votes').upsert(payload, { onConflict: 'poll_id,user_id' });
+      if (upErr) throw upErr;
+      setMyVote(optionId);
+      await refreshVoteCounts(poll.id);
+      setMsg('Voto registrado ✅');
+    } catch {
+      setMsg('Não foi possível registrar seu voto.');
+    } finally {
+      setVoteBusy(false);
+    }
+  }
+
+  async function startUpgradePix() {
+    if (!user || !isVip) return;
+    if (!nextPlan?.id) return;
+    try {
+      setUpgradeBusy(true);
+      setMsg('');
+      setUpgrade(null);
+      const session = await supabase.auth.getSession();
+      const jwt = session?.data?.session?.access_token;
+      if (!jwt) {
+        setMsg('Faça login novamente para continuar.');
+        return;
+      }
+      const res = await fetch('/api/create-vip-upgrade-pix-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` },
+        body: JSON.stringify({ to_plan_id: nextPlan.id }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || 'Não foi possível gerar o Pix do upgrade.');
+      setUpgrade({
+        order_id: data?.order_id || '',
+        qr_code: data?.qr_code || '',
+        qr_code_base64: data?.qr_code_base64 || '',
+        ticket_url: data?.ticket_url || '',
+        status: String(data?.status || '').toLowerCase(),
+      });
+      setMsg('Pix do upgrade gerado. A confirmação é automática.');
+    } catch (e) {
+      setMsg(String(e?.message || 'Não foi possível gerar o Pix do upgrade.'));
+    } finally {
+      setUpgradeBusy(false);
+    }
+  }
+
+  React.useEffect(() => {
+    if (!upgrade?.order_id) return;
+    let stopped = false;
+    const t = setInterval(async () => {
+      if (stopped) return;
+      try {
+        const res = await fetch(`/api/pix-payment?action=verify&order_id=${encodeURIComponent(upgrade.order_id)}`);
+        const data = await res.json().catch(() => ({}));
+        const st = String(data?.status || '').toLowerCase();
+        if (st) setUpgrade((p) => ({ ...(p || {}), status: st }));
+        if (st === 'paid') {
+          stopped = true;
+          clearInterval(t);
+          setMsg('Upgrade confirmado ✅');
+          await load();
+          setUpgrade(null);
+        }
+      } catch {}
+    }, 5000);
+    return () => {
+      stopped = true;
+      clearInterval(t);
+    };
+  }, [upgrade?.order_id]);
 
   async function saveSelection() {
     if (!editable) return;
@@ -248,6 +391,128 @@ export default function VipAreaModal({ open, onClose, onGoVip }) {
                     <code className="rounded-lg bg-black/30 px-3 py-2 text-xs text-amber-50 ring-1 ring-amber-200/10">{shippingTracking}</code>
                     <button type="button" onClick={() => navigator.clipboard.writeText(String(shippingTracking || ''))} className="rounded-lg px-3 py-2 text-xs font-semibold ring-1 ring-amber-300/20 hover:bg-white/5">Copiar</button>
                     <a href={`https://rastreamento.correios.com.br/app/index.php?objetos=${encodeURIComponent(shippingTracking)}`} target="_blank" rel="noreferrer" className="rounded-lg px-3 py-2 text-xs font-semibold bg-amber-300 text-black hover:bg-amber-200">Rastrear pedido</a>
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="md:col-span-2 rounded-2xl bg-white/5 ring-1 ring-white/10 p-5">
+                  <div className="flex items-start justify-between gap-3 flex-wrap">
+                    <div>
+                      <div className="text-xs uppercase tracking-wide text-slate-400">Seu nível VIP</div>
+                      <div className="mt-1 text-xl sm:text-2xl font-extrabold text-violet-100">{selectedPlan?.short_name || selectedPlan?.name || 'VIP'}</div>
+                      <div className="mt-2 text-sm text-slate-300">
+                        {miniLimit} miniatura(s){bossLimit ? ` + ${bossLimit} boss(es)` : ''} • total {totalLimit}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-xs uppercase tracking-wide text-slate-400">Seu ciclo</div>
+                      <div className="mt-1 text-sm text-slate-200">
+                        Mini: <b>{selectedCounts.mini}</b>/{miniLimit}
+                        <span className="ml-2 text-slate-400">•</span>
+                        <span className="ml-2">Boss: <b>{selectedCounts.boss}</b>/{bossLimit}</span>
+                      </div>
+                      <div className="text-xs text-slate-400 mt-1">Total: <b>{selectedCounts.total}</b>/{totalLimit}</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl bg-gradient-to-br from-violet-500/15 to-fuchsia-500/10 ring-1 ring-violet-400/20 p-5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="text-xs uppercase tracking-wide text-slate-300">Upgrade</div>
+                      <div className="mt-1 font-extrabold text-slate-50">Subir de level</div>
+                      <div className="mt-2 text-sm text-slate-200/80">
+                        {nextPlan ? <>Próximo: <b>{nextPlan?.short_name || nextPlan?.name}</b></> : <>Você já está no maior nível.</>}
+                      </div>
+                    </div>
+                    <span className="material-icons text-violet-200">rocket_launch</span>
+                  </div>
+                  {nextPlan ? (
+                    <button
+                      disabled={upgradeBusy}
+                      onClick={startUpgradePix}
+                      className="mt-4 w-full rounded-xl px-4 py-3 font-extrabold bg-violet-400 text-black ring-4 ring-violet-400/20 hover:opacity-95 disabled:opacity-60"
+                    >
+                      {upgradeBusy ? 'Gerando Pix…' : 'Subir de level'}
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+
+              {upgrade?.order_id ? (
+                <div className="mt-4 rounded-2xl bg-white/5 ring-1 ring-white/10 p-5">
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <div>
+                      <div className="text-sm font-extrabold text-slate-100">Pix do upgrade</div>
+                      <div className="text-xs text-slate-400">Status: <b>{upgrade?.status || 'pendente'}</b></div>
+                    </div>
+                    {upgrade?.ticket_url ? (
+                      <a className="text-sm font-semibold text-teal-200 hover:underline" href={upgrade.ticket_url} target="_blank" rel="noreferrer">Abrir no Mercado Pago</a>
+                    ) : null}
+                  </div>
+                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="rounded-2xl bg-black/30 ring-1 ring-white/10 p-4 flex items-center justify-center">
+                      {upgrade?.qr_code_base64 ? (
+                        <img alt="QR Code Pix" className="w-56 h-56" src={`data:image/png;base64,${upgrade.qr_code_base64}`} />
+                      ) : (
+                        <div className="text-slate-300">QR Code indisponível</div>
+                      )}
+                    </div>
+                    <div>
+                      <div className="text-xs uppercase tracking-wide text-slate-400">Copia e cola</div>
+                      <textarea readOnly value={upgrade?.qr_code || ''} className="mt-2 w-full h-40 rounded-xl bg-black/30 ring-1 ring-white/10 p-3 text-xs text-slate-100" />
+                      <button
+                        onClick={() => { try { navigator.clipboard.writeText(upgrade?.qr_code || ''); setMsg('Código Pix copiado ✅'); } catch {} }}
+                        className="mt-3 w-full rounded-xl px-4 py-3 font-extrabold bg-teal-400 text-black ring-4 ring-teal-400/20"
+                      >
+                        Copiar código Pix
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
+              {poll?.id ? (
+                <div className="mt-4 rounded-2xl bg-white/5 ring-1 ring-white/10 p-5">
+                  <div className="flex items-start justify-between gap-3 flex-wrap">
+                    <div>
+                      <div className="text-xs uppercase tracking-wide text-slate-400">Votação VIP</div>
+                      <div className="mt-1 text-xl font-extrabold text-slate-100">Tema do próximo mês</div>
+                      <div className="text-sm text-slate-300 mt-1">{poll?.title || `Votação ${poll?.month_key}`}</div>
+                    </div>
+                    <div className="text-xs text-slate-400">Ciclo: <b>{poll?.month_key}</b></div>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {(pollOptions || []).map((o) => {
+                      const votes = Number(voteCounts[String(o.id)] || 0);
+                      const totalVotes = Object.values(voteCounts || {}).reduce((a, b) => a + (Number(b) || 0), 0);
+                      const pct = totalVotes ? Math.round((votes / totalVotes) * 100) : 0;
+                      const active = String(myVote) === String(o.id);
+                      return (
+                        <button
+                          key={o.id}
+                          disabled={voteBusy}
+                          onClick={() => vote(o.id)}
+                          className={`text-left rounded-2xl ring-1 p-4 transition hover:-translate-y-0.5 ${active ? 'bg-violet-500/15 ring-violet-400/30' : 'bg-black/25 ring-white/10 hover:bg-white/5'}`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <div className="font-extrabold text-slate-100">{o.title}</div>
+                              {o.description ? <div className="text-xs text-slate-300 mt-1 line-clamp-2">{o.description}</div> : null}
+                            </div>
+                            {active ? <span className="material-icons text-violet-200">check_circle</span> : <span className="material-icons text-slate-400">how_to_vote</span>}
+                          </div>
+                          <div className="mt-3">
+                            <div className="h-2 rounded-full bg-white/10 overflow-hidden">
+                              <div className="h-full bg-violet-400" style={{ width: `${pct}%` }} />
+                            </div>
+                            <div className="mt-2 text-xs text-slate-400">{votes} voto(s) • {pct}%</div>
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               ) : null}
