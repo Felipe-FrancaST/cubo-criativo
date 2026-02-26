@@ -272,7 +272,7 @@ export default function AuthModal({ open, onClose, onSuccess }) {
           {mode === "signup" && (
             <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
               <p className="text-sm font-semibold text-slate-100">Dados para entrega</p>
-              <p className="mt-1 text-xs text-slate-400">Obrigatório: CEP, cidade e UF (a rua/bairro podem preencher automaticamente).</p>
+              {/* (removido) */}
 
               <div className="mt-4 space-y-3">
                 <Field label="Nome completo">

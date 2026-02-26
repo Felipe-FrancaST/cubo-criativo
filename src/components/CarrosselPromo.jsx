@@ -66,7 +66,8 @@ export default function CarrosselPromo({
     ];
   }, [images, remoteSlides]);
 
-  // Destino padrão ao tocar no carrossel (caso o banner não tenha link específico)
+  // Destino ao tocar no carrossel
+  // (forçamos Promoções para evitar qualquer redirecionamento inesperado)
   const defaultLink = "/promocoes";
 
   const [i, setI] = React.useState(0);
@@ -155,7 +156,7 @@ export default function CarrosselPromo({
               aria-hidden={!active}
             >
               <a
-                href={s?.link_url || defaultLink}
+                href={defaultLink}
                 className="block w-full h-full"
                 aria-label="Abrir promoções"
               >
