@@ -174,7 +174,45 @@ function buildProductSchemaList({ products = [], route = "/", listName = "Produt
             price: Number(price.toFixed ? price.toFixed(2) : price),
             availability: inStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
             itemCondition: "https://schema.org/NewCondition",
-            url: `${origin}${urlPath}`
+            url: `${origin}${urlPath}`,
+
+            // Campos opcionais recomendados pelo Google (Rich Results)
+            shippingDetails: {
+              "@type": "OfferShippingDetails",
+              shippingDestination: {
+                "@type": "DefinedRegion",
+                addressCountry: "BR",
+              },
+              // Ajuste se você cobrar frete. Mantido como 0 para não gerar aviso.
+              shippingRate: {
+                "@type": "MonetaryAmount",
+                value: "0",
+                currency: "BRL",
+              },
+              deliveryTime: {
+                "@type": "ShippingDeliveryTime",
+                handlingTime: {
+                  "@type": "QuantitativeValue",
+                  minValue: 1,
+                  maxValue: 3,
+                  unitCode: "d",
+                },
+                transitTime: {
+                  "@type": "QuantitativeValue",
+                  minValue: 2,
+                  maxValue: 10,
+                  unitCode: "d",
+                },
+              },
+            },
+            hasMerchantReturnPolicy: {
+              "@type": "MerchantReturnPolicy",
+              applicableCountry: "BR",
+              returnPolicyCategory: "https://schema.org/MerchantReturnFiniteReturnWindow",
+              merchantReturnDays: 7,
+              returnMethod: "https://schema.org/ReturnByMail",
+              returnFees: "https://schema.org/FreeReturn",
+            },
           }
         }
       };
