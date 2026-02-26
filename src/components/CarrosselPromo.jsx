@@ -1,32 +1,97 @@
 // src/components/CarrosselPromo.jsx
 import * as React from "react";
+import { supabase } from "../lib/supabaseClient.js";
 
 export default function CarrosselPromo({
-  images = ["/images/promo.jpg", "/images/promo1.jpg", "/images/promo2.jpg"],
+  /**
+   * Se `images` for passado, o componente usa exatamente esse array.
+   * Caso contrário, carrega automaticamente do Supabase (tabela `site_carousel_images`).
+   */
+  images,
   interval = 3500,
   fit = "cover", // "cover" | "contain"
   className = "",
 }) {
+  const [remoteSlides, setRemoteSlides] = React.useState([]);
+  const [loadingRemote, setLoadingRemote] = React.useState(false);
+  const [remoteErr, setRemoteErr] = React.useState("");
+
+  // Carrega do Supabase quando não receber `images` por props
+  React.useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      if (Array.isArray(images)) return;
+      setLoadingRemote(true);
+      setRemoteErr("");
+      try {
+        const { data, error } = await supabase
+          .from("site_carousel_images")
+          .select("id,image_url,alt,link_url,sort_order,active")
+          .eq("active", true)
+          .order("sort_order", { ascending: true });
+
+        if (error) throw error;
+        if (cancelled) return;
+        setRemoteSlides(Array.isArray(data) ? data : []);
+      } catch (e) {
+        if (cancelled) return;
+        setRemoteErr(e?.message || "Erro ao carregar imagens");
+        setRemoteSlides([]);
+      } finally {
+        if (!cancelled) setLoadingRemote(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [images]);
+
+  // Fonte final: props > Supabase > fallback local
+  const slides = React.useMemo(() => {
+    if (Array.isArray(images) && images.length) {
+      return images.map((src, idx) => ({
+        id: String(idx),
+        image_url: src,
+        alt: `promo ${idx + 1}`,
+        link_url: null,
+      }));
+    }
+    if (remoteSlides.length) return remoteSlides;
+    // fallback: mantém o layout ok caso o banco ainda não esteja populado
+    return [
+      { id: "local-1", image_url: "/images/promo.jpg", alt: "promo 1", link_url: null },
+      { id: "local-2", image_url: "/images/promo1.jpg", alt: "promo 2", link_url: null },
+      { id: "local-3", image_url: "/images/promo2.jpg", alt: "promo 3", link_url: null },
+    ];
+  }, [images, remoteSlides]);
+
   const [i, setI] = React.useState(0);
   const [isHovering, setIsHovering] = React.useState(false);
   const timerRef = React.useRef(null);
 
+  // garante índice válido quando a quantidade de slides muda
+  React.useEffect(() => {
+    if (i >= slides.length) setI(0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slides.length]);
+
   const next = React.useCallback(
-    () => setI((p) => (p + 1) % images.length),
-    [images.length]
+    () => setI((p) => (p + 1) % slides.length),
+    [slides.length]
   );
   const prev = React.useCallback(
-    () => setI((p) => (p - 1 + images.length) % images.length),
-    [images.length]
+    () => setI((p) => (p - 1 + slides.length) % slides.length),
+    [slides.length]
   );
 
   // autoplay
   React.useEffect(() => {
-    if (images.length <= 1) return;
+    if (slides.length <= 1) return;
     clearInterval(timerRef.current);
     if (!isHovering) timerRef.current = setInterval(next, interval);
     return () => clearInterval(timerRef.current);
-  }, [i, next, interval, images.length, isHovering]);
+  }, [i, next, interval, slides.length, isHovering]);
 
   // teclado
   React.useEffect(() => {
@@ -62,22 +127,41 @@ export default function CarrosselPromo({
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
     >
+      {remoteErr && !Array.isArray(images) && (
+        <div className="absolute z-10 left-3 top-3 right-3 rounded-2xl bg-rose-500/15 ring-1 ring-rose-400/30 px-3 py-2 text-xs text-rose-100">
+          Não foi possível carregar o carrossel. ({remoteErr})
+        </div>
+      )}
+      {loadingRemote && !Array.isArray(images) && (
+        <div className="absolute z-10 left-3 top-3 rounded-full bg-black/40 ring-1 ring-white/15 px-3 py-1 text-xs text-slate-200">
+          Carregando…
+        </div>
+      )}
+
       {/* altura responsiva */}
       <div className="h-[280px] sm:h-[360px] lg:h-[420px] relative">
         {/* imagens empilhadas com fade */}
-        {images.map((src, idx) => {
+        {slides.map((s, idx) => {
           const active = idx === i;
           return (
             <div
-              key={idx}
+              key={s?.id ?? idx}
               className={`absolute inset-0 grid place-items-center p-3 transition-opacity ${
                 prefersReducedMotion ? "" : "duration-500"
               } ${active ? "opacity-100" : "opacity-0"}`}
               aria-hidden={!active}
             >
-              <img
-                src={src}
-                alt={`promo ${idx + 1}`}
+              <a
+                href={s?.link_url || undefined}
+                onClick={(e) => {
+                  if (!s?.link_url) e.preventDefault();
+                }}
+                className="block w-full h-full"
+                aria-label={s?.link_url ? "Abrir promoção" : undefined}
+              >
+                <img
+                  src={s?.image_url}
+                  alt={s?.alt || `promo ${idx + 1}`}
                 style={{
                   maxHeight: "100%",
                   maxWidth: "100%",
@@ -89,9 +173,10 @@ export default function CarrosselPromo({
                 onError={(e) => {
                   e.currentTarget.style.display = "none";
                   e.currentTarget.parentElement.innerHTML =
-                    `<div class="text-slate-300 text-xs px-4 text-center">Imagem não encontrada:<br>${src}</div>`;
+                    `<div class="text-slate-300 text-xs px-4 text-center">Imagem não encontrada</div>`;
                 }}
-              />
+                />
+              </a>
             </div>
           );
         })}
@@ -100,7 +185,7 @@ export default function CarrosselPromo({
       </div>
 
       {/* setas (aparecem mais no hover) */}
-      {images.length > 1 && (
+      {slides.length > 1 && (
         <>
           <button
             aria-label="Anterior"
@@ -126,9 +211,9 @@ export default function CarrosselPromo({
       )}
 
       {/* bolinhas (glass + menor) */}
-      {images.length > 1 && (
+      {slides.length > 1 && (
         <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-6 px-2 py-1 rounded-full bg-black/30 backdrop-blur-sm ring-1 ring-white/10">
-          {images.map((_, idx) => (
+          {slides.map((_, idx) => (
             <button
               key={idx}
               onClick={(e) => {

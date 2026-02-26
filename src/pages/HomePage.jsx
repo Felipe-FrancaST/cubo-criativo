@@ -131,10 +131,7 @@ export default function HomePage({
                 title="Ver todas as promoções"
               >
                 <div className="relative">
-                  <CarrosselPromo
-                    images={["/images/promo.jpg", "/images/promo1.jpg", "/images/promo2.jpg"]}
-                    fit="cover"
-                  />
+                  <CarrosselPromo fit="cover" />
                   <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-black/55 via-black/10 to-transparent opacity-0 group-hover/car:opacity-100 transition" />
                   <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-3">
                     <div className="text-xs sm:text-sm text-slate-100 font-semibold drop-shadow">
