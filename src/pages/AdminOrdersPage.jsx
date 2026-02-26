@@ -65,6 +65,7 @@ function fmtAddress(p) {
 }
 
 export default function AdminOrdersPage({ user, accessToken, onNavigateHome }) {
+  const [tab, setTab] = React.useState("orders");
   const [orders, setOrders] = React.useState([]);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState("");
@@ -73,6 +74,10 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome }) {
   const [filterProd, setFilterProd] = React.useState("all");
   const [toast, setToast] = React.useState("");
   const [statusActionModal, setStatusActionModal] = React.useState({ open: false, orderId: null, patch: null, fields: {} });
+
+  const [vipPolls, setVipPolls] = React.useState([]);
+  const [vipPollsLoading, setVipPollsLoading] = React.useState(false);
+  const [vipPollsError, setVipPollsError] = React.useState("");
 
   const isAdmin = isAdminEmail(user?.email || "");
 
@@ -121,9 +126,31 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome }) {
     }
   }, [accessToken]);
 
+  const fetchVipVoting = React.useCallback(async () => {
+    if (!accessToken) return;
+    setVipPollsLoading(true);
+    setVipPollsError("");
+    try {
+      const resp = await fetch("/api/admin/vip-voting", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data?.error || "Não foi possível carregar a votação VIP.");
+      setVipPolls(Array.isArray(data.polls) ? data.polls : []);
+    } catch (e) {
+      setVipPollsError(e?.message || "Erro ao carregar votação VIP.");
+    } finally {
+      setVipPollsLoading(false);
+    }
+  }, [accessToken]);
+
   React.useEffect(() => {
     fetchOrders();
   }, [fetchOrders]);
+
+  React.useEffect(() => {
+    if (tab === "vip_voting") fetchVipVoting();
+  }, [tab, fetchVipVoting]);
 
   async function updateOrder(orderId, patch) {
     try {
@@ -347,8 +374,10 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome }) {
         <div style={{ maxWidth: "var(--container-max, 1200px)" }} className="mx-auto">
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold">Painel Admin — Pedidos</h1>
-              <p className="mt-2 text-slate-300 text-sm">Atualize status de produção/envio e copie dados para produzir.</p>
+              <h1 className="text-2xl sm:text-3xl font-extrabold">Painel Admin</h1>
+              <p className="mt-2 text-slate-300 text-sm">
+                {tab === 'vip_voting' ? 'Acompanhe o resultado da votação VIP por mês.' : 'Atualize status de produção/envio e copie dados para produzir.'}
+              </p>
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -367,6 +396,31 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome }) {
             </div>
           </div>
 
+          <div className="mt-5 flex flex-wrap gap-2">
+            <button
+              onClick={() => setTab('orders')}
+              className={
+                tab === 'orders'
+                  ? 'rounded-full px-4 py-2 text-sm font-semibold bg-white/10 ring-1 ring-white/20'
+                  : 'rounded-full px-4 py-2 text-sm ring-1 ring-white/10 hover:bg-white/5'
+              }
+            >
+              Pedidos
+            </button>
+            <button
+              onClick={() => setTab('vip_voting')}
+              className={
+                tab === 'vip_voting'
+                  ? 'rounded-full px-4 py-2 text-sm font-semibold bg-white/10 ring-1 ring-white/20'
+                  : 'rounded-full px-4 py-2 text-sm ring-1 ring-white/10 hover:bg-white/5'
+              }
+            >
+              Votação VIP
+            </button>
+          </div>
+
+          {tab === 'orders' ? (
+            <>
           <div className="mt-6 grid grid-cols-2 lg:grid-cols-4 gap-3">
             {[
               ['Pedidos', metrics.total],
@@ -625,6 +679,80 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome }) {
               );
             })}
           </div>
+            </>
+          ) : (
+            <div className="mt-6">
+              <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-5">
+                <div className="flex items-start justify-between gap-3 flex-wrap">
+                  <div>
+                    <div className="text-xs uppercase tracking-wide text-slate-400">Votação VIP</div>
+                    <div className="mt-1 text-lg font-extrabold">Resultados</div>
+                    <div className="mt-1 text-sm text-slate-300">Mostra as opções e a contagem de votos por mês.</div>
+                  </div>
+                  <button
+                    onClick={fetchVipVoting}
+                    disabled={vipPollsLoading}
+                    className="rounded-xl px-4 py-2 text-sm bg-emerald-400 text-black font-semibold hover:bg-emerald-300 disabled:opacity-60"
+                  >
+                    {vipPollsLoading ? 'Atualizando…' : 'Atualizar'}
+                  </button>
+                </div>
+
+                {vipPollsError ? (
+                  <div className="mt-4 text-sm text-red-300 bg-red-500/10 ring-1 ring-red-500/30 rounded-xl px-4 py-3">
+                    {vipPollsError}
+                  </div>
+                ) : null}
+
+                {vipPollsLoading ? (
+                  <div className="mt-4 text-slate-300">Carregando…</div>
+                ) : vipPolls.length === 0 ? (
+                  <div className="mt-4 text-slate-300">Nenhuma votação encontrada.</div>
+                ) : (
+                  <div className="mt-5 space-y-4">
+                    {vipPolls.map((p) => (
+                      <div key={p?.poll?.id || Math.random()} className="rounded-2xl bg-black/20 ring-1 ring-white/10 p-4">
+                        <div className="flex items-start justify-between gap-3 flex-wrap">
+                          <div>
+                            <div className="text-xs text-slate-400">Mês</div>
+                            <div className="text-lg font-extrabold">{p?.poll?.month_key || '—'}</div>
+                            <div className="text-sm text-slate-300">{p?.poll?.title || 'Votação VIP'}</div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-xs text-slate-400">Status</div>
+                            <div className="mt-1 inline-flex items-center rounded-full px-3 py-1 text-xs ring-1 ring-white/15 bg-white/5">
+                              {String(p?.poll?.status || 'open').toUpperCase()}
+                            </div>
+                            <div className="mt-1 text-xs text-slate-400">Total votos: <b className="text-slate-200">{p?.total_votes ?? 0}</b></div>
+                          </div>
+                        </div>
+
+                        <div className="mt-4 space-y-3">
+                          {(p?.options || []).map((opt) => (
+                            <div key={opt.id} className="rounded-xl bg-white/5 ring-1 ring-white/10 p-3">
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="min-w-0">
+                                  <div className="font-semibold text-slate-100 truncate">{opt.title}</div>
+                                  {opt.description ? <div className="text-xs text-slate-300 mt-0.5">{opt.description}</div> : null}
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <div className="text-xs text-slate-400">Votos</div>
+                                  <div className="text-sm font-bold">{opt.votes} <span className="text-slate-400">({opt.pct}%)</span></div>
+                                </div>
+                              </div>
+                              <div className="mt-2 h-2 rounded-full bg-black/30 overflow-hidden ring-1 ring-white/10">
+                                <div className="h-full bg-emerald-400" style={{ width: `${opt.pct || 0}%` }} />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </section>
 

@@ -19,6 +19,12 @@ function statusLabel(s) {
   return { label: v.replaceAll("_", " "), cls: "bg-white/5 ring-white/15 text-slate-200" };
 }
 
+function fmtBRLFromCents(cents) {
+  const n = Number(cents);
+  if (!isFinite(n)) return '—';
+  return (n / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
 
 
 const FALLBACK_VIP_PLANS = [
@@ -92,6 +98,25 @@ export default function VipAreaModal({ open, onClose, onGoVip }) {
   const miniLimit = Math.max(0, Number(selectedPlan?.miniatures_count ?? selectedPlan?.items_per_month ?? 3) || 0);
   const bossLimit = Math.max(0, Number(selectedPlan?.boss_count ?? 0) || 0);
   const totalLimit = Math.max(0, Number(selectedPlan?.items_per_month ?? (miniLimit + bossLimit)) || (miniLimit + bossLimit));
+
+  const currentPriceCents = React.useMemo(() => {
+    if (typeof selectedPlan?.price_cents === 'number') return selectedPlan.price_cents;
+    if (typeof selectedPlan?.price_brl === 'number') return Math.round(selectedPlan.price_brl * 100);
+    if (typeof selectedPlan?.price === 'number') return Math.round(selectedPlan.price * 100);
+    return 0;
+  }, [selectedPlan]);
+
+  const nextPriceCents = React.useMemo(() => {
+    if (typeof nextPlan?.price_cents === 'number') return nextPlan.price_cents;
+    if (typeof nextPlan?.price_brl === 'number') return Math.round(nextPlan.price_brl * 100);
+    if (typeof nextPlan?.price === 'number') return Math.round(nextPlan.price * 100);
+    return 0;
+  }, [nextPlan]);
+
+  const upgradeDiffCents = React.useMemo(() => {
+    const diff = Number(nextPriceCents || 0) - Number(currentPriceCents || 0);
+    return diff > 0 ? diff : 0;
+  }, [nextPriceCents, currentPriceCents]);
 
   const optionTypeById = React.useMemo(() => {
     const map = new Map();
@@ -425,6 +450,11 @@ export default function VipAreaModal({ open, onClose, onGoVip }) {
                       <div className="mt-2 text-sm text-slate-200/80">
                         {nextPlan ? <>Próximo: <b>{nextPlan?.short_name || nextPlan?.name}</b></> : <>Você já está no maior nível.</>}
                       </div>
+                      {nextPlan ? (
+                        <div className="mt-2 text-xs text-slate-200/80">
+                          Você paga apenas a diferença: <b>{fmtBRLFromCents(upgradeDiffCents)}</b>
+                        </div>
+                      ) : null}
                     </div>
                     <span className="material-icons text-violet-200">rocket_launch</span>
                   </div>
@@ -434,7 +464,7 @@ export default function VipAreaModal({ open, onClose, onGoVip }) {
                       onClick={startUpgradePix}
                       className="mt-4 w-full rounded-xl px-4 py-3 font-extrabold bg-violet-400 text-black ring-4 ring-violet-400/20 hover:opacity-95 disabled:opacity-60"
                     >
-                      {upgradeBusy ? 'Gerando Pix…' : 'Subir de level'}
+                      {upgradeBusy ? 'Gerando Pix…' : `Subir por ${fmtBRLFromCents(upgradeDiffCents)}`}
                     </button>
                   ) : null}
                 </div>
