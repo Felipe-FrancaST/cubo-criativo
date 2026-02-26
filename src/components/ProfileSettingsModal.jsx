@@ -3,6 +3,7 @@ import Modal from "./Modal.jsx";
 import { useAuth } from "../auth/AuthProvider.jsx";
 import { supabase } from "../lib/supabaseClient";
 import { fetchAddressFromCep, isValidCep, onlyDigits } from "../lib/cep.js";
+import { useFavorites } from "../state/FavoritesProvider.jsx";
 
 function Field({ label, children }) {
   return (
@@ -61,7 +62,21 @@ export default function ProfileSettingsModal({ open, onClose, required = false, 
   const [newPassword, setNewPassword] = React.useState("");
   const [newPassword2, setNewPassword2] = React.useState("");
   const [pwdBusy, setPwdBusy] = React.useState(false);
-  const [settingsSection, setSettingsSection] = React.useState("home");
+  const [settingsSection, setSettingsSection] = React.useState("security");
+
+  // Favoritos
+  const { favoriteIds, toggleFavorite, reload: reloadFavorites } = useFavorites();
+  const [favProducts, setFavProducts] = React.useState([]);
+  const [favBusy, setFavBusy] = React.useState(false);
+
+  // Cupons
+  const [myCoupons, setMyCoupons] = React.useState([]);
+  const [couponBusy, setCouponBusy] = React.useState(false);
+
+  // Avaliações (por pedido entregue)
+  const [deliveredOrders, setDeliveredOrders] = React.useState([]);
+  const [reviewsByOrder, setReviewsByOrder] = React.useState({});
+  const [reviewModal, setReviewModal] = React.useState({ open: false, order: null, rating: 5, comment: "", busy: false });
   const [myCoupons, setMyCoupons] = React.useState([]);
   const [couponsBusy, setCouponsBusy] = React.useState(false);
 
@@ -87,7 +102,7 @@ export default function ProfileSettingsModal({ open, onClose, required = false, 
     if (!open) return;
     const t = initialTab === "settings" ? "settings" : "profile";
     setActiveTab(t);
-    setSettingsSection(t === "settings" ? "home" : settingsSection);
+    setSettingsSection(t === "settings" ? "security" : settingsSection);
   }, [open, initialTab]);
 
   React.useEffect(() => {
@@ -184,6 +199,118 @@ export default function ProfileSettingsModal({ open, onClose, required = false, 
   }, [open, user, isVip, vipCycleKey]);
 
   React.useEffect(() => { loadVipData(); }, [loadVipData]);
+
+  const loadFavoritesProducts = React.useCallback(async () => {
+    if (!open || !user) {
+      setFavProducts([]);
+      return;
+    }
+    const ids = Array.from(favoriteIds || new Set()).filter(Boolean);
+    if (!ids.length) {
+      setFavProducts([]);
+      return;
+    }
+    setFavBusy(true);
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('id,nome,descricao,img,preco,stock,category,tags,variants,defaultVariant')
+        .in('id', ids);
+      if (error) throw error;
+      // Mantém ordem de favoritos
+      const map = new Map((data || []).map((p) => [String(p.id), p]));
+      setFavProducts(ids.map((id) => map.get(String(id))).filter(Boolean));
+    } catch (e) {
+      console.warn('load favorites products failed', e);
+      setFavProducts([]);
+    } finally {
+      setFavBusy(false);
+    }
+  }, [open, user, favoriteIds]);
+
+  const loadMyCoupons = React.useCallback(async () => {
+    if (!open || !user) {
+      setMyCoupons([]);
+      return;
+    }
+    setCouponBusy(true);
+    try {
+      const resp = await fetch('/api/coupons?action=my-coupons', {
+        method: 'GET',
+        headers: { ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}) },
+      });
+      const json = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(json?.error || 'Não foi possível carregar seus cupons.');
+      setMyCoupons(Array.isArray(json?.coupons) ? json.coupons : []);
+    } catch (e) {
+      console.warn('load coupons failed', e);
+      setMyCoupons([]);
+    } finally {
+      setCouponBusy(false);
+    }
+  }, [open, user, jwt]);
+
+  const loadDeliveredOrdersForReviews = React.useCallback(async () => {
+    if (!open || !user) {
+      setDeliveredOrders([]);
+      setReviewsByOrder({});
+      return;
+    }
+    try {
+      // pedidos do usuário + itens
+      const { data: orders, error: oErr } = await supabase
+        .from('orders')
+        .select('id,created_at,status,production_status,total,tracking_code,tracking_url')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(60);
+      if (oErr) throw oErr;
+      const delivered = (orders || []).filter((o) => String(o?.production_status || '').toLowerCase() === 'entregue');
+
+      const orderIds = delivered.map((o) => o.id);
+      let itemsByOrder = new Map();
+      if (orderIds.length) {
+        const { data: items, error: iErr } = await supabase
+          .from('order_items')
+          .select('order_id,product_id,product_name,product_image_url,img,name,qty,unit_price')
+          .in('order_id', orderIds);
+        if (iErr) throw iErr;
+        itemsByOrder = new Map();
+        (items || []).forEach((it) => {
+          const k = String(it.order_id);
+          const arr = itemsByOrder.get(k) || [];
+          arr.push(it);
+          itemsByOrder.set(k, arr);
+        });
+      }
+
+      const withItems = delivered.map((o) => ({ ...o, order_items: itemsByOrder.get(String(o.id)) || [] }));
+      setDeliveredOrders(withItems);
+
+      // reviews existentes
+      const { data: revs, error: rErr } = await supabase
+        .from('customer_reviews')
+        .select('order_id,rating,comment,display_name,created_at')
+        .eq('user_id', user.id);
+      if (rErr && rErr.code !== '42P01') throw rErr; // tabela pode não existir
+      const map = {};
+      (revs || []).forEach((r) => {
+        map[String(r.order_id)] = r;
+      });
+      setReviewsByOrder(map);
+    } catch (e) {
+      console.warn('load reviews data failed', e);
+      setDeliveredOrders([]);
+      setReviewsByOrder({});
+    }
+  }, [open, user]);
+
+  React.useEffect(() => {
+    if (!open || activeTab !== 'settings') return;
+    if (settingsSection === 'favorites') loadFavoritesProducts();
+    if (settingsSection === 'coupons') loadMyCoupons();
+    if (settingsSection === 'reviews') loadDeliveredOrdersForReviews();
+  }, [open, activeTab, settingsSection, loadFavoritesProducts, loadMyCoupons, loadDeliveredOrdersForReviews]);
 
   async function saveVipSelection() {
     if (!user || !isVip) return;
@@ -309,6 +436,52 @@ export default function ProfileSettingsModal({ open, onClose, required = false, 
     }
   }
 
+  async function submitReview() {
+    if (!user || !reviewModal?.order?.id) return;
+    setError('');
+    setOk('');
+    const rating = Math.max(1, Math.min(5, Number(reviewModal.rating) || 5));
+    const comment = String(reviewModal.comment || '').trim();
+    if (comment.length < 8) {
+      setError('Escreva um comentário com pelo menos 8 caracteres.');
+      return;
+    }
+    setReviewModal((p) => ({ ...p, busy: true }));
+    try {
+      const order = reviewModal.order;
+      const productNames = Array.isArray(order?.order_items)
+        ? order.order_items.map((it) => String(it?.product_name || it?.name || '').trim()).filter(Boolean)
+        : [];
+      const payload = {
+        order_id: order.id,
+        user_id: user.id,
+        rating,
+        comment,
+        display_name: fullName?.trim() || String(user.email || '').split('@')[0],
+        city: city?.trim() || null,
+        state: stateUF?.trim() || null,
+        approved: true,
+        order_total: order.total ?? null,
+        product_names: productNames.length ? productNames : null,
+      };
+
+      const { data, error: upErr } = await supabase
+        .from('customer_reviews')
+        .upsert(payload, { onConflict: 'order_id' })
+        .select('order_id,rating,comment,display_name,created_at')
+        .maybeSingle();
+      if (upErr) throw upErr;
+      setReviewsByOrder((prev) => ({ ...prev, [String(order.id)]: data || payload }));
+      setOk('Avaliação salva ✅');
+      setReviewModal({ open: false, order: null, rating: 5, comment: '', busy: false });
+    } catch (e) {
+      const msg = String(e?.message || e || 'Não foi possível salvar sua avaliação.');
+      setError(msg.includes('customer_reviews') ? 'Ative a tabela de avaliações no Supabase (SUPABASE_REVIEWS.sql).' : msg);
+    } finally {
+      setReviewModal((p) => ({ ...p, busy: false }));
+    }
+  }
+
   async function save() {
     if (!user) return;
     setError("");
@@ -392,6 +565,7 @@ export default function ProfileSettingsModal({ open, onClose, required = false, 
   }
 
   return (
+    <>
     <Modal open={open} onClose={onClose} title={activeTab === "settings" ? "Configurações" : "Perfil"}>
       <div className="w-full max-w-3xl">
         {!user ? (
@@ -459,36 +633,184 @@ export default function ProfileSettingsModal({ open, onClose, required = false, 
               </div>
             ) : (
               <>
+                {/* Navegação das configurações */}
+                <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <button type="button" onClick={() => setSettingsSection('security')} className={`rounded-xl px-3 py-2 text-sm font-semibold ring-1 transition ${settingsSection === 'security' ? 'bg-indigo-400 text-black ring-indigo-300' : 'ring-white/10 hover:bg-white/5'}`}>Segurança</button>
+                    <button type="button" onClick={() => setSettingsSection('favorites')} className={`rounded-xl px-3 py-2 text-sm font-semibold ring-1 transition ${settingsSection === 'favorites' ? 'bg-indigo-400 text-black ring-indigo-300' : 'ring-white/10 hover:bg-white/5'}`}>Favoritos</button>
+                    <button type="button" onClick={() => setSettingsSection('reviews')} className={`rounded-xl px-3 py-2 text-sm font-semibold ring-1 transition ${settingsSection === 'reviews' ? 'bg-indigo-400 text-black ring-indigo-300' : 'ring-white/10 hover:bg-white/5'}`}>Avaliações</button>
+                    <button type="button" onClick={() => setSettingsSection('coupons')} className={`rounded-xl px-3 py-2 text-sm font-semibold ring-1 transition ${settingsSection === 'coupons' ? 'bg-indigo-400 text-black ring-indigo-300' : 'ring-white/10 hover:bg-white/5'}`}>Cupons</button>
+                  </div>
+                </div>
+
+                {/* Conteúdo */}
+                {settingsSection === 'security' && (
+                  <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
+                    <p className="text-sm font-semibold text-slate-100">Segurança da conta</p>
+                    <p className="mt-1 text-xs text-slate-400">Troque sua senha com segurança. Se preferir, envie um link de recuperação por e-mail.</p>
+                    <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <Field label="Nova senha"><input value={newPassword} onChange={(e)=>setNewPassword(e.target.value)} type="password" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="Mínimo 6 caracteres" /></Field>
+                      <Field label="Confirmar nova senha"><input value={newPassword2} onChange={(e)=>setNewPassword2(e.target.value)} type="password" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="Repita a senha" /></Field>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button onClick={savePassword} disabled={pwdBusy} className={`rounded-xl px-4 py-2 font-semibold ring-1 ring-white/10 ${pwdBusy ? "bg-slate-700/50 text-slate-300" : "bg-indigo-400 hover:bg-indigo-300 text-black"}`}>{pwdBusy ? "Atualizando…" : "Trocar senha"}</button>
+                      <button onClick={async()=>{ try { setError(""); setOk(""); await resetPassword({ email: String(user.email || "") }); setOk("Enviamos um link de recuperação para seu e-mail ✅"); } catch (e) { setError(e?.message || "Não foi possível enviar o link."); } }} className="rounded-xl px-4 py-2 ring-1 ring-white/10 hover:bg-white/5">Enviar link por e-mail</button>
+                    </div>
+                  </div>
+                )}
+
+                {settingsSection === 'favorites' && (
+                  <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-100">Favoritos</p>
+                        <p className="mt-1 text-xs text-slate-400">Salve seus produtos preferidos para encontrar rápido depois.</p>
+                      </div>
+                      <button onClick={() => { reloadFavorites(); loadFavoritesProducts(); }} className="rounded-xl px-3 py-2 text-sm ring-1 ring-white/10 hover:bg-white/5">Atualizar</button>
+                    </div>
+
+                    <div className="mt-4">
+                      {favBusy ? (
+                        <p className="text-sm text-slate-300">Carregando…</p>
+                      ) : (favProducts?.length ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {favProducts.map((p) => (
+                            <div key={p.id} className="rounded-2xl ring-1 ring-white/10 bg-black/20 p-3 flex gap-3">
+                              <img src={p.img} alt={p.nome} className="h-16 w-16 rounded-xl object-cover ring-1 ring-white/10" />
+                              <div className="flex-1 min-w-0">
+                                <p className="font-semibold truncate">{p.nome}</p>
+                                <p className="text-xs text-slate-400 line-clamp-2">{p.descricao || ''}</p>
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                  <button
+                                    onClick={() => { onNavigate?.('/estoque'); onClose?.(); }}
+                                    className="rounded-xl px-3 py-2 text-xs ring-1 ring-white/10 hover:bg-white/5"
+                                  >
+                                    Ver no estoque
+                                  </button>
+                                  <button
+                                    onClick={() => toggleFavorite(p.id)}
+                                    className="rounded-xl px-3 py-2 text-xs bg-rose-500/15 text-rose-200 ring-1 ring-rose-400/30 hover:bg-rose-500/20"
+                                  >
+                                    Remover
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-slate-300">Você ainda não favoritou nenhum produto.</p>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {settingsSection === 'coupons' && (
+                  <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-100">Cupons</p>
+                        <p className="mt-1 text-xs text-slate-400">Aqui ficam seus cupons ativos para usar no carrinho.</p>
+                      </div>
+                      <button onClick={() => loadMyCoupons()} className="rounded-xl px-3 py-2 text-sm ring-1 ring-white/10 hover:bg-white/5">Atualizar</button>
+                    </div>
+                    <div className="mt-4">
+                      {couponBusy ? (
+                        <p className="text-sm text-slate-300">Carregando…</p>
+                      ) : (myCoupons?.length ? (
+                        <div className="space-y-3">
+                          {myCoupons.map((c) => (
+                            <div key={c.code} className="rounded-2xl ring-1 ring-white/10 bg-black/20 p-4">
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <p className="font-semibold text-slate-100">{c.label || 'Cupom'}</p>
+                                  <p className="mt-1 text-xs text-slate-400">Código: <span className="font-mono text-slate-200">{c.code}</span></p>
+                                  {c.expires_at ? (
+                                    <p className="mt-1 text-[11px] text-slate-400">Validade: {new Date(c.expires_at).toLocaleString('pt-BR')}</p>
+                                  ) : null}
+                                </div>
+                                <button
+                                  className="rounded-xl px-3 py-2 text-sm bg-teal-400 text-black ring-4 ring-teal-400/20"
+                                  onClick={async () => {
+                                    try { await navigator.clipboard.writeText(String(c.code || '')); setOk('Cupom copiado ✅'); } catch { setOk('Copie o código manualmente.'); }
+                                  }}
+                                >
+                                  Copiar
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-slate-300">Nenhum cupom ativo no momento.</p>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {settingsSection === 'reviews' && (
+                  <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-100">Avaliações</p>
+                        <p className="mt-1 text-xs text-slate-400">Veja suas compras entregues e avalie a experiência.</p>
+                      </div>
+                      <button onClick={() => loadDeliveredOrdersForReviews()} className="rounded-xl px-3 py-2 text-sm ring-1 ring-white/10 hover:bg-white/5">Atualizar</button>
+                    </div>
+
+                    <div className="mt-4 space-y-3">
+                      {!deliveredOrders?.length ? (
+                        <p className="text-sm text-slate-300">Quando um pedido for marcado como <b>Entregue</b>, ele aparecerá aqui para você avaliar.</p>
+                      ) : (
+                        deliveredOrders.map((o) => {
+                          const rev = reviewsByOrder?.[String(o.id)];
+                          const stars = rev?.rating ? '★'.repeat(Math.max(1, Math.min(5, Number(rev.rating)))) : '';
+                          return (
+                            <div key={o.id} className="rounded-2xl ring-1 ring-white/10 bg-black/20 p-4">
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <p className="text-sm font-semibold">Pedido entregue</p>
+                                  <p className="text-xs text-slate-400">{o.created_at ? new Date(o.created_at).toLocaleString('pt-BR') : ''}</p>
+                                  {Array.isArray(o.order_items) && o.order_items.length ? (
+                                    <p className="mt-2 text-xs text-slate-300 line-clamp-2">
+                                      {(o.order_items || []).map((it) => String(it?.product_name || it?.name || '')).filter(Boolean).join(' • ')}
+                                    </p>
+                                  ) : null}
+                                  {rev ? (
+                                    <div className="mt-2">
+                                      <span className="text-amber-300 text-sm">{stars}</span>
+                                      <p className="mt-1 text-sm text-slate-200">{rev.comment}</p>
+                                    </div>
+                                  ) : null}
+                                </div>
+                                <button
+                                  className="rounded-xl px-3 py-2 text-sm bg-indigo-400 text-black ring-4 ring-indigo-400/20"
+                                  onClick={() => {
+                                    setError('');
+                                    setOk('');
+                                    setReviewModal({
+                                      open: true,
+                                      order: o,
+                                      rating: Number(rev?.rating) || 5,
+                                      comment: String(rev?.comment || ''),
+                                      busy: false,
+                                    });
+                                  }}
+                                >
+                                  {rev ? 'Editar' : 'Avaliar'}
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
-                  <p className="text-sm font-semibold text-slate-100">Atalhos de Configurações</p>
-                  <p className="mt-1 text-xs text-slate-400">Centralize páginas e ações da sua conta em um só lugar.</p>
-                  <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-2">
-
-<a href="/terms.html" target="_blank" rel="noreferrer" className="rounded-xl px-3 py-2 text-sm ring-1 ring-white/10 hover:bg-white/5 text-center">Termos</a>
-<a href="/privacy.html" target="_blank" rel="noreferrer" className="rounded-xl px-3 py-2 text-sm ring-1 ring-white/10 hover:bg-white/5 text-center">Privacidade</a>
-<button type="button" onClick={() => goSettingsRoute('/trocas-e-devolucoes')} className="rounded-xl px-3 py-2 text-sm ring-1 ring-white/10 hover:bg-white/5">Trocas / devoluções</button>
-<button type="button" onClick={() => goSettingsRoute('/faq')} className="rounded-xl px-3 py-2 text-sm ring-1 ring-white/10 hover:bg-white/5">FAQ</button>
-<button type="button" onClick={() => goSettingsRoute('/sobre')} className="rounded-xl px-3 py-2 text-sm ring-1 ring-white/10 hover:bg-white/5">Sobre nós</button>
-<button type="button" onClick={() => goSettingsRoute('/contato')} className="rounded-xl px-3 py-2 text-sm ring-1 ring-white/10 hover:bg-white/5">Contato</button>
-<button type="button" onClick={() => setSettingsSection('password')} className={`rounded-xl px-3 py-2 text-sm ring-1 ${settingsSection === 'password' ? 'bg-indigo-400 text-black ring-indigo-300' : 'ring-white/10 hover:bg-white/5'}`}>Segurança</button>
-                  </div>
-                </div>
-
-                <div className={`rounded-2xl bg-white/5 ring-1 ring-white/10 p-4 `}>
-                  <p className="text-sm font-semibold text-slate-100">Segurança da conta</p>
-                  <p className="mt-1 text-xs text-slate-400">Troque sua senha aqui. Se necessário, você também pode receber o link por e-mail.</p>
-                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <Field label="Nova senha"><input value={newPassword} onChange={(e)=>setNewPassword(e.target.value)} type="password" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="Mínimo 6 caracteres" /></Field>
-                    <Field label="Confirmar nova senha"><input value={newPassword2} onChange={(e)=>setNewPassword2(e.target.value)} type="password" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="Repita a senha" /></Field>
-                  </div>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <button onClick={savePassword} disabled={pwdBusy} className={`rounded-xl px-4 py-2 font-semibold ring-1 ring-white/10 ${pwdBusy ? "bg-slate-700/50 text-slate-300" : "bg-indigo-400 hover:bg-indigo-300 text-black"}`}>{pwdBusy ? "Atualizando…" : "Trocar senha"}</button>
-                    <button onClick={async()=>{ try { setError(""); setOk(""); await resetPassword({ email: String(user.email || "") }); setOk("Enviamos um link de recuperação para seu e-mail ✅"); } catch (e) { setError(e?.message || "Não foi possível enviar o link."); } }} className="rounded-xl px-4 py-2 ring-1 ring-white/10 hover:bg-white/5">Enviar link por e-mail</button>
-                  </div>
-                </div>
-                <div className={`rounded-2xl bg-white/5 ring-1 ring-white/10 p-4 `}>
                   <p className="text-sm font-semibold text-slate-100">Sessão</p>
-                                    <div className="mt-3">
+                  <div className="mt-3">
                     <button onClick={() => onSignOut?.()} className="rounded-xl px-4 py-2 bg-rose-500/15 text-rose-200 ring-1 ring-rose-400/30 hover:bg-rose-500/20">Sair da conta</button>
                   </div>
                 </div>
@@ -510,5 +832,71 @@ export default function ProfileSettingsModal({ open, onClose, required = false, 
         )}
       </div>
     </Modal>
+
+    {/* Modal de avaliação */}
+    <Modal
+      open={!!reviewModal.open}
+      onClose={() => setReviewModal({ open: false, order: null, rating: 5, comment: "", busy: false })}
+      title="Avaliar compra"
+    >
+      {reviewModal.open && (
+        <div className="space-y-3">
+          <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
+            <p className="text-sm font-semibold text-slate-100">Sua avaliação</p>
+            <p className="mt-1 text-xs text-slate-400">Conte como foi sua experiência. Isso ajuda outras pessoas.</p>
+
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Field label="Nota (1 a 5)">
+                <select
+                  value={reviewModal.rating}
+                  onChange={(e) => setReviewModal((p) => ({ ...p, rating: Number(e.target.value) }))}
+                  className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none"
+                >
+                  {[5,4,3,2,1].map((n) => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Pedido">
+                <input
+                  readOnly
+                  value={reviewModal?.order?.created_at ? new Date(reviewModal.order.created_at).toLocaleString('pt-BR') : ''}
+                  className="w-full rounded-xl bg-slate-800/40 ring-1 ring-white/10 px-4 py-3 outline-none text-slate-300"
+                />
+              </Field>
+            </div>
+
+            <div className="mt-3">
+              <Field label="Comentário">
+                <textarea
+                  value={reviewModal.comment}
+                  onChange={(e) => setReviewModal((p) => ({ ...p, comment: e.target.value }))}
+                  rows={5}
+                  className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                  placeholder="Ex.: Chegou bem embalado, pintura impecável, envio rápido..."
+                />
+              </Field>
+            </div>
+
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <button
+                onClick={() => setReviewModal({ open: false, order: null, rating: 5, comment: "", busy: false })}
+                className="rounded-xl px-4 py-2 ring-1 ring-white/10 hover:bg-white/5"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={submitReview}
+                disabled={reviewModal.busy}
+                className={`rounded-xl px-4 py-2 font-semibold ring-4 ring-indigo-400/20 ${reviewModal.busy ? 'bg-slate-700/50 text-slate-300' : 'bg-indigo-400 hover:bg-indigo-300 text-black'}`}
+              >
+                {reviewModal.busy ? 'Salvando…' : 'Salvar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </Modal>
+    </>
   );
 }

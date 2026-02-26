@@ -1,5 +1,7 @@
 import React from "react";
 import { fmtBRL, centsToBRL, getVariantPricingCents, percentOffCents } from "../lib/pricing.js";
+import { useFavorites } from "../state/FavoritesProvider.jsx";
+import { useAuth } from "../auth/AuthProvider.jsx";
 
 /**
  * Props:
@@ -9,6 +11,8 @@ import { fmtBRL, centsToBRL, getVariantPricingCents, percentOffCents } from "../
  * - openGallery(p)                (abre galeria com as imagens do produto)
  */
 export default function ProductCard({ p, addToCart, buyNow, openGallery }) {
+  const { user } = useAuth();
+  const { isFavorite, toggleFavorite } = useFavorites();
   const defaultIndex = Math.max(0, p.variants?.findIndex((v) => v.label === p.defaultVariant));
   const [selIndex, setSelIndex] = React.useState(defaultIndex);
   const [addedFlash, setAddedFlash] = React.useState(false);
@@ -26,6 +30,8 @@ export default function ProductCard({ p, addToCart, buyNow, openGallery }) {
   const off = percentOffCents(pricing.originalCents, pricing.currentCents);
 
   const outOfStock = typeof p?.stock === "number" && Number.isFinite(p.stock) && p.stock <= 0;
+
+  const fav = isFavorite(p?.id);
 
   function handleAdd() {
     if (outOfStock) return;
@@ -58,6 +64,32 @@ export default function ProductCard({ p, addToCart, buyNow, openGallery }) {
               `<div class="text-slate-300 text-xs px-3 text-center">Imagem não encontrada.<br/>Verifique a URL da imagem no Supabase (image_url).</div>`;
           }}
         />
+
+        {/* Favoritar */}
+        <button
+          type="button"
+          className={`absolute top-2 left-2 rounded-full px-2.5 py-2 text-sm ring-1 transition ${
+            fav
+              ? "bg-rose-500/90 text-white ring-rose-200/40"
+              : "bg-black/50 text-white ring-white/20 hover:bg-black/70"
+          }`}
+          title={fav ? "Remover dos favoritos" : "Favoritar"}
+          onClick={async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const res = await toggleFavorite(p?.id);
+            if (!res.ok && !user) {
+              // Se não estiver logado, o App já tem modal de login em outros pontos.
+              // Aqui, fazemos um aviso simples.
+              alert("Faça login para favoritar.");
+            } else if (!res.ok && res.error) {
+              console.warn(res.error);
+            }
+          }}
+        >
+          {fav ? "♥" : "♡"}
+        </button>
+
         <span className="absolute bottom-2 right-2 text-[10px] px-2 py-0.5 rounded-full bg-black/50 ring-1 ring-white/20">
           ver fotos
         </span>
