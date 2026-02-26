@@ -199,7 +199,7 @@ export default function ProfileSettingsModal({ open, onClose, required = false, 
 
   React.useEffect(() => { loadVipData(); }, [loadVipData]);
 
-  const loadFavoritesProducts = React.useCallback(async () => {
+    const loadFavoritesProducts = React.useCallback(async () => {
     if (!open || !user) {
       setFavProducts([]);
       return;
@@ -211,13 +211,76 @@ export default function ProfileSettingsModal({ open, onClose, required = false, 
     }
     setFavBusy(true);
     try {
+      // Buscar no mesmo formato da tabela "products" (campos reais do Supabase)
       const { data, error } = await supabase
         .from('products')
-        .select('id,nome,descricao,img,preco,stock,category,tags,variants,defaultVariant')
+        .select(
+          'id,slug,name,description,price_cents,currency,stock,active,featured,promo,image_url,images,status,tags,default_variant,variants,original_price_cents,category,created_at'
+        )
         .in('id', ids);
+
       if (error) throw error;
-      // Mantém ordem de favoritos
-      const map = new Map((data || []).map((p) => [String(p.id), p]));
+
+      // Mapear para o formato usado no front (compat com ProductCard / galeria)
+      const mapped = (data || []).map((row) => {
+        const toInt = (v) => {
+          const n = Number(v);
+          return Number.isFinite(n) ? Math.trunc(n) : 0;
+        };
+        const centsToBRL = (cents) =>
+          typeof cents === 'number' && Number.isFinite(cents) ? Number((cents / 100).toFixed(2)) : 0;
+
+        const variants = Array.isArray(row?.variants)
+          ? row.variants
+              .filter(Boolean)
+              .map((v) => {
+                const priceCents = toInt(v?.price_cents ?? 0);
+                return {
+                  label: String(v?.label ?? ''),
+                  price: centsToBRL(priceCents),
+                  priceCents,
+                };
+              })
+              .filter((v) => v.label)
+          : [];
+
+        const imgs = Array.isArray(row?.images) ? row.images.filter(Boolean).map(String) : [];
+        const main = row?.image_url ? String(row.image_url) : '';
+        const allImgs = imgs.length ? imgs : (main ? [main] : []);
+        const img = main || allImgs[0] || '';
+
+        return {
+          id: String(row?.id ?? ''),
+          slug: row?.slug ? String(row.slug) : '',
+          nome: row?.name ? String(row.name) : '',
+          descricao: row?.description ? String(row.description) : '',
+          img,
+          imgs: allImgs,
+          status: row?.status ? String(row.status) : 'catalogo',
+          featured: !!row?.featured,
+          promo: !!row?.promo,
+          originalPrice: centsToBRL(toInt(row?.original_price_cents ?? 0)),
+          preco: centsToBRL(toInt(row?.price_cents ?? 0)),
+          originalPriceCents: toInt(row?.original_price_cents ?? 0),
+          priceCents: toInt(row?.price_cents ?? 0),
+          currency: row?.currency ? String(row.currency) : 'brl',
+          stock:
+            row?.stock === null || row?.stock === undefined
+              ? null
+              : (() => {
+                  const n = Number(row.stock);
+                  return Number.isFinite(n) ? Math.trunc(n) : null;
+                })(),
+          active: row?.active !== false,
+          tags: Array.isArray(row?.tags) ? row.tags.filter(Boolean).map(String) : [],
+          category: row?.category ? String(row.category) : '',
+          defaultVariant: row?.default_variant ? String(row.default_variant) : '',
+          variants,
+        };
+      }).filter((pp) => pp.id && pp.nome);
+
+      // Mantém a ordem dos favoritos (mais recente primeiro)
+      const map = new Map(mapped.map((pp) => [String(pp.id), pp]));
       setFavProducts(ids.map((id) => map.get(String(id))).filter(Boolean));
     } catch (e) {
       console.warn('load favorites products failed', e);
