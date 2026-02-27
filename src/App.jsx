@@ -1127,7 +1127,15 @@ React.useEffect(() => {
         authToken={accessToken}
         userId={user?.id || ""}
         userEmail={user?.email || ""}
-        onRequireLogin={() => setAuthOpen(true)}
+        onRequireLogin={(msg) => {
+          if (msg) {
+            setToastMsg(String(msg));
+            setToastOpen(true);
+            clearTimeout(toastT.current);
+            toastT.current = setTimeout(() => setToastOpen(false), 2400);
+          }
+          setAuthOpen(true);
+        }}
         onRequireProfile={() => openSettings('profile')}
         onOpenOrders={() => setOrdersOpen(true)}
         onPaymentConfirmed={() => {

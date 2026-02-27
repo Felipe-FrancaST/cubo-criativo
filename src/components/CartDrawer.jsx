@@ -47,7 +47,8 @@ export default function CartDrawer({
   const [pixStatus, setPixStatus] = React.useState("pending");
   const [checkingPix, setCheckingPix] = React.useState(false);
   const payHandled = React.useRef(false);
-  const [pixLoginMsg, setPixLoginMsg] = React.useState("");
+  // Mensagens de login/checkout devem aparecer como toast global (App)
+  // para manter consistência (ex.: fluxo do cartão) e evitar "colar" alertas no botão.
   const [pixNotice, setPixNotice] = React.useState(null); // { type, message }
   const [copyToast, setCopyToast] = React.useState(null); // { type: 'success'|'error', message: string }
   const copyToastTimer = React.useRef(null);
@@ -95,7 +96,6 @@ export default function CartDrawer({
       setPixOpen(false);
       setPix(null);
       setPixLoading(false);
-      setPixLoginMsg("");
       setCopyToast(null);
       if (copyToastTimer.current) {
         window.clearTimeout(copyToastTimer.current);
@@ -223,10 +223,9 @@ export default function CartDrawer({
       }
 
       if (!authToken) {
-        onRequireLogin?.();
-        setPixLoginMsg("Faça login para gerar o Pix.");
-        window.clearTimeout(handlePix._t);
-        handlePix._t = window.setTimeout(() => setPixLoginMsg(""), 2800);
+        // Mostra a mensagem no mesmo lugar do fluxo do cartão (toast global)
+        // e abre o modal de autenticação.
+        onRequireLogin?.("Faça login para gerar o Pix.");
         return;
       }
 
@@ -236,9 +235,7 @@ export default function CartDrawer({
       const payerEmail = String(userEmail || "").trim();
       if (!payerEmail || !payerEmail.includes("@")) {
         onRequireProfile?.();
-        setPixLoginMsg("Complete seu perfil (incluindo e-mail) antes de pagar.");
-        window.clearTimeout(handlePix._t);
-        handlePix._t = window.setTimeout(() => setPixLoginMsg(""), 3200);
+        showPixNotice("Complete seu perfil (incluindo e-mail) antes de pagar.", "error", 4200);
         return;
       }
 
@@ -276,9 +273,7 @@ export default function CartDrawer({
 
       if (missing.length) {
         onRequireProfile?.();
-        setPixLoginMsg(`Complete seus dados antes de pagar: ${missing.join(", ")}.`);
-        window.clearTimeout(handlePix._t);
-        handlePix._t = window.setTimeout(() => setPixLoginMsg(""), 4500);
+        showPixNotice(`Complete seus dados antes de pagar: ${missing.join(", ")}.`, "error", 5200);
         return;
       }
 
@@ -513,12 +508,6 @@ export default function CartDrawer({
           >
             {paying ? "Abrindo pagamento…" : "Pagar com cartão"}
           </button>
-
-          {pixLoginMsg && (
-            <div className="rounded-full bg-emerald-500 text-black font-semibold px-4 py-2 shadow-lg ring-4 ring-emerald-400/30 text-center text-sm">
-              {pixLoginMsg}
-            </div>
-          )}
 
           {pixNotice && (
             <div
