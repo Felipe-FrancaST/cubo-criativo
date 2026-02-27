@@ -32,7 +32,7 @@ export default function PromoProductCard({ p, addToCart, buyNow, openGallery }) 
   }
 
   return (
-    <article className="w-full max-w-[340px] group rounded-3xl overflow-hidden ring-2 ring-amber-400/35 bg-gradient-to-b from-amber-500/15 via-slate-900/70 to-slate-950/80 hover:ring-amber-400/60 transition shadow-[0_0_0_1px_rgba(255,255,255,0.06)]">
+    <article className="w-full min-w-0 group rounded-3xl overflow-hidden ring-2 ring-amber-400/35 bg-gradient-to-b from-amber-500/15 via-slate-900/70 to-slate-950/80 hover:ring-amber-400/60 transition shadow-[0_0_0_1px_rgba(255,255,255,0.06)]">
       {/* Imagem */}
       <button
         type="button"
@@ -74,8 +74,8 @@ export default function PromoProductCard({ p, addToCart, buyNow, openGallery }) 
         </span>
       </button>
 
-      <div className="p-5">
-        <h3 className="font-extrabold tracking-tight text-center lg:text-left text-lg">{p.nome}</h3>
+      <div className="p-3 sm:p-5">
+        <h3 className="font-extrabold tracking-tight text-sm sm:text-lg leading-snug break-words">{p.nome}</h3>
 
         {/* Preços */}
         <div className="mt-3 flex items-end justify-between gap-3">
@@ -87,7 +87,7 @@ export default function PromoProductCard({ p, addToCart, buyNow, openGallery }) 
             ) : (
               <div className="text-xs text-slate-400">Oferta especial</div>
             )}
-            <div className="text-2xl font-black text-amber-300 leading-none">{fmtBRL(currentPrice)}</div>
+            <div className="text-xl sm:text-2xl font-black text-amber-300 leading-none">{fmtBRL(currentPrice)}</div>
           </div>
           <div className="shrink-0 text-right">
             <div className="text-[11px] text-slate-300">Pagamento rápido</div>
@@ -99,7 +99,7 @@ export default function PromoProductCard({ p, addToCart, buyNow, openGallery }) 
           <div className="mt-4">
             <label className="text-xs text-slate-300 font-semibold">Escolha a escala</label>
             <select
-              className="mt-1 w-full rounded-xl bg-slate-900/60 ring-1 ring-white/10 px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-xl bg-slate-900/60 ring-1 ring-white/10 px-3 py-2 text-xs sm:text-sm"
               value={selIndex}
               onChange={(e) => setSelIndex(Number(e.target.value))}
             >
@@ -115,11 +115,12 @@ export default function PromoProductCard({ p, addToCart, buyNow, openGallery }) 
           </div>
         )}
 
-        <div className="mt-5 grid grid-cols-2 gap-2">
+        {/* Em grid 2 colunas no mobile, empilhar botões evita overlap */}
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
           <button
             onClick={handleAdd}
             disabled={outOfStock}
-            className={`rounded-xl px-3 py-2 font-extrabold ring-4 ring-amber-400/20 transition ${
+            className={`rounded-xl px-3 py-2 text-sm font-extrabold ring-4 ring-amber-400/20 transition ${
               outOfStock
                 ? "bg-slate-900 text-slate-400 cursor-not-allowed ring-white/10"
                 : addedFlash
@@ -133,7 +134,7 @@ export default function PromoProductCard({ p, addToCart, buyNow, openGallery }) 
           <button
             onClick={() => buyNow(p, { escala, unitPrice: currentPrice })}
             disabled={outOfStock}
-            className={`rounded-xl px-3 py-2 ring-1 ring-white/15 font-semibold ${
+            className={`rounded-xl px-3 py-2 text-sm ring-1 ring-white/15 font-semibold ${
               outOfStock ? "bg-slate-900 text-slate-400 cursor-not-allowed" : "hover:bg-white/5"
             }`}
             title="Comprar agora"

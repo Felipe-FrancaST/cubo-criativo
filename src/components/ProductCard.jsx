@@ -50,7 +50,7 @@ export default function ProductCard({ p, addToCart, buyNow, openGallery, onRequi
   return (
     <article
       id={p?.id ? `product-${p.id}` : undefined}
-      className="w-full max-w-[320px] group rounded-2xl overflow-hidden ring-1 ring-white/10 bg-slate-900/60 hover:ring-teal-400/30 transition"
+      className="w-full min-w-0 group rounded-2xl overflow-hidden ring-1 ring-white/10 bg-slate-900/60 hover:ring-teal-400/30 transition"
     >
       {/* Imagem -> abre galeria */}
       <div
@@ -127,9 +127,11 @@ export default function ProductCard({ p, addToCart, buyNow, openGallery, onRequi
         </div>
       </div>
 
-      <div className="p-4">
+      <div className="p-3 sm:p-4">
         <div className="flex items-start justify-between gap-3">
-          <h3 className="font-bold tracking-tight text-center lg:text-left flex-1">{p.nome}</h3>
+          <h3 className="font-bold tracking-tight text-sm sm:text-base leading-snug break-words min-w-0 flex-1">
+            {p.nome}
+          </h3>
 
           {/* Link de detalhes (SEO + compartilhamento) */}
           {p?.slug ? (
@@ -145,11 +147,11 @@ export default function ProductCard({ p, addToCart, buyNow, openGallery, onRequi
         </div>
 
         {/* Preços (promo com riscado) */}
-        <div className="mt-2 flex items-center justify-center lg:justify-start gap-2">
+        <div className="mt-2 flex items-center justify-start gap-2 flex-wrap">
           {pricing.showStrike && originalPrice > currentPrice ? (
             <>
               <span className="text-xs text-slate-300 line-through opacity-80">{fmtBRL(originalPrice)}</span>
-              <span className="text-lg font-black text-emerald-300">{fmtBRL(currentPrice)}</span>
+              <span className="text-base sm:text-lg font-black text-emerald-300">{fmtBRL(currentPrice)}</span>
               {off > 0 && (
                 <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-400 text-black ring-4 ring-emerald-400/20">
                   -{off}%
@@ -157,7 +159,7 @@ export default function ProductCard({ p, addToCart, buyNow, openGallery, onRequi
               )}
             </>
           ) : (
-            <span className="text-lg font-extrabold text-slate-100">{fmtBRL(currentPrice)}</span>
+            <span className="text-base sm:text-lg font-extrabold text-slate-100">{fmtBRL(currentPrice)}</span>
           )}
         </div>
 
@@ -165,7 +167,7 @@ export default function ProductCard({ p, addToCart, buyNow, openGallery, onRequi
           <div className="mt-3">
             <label className="text-xs text-slate-400">Escala / Preço</label>
             <select
-              className="mt-1 w-full rounded-lg bg-slate-800/60 ring-1 ring-white/10 px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-lg bg-slate-800/60 ring-1 ring-white/10 px-3 py-2 text-xs sm:text-sm"
               value={selIndex}
               onChange={(e) => setSelIndex(Number(e.target.value))}
             >
@@ -179,11 +181,12 @@ export default function ProductCard({ p, addToCart, buyNow, openGallery, onRequi
           </div>
         )}
 
-        <div className="mt-4 grid grid-cols-2 gap-2">
+        {/* Em 2 colunas no mobile, empilhar botões evita texto quebrando/overlap */}
+        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
           <button
             onClick={handleAdd}
             disabled={outOfStock}
-            className={`rounded-lg px-3 py-2 font-semibold ring-4 ring-teal-400/20 transition ${
+            className={`rounded-lg px-3 py-2 text-sm font-semibold ring-4 ring-teal-400/20 transition ${
               outOfStock
                 ? "bg-slate-800 text-slate-400 cursor-not-allowed ring-white/10"
                 : addedFlash
@@ -197,7 +200,7 @@ export default function ProductCard({ p, addToCart, buyNow, openGallery, onRequi
           <button
             onClick={() => buyNow(p, { escala, unitPrice: currentPrice })}
             disabled={outOfStock}
-            className={`rounded-lg px-3 py-2 ring-1 ring-white/15 ${
+            className={`rounded-lg px-3 py-2 text-sm ring-1 ring-white/15 ${
               outOfStock ? "bg-slate-800 text-slate-400 cursor-not-allowed" : "hover:bg-white/5"
             }`}
             title="Comprar agora"
