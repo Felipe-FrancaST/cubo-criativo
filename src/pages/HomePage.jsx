@@ -68,7 +68,7 @@ export default function HomePage({
             </h1>
 
             <p className="mt-4 text-slate-300 text-base sm:text-lg">
-              {brand.slogan}. Qualidade de vitrine para colecionadores, RPG e cultura geek.
+              {brand.slogan}. Qualidade de vitrine para colecionadores, action figures e miniaturas de RPG.
             </p>
 
             <div className="mt-6 flex flex-col sm:flex-row gap-3 max-w-md mx-auto lg:mx-0 justify-center lg:justify-start">

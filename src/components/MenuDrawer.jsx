@@ -239,7 +239,7 @@ export default function MenuDrawer({
 
 <div className="mt-4 grid grid-cols-3 gap-2">
             <a
-              href="https://instagram.com/_cubocriativo_"
+              href="https://instagram.com/cubo_criativo3d"
               target="_blank"
               rel="noreferrer"
               className="inline-flex items-center justify-center rounded-xl px-3 py-3 ring-1 ring-white/10 hover:bg-white/5"

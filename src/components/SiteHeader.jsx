@@ -97,7 +97,7 @@ export default function SiteHeader({
               {/* Social (desktop) */}
               <div className="hidden md:flex items-center gap-2">
                 <a
-                  href="https://instagram.com/_cubocriativo_"
+                  href="https://instagram.com/cubo_criativo3d"
                   target="_blank"
                   rel="noreferrer"
                   onClick={() => trackEvent("social_click", { network: "instagram", location: "header" })}

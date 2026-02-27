@@ -2,6 +2,26 @@ import React from "react";
 import ProductCard from "../components/ProductCard.jsx";
 
 export default function StockPage({ items, loading = false, error = "", addToCart, buyNow, openGallery , onRequireLogin}) {
+  const [q, setQ] = React.useState(() => {
+    if (typeof window === "undefined") return "";
+    try {
+      return String(new URLSearchParams(window.location.search || "").get("q") || "");
+    } catch {
+      return "";
+    }
+  });
+
+  const filtered = React.useMemo(() => {
+    const query = String(q || "").trim().toLowerCase();
+    if (!query) return items;
+    return (items || []).filter((p) => {
+      const name = String(p?.nome || "").toLowerCase();
+      const desc = String(p?.descricao || "").toLowerCase();
+      const tags = Array.isArray(p?.tags) ? p.tags.map((t) => String(t).toLowerCase()).join(" ") : "";
+      return name.includes(query) || desc.includes(query) || tags.includes(query);
+    });
+  }, [items, q]);
+
   // Deep link: /estoque?product=<id>&open=1
   React.useEffect(() => {
     if (typeof window === "undefined") return;
@@ -26,9 +46,10 @@ export default function StockPage({ items, loading = false, error = "", addToCar
       setTimeout(() => openGallery?.(prod), 250);
     }
 
-    // limpa a query para não reabrir ao voltar/atualizar
+    // limpa os params de deep-link para não reabrir ao voltar/atualizar
     try {
-      window.history.replaceState({}, "", "/estoque");
+      const keptQ = sp.get("q");
+      window.history.replaceState({}, "", keptQ ? `/estoque?q=${encodeURIComponent(keptQ)}` : "/estoque");
     } catch {
       // ignore
     }
@@ -43,9 +64,35 @@ export default function StockPage({ items, loading = false, error = "", addToCar
         <div className="flex items-end justify-between gap-4 flex-wrap">
           <div>
             <h1 className="text-2xl sm:text-3xl font-extrabold">Em estoque</h1>
-            <p className="mt-1 text-sm text-slate-400">Peças prontas para envio.</p>
+            <p className="mt-1 text-sm text-slate-400">Action figures e miniaturas colecionáveis prontas para envio.</p>
           </div>
-          <span className="text-xs sm:text-sm text-slate-400">{loading ? "carregando…" : `${items.length} item(ns)`}</span>
+          <span className="text-xs sm:text-sm text-slate-400">
+            {loading ? "carregando…" : (q ? `${filtered.length} de ${items.length}` : `${items.length} item(ns)`) }
+          </span>
+        </div>
+
+        <div className="mt-5">
+          <label className="block text-xs font-semibold text-slate-300" htmlFor="stock-search">Pesquisar</label>
+          <div className="mt-2 flex gap-2">
+            <input
+              id="stock-search"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Ex: miniatura rpg, action figure, dragão…"
+              className="w-full rounded-xl px-4 py-3 bg-slate-950/60 ring-1 ring-white/10 focus:outline-none focus:ring-2 focus:ring-teal-400 text-slate-100 placeholder:text-slate-500"
+              inputMode="search"
+              autoComplete="off"
+            />
+            {q && (
+              <button
+                type="button"
+                onClick={() => setQ("")}
+                className="shrink-0 rounded-xl px-4 py-3 ring-1 ring-white/15 hover:bg-white/5"
+              >
+                Limpar
+              </button>
+            )}
+          </div>
         </div>
 
         {error ? (
@@ -73,7 +120,7 @@ export default function StockPage({ items, loading = false, error = "", addToCar
               ))}
 
             {!loading &&
-              items.map((p) => (
+              filtered.map((p) => (
                 <ProductCard
                   key={p.id}
                   p={p}
@@ -84,9 +131,9 @@ export default function StockPage({ items, loading = false, error = "", addToCar
                 />
               ))}
 
-            {!loading && items.length === 0 && (
+            {!loading && filtered.length === 0 && (
               <div className="col-span-full text-center text-slate-400 text-sm">
-                Nenhum item em estoque no momento.
+                {q ? "Nenhum resultado para a sua busca." : "Nenhum item em estoque no momento."}
               </div>
             )}
           </div>

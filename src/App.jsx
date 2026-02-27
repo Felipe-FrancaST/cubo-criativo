@@ -287,10 +287,10 @@ export default function App() {
 
   React.useEffect(() => {
     const seoByRoute = {
-      "/": { title: "Cubo Criativo | Miniaturas em Resina e Pintura Artística", description: "Miniaturas em resina, peças colecionáveis, promoções e encomendas com envio para todo o Brasil.", path: "/" },
-      "/estoque": { title: "Em estoque | Cubo Criativo", description: "Peças prontas para envio com rastreio e embalagem reforçada.", path: "/estoque" },
-      "/catalogo": { title: "Catálogo | Cubo Criativo", description: "Catálogo completo de miniaturas e peças geek para coleção e RPG.", path: "/catalogo" },
-      "/promocoes": { title: "Promoções | Cubo Criativo", description: "Ofertas selecionadas em miniaturas e peças colecionáveis.", path: "/promocoes" },
+      "/": { title: "Cubo Criativo", description: "Action figures, miniaturas de RPG, colecionáveis e peças em resina com pintura artística. Promoções, catálogo e encomendas com envio para todo o Brasil.", path: "/" },
+      "/estoque": { title: "Em estoque | Cubo Criativo", description: "Action figures e miniaturas colecionáveis prontas para envio, com rastreio e embalagem reforçada.", path: "/estoque" },
+      "/catalogo": { title: "Catálogo | Cubo Criativo", description: "Catálogo de action figures, miniaturas de RPG e colecionáveis em resina com pintura artística.", path: "/catalogo" },
+      "/promocoes": { title: "Promoções | Cubo Criativo", description: "Ofertas em action figures, miniaturas de RPG e colecionáveis: descontos por tempo limitado.", path: "/promocoes" },
       "/contato": { title: "Contato | Cubo Criativo", description: "Atendimento via WhatsApp e e-mail para suporte, orçamento e pedidos.", path: "/contato" },
       "/sobre": { title: "Sobre nós | Cubo Criativo", description: "Conheça a Cubo Criativo e nosso trabalho com miniaturas e peças personalizadas.", path: "/sobre" },
       "/faq": { title: "FAQ | Cubo Criativo", description: "Perguntas frequentes sobre prazos, envio, pagamento e cuidados com as peças.", path: "/faq" },
@@ -1107,7 +1107,7 @@ React.useEffect(() => {
               <ul className="mt-2 text-slate-300 space-y-1">
                 <li>WhatsApp: (77) 99821-1169</li>
                 <li>E-mail: {brand.email}</li>
-                <li>Instagram: @_cubocriativo_</li>
+                <li>Instagram: @cubo_criativo3d</li>
                 <li>Cidade/UF: {brand.city}</li>
                 <li><a href="/faq" className="underline decoration-dotted">FAQ</a></li>
                 <li><a href="/privacy.html" className="underline decoration-dotted">Política de Privacidade</a> • <a href="/terms.html" className="underline decoration-dotted">Termos</a></li>

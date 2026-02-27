@@ -4,7 +4,7 @@ const brand = {
   slogan: "Miniaturas em resina • Pintura artística • Modelagem 3D",
   whatsapp: "5577998211169",
   email: "cubocriativosuporte@gmail.com",
-  insta: "@_cubocriativo_",
+  insta: "@cubo_criativo3d",
   city: "Barreiras - BA",
   logo: "/images/logo.png",
 };
