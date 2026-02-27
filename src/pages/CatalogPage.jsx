@@ -100,9 +100,21 @@ export default function CatalogPage({ items, loading = false, error = "", addToC
           <>
             {/* Filtros principais */}
             <div className="mt-6 grid grid-cols-1 lg:grid-cols-[1fr_1fr_320px] gap-3">
-              <div className="overflow-x-auto">
-                <div className="flex gap-2 min-w-max">
-                  {[
+              <div className="lg:hidden">
+                <label className="block text-xs text-slate-400 mb-1">Disponibilidade</label>
+                <select
+                  className="w-full rounded-lg bg-slate-800/60 ring-1 ring-white/10 px-3 py-2 text-sm outline-none"
+                  value={availability}
+                  onChange={(e) => setAvailability(e.target.value)}
+                >
+                  <option value="todas">Todos</option>
+                  <option value="pronta">Pronta entrega</option>
+                  <option value="encomenda">Sob encomenda</option>
+                </select>
+              </div>
+
+              <div className="hidden lg:flex flex-wrap gap-2">
+                {[
                     { key: "todas", label: "Todos" },
                     { key: "pronta", label: "Pronta entrega" },
                     { key: "encomenda", label: "Sob encomenda" },
@@ -120,12 +132,23 @@ export default function CatalogPage({ items, loading = false, error = "", addToC
                       </button>
                     );
                   })}
-                </div>
               </div>
 
-              <div className="overflow-x-auto">
-                <div className="flex gap-2 min-w-max">
-                  {[
+              <div className="lg:hidden">
+                <label className="block text-xs text-slate-400 mb-1">Tipo</label>
+                <select
+                  className="w-full rounded-lg bg-slate-800/60 ring-1 ring-white/10 px-3 py-2 text-sm outline-none"
+                  value={type}
+                  onChange={(e) => setType(e.target.value)}
+                >
+                  <option value="todos">Todos os tipos</option>
+                  <option value="action">Action Figures</option>
+                  <option value="rpg">Miniaturas RPG</option>
+                </select>
+              </div>
+
+              <div className="hidden lg:flex flex-wrap gap-2">
+                {[
                     { key: "todos", label: "Todos os tipos" },
                     { key: "action", label: "Action Figures" },
                     { key: "rpg", label: "Miniaturas RPG" },
@@ -143,7 +166,6 @@ export default function CatalogPage({ items, loading = false, error = "", addToC
                       </button>
                     );
                   })}
-                </div>
               </div>
 
               <div className="w-full">
@@ -159,8 +181,23 @@ export default function CatalogPage({ items, loading = false, error = "", addToC
 
             {/* Tags (secundário) */}
             {tagOptions.length > 1 && (
-              <div className="mt-4 overflow-x-auto">
-                <div className="flex gap-2 min-w-max">
+              <div className="mt-4">
+                <div className="lg:hidden">
+                  <label className="block text-xs text-slate-400 mb-1">Tag</label>
+                  <select
+                    className="w-full rounded-lg bg-slate-800/60 ring-1 ring-white/10 px-3 py-2 text-sm outline-none"
+                    value={selectedTag}
+                    onChange={(e) => setSelectedTag(e.target.value)}
+                  >
+                    {tagOptions.map((tag) => (
+                      <option key={tag} value={tag}>
+                        {tag}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="hidden lg:flex flex-wrap gap-2">
                   {tagOptions.map((tag) => {
                     const active = selectedTag === tag;
                     return (

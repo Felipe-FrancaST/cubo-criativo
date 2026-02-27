@@ -88,7 +88,7 @@ export default function SiteHeader({
             {/* Ações */}
             <div className="ml-auto flex items-center gap-2 shrink-0">
               {/* Social (desktop) */}
-              <div className="hidden md:flex items-center gap-2">
+              <div className="flex items-center gap-2">
                 <a
                   href="https://instagram.com/cubo_criativo3d"
                   target="_blank"

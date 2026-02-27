@@ -1,7 +1,7 @@
 // Editar dados de marca/contato
 const brand = {
   name: "Cubo Criativo",
-  slogan: "Action figures • Pintura artística • Miniaturas em resina",
+  slogan: "Resina • Pintura artística • Acabamento premium",
   whatsapp: "5577998211169",
   email: "cubocriativosuporte@gmail.com",
   insta: "@cubo_criativo3d",

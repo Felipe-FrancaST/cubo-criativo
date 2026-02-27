@@ -85,7 +85,7 @@ export default function MenuDrawer({
       Início
     </DrawerButton>
     <DrawerButton icon="view_module" onClick={() => { onNavigate("/catalogo"); onClose?.(); }}>
-      Catálogo
+      Catálogo (tudo)
     </DrawerButton>
     <DrawerButton icon="local_shipping" onClick={() => { onNavigate("/catalogo?disponibilidade=pronta"); onClose?.(); }}>
       Pronta entrega
@@ -97,7 +97,7 @@ export default function MenuDrawer({
       Promoções
     </DrawerButton>
     <DrawerButton icon="redeem" onClick={() => { onNavigate("/cupom"); onClose?.(); }}>
-      Cubo Game
+      Cubo Game (cupons)
     </DrawerButton>
   </div>
 
