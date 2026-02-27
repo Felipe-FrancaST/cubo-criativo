@@ -169,7 +169,15 @@ function injectMeta(baseHtml, { title, description, canonicalUrl, image, jsonLd 
   }
 
   if (jsonLd) {
-    const script = `<script type="application/ld+json">${escapeHtml(JSON.stringify(jsonLd))}</script>`;
+    // IMPORTANT: JSON-LD dentro de <script type="application/ld+json"> NÃO deve ser HTML-escaped.
+    // Se escapar aspas (&quot;), o Google acusa erro de sintaxe.
+    // Para evitar quebrar o HTML (ex: fechar </script>), escapamos apenas caracteres perigosos como '<'.
+    const jsonText = JSON.stringify(jsonLd)
+      .replace(/</g, "\\u003c")
+      .replace(/-->/g, "--\\u003e")
+      .replace(/\u2028/g, "\\u2028")
+      .replace(/\u2029/g, "\\u2029");
+    const script = `<script type="application/ld+json">${jsonText}</script>`;
     html = html.replace("</head>", `  ${script}\n</head>`);
   }
 
