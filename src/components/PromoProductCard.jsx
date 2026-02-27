@@ -61,12 +61,12 @@ export default function PromoProductCard({ p, addToCart, buyNow, openGallery }) 
       <div className="p-3 sm:p-5">
         <h3 className="font-extrabold tracking-tight text-sm sm:text-lg leading-snug break-words">{p.nome}</h3>
 
-        <div className=\"mt-2 flex flex-wrap items-center gap-2\">
-          <span className=\"inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-extrabold bg-amber-400 text-black ring-1 ring-amber-300/40\">
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-extrabold bg-amber-400 text-black ring-1 ring-amber-300/40">
             PROMO
           </span>
           {off > 0 && (
-            <span className=\"inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-extrabold bg-emerald-400 text-black ring-1 ring-emerald-300/40\">
+            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-extrabold bg-emerald-400 text-black ring-1 ring-emerald-300/40">
               -{off}%
             </span>
           )}
