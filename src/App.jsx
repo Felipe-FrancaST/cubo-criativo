@@ -360,6 +360,14 @@ export default function App() {
     trackEvent("page_view", { route });
   }, [route]);
 
+  // Garante que ao navegar para outra aba/página o usuário comece do topo.
+  // (Alguns cliques usam links normais/popstate e o browser manteria o scroll.)
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    // Não usamos smooth aqui para evitar "pular" durante navegação rápida.
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [route]);
+
   function navigate(path) {
     const normalized = path?.startsWith("/") ? path : `/${path || ""}`;
     if (typeof window !== "undefined") {
@@ -783,6 +791,53 @@ React.useEffect(() => {
   }
   function nextImage() {
     setGalleryIndex((i) => (i + 1) % galleryData.imgs.length);
+  }
+
+  // Swipe (toque/arrasto) na galeria, estilo carrossel (sem autoplay)
+  const swipeRef = React.useRef({ x: 0, y: 0, active: false, dx: 0, dy: 0 });
+  const SWIPE_MIN_PX = 48;
+
+  function onGalleryTouchStart(e) {
+    const t = e.touches?.[0];
+    if (!t) return;
+    swipeRef.current = { x: t.clientX, y: t.clientY, active: true, dx: 0, dy: 0 };
+  }
+
+  function onGalleryTouchMove(e) {
+    const t = e.touches?.[0];
+    if (!t || !swipeRef.current.active) return;
+    swipeRef.current.dx = t.clientX - swipeRef.current.x;
+    swipeRef.current.dy = t.clientY - swipeRef.current.y;
+  }
+
+  function onGalleryTouchEnd() {
+    const { dx, dy } = swipeRef.current;
+    swipeRef.current.active = false;
+    // só considera swipe horizontal predominante
+    if (Math.abs(dx) < SWIPE_MIN_PX) return;
+    if (Math.abs(dx) < Math.abs(dy)) return;
+    if (dx < 0) nextImage();
+    else prevImage();
+  }
+
+  function onGalleryPointerDown(e) {
+    // suporte a arrasto no desktop
+    swipeRef.current = { x: e.clientX, y: e.clientY, active: true, dx: 0, dy: 0 };
+  }
+
+  function onGalleryPointerMove(e) {
+    if (!swipeRef.current.active) return;
+    swipeRef.current.dx = e.clientX - swipeRef.current.x;
+    swipeRef.current.dy = e.clientY - swipeRef.current.y;
+  }
+
+  function onGalleryPointerUp() {
+    const { dx, dy } = swipeRef.current;
+    swipeRef.current.active = false;
+    if (Math.abs(dx) < SWIPE_MIN_PX) return;
+    if (Math.abs(dx) < Math.abs(dy)) return;
+    if (dx < 0) nextImage();
+    else prevImage();
   }
 
   // Bloqueia scroll do body quando overlays estão abertos
@@ -1316,33 +1371,33 @@ React.useEffect(() => {
       <Modal open={galleryOpen} onClose={() => setGalleryOpen(false)} title={`Fotos — ${galleryData.title}`}>
         {galleryOpen && (
           <div className="relative">
-            <div className="relative w-full grid place-items-center rounded-xl ring-1 ring-white/10 bg-slate-900/60 p-2">
+            <div
+              className="relative w-full grid place-items-center rounded-xl ring-1 ring-white/10 bg-slate-900/60 p-2 select-none"
+              onTouchStart={onGalleryTouchStart}
+              onTouchMove={onGalleryTouchMove}
+              onTouchEnd={onGalleryTouchEnd}
+              onPointerDown={onGalleryPointerDown}
+              onPointerMove={onGalleryPointerMove}
+              onPointerUp={onGalleryPointerUp}
+              onPointerCancel={onGalleryPointerUp}
+              style={{ touchAction: "pan-y" }}
+              aria-label="Galeria de imagens. Deslize para o lado para trocar."
+            >
               <img
                 key={galleryIndex}
                 src={galleryData.imgs[galleryIndex]}
                 alt={galleryData.title}
                 className="max-h-[70vh] w-auto object-contain rounded-lg"
                 loading="lazy"
+                draggable={false}
               />
             </div>
 
             {galleryData.imgs.length > 1 && (
-              <div className="mt-3 flex items-center justify-between gap-2">
-                <button
-                  onClick={prevImage}
-                  className="rounded-xl px-4 py-2 ring-1 ring-white/10 hover:bg-white/5"
-                >
-                  <span className="material-icons align-middle">chevron_left</span> Anterior
-                </button>
+              <div className="mt-3 flex items-center justify-center gap-2">
                 <div className="text-xs text-slate-400">
-                  {galleryIndex + 1} / {galleryData.imgs.length}
+                  {galleryIndex + 1} / {galleryData.imgs.length} • deslize para trocar
                 </div>
-                <button
-                  onClick={nextImage}
-                  className="rounded-xl px-4 py-2 ring-1 ring-white/10 hover:bg-white/5"
-                >
-                  Próxima <span className="material-icons align-middle">chevron_right</span>
-                </button>
               </div>
             )}
           </div>
