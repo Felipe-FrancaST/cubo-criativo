@@ -1,7 +1,9 @@
 /* src/index.css */
 
 /* Tailwind base */
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 /* =========================
    DESIGN TOKENS / ROOT VARS

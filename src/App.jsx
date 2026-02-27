@@ -14,21 +14,21 @@ import SiteHeader from "./components/SiteHeader.jsx";
 import { useAuth } from "./auth/AuthProvider.jsx";
 import { supabase } from "./lib/supabaseClient";
 
-// Páginas (lazy-load por rota => bundle inicial bem menor)
-const HomePage = React.lazy(() => import("./pages/HomePage.jsx"));
-const StockPage = React.lazy(() => import("./pages/StockPage.jsx"));
-const CatalogPage = React.lazy(() => import("./pages/CatalogPage.jsx"));
-const AccountPage = React.lazy(() => import("./pages/AccountPage.jsx"));
-const PromocoesPage = React.lazy(() => import("./pages/PromocoesPage.jsx"));
-const SobrePage = React.lazy(() => import("./pages/SobrePage.jsx"));
-const ContactPage = React.lazy(() => import("./pages/ContactPage.jsx"));
-const AdminOrdersPage = React.lazy(() => import("./pages/AdminOrdersPage.jsx"));
-const FAQPage = React.lazy(() => import("./pages/FAQPage.jsx"));
-const PoliticaPrivacidadePage = React.lazy(() => import("./pages/PoliticaPrivacidadePage.jsx"));
-const TrocasPage = React.lazy(() => import("./pages/TrocasPage.jsx"));
-const TermosPage = React.lazy(() => import("./pages/TermosPage.jsx"));
-const CupomGamePage = React.lazy(() => import("./pages/CupomGamePage.jsx"));
-const VipRpgPage = React.lazy(() => import("./pages/VipRpgPage.jsx"));
+// Páginas
+import HomePage from "./pages/HomePage.jsx";
+import StockPage from "./pages/StockPage.jsx";
+import CatalogPage from "./pages/CatalogPage.jsx";
+import AccountPage from "./pages/AccountPage.jsx";
+import PromocoesPage from "./pages/PromocoesPage.jsx";
+import SobrePage from "./pages/SobrePage.jsx";
+import ContactPage from "./pages/ContactPage.jsx";
+import AdminOrdersPage from "./pages/AdminOrdersPage.jsx";
+import FAQPage from "./pages/FAQPage.jsx";
+import PoliticaPrivacidadePage from "./pages/PoliticaPrivacidadePage.jsx";
+import TrocasPage from "./pages/TrocasPage.jsx";
+import TermosPage from "./pages/TermosPage.jsx";
+import CupomGamePage from "./pages/CupomGamePage.jsx";
+import VipRpgPage from "./pages/VipRpgPage.jsx";
 import { isAdminEmail } from "./lib/admin.js";
 import { applySeo, setJsonLd, clearJsonLd } from "./lib/seo.js";
 import { trackEvent } from "./lib/analytics.js";
@@ -1062,17 +1062,7 @@ React.useEffect(() => {
       )}
 
       {/* Conteúdo (só quando NÃO está no RPG) */}
-      {!rpgMode && (
-        <React.Suspense
-          fallback={
-            <div className="min-h-[50vh] grid place-items-center text-slate-200">
-              Carregando…
-            </div>
-          }
-        >
-          {page}
-        </React.Suspense>
-      )}
+      {!rpgMode && page}
 
       {/* FOOTER */}
       {!rpgMode && (
