@@ -175,7 +175,7 @@ export default function HomePage({
           </button>
         </div>
 
-        <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 justify-items-center">
+        <div className="mt-6 grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
           {!loadingProducts && !productsError && (prontaEntregaPreview || []).slice(0, 8).map((p) => (
             <ProductCard
               key={p.id}
@@ -210,7 +210,7 @@ export default function HomePage({
           </button>
         </div>
 
-        <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 justify-items-center">
+        <div className="mt-6 grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
           {!loadingProducts && !productsError && (rpgPreview || []).slice(0, 8).map((p) => (
             <ProductCard
               key={p.id}
@@ -242,7 +242,7 @@ export default function HomePage({
           </div>
         </div>
 
-        <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 justify-items-center">
+        <div className="mt-6 grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
           {productsError && (
             <div className="col-span-full rounded-2xl p-4 ring-1 ring-rose-400/30 bg-rose-500/10 text-rose-100 text-sm">
               Não foi possível carregar os destaques. {productsError}

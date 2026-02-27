@@ -100,7 +100,7 @@ export default function StockPage({ items, loading = false, error = "", addToCar
             Não foi possível carregar os produtos. {error}
           </div>
         ) : (
-          <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 justify-items-center">
+          <div className="mt-6 grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
             {loading &&
               Array.from({ length: 8 }).map((_, idx) => (
                 <div
