@@ -85,7 +85,7 @@ export default function MenuDrawer({
       Início
     </DrawerButton>
     <DrawerButton icon="view_module" onClick={() => { onNavigate("/catalogo"); onClose?.(); }}>
-      Catálogo (tudo)
+      Catálogo
     </DrawerButton>
     <DrawerButton icon="local_shipping" onClick={() => { onNavigate("/catalogo?disponibilidade=pronta"); onClose?.(); }}>
       Pronta entrega

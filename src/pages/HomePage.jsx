@@ -200,13 +200,13 @@ export default function HomePage({
         <div className="flex items-end justify-between gap-4 flex-wrap">
           <div>
             <h2 className="text-2xl sm:text-3xl font-extrabold">Miniaturas RPG sob encomenda</h2>
-            <p className="mt-1 text-sm text-slate-400">Produzidas no estúdio — prazo médio 15–30 dias úteis.</p>
+            <p className="mt-1 text-sm text-slate-400">Produzidas em estúdio — prazo médio 15–30 dias úteis.</p>
           </div>
           <button
             onClick={onGoSobEncomenda}
             className="rounded-xl px-4 py-2 text-sm ring-1 ring-white/15 hover:bg-white/5"
           >
-            Como funciona + catálogo
+            Como funciona
           </button>
         </div>
 
@@ -237,7 +237,7 @@ export default function HomePage({
           <div>
             <h2 className="text-2xl sm:text-3xl font-extrabold">Destaques</h2>
             <p className="mt-1 text-sm text-slate-400">
-              Seleção do estúdio — pronta pra chamar atenção na estante.
+              Seleção de estúdio — pronta pra chamar atenção na estante.
             </p>
           </div>
         </div>
