@@ -20,6 +20,7 @@ import StockPage from "./pages/StockPage.jsx";
 import CatalogPage from "./pages/CatalogPage.jsx";
 import AccountPage from "./pages/AccountPage.jsx";
 import PromocoesPage from "./pages/PromocoesPage.jsx";
+import ProductPage from "./pages/ProductPage.jsx";
 import SobrePage from "./pages/SobrePage.jsx";
 import ContactPage from "./pages/ContactPage.jsx";
 import AdminOrdersPage from "./pages/AdminOrdersPage.jsx";
@@ -68,6 +69,15 @@ function normalizeImages(row) {
   return main ? [main] : [];
 }
 
+function slugifyName(name) {
+  return String(name || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
 function mapProductRow(row) {
   const variants = Array.isArray(row?.variants)
     ? row.variants
@@ -91,7 +101,7 @@ function mapProductRow(row) {
   return {
     // campos no formato que o front já usa
     id: String(row?.id ?? ""),
-    slug: row?.slug ? String(row.slug) : "",
+    slug: row?.slug ? String(row.slug) : slugifyName(row?.name),
     nome: row?.name ? String(row.name) : "",
     descricao: row?.description ? String(row.description) : "",
     img,
@@ -233,6 +243,38 @@ function buildProductSchemaList({ products = [], route = "/", listName = "Produt
   return clean(itemList);
 }
 
+function buildProductSchema({ product, path = "/" }) {
+  if (!product) return null;
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const price = Number.isFinite(product?.preco) ? product.preco : 0;
+  const image = product?.img
+    ? String(product.img).startsWith("http")
+      ? product.img
+      : `${origin}${product.img}`
+    : undefined;
+  const inStock = typeof product?.stock === "number" ? product.stock > 0 : true;
+  const category = product?.category || (Array.isArray(product?.tags) && product.tags[0]) || "Miniatura";
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: String(product?.nome || "Produto"),
+    description: String(product?.descricao || "Miniatura em resina e pintura artística."),
+    image: image ? [image] : undefined,
+    sku: String(product?.id || ""),
+    category,
+    brand: { "@type": "Brand", name: "Cubo Criativo" },
+    offers: {
+      "@type": "Offer",
+      priceCurrency: "BRL",
+      price: Number(price.toFixed ? price.toFixed(2) : price),
+      availability: inStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+      itemCondition: "https://schema.org/NewCondition",
+      url: `${origin}${path}`,
+    },
+  };
+}
+
 function getRouteFromHash() {
   const h = window.location.hash || "";
   // Aceita: #/ , #/estoque, #/catalogo, #/conta
@@ -300,6 +342,11 @@ export default function App() {
       "/cupom": { title: "Cubo Game | Cubo Criativo", description: "Jogue 1x por semana no Cubo Game e ganhe cupom para usar no carrinho.", path: "/cupom" },
       "/vip": { title: "Cubo Level 1 RPG | Clube VIP", description: "Assine o Cubo Level 1 RPG: 3 miniaturas/mês e Cubo Game diário para VIPs.", path: "/vip" },
     };
+    // Rotas dinâmicas (/p/:slug) são tratadas em um effect separado para SEO + schema.
+    if (String(route || "").startsWith("/p/")) {
+      trackEvent("page_view", { route });
+      return;
+    }
     applySeo(seoByRoute[route] || seoByRoute["/"]);
     trackEvent("page_view", { route });
   }, [route]);
@@ -911,8 +958,69 @@ React.useEffect(() => {
     };
   }, [route, featured, emEstoque, catalogo, promocoes]);
 
+  // ===== SEO + Schema para página de produto (/p/:slug) =====
+  React.useEffect(() => {
+    const r = String(route || "");
+    if (!r.startsWith("/p/")) {
+      clearJsonLd("seo-product");
+      return;
+    }
+
+    const slug = r.slice(3).split("?")[0];
+    const found = products.find((p) => String(p?.slug || "") === String(slug));
+
+    if (!found) {
+      applySeo({
+        title: "Produto | Cubo Criativo",
+        description:
+          "Action figures, miniaturas de RPG e colecionáveis em resina com pintura artística. Confira detalhes e promoções.",
+        path: r,
+      });
+      clearJsonLd("seo-product");
+      return;
+    }
+
+    const descRaw = String(found?.descricao || "").replace(/\s+/g, " ").trim();
+    const desc = descRaw
+      ? descRaw.slice(0, 155)
+      : "Miniatura em resina com pintura artística. Peça colecionável com envio para todo o Brasil.";
+
+    applySeo({
+      title: `${found.nome} | Cubo Criativo`,
+      description: desc,
+      image: found?.img || "/images/logo.png",
+      path: `/p/${found.slug}`,
+    });
+
+    const payload = buildProductSchema({ product: found, path: `/p/${found.slug}` });
+    if (payload) setJsonLd("seo-product", payload);
+    else clearJsonLd("seo-product");
+  }, [route, products]);
+
   // ===== Render da página =====
   const page = (() => {
+    if (String(route || "").startsWith("/p/")) {
+      const slug = String(route || "").slice(3).split("?")[0];
+      const found = products.find((p) => String(p?.slug || "") === String(slug));
+      return (
+        <ProductPage
+          slug={slug}
+          product={found}
+          loading={productsLoading}
+          onBack={() => {
+            try {
+              if (window.history.length > 1) window.history.back();
+              else navigate("/catalogo");
+            } catch {
+              navigate("/catalogo");
+            }
+          }}
+          addToCart={addToCart}
+          buyNow={buyNow}
+          openGallery={openGallery}
+        />
+      );
+    }
     if (route === "/admin") {
       return <AdminOrdersPage user={user} accessToken={accessToken} onNavigateHome={() => navigate("/")} onRequireLogin={requireLogin} />;
     }

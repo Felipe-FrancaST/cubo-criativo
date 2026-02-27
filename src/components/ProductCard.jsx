@@ -114,7 +114,21 @@ export default function ProductCard({ p, addToCart, buyNow, openGallery, onRequi
       </div>
 
       <div className="p-4">
-        <h3 className="font-bold tracking-tight text-center lg:text-left">{p.nome}</h3>
+        <div className="flex items-start justify-between gap-3">
+          <h3 className="font-bold tracking-tight text-center lg:text-left flex-1">{p.nome}</h3>
+
+          {/* Link de detalhes (SEO + compartilhamento) */}
+          {p?.slug ? (
+            <a
+              href={`/p/${p.slug}`}
+              className="text-xs font-semibold text-teal-300 hover:text-teal-200 underline underline-offset-4 shrink-0"
+              aria-label={`Abrir página de ${p.nome}`}
+              title="Abrir página do produto"
+            >
+              detalhes
+            </a>
+          ) : null}
+        </div>
 
         {/* Preços (promo com riscado) */}
         <div className="mt-2 flex items-center justify-center lg:justify-start gap-2">
