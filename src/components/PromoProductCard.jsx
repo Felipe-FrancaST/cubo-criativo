@@ -56,26 +56,21 @@ export default function PromoProductCard({ p, addToCart, buyNow, openGallery }) 
             Verifique a URL no Supabase (image_url).
           </div>
         )}
-
-        {/* Selos */}
-        <div className="absolute top-3 left-3 flex items-center gap-2">
-          <span className="inline-flex items-center rounded-full px-3 py-1 text-xs font-black bg-amber-400 text-black ring-4 ring-amber-400/25 shadow">
-            PROMO
-          </span>
-          {off > 0 && (
-            <span className="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-extrabold bg-emerald-400 text-black ring-4 ring-emerald-400/25 shadow">
-              -{off}%
-            </span>
-          )}
-        </div>
-
-        <span className="absolute bottom-2 right-2 text-[10px] px-2 py-0.5 rounded-full bg-black/55 ring-1 ring-white/20">
-          ver fotos
-        </span>
       </button>
 
       <div className="p-3 sm:p-5">
         <h3 className="font-extrabold tracking-tight text-sm sm:text-lg leading-snug break-words">{p.nome}</h3>
+
+        <div className=\"mt-2 flex flex-wrap items-center gap-2\">
+          <span className=\"inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-extrabold bg-amber-400 text-black ring-1 ring-amber-300/40\">
+            PROMO
+          </span>
+          {off > 0 && (
+            <span className=\"inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-extrabold bg-emerald-400 text-black ring-1 ring-emerald-300/40\">
+              -{off}%
+            </span>
+          )}
+        </div>
 
         {/* Preços */}
         <div className="mt-3 flex items-end justify-between gap-3">
