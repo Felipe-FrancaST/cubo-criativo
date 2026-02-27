@@ -17,6 +17,7 @@ export default function HomePage({
   onGoFaq,
   onGoPoliticas,
   onGoCupom,
+  onRequireAuth,
 }) {
   const [depoimentos, setDepoimentos] = React.useState([]);
   const [loadingDepoimentos, setLoadingDepoimentos] = React.useState(true);
@@ -201,6 +202,7 @@ export default function HomePage({
               addToCart={addToCart}
               buyNow={buyNow}
               openGallery={openGallery}
+              onRequireAuth={onRequireAuth}
             />
           ))}
 

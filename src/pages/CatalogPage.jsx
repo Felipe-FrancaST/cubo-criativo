@@ -1,7 +1,7 @@
 import React from "react";
 import ProductCard from "../components/ProductCard.jsx";
 
-export default function CatalogPage({ items, loading = false, error = "", addToCart, buyNow, openGallery }) {
+export default function CatalogPage({ items, loading = false, error = "", addToCart, buyNow, openGallery , onRequireAuth}) {
   const allTags = React.useMemo(() => {
     const set = new Set();
     const isRpgTag = (t) => {
@@ -115,6 +115,7 @@ export default function CatalogPage({ items, loading = false, error = "", addToC
                     addToCart={addToCart}
                     buyNow={buyNow}
                     openGallery={openGallery}
+              onRequireAuth={onRequireAuth}
                   />
                 ))}
 

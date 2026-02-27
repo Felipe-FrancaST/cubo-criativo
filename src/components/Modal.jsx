@@ -1,18 +1,43 @@
 import * as React from "react";
+import { focusFirst, handleFocusTrapKeydown } from "../lib/a11y.js";
 
-export default function Modal({ open, onClose, title, children }) {
+export default function Modal({ open, onClose, title, children, ariaLabel }) {
   const showHeader = typeof title === "string" && title.trim().length > 0;
-    React.useEffect(() => {
+  const panelRef = React.useRef(null);
+  const lastFocusRef = React.useRef(null);
+
+  // Esc + focus trap + restaura foco ao fechar
+  React.useEffect(() => {
     if (!open) return;
+
+    lastFocusRef.current = document.activeElement;
+
     const onKey = (e) => {
-      if (e.key === "Escape") onClose?.();
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onClose?.();
+        return;
+      }
+      handleFocusTrapKeydown(e, panelRef.current);
     };
+
+    // foco inicial
+    queueMicrotask(() => focusFirst(panelRef.current));
+
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      const prev = lastFocusRef.current;
+      if (prev && typeof prev.focus === "function") {
+        queueMicrotask(() => prev.focus({ preventScroll: true }));
+      }
+    };
   }, [open, onClose]);
 
+  const label = ariaLabel || (showHeader ? title : "Janela");
+
   return (
-    <div className={`fixed inset-0 z-[150] ${open ? "visible" : "invisible"}`}>
+    <div className={`fixed inset-0 z-[150] ${open ? "visible" : "invisible"}`} aria-hidden={!open}>
       {/* backdrop */}
       <div
         className={`absolute inset-0 bg-black/60 transition-opacity ${open ? "opacity-100" : "opacity-0"}`}
@@ -20,6 +45,11 @@ export default function Modal({ open, onClose, title, children }) {
       />
       {/* painel */}
       <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={label}
+        tabIndex={-1}
         className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2
                     w-[94vw] sm:w-[90vw] lg:w-[70vw] max-w-[1100px]
                     max-h-[92vh]
@@ -30,14 +60,17 @@ export default function Modal({ open, onClose, title, children }) {
         {showHeader ? (
           <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-white/10">
             <h3 className="font-bold">{title}</h3>
-            <button onClick={onClose} className="rounded-lg p-2 ring-1 ring-white/15">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg p-2 ring-1 ring-white/15 hover:bg-white/5"
+              aria-label="Fechar"
+            >
               <span className="material-icons">close</span>
             </button>
           </div>
         ) : null}
-        <div className={`p-3 sm:p-4 overflow-y-auto ${showHeader ? "" : "pt-4"}`}>
-          {children}
-        </div>
+        <div className={`p-3 sm:p-4 overflow-y-auto ${showHeader ? "" : "pt-4"}`}>{children}</div>
       </div>
     </div>
   );

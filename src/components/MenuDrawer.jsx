@@ -1,4 +1,5 @@
 import React from "react";
+import { focusFirst, handleFocusTrapKeydown } from "../lib/a11y.js";
 import brandConfig from "../data/config";
 import { trackEvent } from "../lib/analytics.js";
 
@@ -34,6 +35,8 @@ export default function MenuDrawer({
   rpgMode,
 }) {
   const brand = brandConfig;
+  const panelRef = React.useRef(null);
+  const lastFocusRef = React.useRef(null);
 
   React.useEffect(() => {
     if (!open) return;
@@ -45,14 +48,19 @@ export default function MenuDrawer({
   }, [open, onClose]);
 
   return (
-    <div className={`fixed inset-0 z-[145] ${open ? "visible" : "invisible"}`}>
+    <div className={`fixed inset-0 z-[145] ${open ? "visible" : "invisible"}`} aria-hidden={!open}>
       <div
         className={`absolute inset-0 bg-black/50 transition-opacity ${open ? "opacity-100" : "opacity-0"}`}
         onClick={onClose}
       />
 
       <aside
-        className={`absolute left-0 top-0 h-full w-[88vw] sm:w-[380px] bg-slate-950/95 backdrop-blur shadow-xl ring-1 ring-white/10 transition-transform duration-300 ${
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Menu"
+        tabIndex={-1}
+        className={`absolute left-0 top-0 h-full w-[88vw] sm:w-[380px] bg-slate-950/95 backdrop-blur shadow-xl ring-1 ring-white/10 transition-transform duration-300 pb-[env(safe-area-inset-bottom)] ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -66,7 +74,7 @@ export default function MenuDrawer({
               <p className="text-xs text-slate-400">Menu</p>
             </div>
           </div>
-          <button onClick={onClose} className="rounded-lg p-2 ring-1 ring-white/15 hover:bg-white/5">
+          <button type="button" onClick={onClose} className="rounded-lg p-2 ring-1 ring-white/15 hover:bg-white/5" aria-label="Fechar menu">
             <span className="material-icons">close</span>
           </button>
         </div>

@@ -97,16 +97,6 @@ export default function CarrosselPromo({
     return () => clearInterval(timerRef.current);
   }, [i, next, interval, slides.length, isHovering]);
 
-  // teclado
-  React.useEffect(() => {
-    const onKey = (e) => {
-      if (e.key === "ArrowRight") next();
-      if (e.key === "ArrowLeft") prev();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [next, prev]);
-
   // swipe (touch)
   const touchStartX = React.useRef(0);
   const onTouchStart = (e) => (touchStartX.current = e.touches[0].clientX);
@@ -125,6 +115,13 @@ export default function CarrosselPromo({
 
   return (
     <div
+      tabIndex={0}
+      role="region"
+      aria-label="Carrossel de promoções"
+      onKeyDown={(e) => {
+        if (e.key === "ArrowRight") next();
+        if (e.key === "ArrowLeft") prev();
+      }}
       className={`relative w-full overflow-hidden rounded-3xl ring-1 ring-white/10 bg-[#0f141b] ${className}`}
       onMouseEnter={() => setIsHovering(true)}
       onMouseLeave={() => setIsHovering(false)}

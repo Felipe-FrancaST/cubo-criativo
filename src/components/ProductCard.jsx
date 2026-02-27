@@ -10,17 +10,22 @@ import { useAuth } from "../auth/AuthProvider.jsx";
  * - buyNow(p, {escala, unitPrice})
  * - openGallery(p)                (abre galeria com as imagens do produto)
  */
-export default function ProductCard({ p, addToCart, buyNow, openGallery }) {
+export default function ProductCard({ p, addToCart, buyNow, openGallery, onRequireAuth }) {
   const { user } = useAuth();
   const { isFavorite, toggleFavorite } = useFavorites();
   const defaultIndex = Math.max(0, p.variants?.findIndex((v) => v.label === p.defaultVariant));
   const [selIndex, setSelIndex] = React.useState(defaultIndex);
+  const [imgError, setImgError] = React.useState(false);
   const [addedFlash, setAddedFlash] = React.useState(false);
-    const flashT = React.useRef(null);
+  const flashT = React.useRef(null);
 
   React.useEffect(() => {
     return () => clearTimeout(flashT.current);
   }, []);
+  React.useEffect(() => {
+    setImgError(false);
+  }, [p?.img]);
+
 
   const hasVariants = Array.isArray(p.variants) && p.variants.length > 0;
   const pricing = getVariantPricingCents(p, selIndex, defaultIndex);
@@ -48,25 +53,35 @@ export default function ProductCard({ p, addToCart, buyNow, openGallery }) {
       className="w-full max-w-[320px] group rounded-2xl overflow-hidden ring-1 ring-white/10 bg-slate-900/60 hover:ring-teal-400/30 transition"
     >
       {/* Imagem -> abre galeria */}
-      <button
-        type="button"
-        className="aspect-[4/5] bg-slate-800/60 grid place-items-center overflow-hidden w-full relative"
+      <div
+        role="button"
+        tabIndex={0}
+        className="aspect-[4/5] bg-slate-800/60 grid place-items-center overflow-hidden w-full relative cursor-pointer focus:outline-none focus:ring-2 focus:ring-teal-400/40"
         onClick={() => openGallery?.(p)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            openGallery?.(p);
+          }
+        }}
         title="Ver mais fotos"
+        aria-label={`Ver fotos de ${p?.nome ?? "produto"}`}
       >
-        <img
-         src={p.img}
-  alt={p.nome}
-  loading="lazy"
-  decoding="async"
-  className="object-cover w-full h-full group-hover:scale-[1.02] transition"
-          onError={(e) => {
-            e.currentTarget.style.display = "none";
-            e.currentTarget.parentElement?.classList.add("bg-slate-700");
-            e.currentTarget.parentElement.innerHTML =
-              `<div class="text-slate-300 text-xs px-3 text-center">Imagem não encontrada.<br/>Verifique a URL da imagem no Supabase (image_url).</div>`;
-          }}
-        />
+        {!imgError ? (
+          <img
+            src={p.img}
+            alt={p.nome}
+            loading="lazy"
+            decoding="async"
+            className="object-cover w-full h-full group-hover:scale-[1.02] transition"
+            onError={() => setImgError(true)}
+          />
+        ) : (
+          <div className="text-slate-300 text-xs px-3 text-center">
+            Imagem indisponível.<br />
+            Verifique a URL da imagem no Supabase (image_url).
+          </div>
+        )}
 
         {/* Favoritar */}
         <button
@@ -76,15 +91,15 @@ export default function ProductCard({ p, addToCart, buyNow, openGallery }) {
               ? "bg-rose-500/90 text-white ring-rose-200/40"
               : "bg-black/50 text-white ring-white/20 hover:bg-black/70"
           }`}
+          aria-pressed={fav}
+          aria-label={fav ? "Remover dos favoritos" : "Favoritar"}
           title={fav ? "Remover dos favoritos" : "Favoritar"}
           onClick={async (e) => {
             e.preventDefault();
             e.stopPropagation();
             const res = await toggleFavorite(p?.id);
             if (!res.ok && !user) {
-              // Se não estiver logado, o App já tem modal de login em outros pontos.
-              // Aqui, fazemos um aviso simples.
-              alert("Faça login para favoritar.");
+              onRequireAuth?.();
             } else if (!res.ok && res.error) {
               console.warn(res.error);
             }
@@ -96,7 +111,7 @@ export default function ProductCard({ p, addToCart, buyNow, openGallery }) {
         <span className="absolute bottom-2 right-2 text-[10px] px-2 py-0.5 rounded-full bg-black/50 ring-1 ring-white/20">
           ver fotos
         </span>
-      </button>
+      </div>
 
       <div className="p-4">
         <h3 className="font-bold tracking-tight text-center lg:text-left">{p.nome}</h3>

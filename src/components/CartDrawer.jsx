@@ -1,4 +1,5 @@
 import React from "react";
+import { focusFirst, handleFocusTrapKeydown } from "../lib/a11y.js";
 import { supabase } from "../lib/supabaseClient";
 
 const fmtBRL = (n) =>
@@ -37,6 +38,8 @@ export default function CartDrawer({
   onPaymentConfirmed,
   onPayWithCoupon
 }) {
+  const panelRef = React.useRef(null);
+  const lastFocusRef = React.useRef(null);
   // Pix state
   const [pix, setPix] = React.useState(null);
   const [pixOpen, setPixOpen] = React.useState(false);
@@ -62,11 +65,28 @@ export default function CartDrawer({
 
   React.useEffect(() => {
     if (!open) return;
+
+    lastFocusRef.current = document.activeElement;
+
     const onKey = (e) => {
-      if (e.key === "Escape") onClose?.();
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onClose?.();
+        return;
+      }
+      handleFocusTrapKeydown(e, panelRef.current);
     };
+
+    queueMicrotask(() => focusFirst(panelRef.current));
+
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      const prev = lastFocusRef.current;
+      if (prev && typeof prev.focus === "function") {
+        queueMicrotask(() => prev.focus({ preventScroll: true }));
+      }
+    };
   }, [open, onClose]);
 
   // fecha modal Pix ao fechar o carrinho
@@ -118,6 +138,8 @@ export default function CartDrawer({
   }, [canCheckout]);
 
   async function applyCoupon(codeParam, opts = {}) {
+  const panelRef = React.useRef(null);
+  const lastFocusRef = React.useRef(null);
     const code = String(codeParam ?? couponCode).trim().toUpperCase();
     if (!code) {
       setCouponInfo(null);
@@ -323,6 +345,8 @@ export default function CartDrawer({
 
 
   async function checkPixStatus({ forceVerify = false } = {}) {
+  const panelRef = React.useRef(null);
+  const lastFocusRef = React.useRef(null);
     try {
       if (!pix?.order_id) return;
       setCheckingPix(true);      // 1) Checa no Supabase (rápido)
@@ -391,9 +415,9 @@ export default function CartDrawer({
   }
 
   return (
-    <div className={`fixed inset-0 z-[140] ${open ? "visible" : "invisible"}`}>
+    <div className={`fixed inset-0 z-[140] ${open ? "visible" : "invisible"}`} aria-hidden={!open}>
       <div className={`absolute inset-0 bg-black/50 transition-opacity ${open ? "opacity-100" : "opacity-0"}`} onClick={onClose} />
-      <aside className={`absolute right-0 top-0 h-full w-[92vw] sm:w-[420px] bg-slate-900 shadow-xl ring-1 ring-white/10 transition-transform duration-300 ${open ? "translate-x-0" : "translate-x-full"}`}>
+      <aside ref={panelRef} role="dialog" aria-modal="true" aria-label="Carrinho" tabIndex={-1} className={`absolute right-0 top-0 h-full w-[92vw] sm:w-[420px] bg-slate-900 shadow-xl ring-1 ring-white/10 transition-transform duration-300 pb-[env(safe-area-inset-bottom)] ${open ? "translate-x-0" : "translate-x-full"}`}>
         <div className="p-4 flex items-center justify-between border-b border-white/10">
           <h3 className="font-bold">Seu carrinho</h3>
           <button onClick={onClose} className="rounded-lg p-2 ring-1 ring-white/15">

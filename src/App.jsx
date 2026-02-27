@@ -925,6 +925,8 @@ React.useEffect(() => {
           addToCart={addToCart}
           buyNow={buyNow}
           openGallery={openGallery}
+        
+          onRequireAuth={() => setAuthOpen(true)}
         />
       );
     }
@@ -937,6 +939,8 @@ React.useEffect(() => {
           addToCart={addToCart}
           buyNow={buyNow}
           openGallery={openGallery}
+        
+          onRequireAuth={() => setAuthOpen(true)}
         />
       );
     }
@@ -983,7 +987,9 @@ React.useEffect(() => {
         onGoFaq={() => navigate("/faq")}
         onGoPoliticas={() => navigate("/politica-de-privacidade")}
         onGoCupom={() => navigate("/cupom")}
-      />
+      
+          onRequireAuth={() => setAuthOpen(true)}
+        />
     );
   })();
 
