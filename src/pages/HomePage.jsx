@@ -66,12 +66,11 @@ export default function HomePage({
             </p>
 
             <h1 className="mt-4 font-black leading-tight text-3xl sm:text-5xl lg:text-6xl">
-              Promoções, lançamentos e
-              <span className="text-teal-400"> peças em destaque</span>
+              Action figures e miniaturas de RPG em resina
             </h1>
 
             <p className="mt-4 text-slate-300 text-base sm:text-lg">
-              {brand.slogan}. Qualidade de vitrine para colecionadores, action figures e miniaturas de RPG.
+              Pintura artística e acabamento premium — <span className="text-slate-100">pronta entrega</span> e <span className="text-slate-100">sob encomenda</span>.
             </p>
 
             <div className="mt-6 flex flex-col sm:flex-row gap-3 max-w-md mx-auto lg:mx-0 justify-center lg:justify-start">
