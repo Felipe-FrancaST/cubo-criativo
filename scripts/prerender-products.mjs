@@ -32,8 +32,19 @@ function slugifySafe(s) {
 function truncate(s, n = 155) {
   const t = String(s || "").replace(/\s+/g, " ").trim();
   if (!t) return "";
+  if (t.toUpperCase() === "EMPTY") return "";
   if (t.length <= n) return t;
   return t.slice(0, n - 1).trimEnd() + "…";
+}
+
+function normalizeDescription(v) {
+  if (v === null || v === undefined) return "";
+  const s = String(v)
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!s || s.toUpperCase() === "EMPTY") return "";
+  return s;
 }
 
 function escapeHtml(s) {
@@ -191,7 +202,7 @@ async function main() {
     const urlPath = `/p/${slug}`;
     const title = `${String(row?.name || "Produto")} | Cubo Criativo`;
     const description =
-      truncate(row?.description || "", 155) ||
+      truncate(normalizeDescription(row?.description), 155) ||
       "Miniatura em resina com pintura artística. Peça colecionável com envio para todo o Brasil.";
     const image = row?.image_url ? String(row.image_url) : "/images/logo.png";
     const canonicalUrl = `${origin}${urlPath}`;

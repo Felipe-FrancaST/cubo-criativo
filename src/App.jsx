@@ -78,6 +78,14 @@ function slugifyName(name) {
     .replace(/^-|-$/g, "");
 }
 
+function normalizeDescription(v) {
+  if (v === null || v === undefined) return "";
+  const s = String(v).replace(/\s+/g, " ").trim();
+  // alguns registros antigos ficaram com texto sentinela
+  if (!s || s.toUpperCase() === "EMPTY") return "";
+  return s;
+}
+
 function mapProductRow(row) {
   const variants = Array.isArray(row?.variants)
     ? row.variants
@@ -103,7 +111,8 @@ function mapProductRow(row) {
     id: String(row?.id ?? ""),
     slug: row?.slug ? String(row.slug) : slugifyName(row?.name),
     nome: row?.name ? String(row.name) : "",
-    descricao: row?.description ? String(row.description) : "",
+    // Mantém compatibilidade com o front (campo "descricao"), mas vem do Supabase ("description")
+    descricao: normalizeDescription(row?.description),
     img,
     imgs,
     status: row?.status ? String(row.status) : "catalogo",
