@@ -97,7 +97,7 @@ export default function MenuDrawer({
       Promoções
     </DrawerButton>
     <DrawerButton icon="redeem" onClick={() => { onNavigate("/cupom"); onClose?.(); }}>
-      Cubo Game (cupons)
+      Cubo Game
     </DrawerButton>
   </div>
 
