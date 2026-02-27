@@ -66,9 +66,8 @@ export default function CarrosselPromo({
     ];
   }, [images, remoteSlides]);
 
-  // Destino ao tocar no carrossel
-  // (forçamos Promoções para evitar qualquer redirecionamento inesperado)
-  const defaultLink = "/promocoes";
+  // evita manipular DOM fora do React (onError) e permite fallback por slide
+  const [failedMap, setFailedMap] = React.useState(() => ({}));
 
   const [i, setI] = React.useState(0);
   const [isHovering, setIsHovering] = React.useState(false);
@@ -144,37 +143,49 @@ export default function CarrosselPromo({
         {/* imagens empilhadas com fade */}
         {slides.map((s, idx) => {
           const active = idx === i;
+          const slideKey = String(s?.id ?? idx);
+          const failed = !!failedMap[slideKey];
           return (
             <div
-              key={s?.id ?? idx}
+              key={slideKey}
               className={`absolute inset-0 grid place-items-center p-3 transition-opacity ${
                 prefersReducedMotion ? "" : "duration-500"
-              } ${active ? "opacity-100" : "opacity-0"}`}
+              } ${active ? "opacity-100" : "opacity-0"} ${active ? "" : "pointer-events-none"}`}
               aria-hidden={!active}
             >
-              <a
-                href={defaultLink}
-                className="block w-full h-full"
-                aria-label="Abrir promoções"
-              >
-                <img
-                  src={s?.image_url}
-                  alt={s?.alt || `promo ${idx + 1}`}
-                style={{
-                  maxHeight: "100%",
-                  maxWidth: "100%",
-                  width: fit === "contain" ? "auto" : "100%",
-                  height: fit === "contain" ? "100%" : "100%",
-                  objectFit: fit,
-                  display: "block",
-                }}
-                onError={(e) => {
-                  e.currentTarget.style.display = "none";
-                  e.currentTarget.parentElement.innerHTML =
-                    `<div class="text-slate-300 text-xs px-4 text-center">Imagem não encontrada</div>`;
-                }}
-                />
-              </a>
+              {/*
+                IMPORTANTE (bug fix): o HomePage já envolve o carrossel em um container clicável
+                que navega via SPA. Um <a href> aqui dentro causava navegação dupla (SPA + reload)
+                e gerava "bugadinha"/flicker no clique.
+              */}
+              <div className="block w-full h-full">
+                {!failed ? (
+                  <img
+                    src={s?.image_url}
+                    alt={s?.alt || `promo ${idx + 1}`}
+                    loading="lazy"
+                    decoding="async"
+                    style={{
+                      maxHeight: "100%",
+                      maxWidth: "100%",
+                      width: fit === "contain" ? "auto" : "100%",
+                      height: fit === "contain" ? "100%" : "100%",
+                      objectFit: fit,
+                      display: "block",
+                    }}
+                    onError={() =>
+                      setFailedMap((m) => ({
+                        ...m,
+                        [slideKey]: true,
+                      }))
+                    }
+                  />
+                ) : (
+                  <div className="w-full h-full grid place-items-center text-slate-300 text-xs px-4 text-center">
+                    Imagem não encontrada
+                  </div>
+                )}
+              </div>
             </div>
           );
         })}
@@ -191,7 +202,7 @@ export default function CarrosselPromo({
               e.stopPropagation();
               prev();
             }}
-            className="group absolute left-2 top-1/2 -translate-y-1/2 rounded-full p-2 bg-black/35 hover:bg-black/55 ring-1 ring-white/20 opacity-80 hover:opacity-100 transition"
+            className="group absolute left-2 top-1/2 -translate-y-1/2 rounded-full h-11 w-11 grid place-items-center bg-black/35 hover:bg-black/55 ring-1 ring-white/20 opacity-80 hover:opacity-100 transition"
           >
             <span className="material-icons text-white/90">chevron_left</span>
           </button>
@@ -201,7 +212,7 @@ export default function CarrosselPromo({
               e.stopPropagation();
               next();
             }}
-            className="group absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-2 bg-black/35 hover:bg-black/55 ring-1 ring-white/20 opacity-80 hover:opacity-100 transition"
+            className="group absolute right-2 top-1/2 -translate-y-1/2 rounded-full h-11 w-11 grid place-items-center bg-black/35 hover:bg-black/55 ring-1 ring-white/20 opacity-80 hover:opacity-100 transition"
           >
             <span className="material-icons text-white/90">chevron_right</span>
           </button>
@@ -218,11 +229,11 @@ export default function CarrosselPromo({
                 e.stopPropagation();
                 setI(idx);
               }}
-              className="relative h-2.5 w-2.5"
+              className="relative h-11 w-11 -mx-3 grid place-items-center"
               aria-label={`Ir para slide ${idx + 1}`}
             >
               <span
-                className={`absolute inset-0 rounded-full transition-all ${
+                className={`h-2.5 w-2.5 rounded-full transition-all ${
                   idx === i ? "bg-white scale-100" : "bg-white/40 scale-75"
                 }`}
               />

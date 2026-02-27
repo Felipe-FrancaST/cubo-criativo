@@ -126,6 +126,9 @@ function mapProductRow(row) {
 function Toast({ open, children }) {
   return (
     <div
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
       className={`fixed top-20 left-1/2 -translate-x-1/2 z-[200] transition-all duration-300 ${
         open ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-3 pointer-events-none"
       }`}

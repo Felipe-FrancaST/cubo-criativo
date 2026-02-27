@@ -9,6 +9,7 @@ export default function PromoProductCard({ p, addToCart, buyNow, openGallery }) 
   const defaultIndex = Math.max(0, p.variants?.findIndex((v) => v.label === p.defaultVariant));
   const [selIndex, setSelIndex] = React.useState(defaultIndex);
   const [addedFlash, setAddedFlash] = React.useState(false);
+  const [imgError, setImgError] = React.useState(false);
   const flashT = React.useRef(null);
 
   React.useEffect(() => () => clearTimeout(flashT.current), []);
@@ -39,19 +40,22 @@ export default function PromoProductCard({ p, addToCart, buyNow, openGallery }) 
         onClick={() => openGallery?.(p)}
         title="Ver mais fotos"
       >
-        <img
-          src={p.img}
-          alt={p.nome}
-          loading="lazy"
-          decoding="async"
-          className="object-cover w-full h-full group-hover:scale-[1.03] transition"
-          onError={(e) => {
-            e.currentTarget.style.display = "none";
-            e.currentTarget.parentElement?.classList.add("bg-slate-700");
-            e.currentTarget.parentElement.innerHTML =
-              `<div class="text-slate-300 text-xs px-3 text-center">Imagem não encontrada.<br/>Verifique a URL no Supabase (image_url).</div>`;
-          }}
-        />
+        {!imgError ? (
+          <img
+            src={p.img}
+            alt={p.nome}
+            loading="lazy"
+            decoding="async"
+            className="object-cover w-full h-full group-hover:scale-[1.03] transition"
+            onError={() => setImgError(true)}
+          />
+        ) : (
+          <div className="w-full h-full grid place-items-center bg-slate-700 text-slate-200 text-xs px-3 text-center">
+            Imagem não encontrada.
+            <br />
+            Verifique a URL no Supabase (image_url).
+          </div>
+        )}
 
         {/* Selos */}
         <div className="absolute top-3 left-3 flex items-center gap-2">

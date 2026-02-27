@@ -23,6 +23,7 @@ const fmtBRL = (n) =>
     : "—";
 
 function CardRPG({ item, onOpenGallery, onAdd }) {
+  const [imgError, setImgError] = React.useState(false);
   return (
     <article className="group rounded-2xl overflow-hidden bg-[#0b0f12]/80 ring-1 ring-white/10 hover:ring-amber-400/30 transition">
       <button
@@ -35,12 +36,14 @@ function CardRPG({ item, onOpenGallery, onAdd }) {
           src={item.imgs?.[0]}
           alt={item.nome}
           className="w-full h-full object-cover group-hover:scale-[1.02] transition"
-          onError={(e) => {
-            e.currentTarget.style.display = "none";
-            e.currentTarget.parentElement.innerHTML =
-              '<div class="text-slate-300 text-xs p-3 text-center">Imagem não encontrada.</div>';
-          }}
+          onError={() => setImgError(true)}
+          style={{ display: imgError ? "none" : "block" }}
         />
+        {imgError && (
+          <div className="absolute inset-0 grid place-items-center text-slate-300 text-xs p-3 text-center">
+            Imagem não encontrada.
+          </div>
+        )}
         <span className="absolute bottom-2 right-2 text-[10px] px-2 py-0.5 rounded-full bg-black/60 ring-1 ring-white/20">
           ver fotos
         </span>

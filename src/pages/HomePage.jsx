@@ -126,7 +126,10 @@ export default function HomePage({
                 tabIndex={0}
                 onClick={onGoPromocoes}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") onGoPromocoes?.();
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onGoPromocoes?.();
+                  }
                 }}
                 className="rounded-2xl overflow-hidden ring-1 ring-white/10 bg-slate-900/60 w-full text-left group/car cursor-pointer"
                 title="Ver todas as promoções"
