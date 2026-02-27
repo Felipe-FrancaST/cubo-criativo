@@ -43,8 +43,6 @@ export default function SiteHeader({
   onOpenOrders,
   onOpenSettings,
   onSignOut,
-  onToggleRpg,
-  rpgMode,
   onNavigate,
   onGoHomeSection,
 }) {
@@ -65,14 +63,9 @@ export default function SiteHeader({
         <div className="mx-auto w-full" style={{ maxWidth: "var(--container-max, 1320px)" }}>
           <div className="px-4 sm:px-6 lg:px-8 py-3 flex items-center gap-4">
             {/* Menu lateral */}
-            {!rpgMode && (
-              <IconButton
-                title={menuOpen ? "Fechar menu" : "Abrir menu"}
-                onClick={onToggleMenu}
-              >
-                <span className="material-icons text-[20px]">{menuOpen ? "close" : "menu"}</span>
-              </IconButton>
-            )}
+            <IconButton title={menuOpen ? "Fechar menu" : "Abrir menu"} onClick={onToggleMenu}>
+              <span className="material-icons text-[20px]">{menuOpen ? "close" : "menu"}</span>
+            </IconButton>
 
             {/* Logo */}
             <button onClick={handleLogoClick} className="flex items-center gap-3 group shrink-0">
@@ -128,19 +121,6 @@ export default function SiteHeader({
                   <img src="/icons/whatsapp.svg" alt="WhatsApp" className="h-4 w-4" />
                 </a>
               </div>
-
-              {/* RPG */}
-              <IconButton
-                title={rpgMode ? "Sair do RPG" : "Modo RPG"}
-                onClick={onToggleRpg}
-                className={rpgMode ? "bg-white/5" : ""}
-              >
-                {rpgMode ? (
-                  <span className="material-icons text-[20px]">close</span>
-                ) : (
-                  <img src="/icons/dice.svg" alt="" className="h-5 w-5" />
-                )}
-              </IconButton>
 
               {/* Conta */}
               {/* Conta */}

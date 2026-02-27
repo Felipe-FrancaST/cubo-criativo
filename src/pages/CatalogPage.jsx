@@ -1,53 +1,95 @@
 import React from "react";
 import ProductCard from "../components/ProductCard.jsx";
 
-export default function CatalogPage({ items, loading = false, error = "", addToCart, buyNow, openGallery , onRequireLogin}) {
-  const allTags = React.useMemo(() => {
-    const set = new Set();
-    const isRpgTag = (t) => {
-      const s = String(t || "").toLowerCase();
-      if (!s) return true;
-      if (s === "rpg") return true;
-      return s.startsWith("tipo:") || s.startsWith("classe:") || s.startsWith("raca:") || s.startsWith("raça:");
-    };
-    items.forEach((p) => (p.tags || []).forEach((t) => {
-      if (!isRpgTag(t)) set.add(t);
-    }));
-    return ["Todos", ...Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR"))];
-  }, [items]);
+function readParam(name, fallback = "") {
+  if (typeof window === "undefined") return fallback;
+  try {
+    return String(new URLSearchParams(window.location.search || "").get(name) || fallback);
+  } catch {
+    return fallback;
+  }
+}
 
+export default function CatalogPage({ items, loading = false, error = "", addToCart, buyNow, openGallery, onRequireLogin }) {
+  // Deep link: /catalogo?disponibilidade=pronta|encomenda  & tipo=action|rpg
+  const [availability, setAvailability] = React.useState(() => readParam("disponibilidade", "todas"));
+  const [type, setType] = React.useState(() => readParam("tipo", "todos"));
   const [selectedTag, setSelectedTag] = React.useState("Todos");
   const [query, setQuery] = React.useState("");
 
   React.useEffect(() => {
-    // reset filtro quando lista mudar
-    setSelectedTag("Todos");
-    setQuery("");
+    // Se o usuário navegar pelo histórico e mudar search, atualiza filtros base
+    const onPop = () => {
+      setAvailability(readParam("disponibilidade", "todas"));
+      setType(readParam("tipo", "todos"));
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  const tagOptions = React.useMemo(() => {
+    const set = new Set();
+    const isInternal = (t) => {
+      const s = String(t || "").toLowerCase().trim();
+      if (!s) return true;
+      // tags internas / técnicas
+      if (s === "rpg") return true;
+      if (s === "action" || s === "action figure" || s === "figure action") return true;
+      if (s.startsWith("tipo:")) return true;
+      if (s.startsWith("classe:")) return true;
+      if (s.startsWith("raca:") || s.startsWith("raça:")) return true;
+      if (s.startsWith("prazo:")) return true;
+      return false;
+    };
+    (items || []).forEach((p) => {
+      (p.tags || []).forEach((t) => {
+        if (!isInternal(t)) set.add(String(t));
+      });
+    });
+    return ["Todos", ...Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR"))];
   }, [items]);
 
   const filtered = React.useMemo(() => {
     const q = query.trim().toLowerCase();
-    return items.filter((p) => {
+    return (items || []).filter((p) => {
+      // disponibilidade
+      const isStock = !!p?._isStock;
+      const matchAvail =
+        availability === "todas" ||
+        (availability === "pronta" && isStock) ||
+        (availability === "encomenda" && !isStock);
+
+      // tipo
+      const t = String(p?._typeLabel || "").toLowerCase();
+      const matchType =
+        type === "todos" ||
+        (type === "action" && t.includes("action")) ||
+        (type === "rpg" && t.includes("rpg"));
+
+      // tags
       const matchTag = selectedTag === "Todos" || (p.tags || []).includes(selectedTag);
-      const matchName = q === "" || String(p.nome || "").toLowerCase().includes(q);
-      return matchTag && matchName;
+
+      // busca
+      const name = String(p?.nome || "").toLowerCase();
+      const desc = String(p?.descricao || "").toLowerCase();
+      const tags = Array.isArray(p?.tags) ? p.tags.map((t) => String(t).toLowerCase()).join(" ") : "";
+      const matchQuery = !q || name.includes(q) || desc.includes(q) || tags.includes(q);
+
+      return matchAvail && matchType && matchTag && matchQuery;
     });
-  }, [items, selectedTag, query]);
+  }, [items, availability, type, selectedTag, query]);
 
   return (
     <main className="flex-1">
-      <section
-        className="mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14"
-        style={{ maxWidth: "var(--container-max, 1200px)" }}
-      >
+      <section className="mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14" style={{ maxWidth: "var(--container-max, 1200px)" }}>
         <div className="flex items-end justify-between gap-4 flex-wrap">
           <div>
             <h1 className="text-2xl sm:text-3xl font-extrabold">Catálogo</h1>
-            <p className="mt-1 text-sm text-slate-400">Modelos sob encomenda / sob consulta.</p>
+            <p className="mt-1 text-sm text-slate-400">
+              Action figures, miniaturas de RPG e colecionáveis — <b>pronta entrega</b> e <b>sob encomenda</b>.
+            </p>
           </div>
-          <span className="text-xs sm:text-sm text-slate-400">
-            {loading ? "carregando…" : `${filtered.length} modelo(s)`}
-          </span>
+          <span className="text-xs sm:text-sm text-slate-400">{loading ? "carregando…" : `${filtered.length} item(ns)`}</span>
         </div>
 
         {error ? (
@@ -56,18 +98,77 @@ export default function CatalogPage({ items, loading = false, error = "", addToC
           </div>
         ) : (
           <>
-            {/* Filtros */}
-            <div className="mt-6 flex flex-col lg:flex-row items-stretch lg:items-center gap-3">
-              <div className="flex-1 overflow-x-auto">
+            {/* Filtros principais */}
+            <div className="mt-6 grid grid-cols-1 lg:grid-cols-[1fr_1fr_320px] gap-3">
+              <div className="overflow-x-auto">
                 <div className="flex gap-2 min-w-max">
-                  {allTags.map((tag) => {
+                  {[
+                    { key: "todas", label: "Todos" },
+                    { key: "pronta", label: "Pronta entrega" },
+                    { key: "encomenda", label: "Sob encomenda" },
+                  ].map((opt) => {
+                    const active = availability === opt.key;
+                    return (
+                      <button
+                        key={opt.key}
+                        onClick={() => setAvailability(opt.key)}
+                        className={`px-3 py-1 rounded-full text-sm whitespace-nowrap ring-1 ring-white/10 ${
+                          active ? "bg-teal-400 text-black font-semibold" : "bg-slate-800/60 hover:bg-white/5"
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <div className="flex gap-2 min-w-max">
+                  {[
+                    { key: "todos", label: "Todos os tipos" },
+                    { key: "action", label: "Action Figures" },
+                    { key: "rpg", label: "Miniaturas RPG" },
+                  ].map((opt) => {
+                    const active = type === opt.key;
+                    return (
+                      <button
+                        key={opt.key}
+                        onClick={() => setType(opt.key)}
+                        className={`px-3 py-1 rounded-full text-sm whitespace-nowrap ring-1 ring-white/10 ${
+                          active ? "bg-white/10 text-white font-semibold" : "bg-slate-800/60 hover:bg-white/5"
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="w-full">
+                <input
+                  type="search"
+                  placeholder="Buscar por nome, tag ou descrição…"
+                  className="w-full rounded-lg bg-slate-800/60 ring-1 ring-white/10 px-3 py-2 text-sm placeholder:text-slate-400 outline-none"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* Tags (secundário) */}
+            {tagOptions.length > 1 && (
+              <div className="mt-4 overflow-x-auto">
+                <div className="flex gap-2 min-w-max">
+                  {tagOptions.map((tag) => {
                     const active = selectedTag === tag;
                     return (
                       <button
                         key={tag}
                         onClick={() => setSelectedTag(tag)}
                         className={`px-3 py-1 rounded-full text-sm whitespace-nowrap ring-1 ring-white/10 ${
-                          active ? "bg-teal-400 text-black font-semibold" : "bg-slate-800/60 hover:bg-white/5"
+                          active ? "bg-amber-400 text-black font-semibold" : "bg-slate-800/60 hover:bg-white/5"
                         }`}
                       >
                         {tag}
@@ -76,17 +177,7 @@ export default function CatalogPage({ items, loading = false, error = "", addToC
                   })}
                 </div>
               </div>
-
-              <div className="w-full lg:w-80">
-                <input
-                  type="search"
-                  placeholder="Buscar por nome…"
-                  className="w-full rounded-lg bg-slate-800/60 ring-1 ring-white/10 px-3 py-2 text-sm placeholder:text-slate-400 outline-none"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                />
-              </div>
-            </div>
+            )}
 
             <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 justify-items-center">
               {loading &&
@@ -115,7 +206,7 @@ export default function CatalogPage({ items, loading = false, error = "", addToC
                     addToCart={addToCart}
                     buyNow={buyNow}
                     openGallery={openGallery}
-              onRequireLogin={onRequireLogin}
+                    onRequireLogin={onRequireLogin}
                   />
                 ))}
 

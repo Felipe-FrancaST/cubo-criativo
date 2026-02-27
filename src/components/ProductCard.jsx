@@ -111,6 +111,20 @@ export default function ProductCard({ p, addToCart, buyNow, openGallery, onRequi
         <span className="absolute bottom-2 right-2 text-[10px] px-2 py-0.5 rounded-full bg-black/50 ring-1 ring-white/20">
           ver fotos
         </span>
+
+        {/* Badges (tipo / disponibilidade) */}
+        <div className="absolute top-2 right-2 flex flex-col items-end gap-1 pointer-events-none">
+          {p?._availabilityLabel ? (
+            <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-black/55 ring-1 ring-white/20">
+              {p._availabilityLabel}{p?._leadTimeLabel && !p?._isStock ? ` • ${p._leadTimeLabel}` : ""}
+            </span>
+          ) : null}
+          {p?._typeLabel ? (
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-white/10 ring-1 ring-white/15">
+              {p._typeLabel}
+            </span>
+          ) : null}
+        </div>
       </div>
 
       <div className="p-4">

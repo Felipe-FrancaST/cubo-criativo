@@ -6,6 +6,8 @@ import { supabase } from "../lib/supabaseClient";
 export default function HomePage({
   brand,
   featured,
+  prontaEntregaPreview = [],
+  rpgPreview = [],
   loadingProducts = false,
   productsError = "",
   addToCart,
@@ -13,6 +15,7 @@ export default function HomePage({
   openGallery,
   onGoEstoque,
   onGoCatalogo,
+  onGoSobEncomenda,
   onGoPromocoes,
   onGoFaq,
   onGoPoliticas,
@@ -152,6 +155,76 @@ export default function HomePage({
               </div>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* PRONTA ENTREGA */}
+      <section
+        className="mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14"
+        style={{ maxWidth: "var(--container-max, 1200px)" }}
+      >
+        <div className="flex items-end justify-between gap-4 flex-wrap">
+          <div>
+            <h2 className="text-2xl sm:text-3xl font-extrabold">Pronta entrega</h2>
+            <p className="mt-1 text-sm text-slate-400">Peças disponíveis agora — envio rápido e rastreio.</p>
+          </div>
+          <button
+            onClick={onGoEstoque}
+            className="rounded-xl px-4 py-2 text-sm ring-1 ring-white/15 hover:bg-white/5"
+          >
+            Ver tudo
+          </button>
+        </div>
+
+        <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 justify-items-center">
+          {!loadingProducts && !productsError && (prontaEntregaPreview || []).slice(0, 8).map((p) => (
+            <ProductCard
+              key={p.id}
+              p={p}
+              addToCart={addToCart}
+              buyNow={buyNow}
+              openGallery={openGallery}
+              onRequireLogin={onRequireLogin}
+            />
+          ))}
+          {!loadingProducts && !productsError && (prontaEntregaPreview || []).length === 0 && (
+            <div className="col-span-full text-center text-slate-400 text-sm">Sem itens em pronta entrega no momento.</div>
+          )}
+        </div>
+      </section>
+
+      {/* MINIATURAS RPG (SOB ENCOMENDA) */}
+      <section
+        className="mx-auto px-4 sm:px-6 lg:px-8 pb-10 sm:pb-14"
+        style={{ maxWidth: "var(--container-max, 1200px)" }}
+      >
+        <div className="flex items-end justify-between gap-4 flex-wrap">
+          <div>
+            <h2 className="text-2xl sm:text-3xl font-extrabold">Miniaturas RPG sob encomenda</h2>
+            <p className="mt-1 text-sm text-slate-400">Produzidas no estúdio — prazo médio 15–30 dias úteis.</p>
+          </div>
+          <button
+            onClick={onGoSobEncomenda}
+            className="rounded-xl px-4 py-2 text-sm ring-1 ring-white/15 hover:bg-white/5"
+          >
+            Como funciona + catálogo
+          </button>
+        </div>
+
+        <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 justify-items-center">
+          {!loadingProducts && !productsError && (rpgPreview || []).slice(0, 8).map((p) => (
+            <ProductCard
+              key={p.id}
+              p={p}
+              addToCart={addToCart}
+              buyNow={buyNow}
+              openGallery={openGallery}
+              onRequireLogin={onRequireLogin}
+            />
+          ))}
+          {!loadingProducts && !productsError && (rpgPreview || []).length === 0 && (
+            <div className="col-span-full text-center text-slate-400 text-sm">Em breve novas miniaturas RPG.</div>
+          )}
         </div>
       </section>
 

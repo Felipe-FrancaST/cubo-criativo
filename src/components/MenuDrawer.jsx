@@ -31,8 +31,6 @@ export default function MenuDrawer({
   onOpenVipArea,
   onOpenSettings,
   onSignOut,
-  onToggleRpg,
-  rpgMode,
 }) {
   const brand = brandConfig;
   const panelRef = React.useRef(null);
@@ -86,20 +84,27 @@ export default function MenuDrawer({
     <DrawerButton icon="home" onClick={() => { onNavigate("/"); onClose?.(); }}>
       Início
     </DrawerButton>
-    <DrawerButton icon="inventory_2" onClick={() => { onNavigate("/estoque"); onClose?.(); }}>
-      Estoque
-    </DrawerButton>
     <DrawerButton icon="view_module" onClick={() => { onNavigate("/catalogo"); onClose?.(); }}>
-      Catálogo
+      Catálogo (tudo)
+    </DrawerButton>
+    <DrawerButton icon="local_shipping" onClick={() => { onNavigate("/catalogo?disponibilidade=pronta"); onClose?.(); }}>
+      Pronta entrega
+    </DrawerButton>
+    <DrawerButton icon="schedule" onClick={() => { onNavigate("/sob-encomenda"); onClose?.(); }}>
+      Sob encomenda
     </DrawerButton>
     <DrawerButton icon="local_offer" onClick={() => { onNavigate("/promocoes"); onClose?.(); }}>
       Promoções
     </DrawerButton>
-    <DrawerButton icon="stars" onClick={() => { onNavigate("/vip"); onClose?.(); }}>
-      Clube VIP (RPG)
-    </DrawerButton>
     <DrawerButton icon="redeem" onClick={() => { onNavigate("/cupom"); onClose?.(); }}>
       Cubo Game (cupons)
+    </DrawerButton>
+  </div>
+
+  <div className="space-y-2">
+    <p className="text-xs font-semibold tracking-wider text-slate-500 uppercase px-1">Clube</p>
+    <DrawerButton icon="stars" onClick={() => { onNavigate("/vip"); onClose?.(); }}>
+      Clube VIP
     </DrawerButton>
   </div>
 

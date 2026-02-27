@@ -30,12 +30,12 @@ import TrocasPage from "./pages/TrocasPage.jsx";
 import TermosPage from "./pages/TermosPage.jsx";
 import CupomGamePage from "./pages/CupomGamePage.jsx";
 import VipRpgPage from "./pages/VipRpgPage.jsx";
+import SobEncomendaPage from "./pages/SobEncomendaPage.jsx";
 import { isAdminEmail } from "./lib/admin.js";
 import { applySeo, setJsonLd, clearJsonLd } from "./lib/seo.js";
 import { trackEvent } from "./lib/analytics.js";
 
-// Lazy-load (carrega só quando abrir)
-const RPGPage = React.lazy(() => import("./rpg/RPGPage.jsx"));
+// (Removido) Modo RPG separado: agora as peças RPG vivem dentro do Catálogo.
 
 /* ========================================================================
    HELPERS
@@ -407,7 +407,6 @@ export default function App() {
   }, [route]);
 
   // ===== UI =====
-  const [rpgMode, setRpgMode] = React.useState(false);
   const [authOpen, setAuthOpen] = React.useState(false);
   const [ordersOpen, setOrdersOpen] = React.useState(false);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
@@ -801,12 +800,12 @@ React.useEffect(() => {
   }, []);
 
   React.useEffect(() => {
-    const anyOverlayOpen = cartOpen || galleryOpen || rpgMode || authOpen || ordersOpen || settingsOpen || menuDrawerOpen;
+    const anyOverlayOpen = cartOpen || galleryOpen || authOpen || ordersOpen || settingsOpen || menuDrawerOpen;
     document.body.style.overflow = anyOverlayOpen ? "hidden" : "";
     return () => {
       document.body.style.overflow = "";
     };
-  }, [cartOpen, galleryOpen, rpgMode, authOpen, ordersOpen, settingsOpen, menuDrawerOpen]);
+  }, [cartOpen, galleryOpen, authOpen, ordersOpen, settingsOpen, menuDrawerOpen]);
 
   // fecha menu lateral quando muda rota
   React.useEffect(() => {
@@ -873,38 +872,49 @@ React.useEffect(() => {
     openGallery(found);
   }, [route, productsLoading, products]);
 
-  const emEstoque = React.useMemo(
-    () =>
-      products.filter((p) => {
-        const isStock = String(p.status || "").toLowerCase() === "estoque";
-        const cat = String(p.category || "").toLowerCase();
-        const tags = Array.isArray(p.tags) ? p.tags.map((t) => String(t).toLowerCase()) : [];
-        const isRpg = cat === "rpg" || tags.includes("rpg");
-        return isStock && !isRpg;
-      }),
-    [products]
-  );
-  const catalogo = React.useMemo(
-    () =>
-      products.filter((p) => {
-        const isCatalog = String(p.status || "").toLowerCase() !== "estoque";
-        const cat = String(p.category || "").toLowerCase();
-        const tags = Array.isArray(p.tags) ? p.tags.map((t) => String(t).toLowerCase()) : [];
-        const isRpg = cat === "rpg" || tags.includes("rpg");
-        return isCatalog && !isRpg;
-      }),
-    [products]
+  // ===== Classificação (tipo + disponibilidade) =====
+  const classifyProduct = React.useCallback((p) => {
+    const cat = String(p?.category || "").toLowerCase();
+    const tags = Array.isArray(p?.tags) ? p.tags.map((t) => String(t).toLowerCase()) : [];
+    const name = String(p?.nome || "").toLowerCase();
+
+    const isRpg = cat === "rpg" || tags.includes("rpg") || tags.some((t) => t.startsWith("classe:") || t.startsWith("raça:") || t.startsWith("raca:"));
+    const isStock = String(p?.status || "").toLowerCase() === "estoque";
+
+    const tagBlob = `${tags.join(" ")} ${cat} ${name}`;
+    const isActionFigure =
+      tagBlob.includes("action figure") ||
+      tagBlob.includes("figure action") ||
+      tagBlob.includes("action-figure") ||
+      cat.includes("action") ||
+      tagBlob.includes("figure");
+
+    const typeLabel = isRpg ? "Miniatura RPG" : isActionFigure ? "Action Figure" : "Colecionável";
+    const availabilityLabel = isStock ? "Pronta entrega" : "Sob encomenda";
+    const leadTimeLabel = isStock ? "" : "15–30 dias úteis";
+
+    return {
+      ...p,
+      _isRpg: isRpg,
+      _isStock: isStock,
+      _typeLabel: typeLabel,
+      _availabilityLabel: availabilityLabel,
+      _leadTimeLabel: leadTimeLabel,
+    };
+  }, []);
+
+  const allCatalogItems = React.useMemo(() => products.map(classifyProduct), [products, classifyProduct]);
+
+  const prontaEntrega = React.useMemo(() => allCatalogItems.filter((p) => p._isStock), [allCatalogItems]);
+  const sobEncomenda = React.useMemo(() => allCatalogItems.filter((p) => !p._isStock), [allCatalogItems]);
+  const rpgSobEncomenda = React.useMemo(
+    () => allCatalogItems.filter((p) => p._isRpg && !p._isStock),
+    [allCatalogItems]
   );
 
   const featured = React.useMemo(() => {
-    // Destaques devem ser controlados exclusivamente pelo campo `featured` no Supabase.
-    // Se nenhum produto estiver marcado como featured, não mostra nada.
-    const explicit = products.filter((p) => {
-      const cat = String(p.category || "").toLowerCase();
-      const tags = Array.isArray(p.tags) ? p.tags.map((t) => String(t).toLowerCase()) : [];
-      const isRpg = cat === "rpg" || tags.includes("rpg");
-      return p.featured === true && !isRpg;
-    });
+    // Destaques controlados exclusivamente por `featured` (Supabase).
+    const explicit = allCatalogItems.filter((p) => p.featured === true);
     // opcional: mantém uma ordem estável (mais recentes primeiro)
     explicit.sort((a, b) => {
       const ta = a?.updated_at ? new Date(a.updated_at).getTime() : 0;
@@ -912,7 +922,7 @@ React.useEffect(() => {
       return tb - ta;
     });
     return explicit.slice(0, 8);
-  }, [products, emEstoque, catalogo]);
+  }, [allCatalogItems]);
 
   const promocoes = React.useMemo(() => {
     const promos = products.filter((p) => p.promo === true);
@@ -932,14 +942,7 @@ React.useEffect(() => {
     return promos;
   }, [products]);
 
-  // ===== RPG (usa a mesma tabela `products`) =====
-  const rpgItems = React.useMemo(() => {
-    return products.filter((p) => {
-      const cat = String(p.category || "").toLowerCase();
-      const tags = Array.isArray(p.tags) ? p.tags.map((t) => String(t).toLowerCase()) : [];
-      return cat === "rpg" || tags.includes("rpg");
-    });
-  }, [products]);
+  // (RPG agora faz parte do catálogo; mantemos apenas a lista para vitrine na Home)
 
   React.useEffect(() => {
     let listName = '';
@@ -948,11 +951,11 @@ React.useEffect(() => {
       listName = 'Destaques Cubo Criativo';
       source = featured;
     } else if (route === "/estoque") {
-      listName = 'Produtos em estoque';
-      source = emEstoque;
+      listName = 'Pronta entrega — Cubo Criativo';
+      source = prontaEntrega;
     } else if (route === "/catalogo") {
-      listName = 'Catálogo de miniaturas';
-      source = catalogo;
+      listName = 'Catálogo — Action figures, miniaturas de RPG e colecionáveis';
+      source = allCatalogItems;
     } else if (route === "/promocoes") {
       listName = 'Promoções de miniaturas';
       source = promocoes;
@@ -965,7 +968,7 @@ React.useEffect(() => {
     return () => {
       // limpa quando trocar para rotas institucionais/conta/admin
     };
-  }, [route, featured, emEstoque, catalogo, promocoes]);
+  }, [route, featured, prontaEntrega, allCatalogItems, promocoes]);
 
   // ===== SEO + Schema para página de produto (/p/:slug) =====
   React.useEffect(() => {
@@ -1049,7 +1052,7 @@ React.useEffect(() => {
     if (route === "/estoque") {
       return (
         <StockPage
-          items={emEstoque}
+          items={prontaEntrega}
           loading={productsLoading}
           error={productsError}
           addToCart={addToCart}
@@ -1063,13 +1066,27 @@ React.useEffect(() => {
     if (route === "/catalogo") {
       return (
         <CatalogPage
-          items={catalogo}
+          items={allCatalogItems}
           loading={productsLoading}
           error={productsError}
           addToCart={addToCart}
           buyNow={buyNow}
           openGallery={openGallery}
         
+          onRequireLogin={(msg) => requireLogin(msg)}
+        />
+      );
+    }
+    if (route === "/sob-encomenda") {
+      return (
+        <SobEncomendaPage
+          items={sobEncomenda}
+          loading={productsLoading}
+          error={productsError}
+          addToCart={addToCart}
+          buyNow={buyNow}
+          openGallery={openGallery}
+          onGoCatalogo={() => navigate("/catalogo")}
           onRequireLogin={(msg) => requireLogin(msg)}
         />
       );
@@ -1106,17 +1123,20 @@ React.useEffect(() => {
       <HomePage
         brand={brand}
         featured={featured}
+        prontaEntregaPreview={prontaEntrega.slice(0, 8)}
+        rpgPreview={rpgSobEncomenda.slice(0, 8)}
         loadingProducts={productsLoading}
         productsError={productsError}
         addToCart={addToCart}
         buyNow={buyNow}
         openGallery={openGallery}
-        onGoEstoque={() => navigate("/estoque")}
+        onGoEstoque={() => navigate("/catalogo?disponibilidade=pronta")}
         onGoCatalogo={() => navigate("/catalogo")}
         onGoPromocoes={() => navigate("/promocoes")}
         onGoFaq={() => navigate("/faq")}
         onGoPoliticas={() => navigate("/politica-de-privacidade")}
         onGoCupom={() => navigate("/cupom")}
+        onGoSobEncomenda={() => navigate("/sob-encomenda")}
       
           onRequireLogin={(msg) => requireLogin(msg)}
         />
@@ -1148,8 +1168,6 @@ React.useEffect(() => {
         }}
         onOpenSettings={(tab) => openSettings(tab)}
         onSignOut={() => signOut()}
-        onToggleRpg={() => setRpgMode((v) => !v)}
-        rpgMode={rpgMode}
         onNavigate={navigate}
         onGoHomeSection={goHomeSection}
       />
@@ -1175,33 +1193,13 @@ React.useEffect(() => {
         }}
         onOpenSettings={(tab) => openSettings(tab)}
         onSignOut={() => signOut()}
-        onToggleRpg={() => setRpgMode((v) => !v)}
-        rpgMode={rpgMode}
       />
 
-      {rpgMode && (
-        <React.Suspense
-          fallback={
-            <div className="fixed inset-0 z-[140] grid place-items-center bg-black/60 text-slate-200">
-              Carregando RPG…
-            </div>
-          }
-        >
-          <RPGPage
-            onClose={() => setRpgMode(false)}
-            addToCart={addToCart}
-            items={rpgItems}
-            loading={productsLoading}
-            error={productsError}
-          />
-        </React.Suspense>
-      )}
-
-      {/* Conteúdo (só quando NÃO está no RPG) */}
-      {!rpgMode && page}
+      {/* Conteúdo */}
+      {page}
 
       {/* FOOTER */}
-      {!rpgMode && (
+      (
         <footer id="contato" className="mt-auto border-t border-white/10">
           <div
             className="mx-auto grid grid-cols-1 md:grid-cols-3 gap-6 text-sm px-4 sm:px-6 lg:px-8 py-10"
@@ -1236,7 +1234,7 @@ React.useEffect(() => {
             © {new Date().getFullYear()} {brand.name}. Todos os direitos reservados.
           </div>
         </footer>
-      )}
+      )
 
       {/* DRAWER CARRINHO */}
       <CartDrawer
