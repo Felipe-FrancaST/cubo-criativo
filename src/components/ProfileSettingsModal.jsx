@@ -25,8 +25,15 @@ function findVipPlanForProfile(plans, profilePlan) {
   return (plans || []).find((p) => [p?.id,p?.slug,p?.name,p?.short_name,p?.title].map(normVipText).some((c)=> c && (c===q || q.includes(c) || c.includes(q)))) || null;
 }
 
-export default function ProfileSettingsModal({ open, onClose, required = false, onSaved, initialTab = "profile", onSignOut, onNavigate }) {
+export default function ProfileSettingsModal({ open, onClose, required = false, onSaved, initialTab = "profile", onSignOut, onNavigate, onRequireLogin }) {
   const { user, session, resetPassword } = useAuth();
+
+  React.useEffect(() => {
+    if (open && !user) {
+      onRequireLogin?.("Faça login para editar seus dados.");
+      if (!required) onClose?.();
+    }
+  }, [open, user]);
   const jwt = session?.access_token || "";
 
   const [loading, setLoading] = React.useState(false);
@@ -614,7 +621,11 @@ export default function ProfileSettingsModal({ open, onClose, required = false, 
     <Modal open={open} onClose={onClose} title={activeTab === "settings" ? "Configurações" : "Perfil"}>
       <div className="w-full max-w-3xl">
         {!user ? (
-          <p className="text-slate-300">Faça login para editar seus dados.</p>
+          <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4 text-slate-200">
+            <div className="font-semibold">Entre para continuar</div>
+            <div className="text-sm text-slate-300 mt-1">Você precisa estar logado para editar seus dados.</div>
+            <button type="button" onClick={() => onRequireLogin?.("Faça login para editar seus dados.")} className="mt-3 rounded-xl bg-emerald-500 text-black font-semibold px-4 py-2">Entrar / Criar conta</button>
+          </div>
         ) : (
           <div className="space-y-4">
             <div className="rounded-2xl bg-gradient-to-br from-indigo-500/15 via-fuchsia-500/10 to-teal-400/10 ring-1 ring-white/10 p-4">

@@ -64,7 +64,7 @@ function fmtAddress(p) {
   return parts.join("\n");
 }
 
-export default function AdminOrdersPage({ user, accessToken, onNavigateHome }) {
+export default function AdminOrdersPage({ user, accessToken, onNavigateHome, onRequireLogin }) {
   const [tab, setTab] = React.useState("orders");
   const [orders, setOrders] = React.useState([]);
   const [loading, setLoading] = React.useState(false);
@@ -144,7 +144,11 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome }) {
     }
   }, [accessToken]);
 
-  React.useEffect(() => {
+    React.useEffect(() => {
+    if (!user) onRequireLogin?.('Faça login como admin para ver pedidos.');
+  }, [user]);
+
+React.useEffect(() => {
     fetchOrders();
   }, [fetchOrders]);
 

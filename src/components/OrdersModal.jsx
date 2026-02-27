@@ -32,8 +32,17 @@ function productOrderItemHref(it) {
   return `/catalogo?produto=${encodeURIComponent(key)}`;
 }
 
-export default function OrdersModal({ open, onClose, onPaymentFinalized }) {
+export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequireLogin }) {
   const { user, session } = useAuth();
+
+
+  // Se abrir sem estar logado, padroniza: toast + modal de auth (e fecha este modal)
+  React.useEffect(() => {
+    if (open && !user) {
+      onRequireLogin?.("Faça login para ver seus pedidos.");
+      onClose?.();
+    }
+  }, [open, user]);
   const accessToken = session?.access_token || "";
   const [orders, setOrders] = React.useState([]);
   const [loading, setLoading] = React.useState(false);
@@ -282,7 +291,7 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized }) {
         checking: false,
         pix: null,
         status: "pending",
-        msg: "Faça login novamente para pagar.",
+        msg: "Sessão expirada. Faça login novamente.",
       });
       return;
     }
@@ -762,11 +771,7 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized }) {
               <span className="material-icons">close</span>
             </button>
           </div>
-        </div>
-
-        {!user && (
-          <p className="mt-4 text-slate-300">Faça login para ver seus pedidos.</p>
-        )}
+        </div> 
 
         {user && (
           <div className="mt-4 space-y-4">

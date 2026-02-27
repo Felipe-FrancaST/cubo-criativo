@@ -1,7 +1,7 @@
 import React from "react";
 import ProductCard from "../components/ProductCard.jsx";
 
-export default function StockPage({ items, loading = false, error = "", addToCart, buyNow, openGallery , onRequireAuth}) {
+export default function StockPage({ items, loading = false, error = "", addToCart, buyNow, openGallery , onRequireLogin}) {
   // Deep link: /estoque?product=<id>&open=1
   React.useEffect(() => {
     if (typeof window === "undefined") return;
@@ -80,7 +80,7 @@ export default function StockPage({ items, loading = false, error = "", addToCar
                   addToCart={addToCart}
                   buyNow={buyNow}
                   openGallery={openGallery}
-              onRequireAuth={onRequireAuth}
+              onRequireLogin={onRequireLogin}
                 />
               ))}
 

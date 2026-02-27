@@ -44,7 +44,7 @@ function formatCountdown(ms) {
   return `${pad(hours)}h ${pad(minutes)}m ${pad(seconds)}s`;
 }
 
-export default function CupomGamePage({ onGoHome, accessToken }) {
+export default function CupomGamePage({ onGoHome, accessToken, onRequireLogin }) {
   const [status, setStatus] = React.useState({ loading: true, can_play: false, weekly_reward: null, coupon: null, played: false });
   const [deck, setDeck] = React.useState(() => buildDeck());
   const [flipped, setFlipped] = React.useState([]);
@@ -59,7 +59,8 @@ export default function CupomGamePage({ onGoHome, accessToken }) {
 
   async function loadStatus() {
     if (!accessToken) {
-      setStatus({ loading: false, can_play: false, weekly_reward: null, coupon: null, played: false, error: 'Faça login para jogar e receber cupom.' });
+      onRequireLogin?.('Faça login para jogar e receber cupom.');
+      setStatus({ loading: false, can_play: false, weekly_reward: null, coupon: null, played: false, error: null });
       return;
     }
     setStatus((s) => ({ ...s, loading: true }));

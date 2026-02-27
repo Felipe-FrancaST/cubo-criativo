@@ -10,7 +10,7 @@ import { useAuth } from "../auth/AuthProvider.jsx";
  * - buyNow(p, {escala, unitPrice})
  * - openGallery(p)                (abre galeria com as imagens do produto)
  */
-export default function ProductCard({ p, addToCart, buyNow, openGallery, onRequireAuth }) {
+export default function ProductCard({ p, addToCart, buyNow, openGallery, onRequireLogin }) {
   const { user } = useAuth();
   const { isFavorite, toggleFavorite } = useFavorites();
   const defaultIndex = Math.max(0, p.variants?.findIndex((v) => v.label === p.defaultVariant));
@@ -99,7 +99,7 @@ export default function ProductCard({ p, addToCart, buyNow, openGallery, onRequi
             e.stopPropagation();
             const res = await toggleFavorite(p?.id);
             if (!res.ok && !user) {
-              onRequireAuth?.();
+              onRequireLogin?.('Faça login para favoritar.');
             } else if (!res.ok && res.error) {
               console.warn(res.error);
             }

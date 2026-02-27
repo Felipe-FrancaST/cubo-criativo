@@ -382,6 +382,20 @@ export default function App() {
   // evita toasts repetidos ao lidar com retorno do pagamento (URL params)
   const paymentReturnRef = React.useRef({ key: "", notified: false });
 
+  // ===== Auth gate (padrão) =====
+  const requireLogin = React.useCallback(
+    (msg = "Faça login para continuar.") => {
+      setToastMsg(msg);
+      setToastOpen(true);
+      setAuthOpen(true);
+      clearTimeout(toastT.current);
+      toastT.current = setTimeout(() => setToastOpen(false), 2400);
+      trackEvent?.("auth_required", { message: msg });
+    },
+    []
+  );
+
+
   // Persiste carrinho (mantém itens após recarregar)
   React.useEffect(() => {
     if (typeof window === "undefined") return;
@@ -640,11 +654,7 @@ React.useEffect(() => {
 
   async function startCheckout(appliedCoupon = null) {
     if (!user) {
-      setToastMsg("Faça login para pagar.");
-      setToastOpen(true);
-      setAuthOpen(true);
-      clearTimeout(toastT.current);
-      toastT.current = setTimeout(() => setToastOpen(false), 2400);
+      requireLogin("Faça login para pagar.");
       return;
     }
     if (!cart.length) return;
@@ -904,7 +914,7 @@ React.useEffect(() => {
   // ===== Render da página =====
   const page = (() => {
     if (route === "/admin") {
-      return <AdminOrdersPage user={user} accessToken={accessToken} onNavigateHome={() => navigate("/")} />;
+      return <AdminOrdersPage user={user} accessToken={accessToken} onNavigateHome={() => navigate("/")} onRequireLogin={requireLogin} />;
     }
     if (route === "/promocoes") {
       return (
@@ -929,7 +939,7 @@ React.useEffect(() => {
           buyNow={buyNow}
           openGallery={openGallery}
         
-          onRequireAuth={() => setAuthOpen(true)}
+          onRequireLogin={(msg) => requireLogin(msg)}
         />
       );
     }
@@ -943,7 +953,7 @@ React.useEffect(() => {
           buyNow={buyNow}
           openGallery={openGallery}
         
-          onRequireAuth={() => setAuthOpen(true)}
+          onRequireLogin={(msg) => requireLogin(msg)}
         />
       );
     }
@@ -991,7 +1001,7 @@ React.useEffect(() => {
         onGoPoliticas={() => navigate("/politica-de-privacidade")}
         onGoCupom={() => navigate("/cupom")}
       
-          onRequireAuth={() => setAuthOpen(true)}
+          onRequireLogin={(msg) => requireLogin(msg)}
         />
     );
   })();
@@ -1127,15 +1137,7 @@ React.useEffect(() => {
         authToken={accessToken}
         userId={user?.id || ""}
         userEmail={user?.email || ""}
-        onRequireLogin={(msg) => {
-          if (msg) {
-            setToastMsg(String(msg));
-            setToastOpen(true);
-            clearTimeout(toastT.current);
-            toastT.current = setTimeout(() => setToastOpen(false), 2400);
-          }
-          setAuthOpen(true);
-        }}
+        onRequireLogin={requireLogin}
         onRequireProfile={() => openSettings('profile')}
         onOpenOrders={() => setOrdersOpen(true)}
         onPaymentConfirmed={() => {
@@ -1152,6 +1154,7 @@ React.useEffect(() => {
 
       <OrdersModal
         open={ordersOpen}
+        onRequireLogin={requireLogin}
         onClose={() => setOrdersOpen(false)}
         onPaymentFinalized={() => {
           // Quando o usuário paga um Pix pela aba "Meus pedidos",
@@ -1165,10 +1168,11 @@ React.useEffect(() => {
         }}
       />
 
-      <VipAreaModal open={vipAreaOpen} onClose={() => setVipAreaOpen(false)} onGoVip={() => { setVipAreaOpen(false); navigate("/vip"); }} />
+      <VipAreaModal onRequireLogin={requireLogin} open={vipAreaOpen} onClose={() => setVipAreaOpen(false)} onGoVip={() => { setVipAreaOpen(false); navigate("/vip"); }} />
 
       <ProfileSettingsModal
         open={settingsOpen}
+        onRequireLogin={requireLogin}
         initialTab={settingsTab}
         onNavigate={navigate}
         onSignOut={() => signOut()}

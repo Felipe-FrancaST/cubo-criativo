@@ -46,8 +46,15 @@ function findPlanByProfileValue(plans, profilePlan) {
   }) || null;
 }
 
-export default function VipAreaModal({ open, onClose, onGoVip }) {
+export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin }) {
   const { user } = useAuth();
+
+  React.useEffect(() => {
+    if (open && !user) {
+      onRequireLogin?.("Entre para acessar a Área VIP.");
+      onClose?.();
+    }
+  }, [open, user]);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState("");
   const [vipUntil, setVipUntil] = React.useState(null);
@@ -282,7 +289,8 @@ export default function VipAreaModal({ open, onClose, onGoVip }) {
       const session = await supabase.auth.getSession();
       const jwt = session?.data?.session?.access_token;
       if (!jwt) {
-        setMsg('Faça login novamente para continuar.');
+        onRequireLogin?.('Sessão expirada. Faça login novamente para continuar.');
+        onClose?.();
         return;
       }
       const res = await fetch('/api/create-vip-upgrade-pix-payment', {
@@ -316,7 +324,8 @@ export default function VipAreaModal({ open, onClose, onGoVip }) {
       const session = await supabase.auth.getSession();
       const jwt = session?.data?.session?.access_token;
       if (!jwt) {
-        setMsg('Faça login novamente para continuar.');
+        onRequireLogin?.('Sessão expirada. Faça login novamente para continuar.');
+        onClose?.();
         return;
       }
       const res = await fetch('/api/create-checkout-session', {
@@ -455,7 +464,7 @@ export default function VipAreaModal({ open, onClose, onGoVip }) {
           </div>
 
           {!user ? (
-            <div className="mt-6 rounded-2xl bg-white/5 ring-1 ring-white/10 p-4 text-slate-200">Faça login para acessar a Área VIP.</div>
+            <div className="mt-6 rounded-2xl bg-white/5 ring-1 ring-white/10 p-4 text-slate-200">Entre para acessar a Área VIP.</div>
           ) : loading ? (
             <div className="mt-6 rounded-2xl bg-white/5 ring-1 ring-white/10 p-4 text-slate-200">Carregando…</div>
           ) : error ? (

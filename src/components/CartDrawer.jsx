@@ -147,8 +147,8 @@ export default function CartDrawer({
       return;
     }
     if (!authToken) {
-      onRequireLogin?.();
-      if (!opts.silent) setCouponMsg('Faça login para usar cupom.');
+      onRequireLogin?.('Faça login para usar cupom.');
+      if (!opts.silent) setCouponMsg('');
       return;
     }
     if (!canCheckout) {
