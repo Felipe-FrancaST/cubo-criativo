@@ -18,9 +18,10 @@ export async function requireAdmin(req) {
   if (!user) return { ok: false, status: 401, error: "Unauthorized" };
   const email = String(user.email || "").trim().toLowerCase();
   const admins = getAdminEmails();
-  // Friendly fallback for single-owner installs: if env vars are missing in production,
-  // still allow the primary owner to access admin endpoints.
-  const fallbackAdmins = ["francafelipe448@gmail.com"];
+  // Segurança: em produção NÃO usamos fallback hardcoded.
+  // Em dev (local) mantemos fallback para facilitar testes sem env.
+  const isProd = String(process.env.NODE_ENV || "").toLowerCase() === "production";
+  const fallbackAdmins = isProd ? [] : ["francafelipe448@gmail.com"];
   const allowed = admins.length ? admins : fallbackAdmins;
   if (!email || !allowed.includes(email)) {
     return { ok: false, status: 403, error: "Forbidden" };

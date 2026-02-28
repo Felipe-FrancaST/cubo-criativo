@@ -11,16 +11,15 @@
  * - SUPABASE_SERVICE_ROLE_KEY
  */
 import { getUserFromAuthHeader, supabaseAdmin } from "../server/supabase.js";
+import { z, safeJsonBody, validateBody } from "../server/validate.js";
 
 export const config = { runtime: "nodejs" };
 
-function safeBody(req) {
-  if (!req.body) return {};
-  if (typeof req.body === "string") {
-    try { return JSON.parse(req.body); } catch { return {}; }
-  }
-  return req.body;
-}
+const BodySchema = z
+  .object({
+    profile: z.record(z.any()).optional(),
+  })
+  .passthrough();
 
 const ALLOWED = new Set([
   "full_name",
@@ -57,7 +56,10 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "POST") {
-      const body = safeBody(req);
+      const bodyRaw = safeJsonBody(req);
+      const v = validateBody(BodySchema, bodyRaw);
+      if (!v.ok) return res.status(v.status).json({ error: v.error, details: v.details });
+      const body = v.data;
       const incoming = body?.profile && typeof body.profile === "object" ? body.profile : body;
 
       const payload = { id: user.id };

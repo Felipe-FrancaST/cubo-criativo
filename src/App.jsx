@@ -1,5 +1,5 @@
 // src/App.jsx
-import React from "react";
+import React, { Suspense } from "react";
 import brand from "./data/config";
 
 // Componentes
@@ -14,23 +14,23 @@ import SiteHeader from "./components/SiteHeader.jsx";
 import { useAuth } from "./auth/AuthProvider.jsx";
 import { supabase } from "./lib/supabaseClient";
 
-// Páginas
-import HomePage from "./pages/HomePage.jsx";
-import StockPage from "./pages/StockPage.jsx";
-import CatalogPage from "./pages/CatalogPage.jsx";
-import AccountPage from "./pages/AccountPage.jsx";
-import PromocoesPage from "./pages/PromocoesPage.jsx";
-import ProductPage from "./pages/ProductPage.jsx";
-import SobrePage from "./pages/SobrePage.jsx";
-import ContactPage from "./pages/ContactPage.jsx";
-import AdminOrdersPage from "./pages/AdminOrdersPage.jsx";
-import FAQPage from "./pages/FAQPage.jsx";
-import PoliticaPrivacidadePage from "./pages/PoliticaPrivacidadePage.jsx";
-import TrocasPage from "./pages/TrocasPage.jsx";
-import TermosPage from "./pages/TermosPage.jsx";
-import CupomGamePage from "./pages/CupomGamePage.jsx";
-import VipRpgPage from "./pages/VipRpgPage.jsx";
-import SobEncomendaPage from "./pages/SobEncomendaPage.jsx";
+// Páginas (lazy para reduzir o bundle inicial)
+const HomePage = React.lazy(() => import("./pages/HomePage.jsx"));
+const StockPage = React.lazy(() => import("./pages/StockPage.jsx"));
+const CatalogPage = React.lazy(() => import("./pages/CatalogPage.jsx"));
+const AccountPage = React.lazy(() => import("./pages/AccountPage.jsx"));
+const PromocoesPage = React.lazy(() => import("./pages/PromocoesPage.jsx"));
+const ProductPage = React.lazy(() => import("./pages/ProductPage.jsx"));
+const SobrePage = React.lazy(() => import("./pages/SobrePage.jsx"));
+const ContactPage = React.lazy(() => import("./pages/ContactPage.jsx"));
+const AdminOrdersPage = React.lazy(() => import("./pages/AdminOrdersPage.jsx"));
+const FAQPage = React.lazy(() => import("./pages/FAQPage.jsx"));
+const PoliticaPrivacidadePage = React.lazy(() => import("./pages/PoliticaPrivacidadePage.jsx"));
+const TrocasPage = React.lazy(() => import("./pages/TrocasPage.jsx"));
+const TermosPage = React.lazy(() => import("./pages/TermosPage.jsx"));
+const CupomGamePage = React.lazy(() => import("./pages/CupomGamePage.jsx"));
+const VipRpgPage = React.lazy(() => import("./pages/VipRpgPage.jsx"));
+const SobEncomendaPage = React.lazy(() => import("./pages/SobEncomendaPage.jsx"));
 import { isAdminEmail } from "./lib/admin.js";
 import { applySeo, setJsonLd, clearJsonLd } from "./lib/seo.js";
 import { trackEvent } from "./lib/analytics.js";
@@ -58,7 +58,7 @@ function scrollToTop() {
 
   // 1) Window (padrão)
   try {
-    scrollToTop();
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   } catch {}
 
   // 2) Fallbacks (alguns browsers/containers usam outro elemento como scroller)
@@ -1333,11 +1333,20 @@ React.useEffect(() => {
       />
 
       {/* Conteúdo */}
-      {page}
+      <Suspense
+        fallback={
+          <div className="mx-auto w-full px-4 sm:px-6 lg:px-8 py-10" style={{ maxWidth: "var(--container-max, 1200px)" }}>
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-slate-200">
+              Carregando…
+            </div>
+          </div>
+        }
+      >
+        {page}
+      </Suspense>
 
       {/* FOOTER */}
-      (
-        <footer id="contato" className="mt-auto border-t border-white/10">
+      <footer id="contato" className="mt-auto border-t border-white/10">
           <div
             className="mx-auto grid grid-cols-1 md:grid-cols-3 gap-6 text-sm px-4 sm:px-6 lg:px-8 py-10"
             style={{ maxWidth: "var(--container-max, 1200px)" }}
@@ -1371,7 +1380,6 @@ React.useEffect(() => {
             © {new Date().getFullYear()} {brand.name}. Todos os direitos reservados.
           </div>
         </footer>
-      )
 
       {/* DRAWER CARRINHO */}
       <CartDrawer

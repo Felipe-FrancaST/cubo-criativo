@@ -1,5 +1,6 @@
 import { renderVipWelcomeEmail } from "../server/emailTemplates.js";
 import { getVipPlanById } from "../server/vipPlans.js";
+import crypto from "node:crypto";
 /**
  * Vercel Serverless Function
  * Route: /api/mp-webhook
@@ -375,6 +376,78 @@ async function mpFetch(token, url, opts = {}) {
   return { ok: resp.ok, status: resp.status, data };
 }
 
+function getHeader(req, name) {
+  try {
+    const key = String(name || "").toLowerCase();
+    const h = req?.headers || {};
+    // Vercel normaliza para lowercase.
+    return String(h[key] || h[name] || "").trim();
+  } catch {
+    return "";
+  }
+}
+
+function safeEqual(a, b) {
+  try {
+    const aa = Buffer.from(String(a || ""), "utf8");
+    const bb = Buffer.from(String(b || ""), "utf8");
+    if (aa.length !== bb.length) return false;
+    return crypto.timingSafeEqual(aa, bb);
+  } catch {
+    return false;
+  }
+}
+
+function parseMpSignature(xSignature) {
+  // Formato típico: "ts=1234567890,v1=abcdef..." (pode ter espaços)
+  const raw = String(xSignature || "").trim();
+  if (!raw) return { ts: "", v1: "" };
+  const parts = raw.split(",").map((p) => p.trim());
+  let ts = "";
+  let v1 = "";
+  for (const p of parts) {
+    const [k, v] = p.split("=");
+    const kk = String(k || "").trim();
+    const vv = String(v || "").trim();
+    if (kk === "ts") ts = vv;
+    if (kk === "v1") v1 = vv;
+  }
+  return { ts, v1 };
+}
+
+function verifyMercadoPagoWebhook({ req, resourceId }) {
+  const secret = String(process.env.MP_WEBHOOK_SECRET || "").trim();
+  // Se não configurou secret, não bloqueamos (mas recomendamos configurar em produção).
+  if (!secret) return { ok: true, skipped: true, reason: "missing_secret" };
+
+  const xSignature = getHeader(req, "x-signature");
+  const requestId = getHeader(req, "x-request-id");
+  const { ts, v1 } = parseMpSignature(xSignature);
+  if (!ts || !v1 || !requestId || !resourceId) return { ok: false, reason: "missing_signature_headers" };
+
+  // Conforme docs/implementações públicas do MP: manifest = `id:${id};request-id:${requestId};ts:${ts};`
+  const manifest = `id:${resourceId};request-id:${requestId};ts:${ts};`;
+  const computed = crypto.createHmac("sha256", secret).update(manifest).digest("hex");
+  const ok = safeEqual(computed, v1);
+  return ok ? { ok: true } : { ok: false, reason: "invalid_signature" };
+}
+
+// Rate limit simples em memória (best-effort). Em serverless não é garantido entre instâncias.
+const __rate = new Map();
+function hitRateLimit({ key, limit = 60, windowMs = 60_000 }) {
+  const now = Date.now();
+  const k = String(key || "");
+  if (!k) return { limited: false };
+  const cur = __rate.get(k) || { count: 0, resetAt: now + windowMs };
+  if (now > cur.resetAt) {
+    cur.count = 0;
+    cur.resetAt = now + windowMs;
+  }
+  cur.count += 1;
+  __rate.set(k, cur);
+  return { limited: cur.count > limit, remaining: Math.max(0, limit - cur.count), resetAt: cur.resetAt };
+}
+
 
 function mapOrderStatus(mpStatus) {
   if (mpStatus === "approved") return "paid";
@@ -421,6 +494,13 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, ignored: "missing MP_ACCESS_TOKEN" });
     }
 
+    // Rate limit (best-effort): evita abuso / storm.
+    const ip = String(getHeader(req, "x-forwarded-for") || getHeader(req, "x-real-ip") || "").split(",")[0].trim();
+    const rl = hitRateLimit({ key: `mp-webhook:${ip || "unknown"}`, limit: 120, windowMs: 60_000 });
+    if (rl.limited) {
+      return res.status(200).json({ ok: true, ignored: "rate_limited" });
+    }
+
     const body = safeBody(req);
     // Formatos comuns:
     // { type: "payment", data: { id: "123" } }
@@ -429,6 +509,12 @@ export default async function handler(req, res) {
 
     if (!paymentId) {
       return res.status(200).json({ ok: true, ignored: "no payment id" });
+    }
+
+    // Validação de assinatura do Mercado Pago (recomendado em produção).
+    const sig = verifyMercadoPagoWebhook({ req, resourceId: String(paymentId) });
+    if (!sig.ok) {
+      return res.status(200).json({ ok: true, ignored: sig.reason || "invalid_signature" });
     }
 
     const paymentResp = await mpFetch(

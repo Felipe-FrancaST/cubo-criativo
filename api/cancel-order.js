@@ -1,6 +1,15 @@
 // api/cancel-order.js
 import { getUserFromAuthHeader, supabaseAdmin } from "../server/supabase.js";
 import { renderOrderStatusEmail } from "../server/emailTemplates.js";
+import { z, safeJsonBody, validateBody } from "../server/validate.js";
+
+const BodySchema = z
+  .object({
+    order_id: z.string().min(1),
+    confirm: z.boolean().optional(),
+    refund_mode: z.string().optional(),
+  })
+  .passthrough();
 
 async function sendResendEmail({to,subject,html}){
   const apiKey=String(process.env.RESEND_API_KEY||"" ).trim(); const from=String(process.env.RESEND_FROM||"" ).trim();
@@ -29,7 +38,10 @@ export default async function handler(req, res) {
     const user = await getUserFromAuthHeader(req);
     if (!user) return res.status(401).json({ error: "Faça login." });
 
-    const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
+    const bodyRaw = safeJsonBody(req);
+    const v = validateBody(BodySchema, bodyRaw);
+    if (!v.ok) return res.status(v.status).json({ error: v.error, details: v.details });
+    const body = v.data;
     const orderId = String(body.order_id || "").trim();
     if (!orderId) return res.status(400).json({ error: "Missing order_id" });
 

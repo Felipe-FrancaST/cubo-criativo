@@ -2,9 +2,18 @@
 import { supabaseAdmin } from "../../server/supabase.js";
 import { requireAdmin } from "../../server/admin/adminAuth.js";
 import { renderOrderStatusEmail } from "../../server/emailTemplates.js";
+import { z, safeJsonBody, validateBody } from "../../server/validate.js";
 
 export const config = { runtime: "nodejs" };
-function safeBody(req){ if(!req.body) return {}; if(typeof req.body==='string'){ try{return JSON.parse(req.body)}catch{return {}} } return req.body; }
+const BodySchema = z
+  .object({
+    order_id: z.string().min(1),
+    production_status: z.string().optional(),
+    shipping_tracking: z.string().optional(),
+    production_eta: z.string().optional(),
+    cancelled_by: z.string().optional(),
+  })
+  .passthrough();
 const ALLOWED_PROD_STATUS = new Set(["editavel","recebido","em_producao","pronto","enviado","entregue","cancelado","reembolsado"]);
 
 async function sendResendEmail({to,subject,html}){
@@ -59,7 +68,11 @@ export default async function handler(req,res){
   try{
     if(req.method!=='POST') return res.status(405).json({error:'Method not allowed'});
     const auth=await requireAdmin(req); if(!auth.ok) return res.status(auth.status).json({error:auth.error});
-    const body=safeBody(req); const order_id=String(body.order_id||'').trim(); if(!order_id) return res.status(400).json({error:'Missing order_id'});
+    const bodyRaw = safeJsonBody(req);
+    const v = validateBody(BodySchema, bodyRaw);
+    if (!v.ok) return res.status(v.status).json({ error: v.error, details: v.details });
+    const body = v.data;
+    const order_id=String(body.order_id||'').trim();
     const sb=supabaseAdmin();
     const { data: currentOrder, error: currentErr } = await sb.from('orders').select('id,user_id,order_type,vip_plan_id,status,production_status,shipping_tracking,customer_email,customer_name').eq('id', order_id).maybeSingle();
     if (currentErr) return res.status(500).json({ error: currentErr.message || 'Failed to load order' });
