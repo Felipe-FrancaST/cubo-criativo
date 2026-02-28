@@ -364,8 +364,14 @@ export default function App() {
   // (Alguns cliques usam links normais/popstate e o browser manteria o scroll.)
   React.useEffect(() => {
     if (typeof window === "undefined") return;
-    // Não usamos smooth aqui para evitar "pular" durante navegação rápida.
-    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    // Evita que o browser restaure scroll automaticamente (muito comum no mobile).
+    try {
+      if ("scrollRestoration" in window.history) window.history.scrollRestoration = "manual";
+    } catch {}
+    // Faz o scroll depois do repaint da nova rota (mais confiável em mobile).
+    setTimeout(() => {
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    }, 0);
   }, [route]);
 
   function navigate(path) {
@@ -379,7 +385,8 @@ export default function App() {
       } catch {
         setRoute(normalizePathname(normalized.split("?")[0]));
       }
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      // Mantém consistente com o scroll-to-top global (sem animação).
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
     }
   }
 
@@ -1391,12 +1398,44 @@ React.useEffect(() => {
                 loading="lazy"
                 draggable={false}
               />
+
+              {/* Setas laterais (sem autoplay) */}
+              {galleryData.imgs.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={prevImage}
+                    aria-label="Imagem anterior"
+                    className="absolute left-3 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full grid place-items-center bg-black/45 ring-1 ring-white/15 text-white hover:bg-black/60 active:scale-[0.98]"
+                  >
+                    <span aria-hidden>‹</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={nextImage}
+                    aria-label="Próxima imagem"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full grid place-items-center bg-black/45 ring-1 ring-white/15 text-white hover:bg-black/60 active:scale-[0.98]"
+                  >
+                    <span aria-hidden>›</span>
+                  </button>
+                </>
+              )}
             </div>
 
+            {/* Pontinhos indicativos */}
             {galleryData.imgs.length > 1 && (
-              <div className="mt-3 flex items-center justify-center gap-2">
-                <div className="text-xs text-slate-400">
-                  {galleryIndex + 1} / {galleryData.imgs.length} • deslize para trocar
+              <div className="mt-3 flex items-center justify-center">
+                <div className="flex items-center gap-2 rounded-full bg-black/35 ring-1 ring-white/10 px-3 py-2">
+                  {galleryData.imgs.map((_, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setGalleryIndex(idx)}
+                      aria-label={`Ir para imagem ${idx + 1}`}
+                      aria-current={idx === galleryIndex ? "true" : "false"}
+                      className={`h-2.5 w-2.5 rounded-full ring-1 ring-white/15 transition ${idx === galleryIndex ? "bg-white" : "bg-white/35 hover:bg-white/60"}`}
+                    />
+                  ))}
                 </div>
               </div>
             )}
