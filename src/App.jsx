@@ -919,10 +919,12 @@ React.useEffect(() => {
         const { data, error } = await supabase
           .from("products")
           .select(
-            "id,slug,name,description,price_cents,currency,stock,active,featured,promo,image_url,images,status,tags,default_variant,variants,original_price_cents,category,created_at"
+	            "id,slug,name,description,price_cents,currency,stock,active,featured,promo,image_url,images,status,tags,default_variant,variants,original_price_cents,category,created_at,sort_order"
           )
           .eq("active", true)
-          .order("created_at", { ascending: false });
+	          // Ordem manual (sort_order) + fallback para mais novos primeiro
+	          .order("sort_order", { ascending: true, nullsFirst: false })
+	          .order("created_at", { ascending: false });
 
         if (error) throw error;
 
