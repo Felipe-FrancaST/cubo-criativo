@@ -45,6 +45,36 @@ const fmtBRL = (n) =>
     ? n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
     : "—";
 
+
+/* ========================================================================
+   SCROLL HELPERS
+   ======================================================================== */
+function scrollToTop() {
+  if (typeof window === "undefined") return;
+  try {
+    // Evita que o browser restaure scroll automaticamente (muito comum no mobile).
+    if ("scrollRestoration" in window.history) window.history.scrollRestoration = "manual";
+  } catch {}
+
+  // 1) Window (padrão)
+  try {
+    scrollToTop();
+  } catch {}
+
+  // 2) Fallbacks (alguns browsers/containers usam outro elemento como scroller)
+  try {
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  } catch {}
+
+  // 3) Se o root estiver scrollando (layout com height:100% em alguns devices)
+  try {
+    const rootEl = document.getElementById("root");
+    if (rootEl && typeof rootEl.scrollTo === "function") rootEl.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  } catch {}
+}
+
+
 /* ========================================================================
    SUPABASE -> PRODUTOS (fonte de verdade)
    ======================================================================== */
@@ -361,18 +391,16 @@ export default function App() {
   }, [route]);
 
   // Garante que ao navegar para outra aba/página o usuário comece do topo.
-  // (Alguns cliques usam links normais/popstate e o browser manteria o scroll.)
-  React.useEffect(() => {
-    if (typeof window === "undefined") return;
-    // Evita que o browser restaure scroll automaticamente (muito comum no mobile).
-    try {
-      if ("scrollRestoration" in window.history) window.history.scrollRestoration = "manual";
-    } catch {}
-    // Faz o scroll depois do repaint da nova rota (mais confiável em mobile).
-    setTimeout(() => {
-      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
-    }, 0);
-  }, [route]);
+// (Alguns cliques usam links normais/popstate e o browser manteria o scroll.)
+React.useEffect(() => {
+  if (typeof window === "undefined") return;
+
+  // Faz o scroll depois do repaint da nova rota (mais confiável em mobile),
+  // e repete em seguida para neutralizar "scroll restoration" em alguns browsers.
+  requestAnimationFrame(() => scrollToTop());
+  setTimeout(() => scrollToTop(), 50);
+}, [route]);
+
 
   function navigate(path) {
     const normalized = path?.startsWith("/") ? path : `/${path || ""}`;
@@ -386,7 +414,7 @@ export default function App() {
         setRoute(normalizePathname(normalized.split("?")[0]));
       }
       // Mantém consistente com o scroll-to-top global (sem animação).
-      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      scrollToTop();
     }
   }
 
