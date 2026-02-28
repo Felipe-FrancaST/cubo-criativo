@@ -1465,7 +1465,12 @@ React.useEffect(() => {
               style={{ touchAction: "pan-y" }}
               aria-label="Galeria de imagens. Deslize para o lado para trocar."
             >
-              <div className="relative h-[70vh] w-full grid place-items-center">
+              {/*
+                Mantém um tamanho consistente sem estourar a altura do modal.
+                - Usa um teto em px e também em vh (evita criar scrollbar no modal)
+                - overflow-hidden evita que o pequeno scale/blur crie overflow visual
+              */}
+              <div className="relative h-[min(60vh,520px)] w-full grid place-items-center overflow-hidden">
               {galleryLoadedSrc ? (
                 <img
                   src={galleryLoadedSrc}
