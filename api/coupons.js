@@ -1,22 +1,11 @@
 import { getUserFromAuthHeader, supabaseAdmin } from '../server/supabase.js';
 import { getGamePeriodInfo, makeCouponCode, calcCouponDiscount } from '../server/couponGame.js';
-import { z, safeJsonBody, validateBody } from '../server/validate.js';
 
-const GameCompleteSchema = z
-  .object({
-    won: z.boolean().optional(),
-    score: z.preprocess((v) => (typeof v === 'string' ? Number(v) : v), z.number().nonnegative()).optional(),
-    attempts: z.preprocess((v) => (typeof v === 'string' ? Number(v) : v), z.number().int().nonnegative()).optional(),
-    duration_ms: z.preprocess((v) => (typeof v === 'string' ? Number(v) : v), z.number().int().nonnegative()).optional(),
-  })
-  .passthrough();
-
-const ValidateCouponSchema = z
-  .object({
-    code: z.string().min(1),
-    subtotal: z.preprocess((v) => (typeof v === 'string' ? Number(v) : v), z.number().nonnegative()).optional(),
-  })
-  .passthrough();
+function safeBody(req) {
+  if (!req.body) return {};
+  if (typeof req.body === 'string') { try { return JSON.parse(req.body); } catch { return {}; } }
+  return req.body;
+}
 
 
 function normalizeCpf(value) {
@@ -105,10 +94,7 @@ async function handleGameComplete(req, res) {
   const user = await getUserFromAuthHeader(req);
   if (!user) return res.status(401).json({ error: 'Faça login para jogar.' });
   const sb = supabaseAdmin();
-  const bodyRaw = safeJsonBody(req);
-  const v = validateBody(GameCompleteSchema, bodyRaw);
-  if (!v.ok) return res.status(v.status).json({ error: v.error, details: v.details });
-  const body = v.data;
+  const body = safeBody(req);
   const won = !!body.won;
   const score = Number(body.score || 0);
   const attempts = Number(body.attempts || 0);
@@ -191,10 +177,7 @@ async function handleGameComplete(req, res) {
 async function handleValidate(req, res) {
   const user = await getUserFromAuthHeader(req);
   if (!user) return res.status(401).json({ error: 'Faça login para usar cupom.' });
-  const bodyRaw = safeJsonBody(req);
-  const v = validateBody(ValidateCouponSchema, bodyRaw);
-  if (!v.ok) return res.status(v.status).json({ error: v.error, details: v.details });
-  const body = v.data;
+  const body = safeBody(req);
   const code = String(body.code || '').trim().toUpperCase();
   const subtotal = Number(body.subtotal || 0);
   if (!code) return res.status(400).json({ error: 'Informe o cupom.' });

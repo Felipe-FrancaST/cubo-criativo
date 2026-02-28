@@ -12,15 +12,12 @@ function assertReady() {
     console.error("[prerender] dist/ não encontrado. Rode 'vite build' antes.");
     process.exit(1);
   }
-  // Em ambientes locais/CI sem as envs do Supabase, não quebramos o build.
-  // Apenas pulamos o prerender de /p/:slug e geramos um sitemap básico.
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    console.warn(
-      "[prerender] Aviso: VITE_SUPABASE_URL/VITE_SUPABASE_ANON_KEY ausentes. Pulando prerender de produtos e gerando sitemap básico."
+    console.error(
+      "[prerender] Variáveis faltando: VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY (use .env ou variáveis no deploy)."
     );
-    return false;
+    process.exit(1);
   }
-  return true;
 }
 
 function slugifySafe(s) {
@@ -198,11 +195,11 @@ function buildSitemap({ origin, pages }) {
 }
 
 async function main() {
-  const canFetch = assertReady();
+  assertReady();
   const baseHtml = fs.readFileSync(path.join(DIST, "index.html"), "utf8");
 
   const origin = "https://www.cubocriativo3d.com.br";
-  const products = canFetch ? await fetchProducts() : [];
+  const products = await fetchProducts();
 
   const productPages = [];
   let rendered = 0;

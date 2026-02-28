@@ -16,34 +16,20 @@ import crypto from "crypto";
 import { getUserFromAuthHeader, supabaseAdmin } from "../server/supabase.js";
 import { calcCouponDiscount } from "../server/couponGame.js";
 import { getVipPlanById, listVipPlans, vipPlanDisplayName } from "../server/vipPlans.js";
-import { z, safeJsonBody, validateBody } from "../server/validate.js";
 
 export const config = { runtime: "nodejs" };
 
-const BodySchema = z
-  .object({
-    amount: z.preprocess((v) => (typeof v === "string" ? Number(v) : v), z.number().positive()),
-    items: z
-      .array(
-        z
-          .object({
-            id: z.string().optional(),
-            name: z.string().optional(),
-            qty: z.preprocess((v) => (typeof v === "string" ? Number(v) : v), z.number().int().positive()).optional(),
-            price: z.preprocess((v) => (typeof v === "string" ? Number(v) : v), z.number().nonnegative()).optional(),
-            scale: z.string().optional(),
-            img: z.string().url().optional(),
-          })
-          .passthrough()
-      )
-      .default([]),
-    coupon_code: z.string().optional(),
-    origin: z.string().optional(),
-    email: z.string().email().optional(),
-    vip_plan_id: z.string().optional(),
-    description: z.string().optional(),
-  })
-  .passthrough();
+function safeBody(req) {
+  if (!req.body) return {};
+  if (typeof req.body === "string") {
+    try {
+      return JSON.parse(req.body);
+    } catch {
+      return {};
+    }
+  }
+  return req.body;
+}
 
 function getBaseUrl(req) {
   const origin = req.headers.origin;
@@ -148,10 +134,7 @@ export default async function handler(req, res) {
     const user = await getUserFromAuthHeader(req);
     if (!user) return res.status(401).json({ error: "Faça login para gerar Pix." });
 
-    const bodyRaw = safeJsonBody(req);
-    const v = validateBody(BodySchema, bodyRaw);
-    if (!v.ok) return res.status(v.status).json({ error: v.error, details: v.details });
-    const body = v.data;
+    const body = safeBody(req);
 
     // Compat: /api/create-vip-upgrade-pix-payment foi unificado neste endpoint para reduzir o número de Functions no plano Hobby.
     const modeParam = String(getQueryParam(req, 'mode') || '').trim().toLowerCase();

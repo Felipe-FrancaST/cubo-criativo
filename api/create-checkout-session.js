@@ -17,32 +17,20 @@ import crypto from "crypto";
 import { getUserFromAuthHeader, supabaseAdmin } from "../server/supabase.js";
 import { calcCouponDiscount } from "../server/couponGame.js";
 import { getVipPlanById, listVipPlans, vipPlanDisplayName } from "../server/vipPlans.js";
-import { z, safeJsonBody, validateBody } from "../server/validate.js";
 
 export const config = { runtime: "nodejs" };
 
-const BodySchema = z
-  .object({
-    items: z
-      .array(
-        z
-          .object({
-            id: z.string().optional(),
-            name: z.string().optional(),
-            qty: z.preprocess((v) => (typeof v === "string" ? Number(v) : v), z.number().int().positive()).optional(),
-            price: z.preprocess((v) => (typeof v === "string" ? Number(v) : v), z.number().nonnegative()).optional(),
-            scale: z.string().optional(),
-            img: z.string().url().optional(),
-          })
-          .passthrough()
-      )
-      .default([]),
-    coupon_code: z.string().optional(),
-    origin: z.string().optional(),
-    vip_plan_id: z.string().optional(),
-    description: z.string().optional(),
-  })
-  .passthrough();
+function safeBody(req) {
+  if (!req.body) return {};
+  if (typeof req.body === "string") {
+    try {
+      return JSON.parse(req.body);
+    } catch {
+      return {};
+    }
+  }
+  return req.body;
+}
 
 function getBaseUrl(req) {
   // Prioriza SITE_URL para evitar inconsistências de domínio em produção
@@ -184,10 +172,7 @@ export default async function handler(req, res) {
       });
     }
 
-    const bodyRaw = safeJsonBody(req);
-    const v = validateBody(BodySchema, bodyRaw);
-    if (!v.ok) return res.status(v.status).json({ error: v.error, details: v.details });
-    const body = v.data;
+    const body = safeBody(req);
     let vipPlanId = String(body.vip_plan_id || '').trim();
     let items = Array.isArray(body.items) ? body.items : [];
     const couponCode = String(body.coupon_code || "").trim().toUpperCase();
