@@ -1,7 +1,7 @@
 import * as React from "react";
 import { focusFirst, handleFocusTrapKeydown } from "../lib/a11y.js";
 
-export default function Modal({ open, onClose, title, children, ariaLabel }) {
+export default function Modal({ open, onClose, title, children, ariaLabel, bodyClassName = "" }) {
   const showHeader = typeof title === "string" && title.trim().length > 0;
   const panelRef = React.useRef(null);
   const lastFocusRef = React.useRef(null);
@@ -70,7 +70,7 @@ export default function Modal({ open, onClose, title, children, ariaLabel }) {
             </button>
           </div>
         ) : null}
-        <div className={`p-3 sm:p-4 overflow-y-auto ${showHeader ? "" : "pt-4"}`}>{children}</div>
+        <div className={`p-3 sm:p-4 overflow-y-auto ${showHeader ? "" : "pt-4"} ${bodyClassName}`}>{children}</div>
       </div>
     </div>
   );

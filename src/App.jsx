@@ -1449,7 +1449,16 @@ React.useEffect(() => {
       />
 
       {/* MODAL GALERIA */}
-      <Modal open={galleryOpen} onClose={() => setGalleryOpen(false)} title={`Fotos — ${galleryData.title}`}>
+      {/*
+        Galeria: no desktop algumas telas/combinações de imagens podem causar scroll no body do modal.
+        Aqui a gente trava o body do modal (overflow-hidden) e limita a área da imagem para nunca estourar a viewport.
+      */}
+      <Modal
+        open={galleryOpen}
+        onClose={() => setGalleryOpen(false)}
+        title={`Fotos — ${galleryData.title}`}
+        bodyClassName="overflow-hidden"
+      >
         {galleryOpen && (
           <div className="relative">
             <div
@@ -1469,12 +1478,16 @@ React.useEffect(() => {
                 - Usa um teto em px e também em vh (evita criar scrollbar no modal)
                 - Mantém a imagem sempre dentro do container com object-contain
               */}
-              <div className="relative h-[min(60vh,520px)] w-full grid place-items-center">
+              {/*
+                Mantém a imagem dentro do modal em desktops menores (ex.: 768–900px de altura)
+                e evita criar barra de rolagem.
+              */}
+              <div className="relative h-[min(52vh,480px)] w-full grid place-items-center">
               {galleryLoadedSrc ? (
                 <img
                   src={galleryLoadedSrc}
                   alt={galleryData.title}
-                  className={`h-full w-full object-contain rounded-lg transition ${galleryIsLoading ? "blur-sm opacity-80" : "blur-0 opacity-100"}`}
+                  className={`h-full w-full max-w-full max-h-full object-contain rounded-lg transition ${galleryIsLoading ? "blur-sm opacity-80" : "blur-0 opacity-100"}`}
                   loading="eager"
                   draggable={false}
                 />

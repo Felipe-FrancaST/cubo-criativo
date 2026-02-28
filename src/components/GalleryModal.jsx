@@ -21,7 +21,7 @@ export default function GalleryModal({
   onSelect,
 }) {
   return (
-    <Modal open={open} onClose={onClose} title={`Fotos — ${title}`}>
+    <Modal open={open} onClose={onClose} title={`Fotos — ${title}`} bodyClassName="overflow-hidden">
       {open && (
         <div className="relative">
           <div className="relative w-full grid place-items-center rounded-xl ring-1 ring-white/10 bg-slate-900/60 p-2">
@@ -29,8 +29,8 @@ export default function GalleryModal({
               key={index}
               src={imgs[index]}
               alt={`${title} — ${index + 1}`}
-              className="max-h-[70vh] w-auto h-auto object-contain rounded-md"
-              style={{ maxWidth: "100%" }}
+              className="w-auto h-auto object-contain rounded-md"
+              style={{ maxWidth: "100%", maxHeight: "calc(92vh - 190px)" }}
             />
             {imgs.length > 1 && (
               <>
