@@ -30,7 +30,7 @@ export default function ContactPage({ onGoHome, onGoFaq, onGoPoliticas }) {
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 -z-10 opacity-35 pointer-events-none bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-400/20 via-sky-500/10 to-fuchsia-500/15" />
 
-        <div className="mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14" style={{ maxWidth: "var(--container-max, 1100px)" }}>
+        <div className="container-cc px-4 sm:px-6 lg:px-8 py-10 sm:py-14" >
           <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4">
             <div>
               <p className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-extrabold bg-emerald-400 text-black ring-4 ring-emerald-400/25">
@@ -43,7 +43,7 @@ export default function ContactPage({ onGoHome, onGoFaq, onGoPoliticas }) {
               </p>
             </div>
 
-            <button onClick={onGoHome} className="rounded-xl px-4 py-2 ring-1 ring-white/15 hover:bg-white/5 text-sm">
+            <button onClick={onGoHome} className="container-cc rounded-xl px-4 py-2 ring-1 ring-white/15 hover:bg-white/5 text-sm">
               <span className="material-icons align-middle text-[18px]">chevron_left</span> Voltar
             </button>
           </div>
@@ -56,7 +56,7 @@ export default function ContactPage({ onGoHome, onGoFaq, onGoPoliticas }) {
                   target="_blank"
                   rel="noreferrer"
                   onClick={() => trackEvent("whatsapp_click", { location: "contato" })}
-                  className="inline-flex items-center justify-center gap-2 w-full rounded-2xl px-4 py-3 bg-emerald-400 text-black font-extrabold ring-4 ring-emerald-400/25 hover:brightness-110 transition"
+                  className="container-cc inline-flex items-center justify-center gap-2 w-full rounded-2xl px-4 py-3 bg-emerald-400 text-black font-extrabold ring-4 ring-emerald-400/25 hover:brightness-110 transition"
                 >
                   <span className="material-icons text-[18px]">chat</span>
                   Abrir WhatsApp
@@ -68,7 +68,7 @@ export default function ContactPage({ onGoHome, onGoFaq, onGoPoliticas }) {
                 <a
                   href={mailLink}
                   onClick={() => trackEvent("email_click", { location: "contato" })}
-                  className="inline-flex items-center justify-center gap-2 w-full rounded-2xl px-4 py-3 ring-1 ring-white/15 hover:bg-white/5 transition font-semibold"
+                  className="container-cc inline-flex items-center justify-center gap-2 w-full rounded-2xl px-4 py-3 ring-1 ring-white/15 hover:bg-white/5 transition font-semibold"
                 >
                   <span className="material-icons text-[18px]">send</span>
                   Enviar e-mail

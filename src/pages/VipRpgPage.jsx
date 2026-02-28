@@ -277,7 +277,7 @@ export default function VipRpgPage({
 
   return (
     <main className="flex-1">
-      <section className="mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14" style={{ maxWidth: 'var(--container-max, 980px)' }}>
+      <section className="container-cc px-4 sm:px-6 lg:px-8 py-10 sm:py-14" >
         <div className="relative overflow-hidden rounded-3xl ring-1 ring-white/10 bg-gradient-to-br from-slate-900/60 via-slate-950/50 to-black/60 backdrop-blur p-6 sm:p-10">
           <div
             className="absolute inset-0 opacity-30 pointer-events-none"
@@ -323,13 +323,13 @@ export default function VipRpgPage({
                   <div className="mt-4 flex flex-col sm:flex-row gap-2">
                     <button
                       onClick={() => onOpenVipArea?.()}
-                      className="rounded-xl px-4 py-3 font-extrabold bg-violet-400 text-black ring-4 ring-violet-400/20 hover:bg-violet-300"
+                      className="container-cc rounded-xl px-4 py-3 font-extrabold bg-violet-400 text-black ring-4 ring-violet-400/20 hover:bg-violet-300"
                     >
                       Acessar Área VIP
                     </button>
                     <button
                       onClick={onGoHome}
-                      className="rounded-xl px-4 py-3 font-semibold ring-1 ring-white/15 hover:bg-white/5"
+                      className="container-cc rounded-xl px-4 py-3 font-semibold ring-1 ring-white/15 hover:bg-white/5"
                     >
                       Voltar
                     </button>
@@ -389,14 +389,14 @@ export default function VipRpgPage({
                     <button
                       disabled={busy}
                       onClick={() => startCard(selectedPlanId)}
-                      className="rounded-xl px-4 py-3 font-extrabold bg-teal-400 text-black ring-4 ring-teal-400/20 disabled:opacity-60"
+                      className="container-cc rounded-xl px-4 py-3 font-extrabold bg-teal-400 text-black ring-4 ring-teal-400/20 disabled:opacity-60"
                     >
                       Assinar com cartão
                     </button>
                     <button
                       disabled={busy}
                       onClick={() => startPix(selectedPlanId)}
-                      className="rounded-xl px-4 py-3 font-semibold ring-1 ring-white/15 hover:bg-white/5 disabled:opacity-60"
+                      className="container-cc rounded-xl px-4 py-3 font-semibold ring-1 ring-white/15 hover:bg-white/5 disabled:opacity-60"
                     >
                       Assinar com Pix
                     </button>
@@ -474,16 +474,16 @@ export default function VipRpgPage({
             )}
 
             <div className="mt-8 flex flex-wrap gap-2">
-              <button onClick={onGoHome} className="rounded-xl px-4 py-2 text-sm ring-1 ring-white/10 hover:bg-white/5">Voltar</button>
+              <button onClick={onGoHome} className="container-cc rounded-xl px-4 py-2 text-sm ring-1 ring-white/10 hover:bg-white/5">Voltar</button>
               {user ? (
                 <button
                   onClick={() => onOpenVipArea?.()}
-                  className="rounded-xl px-4 py-2 text-sm ring-1 ring-violet-400/25 bg-violet-500/10 hover:bg-violet-500/15"
+                  className="container-cc rounded-xl px-4 py-2 text-sm ring-1 ring-violet-400/25 bg-violet-500/10 hover:bg-violet-500/15"
                 >
                   Abrir Área VIP
                 </button>
               ) : (
-                <button onClick={onOpenAuth} className="rounded-xl px-4 py-2 text-sm ring-1 ring-white/10 hover:bg-white/5">Entrar para assinar</button>
+                <button onClick={onOpenAuth} className="container-cc rounded-xl px-4 py-2 text-sm ring-1 ring-white/10 hover:bg-white/5">Entrar para assinar</button>
               )}
             </div>
           </div>

@@ -81,7 +81,7 @@ export default function CatalogPage({ items, loading = false, error = "", addToC
 
   return (
     <main className="flex-1">
-      <section className="mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14" style={{ maxWidth: "var(--container-max, 1200px)" }}>
+      <section className="container-cc px-4 sm:px-6 lg:px-8 py-10 sm:py-14" >
         <div className="flex items-end justify-between gap-4 flex-wrap">
           <div>
             <h1 className="text-2xl sm:text-3xl font-extrabold">Catálogo</h1>

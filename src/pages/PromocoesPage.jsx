@@ -18,9 +18,7 @@ export default function PromocoesPage({
         <div className="absolute inset-0 -z-10 opacity-35 pointer-events-none bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-400/30 via-fuchsia-500/10 to-teal-500/15" />
 
         <div
-          className="mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14"
-          style={{ maxWidth: "var(--container-max, 1200px)" }}
-        >
+          className="container-cc px-4 sm:px-6 lg:px-8 py-10 sm:py-14" >
           <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4">
             <div>
               <p className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-extrabold bg-amber-400 text-black ring-4 ring-amber-400/25">
@@ -38,11 +36,11 @@ export default function PromocoesPage({
             <div className="flex items-center gap-3">
               <button
                 onClick={onGoHome}
-                className="rounded-xl px-4 py-2 ring-1 ring-white/15 hover:bg-white/5 text-sm"
+                className="container-cc rounded-xl px-4 py-2 ring-1 ring-white/15 hover:bg-white/5 text-sm"
               >
                 <span className="material-icons align-middle text-[18px]">chevron_left</span> Voltar
               </button>
-              <div className="rounded-xl px-4 py-2 bg-white/5 ring-1 ring-white/10 text-sm">
+              <div className="container-cc rounded-xl px-4 py-2 bg-white/5 ring-1 ring-white/10 text-sm">
                 <span className="text-slate-300">Total:</span>{" "}
                 <span className="font-extrabold text-amber-300">{loading ? "…" : promos.length}</span>
               </div>

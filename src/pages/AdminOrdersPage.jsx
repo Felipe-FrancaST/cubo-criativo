@@ -249,8 +249,8 @@ React.useEffect(() => {
   if (!user) {
     return (
       <main className="flex-1">
-        <section className="px-4 sm:px-6 lg:px-8 py-10">
-          <div style={{ maxWidth: "var(--container-max, 1200px)" }} className="mx-auto">
+        <section className="container-cc px-4 sm:px-6 lg:px-8 py-10">
+          <div className="mx-auto">
             <div className="rounded-2xl ring-1 ring-white/10 bg-white/5 p-5 text-slate-200">
               Faça login para acessar o painel admin.
             </div>
@@ -308,8 +308,8 @@ React.useEffect(() => {
   if (!isAdmin) {
     return (
       <main className="flex-1">
-        <section className="px-4 sm:px-6 lg:px-8 py-10">
-          <div style={{ maxWidth: "var(--container-max, 1200px)" }} className="mx-auto">
+        <section className="container-cc px-4 sm:px-6 lg:px-8 py-10">
+          <div className="mx-auto">
             <div className="rounded-2xl ring-1 ring-white/10 bg-white/5 p-5 text-slate-200">
               Você não tem permissão para acessar esta página.
             </div>
@@ -368,14 +368,14 @@ React.useEffect(() => {
     <main className="flex-1">
       {toast ? (
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[200]">
-          <div className="rounded-full bg-emerald-500 text-black font-semibold px-4 py-2 shadow-lg ring-4 ring-emerald-400/30">
+          <div className="container-cc rounded-full bg-emerald-500 text-black font-semibold px-4 py-2 shadow-lg ring-4 ring-emerald-400/30">
             {toast}
           </div>
         </div>
       ) : null}
 
-      <section className="px-4 sm:px-6 lg:px-8 py-10">
-        <div style={{ maxWidth: "var(--container-max, 1200px)" }} className="mx-auto">
+      <section className="container-cc px-4 sm:px-6 lg:px-8 py-10">
+        <div className="mx-auto">
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
               <h1 className="text-2xl sm:text-3xl font-extrabold">Painel Admin</h1>
@@ -386,14 +386,14 @@ React.useEffect(() => {
             <div className="flex items-center gap-2">
               <button
                 onClick={onNavigateHome}
-                className="rounded-xl px-4 py-2 text-sm ring-1 ring-white/15 hover:bg-white/5"
+                className="container-cc rounded-xl px-4 py-2 text-sm ring-1 ring-white/15 hover:bg-white/5"
               >
                 Voltar
               </button>
               <button
                 onClick={fetchOrders}
                 disabled={loading}
-                className="rounded-xl px-4 py-2 text-sm bg-emerald-400 text-black font-semibold hover:bg-emerald-300 disabled:opacity-60"
+                className="container-cc rounded-xl px-4 py-2 text-sm bg-emerald-400 text-black font-semibold hover:bg-emerald-300 disabled:opacity-60"
               >
                 {loading ? "Atualizando…" : "Atualizar"}
               </button>
@@ -482,7 +482,7 @@ React.useEffect(() => {
           </div>
 
           {error ? (
-            <div className="mt-4 text-sm text-red-300 bg-red-500/10 ring-1 ring-red-500/30 rounded-xl px-4 py-3">
+            <div className="container-cc mt-4 text-sm text-red-300 bg-red-500/10 ring-1 ring-red-500/30 rounded-xl px-4 py-3">
               {error}
             </div>
           ) : null}
@@ -696,14 +696,14 @@ React.useEffect(() => {
                   <button
                     onClick={fetchVipVoting}
                     disabled={vipPollsLoading}
-                    className="rounded-xl px-4 py-2 text-sm bg-emerald-400 text-black font-semibold hover:bg-emerald-300 disabled:opacity-60"
+                    className="container-cc rounded-xl px-4 py-2 text-sm bg-emerald-400 text-black font-semibold hover:bg-emerald-300 disabled:opacity-60"
                   >
                     {vipPollsLoading ? 'Atualizando…' : 'Atualizar'}
                   </button>
                 </div>
 
                 {vipPollsError ? (
-                  <div className="mt-4 text-sm text-red-300 bg-red-500/10 ring-1 ring-red-500/30 rounded-xl px-4 py-3">
+                  <div className="container-cc mt-4 text-sm text-red-300 bg-red-500/10 ring-1 ring-red-500/30 rounded-xl px-4 py-3">
                     {vipPollsError}
                   </div>
                 ) : null}

@@ -114,9 +114,7 @@ export default function AccountPage({ onClose, onGoHome }) {
   return (
     <main className="flex-1">
       <section
-        className="mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14"
-        style={{ maxWidth: "var(--container-max, 520px)" }}
-      >
+        className="container-cc px-4 sm:px-6 lg:px-8 py-10 sm:py-14" >
         <div className="rounded-3xl ring-1 ring-white/10 bg-slate-900/40 backdrop-blur p-6 sm:p-8">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -155,7 +153,7 @@ export default function AccountPage({ onClose, onGoHome }) {
               <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <button
                   onClick={() => signOut()}
-                  className="rounded-xl px-4 py-3 font-semibold ring-1 ring-white/10 hover:bg-white/5"
+                  className="container-cc rounded-xl px-4 py-3 font-semibold ring-1 ring-white/10 hover:bg-white/5"
                 >
                   Sair
                 </button>
@@ -164,7 +162,7 @@ export default function AccountPage({ onClose, onGoHome }) {
                     onGoHome?.();
                     onClose?.();
                   }}
-                  className="rounded-xl px-4 py-3 font-semibold bg-teal-400 text-black ring-4 ring-teal-400/20"
+                  className="container-cc rounded-xl px-4 py-3 font-semibold bg-teal-400 text-black ring-4 ring-teal-400/20"
                 >
                   Voltar para a loja
                 </button>
@@ -209,7 +207,7 @@ export default function AccountPage({ onClose, onGoHome }) {
             onChange={(e) => setFullName(e.target.value)}
             type="text"
             autoComplete="name"
-            className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+            className="container-cc w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
             placeholder="Seu nome"
           />
         </Field>
@@ -220,7 +218,7 @@ export default function AccountPage({ onClose, onGoHome }) {
             onChange={(e) => setPhone(e.target.value)}
             type="tel"
             autoComplete="tel"
-            className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+            className="container-cc w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
             placeholder="(11) 99999-9999"
           />
         </Field>
@@ -234,7 +232,7 @@ export default function AccountPage({ onClose, onGoHome }) {
               type="text"
               inputMode="numeric"
               autoComplete="off"
-              className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+              className="container-cc w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
               placeholder="000.000.000-00"
             />
           </Field>
@@ -244,7 +242,7 @@ export default function AccountPage({ onClose, onGoHome }) {
               onChange={(e) => setBirthdate(e.target.value)}
               type="date"
               autoComplete="bday"
-              className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+              className="container-cc w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
             />
           </Field>
         </div>
@@ -257,7 +255,7 @@ export default function AccountPage({ onClose, onGoHome }) {
               type="text"
               inputMode="numeric"
               autoComplete="postal-code"
-              className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+              className="container-cc w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
               placeholder="00000-000"
             />
           </Field>
@@ -267,7 +265,7 @@ export default function AccountPage({ onClose, onGoHome }) {
               onChange={(e) => setStateUF(e.target.value.toUpperCase())}
               type="text"
               autoComplete="address-level1"
-              className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+              className="container-cc w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
               placeholder="SP"
               maxLength={2}
             />
@@ -281,7 +279,7 @@ export default function AccountPage({ onClose, onGoHome }) {
               onChange={(e) => setCity(e.target.value)}
               type="text"
               autoComplete="address-level2"
-              className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+              className="container-cc w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
               placeholder="Cidade"
             />
           </Field>
@@ -291,7 +289,7 @@ export default function AccountPage({ onClose, onGoHome }) {
               onChange={(e) => setNeighborhood(e.target.value)}
               type="text"
               autoComplete="address-level3"
-              className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+              className="container-cc w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
               placeholder="Bairro"
             />
           </Field>
@@ -304,7 +302,7 @@ export default function AccountPage({ onClose, onGoHome }) {
               onChange={(e) => setStreet(e.target.value)}
               type="text"
               autoComplete="address-line1"
-              className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+              className="container-cc w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
               placeholder="Rua"
             />
           </Field>
@@ -315,7 +313,7 @@ export default function AccountPage({ onClose, onGoHome }) {
               type="text"
               inputMode="numeric"
               autoComplete="address-line2"
-              className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+              className="container-cc w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
               placeholder="123"
             />
           </Field>
@@ -327,7 +325,7 @@ export default function AccountPage({ onClose, onGoHome }) {
             onChange={(e) => setAddr2(e.target.value)}
             type="text"
             autoComplete="address-line3"
-            className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+            className="container-cc w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
             placeholder="Apartamento, bloco, etc"
           />
         </Field>
@@ -341,7 +339,7 @@ export default function AccountPage({ onClose, onGoHome }) {
                     onChange={(e) => setEmail(e.target.value)}
                     type="email"
                     autoComplete="email"
-                    className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                    className="container-cc w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
                     placeholder="voce@exemplo.com"
                   />
                 </Field>
@@ -352,18 +350,18 @@ export default function AccountPage({ onClose, onGoHome }) {
                     onChange={(e) => setPassword(e.target.value)}
                     type="password"
                     autoComplete={mode === "login" ? "current-password" : "new-password"}
-                    className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                    className="container-cc w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
                     placeholder="••••••••"
                   />
                 </Field>
 
                 {error && (
-                  <p className="text-sm text-red-300 bg-red-500/10 ring-1 ring-red-500/30 rounded-xl px-4 py-3">
+                  <p className="container-cc text-sm text-red-300 bg-red-500/10 ring-1 ring-red-500/30 rounded-xl px-4 py-3">
                     {error}
                   </p>
                 )}
                 {info && (
-                  <p className="text-sm text-emerald-200 bg-emerald-500/10 ring-1 ring-emerald-500/30 rounded-xl px-4 py-3">
+                  <p className="container-cc text-sm text-emerald-200 bg-emerald-500/10 ring-1 ring-emerald-500/30 rounded-xl px-4 py-3">
                     {info}
                   </p>
                 )}

@@ -203,7 +203,7 @@ export default function RPGPage({ onClose, addToCart, items = [], loading = fals
     >
       {/* header do modo rpg */}
       <div className="sticky top-0 z-10 backdrop-blur bg-[#0b0f12]/70 border-b border-white/10">
-        <div className="mx-auto w-full px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between" style={{ maxWidth: 1200 }}>
+        <div className="container-cc w-full px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between" style={{ maxWidth: 1200 }}>
           <div>
             <h2 className="text-xl sm:text-2xl font-extrabold">
               <span className="text-amber-400">{rpgUi.title}</span>{" "}
@@ -213,7 +213,7 @@ export default function RPGPage({ onClose, addToCart, items = [], loading = fals
           </div>
           <button
             onClick={onClose}
-            className="rounded-full px-4 py-2 ring-1 ring-white/15 hover:bg-white/5 text-sm"
+            className="container-cc rounded-full px-4 py-2 ring-1 ring-white/15 hover:bg-white/5 text-sm"
           >
             {rpgUi.ctaBack}
           </button>
@@ -221,7 +221,7 @@ export default function RPGPage({ onClose, addToCart, items = [], loading = fals
       </div>
 
       {/* conteúdo */}
-      <div className="mx-auto w-full px-4 sm:px-6 lg:px-8 py-6" style={{ maxWidth: 1200 }}>
+      <div className="container-cc w-full px-4 sm:px-6 lg:px-8 py-6" style={{ maxWidth: 1200 }}>
         {/* Tabs */}
         <div className="flex items-center gap-2">
           {[

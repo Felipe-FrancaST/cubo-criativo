@@ -58,9 +58,7 @@ export default function StockPage({ items, loading = false, error = "", addToCar
   return (
     <main className="flex-1">
       <section
-        className="mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14"
-        style={{ maxWidth: "var(--container-max, 1200px)" }}
-      >
+        className="container-cc px-4 sm:px-6 lg:px-8 py-10 sm:py-14" >
         <div className="flex items-end justify-between gap-4 flex-wrap">
           <div>
             <h1 className="text-2xl sm:text-3xl font-extrabold">Em estoque</h1>
@@ -79,7 +77,7 @@ export default function StockPage({ items, loading = false, error = "", addToCar
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Ex: miniatura rpg, action figure, dragão…"
-              className="w-full rounded-xl px-4 py-3 bg-slate-950/60 ring-1 ring-white/10 focus:outline-none focus:ring-2 focus:ring-teal-400 text-slate-100 placeholder:text-slate-500"
+              className="container-cc w-full rounded-xl px-4 py-3 bg-slate-950/60 ring-1 ring-white/10 focus:outline-none focus:ring-2 focus:ring-teal-400 text-slate-100 placeholder:text-slate-500"
               inputMode="search"
               autoComplete="off"
             />
@@ -87,7 +85,7 @@ export default function StockPage({ items, loading = false, error = "", addToCar
               <button
                 type="button"
                 onClick={() => setQ("")}
-                className="shrink-0 rounded-xl px-4 py-3 ring-1 ring-white/15 hover:bg-white/5"
+                className="container-cc shrink-0 rounded-xl px-4 py-3 ring-1 ring-white/15 hover:bg-white/5"
               >
                 Limpar
               </button>

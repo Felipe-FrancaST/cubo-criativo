@@ -30,7 +30,7 @@ const faqs = [
 export default function FAQPage({ onGoHome }) {
   return (
     <main className="flex-1">
-      <section className="mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14" style={{ maxWidth: 'var(--container-max, 1100px)' }}>
+      <section className="container-cc px-4 sm:px-6 lg:px-8 py-10 sm:py-14" >
         <div className="flex items-start sm:items-end justify-between gap-4 flex-col sm:flex-row">
           <div>
             <p className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-extrabold bg-emerald-400 text-black ring-4 ring-emerald-400/25">
@@ -40,7 +40,7 @@ export default function FAQPage({ onGoHome }) {
             <h1 className="mt-3 text-3xl sm:text-4xl font-black tracking-tight">Perguntas frequentes</h1>
             <p className="mt-2 text-slate-300 text-sm sm:text-base max-w-2xl">Respostas rápidas sobre prazos, envio, pagamento e cuidados com as peças.</p>
           </div>
-          <button onClick={onGoHome} className="rounded-xl px-4 py-2 ring-1 ring-white/15 hover:bg-white/5 text-sm">
+          <button onClick={onGoHome} className="container-cc rounded-xl px-4 py-2 ring-1 ring-white/15 hover:bg-white/5 text-sm">
             <span className="material-icons align-middle text-[18px]">chevron_left</span> Voltar
           </button>
         </div>

@@ -51,14 +51,15 @@ const fmtBRL = (n) =>
    ======================================================================== */
 function scrollToTop() {
   if (typeof window === "undefined") return;
+
+  // Evita que o browser restaure scroll automaticamente (muito comum no mobile).
   try {
-    // Evita que o browser restaure scroll automaticamente (muito comum no mobile).
     if ("scrollRestoration" in window.history) window.history.scrollRestoration = "manual";
   } catch {}
 
   // 1) Window (padrão)
   try {
-    scrollToTop();
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   } catch {}
 
   // 2) Fallbacks (alguns browsers/containers usam outro elemento como scroller)
@@ -67,7 +68,7 @@ function scrollToTop() {
     document.body.scrollTop = 0;
   } catch {}
 
-  // 3) Se o root estiver scrollando (layout com height:100% em alguns devices)
+  // 3) Se existir algum container interno com scroll (ex.: #root)
   try {
     const rootEl = document.getElementById("root");
     if (rootEl && typeof rootEl.scrollTo === "function") rootEl.scrollTo({ top: 0, left: 0, behavior: "auto" });
@@ -182,7 +183,7 @@ function Toast({ open, children }) {
         open ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-3 pointer-events-none"
       }`}
     >
-      <div className="rounded-full bg-emerald-500 text-black font-semibold px-4 py-2 shadow-lg ring-4 ring-emerald-400/30">
+      <div className="container-cc rounded-full bg-emerald-500 text-black font-semibold px-4 py-2 shadow-lg ring-4 ring-emerald-400/30">
         {children}
       </div>
     </div>
@@ -1339,9 +1340,7 @@ React.useEffect(() => {
       (
         <footer id="contato" className="mt-auto border-t border-white/10">
           <div
-            className="mx-auto grid grid-cols-1 md:grid-cols-3 gap-6 text-sm px-4 sm:px-6 lg:px-8 py-10"
-            style={{ maxWidth: "var(--container-max, 1200px)" }}
-          >
+            className="container-cc grid grid-cols-1 md:grid-cols-3 gap-6 text-sm px-4 sm:px-6 lg:px-8 py-10" >
             <div>
               <p className="font-extrabold text-lg">{brand.name}</p>
               <p className="text-slate-400 mt-2">Cultura geek, qualidade de coleção.</p>
@@ -1485,7 +1484,7 @@ React.useEffect(() => {
 
               {galleryIsLoading && (
                 <div className="absolute inset-0 grid place-items-center">
-                  <div className="flex items-center gap-3 rounded-full bg-black/45 ring-1 ring-white/10 px-4 py-2">
+                  <div className="container-cc flex items-center gap-3 rounded-full bg-black/45 ring-1 ring-white/10 px-4 py-2">
                     <span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" aria-hidden />
                     <span className="text-sm text-white/90">Carregando imagem…</span>
                   </div>

@@ -56,9 +56,7 @@ export default function HomePage({
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 -z-10 opacity-30 pointer-events-none bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-teal-500/35 via-fuchsia-500/15 to-indigo-500/10" />
         <div
-          className="mx-auto grid lg:grid-cols-2 items-center gap-10 px-4 sm:px-6 lg:px-8 py-10 sm:py-16"
-          style={{ maxWidth: "var(--container-max, 1200px)" }}
-        >
+          className="container-cc grid lg:grid-cols-2 items-center gap-10 px-4 sm:px-6 lg:px-8 py-10 sm:py-16" >
           <div className="text-center lg:text-left lg:pr-6">
             <p className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-white/10 bg-white/5 text-slate-200">
               <span className="inline-flex h-2 w-2 rounded-full bg-emerald-400" />
@@ -159,9 +157,7 @@ export default function HomePage({
 
       {/* PRONTA ENTREGA */}
       <section
-        className="mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14"
-        style={{ maxWidth: "var(--container-max, 1200px)" }}
-      >
+        className="container-cc px-4 sm:px-6 lg:px-8 py-10 sm:py-14" >
         <div className="flex items-end justify-between gap-4 flex-wrap">
           <div>
             <h2 className="text-2xl sm:text-3xl font-extrabold">Pronta entrega</h2>
@@ -169,7 +165,7 @@ export default function HomePage({
           </div>
           <button
             onClick={onGoEstoque}
-            className="rounded-xl px-4 py-2 text-sm ring-1 ring-white/15 hover:bg-white/5"
+            className="container-cc rounded-xl px-4 py-2 text-sm ring-1 ring-white/15 hover:bg-white/5"
           >
             Ver tudo
           </button>
@@ -194,9 +190,7 @@ export default function HomePage({
 
       {/* MINIATURAS RPG (SOB ENCOMENDA) */}
       <section
-        className="mx-auto px-4 sm:px-6 lg:px-8 pb-10 sm:pb-14"
-        style={{ maxWidth: "var(--container-max, 1200px)" }}
-      >
+        className="container-cc px-4 sm:px-6 lg:px-8 pb-10 sm:pb-14" >
         <div className="flex items-end justify-between gap-4 flex-wrap">
           <div>
             <h2 className="text-2xl sm:text-3xl font-extrabold">Miniaturas RPG sob encomenda</h2>
@@ -204,7 +198,7 @@ export default function HomePage({
           </div>
           <button
             onClick={onGoSobEncomenda}
-            className="rounded-xl px-4 py-2 text-sm ring-1 ring-white/15 hover:bg-white/5"
+            className="container-cc rounded-xl px-4 py-2 text-sm ring-1 ring-white/15 hover:bg-white/5"
           >
             Como Funciona
           </button>
@@ -230,9 +224,7 @@ export default function HomePage({
       {/* DESTAQUES */}
       <section
         id="destaques"
-        className="mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14"
-        style={{ maxWidth: "var(--container-max, 1200px)" }}
-      >
+        className="container-cc px-4 sm:px-6 lg:px-8 py-10 sm:py-14" >
         <div className="flex items-end justify-between gap-4 flex-wrap">
           <div>
             <h2 className="text-2xl sm:text-3xl font-extrabold">Destaques</h2>
@@ -293,9 +285,7 @@ export default function HomePage({
 
       {/* CONFIANÇA / INFORMAÇÕES */}
       <section
-        className="mx-auto px-4 sm:px-6 lg:px-8 pb-10 sm:pb-14"
-        style={{ maxWidth: "var(--container-max, 1200px)" }}
-      >
+        className="container-cc px-4 sm:px-6 lg:px-8 pb-10 sm:pb-14" >
         <div className="grid lg:grid-cols-3 gap-4">
           <div className="rounded-2xl p-5 bg-white/5 ring-1 ring-white/10">
             <p className="text-xs text-slate-400">Prazo de produção</p>
@@ -332,9 +322,7 @@ export default function HomePage({
 
       {/* DEPOIMENTOS */}
       <section
-        className="mx-auto px-4 sm:px-6 lg:px-8 pb-10 sm:pb-14"
-        style={{ maxWidth: "var(--container-max, 1200px)" }}
-      >
+        className="container-cc px-4 sm:px-6 lg:px-8 pb-10 sm:pb-14" >
         <div className="flex items-end justify-between gap-3 flex-wrap">
           <div>
             <h2 className="text-2xl sm:text-3xl font-extrabold">Depoimentos</h2>
@@ -386,9 +374,7 @@ export default function HomePage({
       {/* SOBRE */}
       <section
         id="sobre"
-        className="mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16"
-        style={{ maxWidth: "var(--container-max, 1200px)" }}
-      >
+        className="container-cc px-4 sm:px-6 lg:px-8 py-12 sm:py-16" >
         <div className="grid lg:grid-cols-3 gap-6 lg:gap-8 items-start">
           <div className="lg:col-span-2 text-center lg:text-left">
             <h2 className="text-2xl sm:text-3xl font-extrabold">Sobre a {brand.name}</h2>

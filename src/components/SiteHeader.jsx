@@ -60,8 +60,8 @@ export default function SiteHeader({
   return (
     <header className="sticky top-0 z-[90]">
       <div className="backdrop-blur supports-[backdrop-filter]:bg-slate-950/65 bg-slate-950/85 border-b border-white/10">
-        <div className="mx-auto w-full" style={{ maxWidth: "var(--container-max, 1320px)" }}>
-          <div className="px-4 sm:px-6 lg:px-8 py-3 flex items-center gap-4">
+        <div className="mx-auto w-full" >
+          <div className="container-cc px-4 sm:px-6 lg:px-8 py-3 flex items-center gap-4">
             {/* Menu lateral */}
             <IconButton title={menuOpen ? "Fechar menu" : "Abrir menu"} onClick={onToggleMenu}>
               <span className="material-icons text-[20px]">{menuOpen ? "close" : "menu"}</span>
@@ -88,7 +88,7 @@ export default function SiteHeader({
             {/* Ações */}
             <div className="ml-auto flex items-center gap-2 shrink-0">
               {/* Social (desktop) */}
-              <div className="flex items-center gap-2">
+              <div className="hidden sm:flex items-center gap-2">
                 <a
                   href="https://instagram.com/cubo_criativo3d"
                   target="_blank"
