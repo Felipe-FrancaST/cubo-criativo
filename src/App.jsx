@@ -511,8 +511,50 @@ React.useEffect(() => {
   const [galleryOpen, setGalleryOpen] = React.useState(false);
   const [galleryData, setGalleryData] = React.useState({ title: "", imgs: [] });
   const [galleryIndex, setGalleryIndex] = React.useState(0);
+  // mantém o tamanho do card estável durante a troca de imagens
+  const [galleryLoadedSrc, setGalleryLoadedSrc] = React.useState("");
+  const [galleryIsLoading, setGalleryIsLoading] = React.useState(false);
 
+  
+  // Pré-carrega a imagem alvo e mostra a anterior (com blur + loader) até terminar,
+  // evitando o "pulo" de layout quando a imagem ainda não carregou.
   React.useEffect(() => {
+    if (!galleryOpen) return;
+    const target = galleryData?.imgs?.[galleryIndex];
+    if (!target) return;
+
+    // se já está mostrando essa imagem, não precisa "piscar" loader
+    if (target === galleryLoadedSrc) {
+      setGalleryIsLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setGalleryIsLoading(true);
+
+    const img = new Image();
+    img.decoding = "async";
+    img.onload = () => {
+      if (cancelled) return;
+      setGalleryLoadedSrc(target);
+      setGalleryIsLoading(false);
+    };
+    img.onerror = () => {
+      if (cancelled) return;
+      // mesmo em erro, tenta renderizar o src para mostrar fallback do navegador
+      setGalleryLoadedSrc(target);
+      setGalleryIsLoading(false);
+    };
+    img.src = target;
+
+    return () => {
+      cancelled = true;
+      img.onload = null;
+      img.onerror = null;
+    };
+  }, [galleryOpen, galleryIndex, galleryData?.imgs, galleryLoadedSrc]);
+
+React.useEffect(() => {
     return () => {
       clearTimeout(bounceT.current);
       clearTimeout(toastT.current);
@@ -818,6 +860,9 @@ React.useEffect(() => {
     const imgs = Array.isArray(p.imgs) && p.imgs.length > 0 ? p.imgs : [p.img];
     setGalleryData({ title: p.nome, imgs });
     setGalleryIndex(0);
+    // mostra algo imediatamente (se já estiver em cache, melhor ainda)
+    setGalleryLoadedSrc(imgs?.[0] || "");
+    setGalleryIsLoading(false);
     setGalleryOpen(true);
   }
 
@@ -1420,14 +1465,28 @@ React.useEffect(() => {
               style={{ touchAction: "pan-y" }}
               aria-label="Galeria de imagens. Deslize para o lado para trocar."
             >
-              <img
-                key={galleryIndex}
-                src={galleryData.imgs[galleryIndex]}
-                alt={galleryData.title}
-                className="max-h-[70vh] w-auto object-contain rounded-lg"
-                loading="lazy"
-                draggable={false}
-              />
+              <div className="relative h-[70vh] w-full grid place-items-center">
+              {galleryLoadedSrc ? (
+                <img
+                  src={galleryLoadedSrc}
+                  alt={galleryData.title}
+                  className={`max-h-full max-w-full w-auto object-contain rounded-lg transition ${galleryIsLoading ? "blur-sm scale-[1.01]" : "blur-0 scale-100"}`}
+                  loading="eager"
+                  draggable={false}
+                />
+              ) : (
+                <div className="h-full w-full rounded-lg bg-white/5 ring-1 ring-white/10 animate-pulse" />
+              )}
+
+              {galleryIsLoading && (
+                <div className="absolute inset-0 grid place-items-center">
+                  <div className="flex items-center gap-3 rounded-full bg-black/45 ring-1 ring-white/10 px-4 py-2">
+                    <span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" aria-hidden />
+                    <span className="text-sm text-white/90">Carregando imagem…</span>
+                  </div>
+                </div>
+              )}
+            </div>
 
               {/* Setas laterais (sem autoplay) */}
               {galleryData.imgs.length > 1 && (
