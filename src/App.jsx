@@ -1468,14 +1468,14 @@ React.useEffect(() => {
               {/*
                 Mantém um tamanho consistente sem estourar a altura do modal.
                 - Usa um teto em px e também em vh (evita criar scrollbar no modal)
-                - overflow-hidden evita que o pequeno scale/blur crie overflow visual
+                - Mantém a imagem sempre dentro do container com object-contain
               */}
-              <div className="relative h-[min(60vh,520px)] w-full grid place-items-center overflow-hidden">
+              <div className="relative h-[min(60vh,520px)] w-full grid place-items-center">
               {galleryLoadedSrc ? (
                 <img
                   src={galleryLoadedSrc}
                   alt={galleryData.title}
-                  className={`max-h-full max-w-full w-auto object-contain rounded-lg transition ${galleryIsLoading ? "blur-sm scale-[1.01]" : "blur-0 scale-100"}`}
+                  className={`h-full w-full object-contain rounded-lg transition ${galleryIsLoading ? "blur-sm opacity-80" : "blur-0 opacity-100"}`}
                   loading="eager"
                   draggable={false}
                 />
