@@ -30,14 +30,14 @@ export default function GalleryModal({
       maxWidth="max-w-[860px]"
     >
       {open && (
-        <div className="relative">
+        <div className="relative safe-pb">
           <div className="relative w-full max-w-[820px] mx-auto grid place-items-center rounded-xl ring-1 ring-white/10 bg-slate-900/60 p-2">
             <img
               key={index}
               src={imgs[index]}
               alt={`${title} — ${index + 1}`}
               className="w-auto h-auto object-contain rounded-md"
-              style={{ maxWidth: "100%", maxHeight: "calc(92vh - 190px)" }}
+              style={{ maxWidth: "100%", maxHeight: "min(78vh, calc(92vh - 220px))" }}
             />
             {imgs.length > 1 && (
               <>
