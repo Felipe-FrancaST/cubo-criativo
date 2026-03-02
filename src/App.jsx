@@ -1458,11 +1458,15 @@ React.useEffect(() => {
         onClose={() => setGalleryOpen(false)}
         title={`Fotos — ${galleryData.title}`}
         bodyClassName="overflow-hidden"
+        // No desktop, a galeria não precisa ocupar 70vw.
+        // Mantemos responsivo, mas com teto menor para não abrir "gigante".
+        widthClass="w-[94vw] sm:w-[88vw]"
+        maxWidth="max-w-[860px]"
       >
         {galleryOpen && (
           <div className="relative">
             <div
-              className="relative w-full grid place-items-center rounded-xl ring-1 ring-white/10 bg-slate-900/60 p-2 select-none"
+              className="relative w-full max-w-[820px] mx-auto grid place-items-center rounded-xl ring-1 ring-white/10 bg-slate-900/60 p-2 select-none"
               onTouchStart={onGalleryTouchStart}
               onTouchMove={onGalleryTouchMove}
               onTouchEnd={onGalleryTouchEnd}

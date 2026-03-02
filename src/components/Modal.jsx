@@ -1,7 +1,25 @@
 import * as React from "react";
 import { focusFirst, handleFocusTrapKeydown } from "../lib/a11y.js";
 
-export default function Modal({ open, onClose, title, children, ariaLabel, bodyClassName = "" }) {
+/**
+ * Modal genérico.
+ *
+ * Alguns usos (ex.: galeria) precisam de um painel menor no desktop.
+ * Para isso, `widthClass` e `maxWidth` permitem controlar o tamanho do painel
+ * sem duplicar componente.
+ */
+export default function Modal({
+  open,
+  onClose,
+  title,
+  children,
+  ariaLabel,
+  bodyClassName = "",
+  // Mantém o comportamento anterior como padrão.
+  widthClass = "w-[94vw] sm:w-[90vw] lg:w-[70vw]",
+  maxWidth = "max-w-[1100px]",
+  panelClassName = "",
+}) {
   const showHeader = typeof title === "string" && title.trim().length > 0;
   const panelRef = React.useRef(null);
   const lastFocusRef = React.useRef(null);
@@ -51,11 +69,12 @@ export default function Modal({ open, onClose, title, children, ariaLabel, bodyC
         aria-label={label}
         tabIndex={-1}
         className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2
-                    w-[94vw] sm:w-[90vw] lg:w-[70vw] max-w-[1100px]
+                    ${widthClass} ${maxWidth}
                     max-h-[92vh]
                     bg-slate-900 ring-1 ring-white/10 rounded-2xl
                     overflow-hidden flex flex-col
-                    transition-transform ${open ? "scale-100" : "scale-95"}`}
+                    transition-transform ${open ? "scale-100" : "scale-95"}
+                    ${panelClassName}`}
       >
         {showHeader ? (
           <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-white/10">

@@ -21,10 +21,17 @@ export default function GalleryModal({
   onSelect,
 }) {
   return (
-    <Modal open={open} onClose={onClose} title={`Fotos — ${title}`} bodyClassName="overflow-hidden">
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={`Fotos — ${title}`}
+      bodyClassName="overflow-hidden"
+      widthClass="w-[94vw] sm:w-[88vw]"
+      maxWidth="max-w-[860px]"
+    >
       {open && (
         <div className="relative">
-          <div className="relative w-full grid place-items-center rounded-xl ring-1 ring-white/10 bg-slate-900/60 p-2">
+          <div className="relative w-full max-w-[820px] mx-auto grid place-items-center rounded-xl ring-1 ring-white/10 bg-slate-900/60 p-2">
             <img
               key={index}
               src={imgs[index]}
