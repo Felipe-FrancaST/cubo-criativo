@@ -1486,17 +1486,22 @@ React.useEffect(() => {
                 Mantém a imagem dentro do modal em desktops menores (ex.: 768–900px de altura)
                 e evita criar barra de rolagem.
               */}
-              <div className="relative h-[min(52vh,480px)] w-full grid place-items-center">
+              {/*
+                IMPORTANTE (desktop): não fixamos a altura do container.
+                Em vez disso, deixamos o painel "encolher" e limitamos a IMAGEM por max-height.
+                Assim a foto aparece inteira (sem precisar rolar), apenas reduzindo quando necessário.
+              */}
+              <div className="relative w-full grid place-items-center">
               {galleryLoadedSrc ? (
                 <img
                   src={galleryLoadedSrc}
                   alt={galleryData.title}
-                  className={`h-full w-full max-w-full max-h-full object-contain rounded-lg transition ${galleryIsLoading ? "blur-sm opacity-80" : "blur-0 opacity-100"}`}
+                  className={`block max-h-[70vh] sm:max-h-[72vh] w-auto max-w-full h-auto object-contain rounded-lg transition ${galleryIsLoading ? "blur-sm opacity-80" : "blur-0 opacity-100"}`}
                   loading="eager"
                   draggable={false}
                 />
               ) : (
-                <div className="h-full w-full rounded-lg bg-white/5 ring-1 ring-white/10 animate-pulse" />
+                <div className="h-[45vh] w-full rounded-lg bg-white/5 ring-1 ring-white/10 animate-pulse" />
               )}
 
               {galleryIsLoading && (
