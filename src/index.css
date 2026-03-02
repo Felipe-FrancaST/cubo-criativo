@@ -33,12 +33,7 @@ html {
 body{
   margin: 0;
   color: var(--text);
-  color-scheme: dark;
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
-  line-height: 1.55;
-  background: radial-gradient(1200px 800px at 20% -10%, rgba(52,211,153,.18), transparent 55%),
-              radial-gradient(1000px 700px at 100% 0%, rgba(56,189,248,.12), transparent 55%),
-              var(--bg); /* fallback se o wrapper não carregar */
+  background: var(--bg); /* fallback se o wrapper não carregar */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -141,16 +136,3 @@ img{ image-rendering: auto; }
 @media (prefers-reduced-motion: reduce){
   *{ animation: none !important; transition: none !important; }
 }
-
-
-/* root layout */
-#root{ min-height: 100vh; display: flex; flex-direction: column; }
-
-button, a{ -webkit-tap-highlight-color: transparent; }
-a{ color: inherit; text-underline-offset: 3px; }
-a:hover{ text-decoration-color: color-mix(in oklab, var(--brand) 55%, white 0%); }
-
-
-/* safe-area helpers (iOS notch) */
-.safe-pb{ padding-bottom: env(safe-area-inset-bottom); }
-.safe-pt{ padding-top: env(safe-area-inset-top); }

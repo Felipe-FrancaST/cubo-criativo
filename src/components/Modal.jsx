@@ -54,9 +54,6 @@ export default function Modal({
 
   const label = ariaLabel || (showHeader ? title : "Janela");
 
-  const wantsNoScroll = /(^|\s)overflow-hidden(\s|$)/.test(bodyClassName);
-  const bodyOverflowClass = wantsNoScroll ? "overflow-hidden" : "overflow-y-auto";
-
   return (
     <div className={`fixed inset-0 z-[150] ${open ? "visible" : "invisible"}`} aria-hidden={!open}>
       {/* backdrop */}
@@ -92,7 +89,7 @@ export default function Modal({
             </button>
           </div>
         ) : null}
-        <div className={`p-3 sm:p-4 ${bodyOverflowClass} ${showHeader ? "" : "pt-4"} ${bodyClassName}`}>{children}</div>
+        <div className={`p-3 sm:p-4 overflow-y-auto ${showHeader ? "" : "pt-4"} ${bodyClassName}`}>{children}</div>
       </div>
     </div>
   );
