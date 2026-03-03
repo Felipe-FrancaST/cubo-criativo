@@ -75,7 +75,7 @@ export default function ProductPage({ slug, product, loading, onBack, addToCart,
             <div
               role="button"
               tabIndex={0}
-              className="aspect-[4/5] bg-slate-800/60 grid place-items-center overflow-hidden w-full relative cursor-pointer focus:outline-none focus:ring-2 focus:ring-teal-400/40"
+              className="aspect-square bg-slate-900/40 p-3 sm:p-4 grid place-items-center overflow-hidden w-full relative cursor-pointer focus:outline-none focus:ring-2 focus:ring-teal-400/40"
               onClick={() => openGallery?.(product)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
@@ -91,7 +91,7 @@ export default function ProductPage({ slug, product, loading, onBack, addToCart,
                   alt={product.nome}
                   loading="eager"
                   decoding="async"
-                  className="object-cover w-full h-full"
+                  className="object-contain w-full h-full rounded-2xl bg-slate-950/20 ring-1 ring-white/10"
                   onError={() => setImgError(true)}
                 />
               ) : (

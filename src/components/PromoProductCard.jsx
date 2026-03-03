@@ -32,12 +32,12 @@ export default function PromoProductCard({ p, addToCart, buyNow, openGallery }) 
   }
 
   return (
-    <article className="w-full min-w-0 group rounded-3xl overflow-hidden ring-2 ring-amber-400/35 bg-gradient-to-b from-amber-500/15 via-slate-900/70 to-slate-950/80 hover:ring-amber-400/60 transition shadow-[0_0_0_1px_rgba(255,255,255,0.06)]">
+    <article className="w-full min-w-0 group rounded-3xl overflow-hidden ring-2 ring-amber-400/35 bg-gradient-to-b from-amber-500/15 via-slate-900/70 to-slate-950/80 shadow-[0_14px_35px_-20px_rgba(0,0,0,0.75)] hover:ring-amber-400/60 hover:-translate-y-0.5 hover:shadow-[0_22px_55px_-28px_rgba(0,0,0,0.90)] transition-all">
       {/* Imagem */}
       <button
         type="button"
         // Imagens 1:1 -> evita corte mantendo a imagem inteira.
-        className="aspect-square min-h-[220px] sm:min-h-[260px] bg-slate-800/60 grid place-items-center overflow-hidden w-full relative"
+        className="aspect-square min-h-[220px] sm:min-h-[260px] bg-slate-900/40 p-3 sm:p-4 grid place-items-center overflow-hidden w-full relative"
         onClick={() => openGallery?.(p)}
         title="Ver mais fotos"
       >
@@ -47,7 +47,7 @@ export default function PromoProductCard({ p, addToCart, buyNow, openGallery }) 
             alt={p.nome}
             loading="lazy"
             decoding="async"
-            className="block object-contain w-full h-full p-2 origin-center group-hover:scale-[1.02] transition"
+            className="block object-contain w-full h-full rounded-2xl bg-slate-950/20 ring-1 ring-white/10 origin-center group-hover:scale-[1.02] transition"
             onError={() => setImgError(true)}
           />
         ) : (

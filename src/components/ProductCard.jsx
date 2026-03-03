@@ -50,14 +50,14 @@ export default function ProductCard({ p, addToCart, buyNow, openGallery, onRequi
   return (
     <article
       id={p?.id ? `product-${p.id}` : undefined}
-      className="w-full min-w-0 group rounded-2xl overflow-hidden ring-1 ring-white/10 bg-slate-900/60 hover:ring-teal-400/30 transition"
+      className="w-full min-w-0 group rounded-2xl overflow-hidden ring-1 ring-white/10 bg-slate-900/60 shadow-[0_12px_30px_-18px_rgba(0,0,0,0.70)] hover:ring-teal-400/30 hover:-translate-y-0.5 hover:shadow-[0_18px_45px_-22px_rgba(0,0,0,0.85)] transition-all"
     >
       {/* Imagem -> abre galeria */}
       <div
         role="button"
         tabIndex={0}
         // Suas imagens são 1:1 (1200x1200). Para evitar corte, usamos área 1:1 e object-contain.
-        className="aspect-square min-h-[220px] sm:min-h-[260px] bg-slate-800/60 grid place-items-center overflow-hidden w-full relative cursor-pointer focus:outline-none focus:ring-2 focus:ring-teal-400/40"
+        className="aspect-square min-h-[220px] sm:min-h-[260px] bg-slate-900/40 p-3 sm:p-4 grid place-items-center overflow-hidden w-full relative cursor-pointer focus:outline-none focus:ring-2 focus:ring-teal-400/40"
         onClick={() => openGallery?.(p)}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
@@ -76,7 +76,7 @@ export default function ProductCard({ p, addToCart, buyNow, openGallery, onRequi
             decoding="async"
             // Mantém a imagem inteira (sem recortar). Se existir "respiro" no PNG,
             // ele aparece como margem/área vazia, mas o produto não fica cortado.
-            className="block object-contain w-full h-full p-2 origin-center group-hover:scale-[1.02] transition"
+            className="block object-contain w-full h-full rounded-2xl bg-slate-950/20 ring-1 ring-white/10 origin-center group-hover:scale-[1.02] transition"
             onError={() => setImgError(true)}
           />
         ) : (

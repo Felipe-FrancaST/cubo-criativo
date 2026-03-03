@@ -36,7 +36,7 @@ export default function GalleryModal({
               key={index}
               src={imgs[index]}
               alt={`${title} — ${index + 1}`}
-              className="w-auto h-auto object-contain rounded-md"
+              className="w-auto h-auto object-contain rounded-2xl bg-slate-950/20 ring-1 ring-white/10"
               style={{ maxWidth: "100%", maxHeight: "calc(92vh - 190px)" }}
             />
             {imgs.length > 1 && (
@@ -67,12 +67,12 @@ export default function GalleryModal({
                   <button
                     key={idx}
                     onClick={() => onSelect(idx)}
-                    className={`relative rounded-lg overflow-hidden ring-1 ${
+                    className={`relative rounded-xl overflow-hidden bg-slate-950/20 p-1 ring-1 ${
                       active ? "ring-teal-400" : "ring-white/10 hover:ring-white/20"
                     }`}
                     title={`Ver imagem ${idx + 1}`}
                   >
-                    <img src={src} alt={`thumb ${idx + 1}`} className="h-16 w-full object-cover" />
+                    <img src={src} alt={`thumb ${idx + 1}`} className="h-16 w-full object-cover rounded-lg" />
                     {active && <span className="absolute inset-0 ring-2 ring-teal-400 rounded-lg pointer-events-none" />}
                   </button>
                 );
