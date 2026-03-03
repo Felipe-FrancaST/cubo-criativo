@@ -155,20 +155,124 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin })
     return selectedCounts.mini < miniLimit;
   }
 
+  function readCache(key) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || !Array.isArray(parsed.items)) return null;
+      return parsed;
+    } catch {
+      return null;
+    }
+  }
+
+  function writeCache(key, items) {
+    try {
+      localStorage.setItem(key, JSON.stringify({ items, savedAt: Date.now() }));
+    } catch {}
+  }
+
+  async function loadOptionsLite() {
+    if (!user) return;
+    setOptionsLoading(true);
+    const cacheKey = `vip_options_${cycle}`;
+    const cached = readCache(cacheKey);
+    if (cached?.items?.length) setOptions(cached.items);
+    try {
+      // Listagem leve: deixa o grid rápido; detalhes só no preview.
+      const { data: opts } = await supabase
+        .from("vip_mini_options")
+        .select("id,title,image_url,sort_order,active,item_type")
+        .eq("active", true)
+        .order("sort_order", { ascending: true });
+      const items = Array.isArray(opts) ? opts : [];
+      setOptions(items);
+      if (items.length) writeCache(cacheKey, items);
+    } catch {
+      // mantém cache (se houver)
+    } finally {
+      setOptionsLoading(false);
+    }
+  }
+
+  async function loadPollAsync() {
+    if (!user) return;
+    setPollLoading(true);
+    try {
+      const { data: p } = await supabase
+        .from('vip_theme_polls')
+        .select('id,month_key,title,status')
+        .eq('status', 'open')
+        .order('month_key', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      setPoll(p || null);
+      if (p?.id) {
+        const [{ data: opts2 }, { data: mine }, { data: counts }] = await Promise.all([
+          supabase.from('vip_theme_options').select('id,poll_id,title,description,image_url,sort_order,active').eq('poll_id', p.id).eq('active', true).order('sort_order', { ascending: true }),
+          supabase.from('vip_theme_votes').select('option_id').eq('poll_id', p.id).eq('user_id', user.id).maybeSingle(),
+          supabase.rpc('vip_theme_counts', { p_poll_id: p.id }),
+        ]);
+        setPollOptions(Array.isArray(opts2) ? opts2 : []);
+        setMyVote(mine?.option_id || null);
+        const map = {};
+        for (const r of (counts || [])) map[String(r.option_id)] = Number(r.votes) || 0;
+        setVoteCounts(map);
+      } else {
+        setPollOptions([]);
+        setMyVote(null);
+        setVoteCounts({});
+      }
+    } catch {
+      setPoll(null);
+      setPollOptions([]);
+      setMyVote(null);
+      setVoteCounts({});
+    } finally {
+      setPollLoading(false);
+    }
+  }
+
+  async function openPreviewLite(opt) {
+    if (!opt?.id) return;
+    // Se já tem detalhes, abre direto
+    if (opt.description || (Array.isArray(opt.gallery_images) && opt.gallery_images.length)) {
+      setPreview(opt);
+      return;
+    }
+    try {
+      const { data } = await supabase
+        .from('vip_mini_options')
+        .select('id,title,description,image_url,gallery_images,sort_order,active,item_type')
+        .eq('id', opt.id)
+        .maybeSingle();
+      const merged = { ...(opt || {}), ...(data || {}) };
+      setOptions((prev) => (Array.isArray(prev) ? prev.map((x) => (String(x?.id) === String(opt.id) ? merged : x)) : prev));
+      setPreview(merged);
+    } catch {
+      setPreview(opt);
+    }
+  }
+
   async function load() {
     if (!user) return;
     setLoading(true);
     setError("");
     setMsg("");
     try {
-      try {
-        const plansResp = await fetch('/api/vip-plans');
-        const plansJson = await plansResp.json().catch(() => ({}));
-        if (plansResp.ok && Array.isArray(plansJson?.plans) && plansJson.plans.length) setVipPlans(plansJson.plans);
-      } catch {}
-      const [{ data: prof }, { data: opts }, { data: lastVipOrder }, { data: sel }] = await Promise.all([
+      // Planos em background (não trava a UI)
+      (async () => {
+        try {
+          const plansResp = await fetch('/api/vip-plans');
+          const plansJson = await plansResp.json().catch(() => ({}));
+          if (plansResp.ok && Array.isArray(plansJson?.plans) && plansJson.plans.length) setVipPlans(plansJson.plans);
+        } catch {}
+      })();
+
+      // Core (rápido): perfil + status + seleção salva
+      const [{ data: prof }, { data: lastVipOrder }, { data: sel }] = await Promise.all([
         supabase.from("profiles").select("vip_until,vip_plan").eq("id", user.id).maybeSingle(),
-        supabase.from("vip_mini_options").select("id,title,description,image_url,gallery_images,sort_order,active,item_type").eq("active", true).order("sort_order", { ascending: true }),
         supabase
           .from("orders")
           .select("id,production_status,shipping_tracking,created_at")
@@ -183,40 +287,12 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin })
 
       setVipUntil(prof?.vip_until || null);
       setVipPlan(prof?.vip_plan || "Cubo Level 1 — RPG");
-      setOptions(Array.isArray(opts) ? opts : []);
-
-      // Votação do tema (best-effort). Se as tabelas não existirem ainda, só omitimos a seção.
-      try {
-        const { data: p } = await supabase
-          .from('vip_theme_polls')
-          .select('id,month_key,title,status')
-          .eq('status', 'open')
-          .order('month_key', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        setPoll(p || null);
-        if (p?.id) {
-          const [{ data: opts2 }, { data: mine }, { data: counts }] = await Promise.all([
-            supabase.from('vip_theme_options').select('id,poll_id,title,description,image_url,sort_order,active').eq('poll_id', p.id).eq('active', true).order('sort_order', { ascending: true }),
-            supabase.from('vip_theme_votes').select('option_id').eq('poll_id', p.id).eq('user_id', user.id).maybeSingle(),
-            supabase.rpc('vip_theme_counts', { p_poll_id: p.id }),
-          ]);
-          setPollOptions(Array.isArray(opts2) ? opts2 : []);
-          setMyVote(mine?.option_id || null);
-          const map = {};
-          for (const r of (counts || [])) map[String(r.option_id)] = Number(r.votes) || 0;
-          setVoteCounts(map);
-        } else {
-          setPollOptions([]);
-          setMyVote(null);
-          setVoteCounts({});
-        }
-      } catch {
-        setPoll(null);
-        setPollOptions([]);
-        setMyVote(null);
-        setVoteCounts({});
-      }
+      // Os blocos pesados entram depois
+      setOptions([]);
+      setPoll(null);
+      setPollOptions([]);
+      setMyVote(null);
+      setVoteCounts({});
 
       const order = Array.isArray(lastVipOrder) ? lastVipOrder[0] : null;
       setOrderStatus(String(order?.production_status || "editavel").toLowerCase());
@@ -237,6 +313,10 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin })
         setEditing(true);
         setSelected([]);
       }
+
+      // Carrega catálogo + votação em background
+      loadOptionsLite();
+      loadPollAsync();
     } catch (e) {
       setError(e?.message || "Não foi possível carregar a Área VIP.");
     } finally {
@@ -513,28 +593,33 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin })
                 <div className="rounded-2xl bg-gradient-to-br from-violet-500/15 to-fuchsia-500/10 ring-1 ring-violet-400/20 p-5">
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <div className="text-xs uppercase tracking-wide text-slate-300">Upgrade</div>
-                      <div className="mt-1 font-extrabold text-slate-50">Subir de Nível</div>
-                      <div className="mt-2 text-sm text-slate-200/80">
-                        {nextPlan ? <>Próximo: <b>{nextPlan?.short_name || nextPlan?.name}</b></> : <>Você já está no maior nível.</>}
-                      </div>
-                      {nextPlan ? (
-                        <div className="mt-2 text-xs text-slate-200/80">
-                          Você paga apenas a diferença: <b>{fmtBRLFromCents(upgradeDiffCents)}</b>
-                        </div>
-                      ) : null}
+                      <div className="text-xs uppercase tracking-wide text-slate-300">Painel VIP</div>
+                      <div className="mt-1 font-extrabold text-slate-50">Ações</div>
+                      <div className="mt-2 text-sm text-slate-200/80">Abra somente o que você precisar (sem amontoar tudo).</div>
                     </div>
-                    <span className="material-icons text-violet-200">rocket_launch</span>
+                    <span className="material-icons text-violet-200">auto_awesome</span>
                   </div>
-                  {nextPlan ? (
+
+                  <div className="mt-4 grid grid-cols-1 gap-2">
                     <button
-                      disabled={upgradeBusy}
-                      onClick={() => setUpgradePayOpen(true)}
-                      className="mt-4 w-full rounded-xl px-4 py-3 font-extrabold bg-violet-400 text-black ring-4 ring-violet-400/20 hover:opacity-95 disabled:opacity-60"
+                      type="button"
+                      onClick={() => setShowPoll((v) => !v)}
+                      className="w-full rounded-xl px-4 py-3 font-extrabold ring-1 ring-white/10 bg-white/5 hover:bg-white/10 text-slate-100 flex items-center justify-between"
                     >
-                      {'Subir de Nível'}
+                      <span className="inline-flex items-center gap-2"><span className="material-icons text-[18px]">how_to_vote</span> Votação do tema</span>
+                      <span className="material-icons text-[18px]">{showPoll ? 'expand_less' : 'expand_more'}</span>
                     </button>
-                  ) : null}
+
+                    <button
+                      type="button"
+                      disabled={!nextPlan || upgradeBusy}
+                      onClick={() => { setShowUpgrade(true); setUpgradePayOpen(true); }}
+                      className={`w-full rounded-xl px-4 py-3 font-extrabold ring-1 ring-white/10 flex items-center justify-between ${(!nextPlan || upgradeBusy) ? 'bg-slate-700/40 text-slate-300' : 'bg-violet-300 text-black hover:bg-violet-200'}`}
+                    >
+                      <span className="inline-flex items-center gap-2"><span className="material-icons text-[18px]">upgrade</span> Upgrade de nível</span>
+                      <span className="text-xs">{nextPlan ? fmtBRLFromCents(upgradeDiffCents) : '—'}</span>
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -573,7 +658,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin })
                 </div>
               ) : null}
 
-              {upgrade?.order_id ? (
+              {showUpgrade && upgrade?.order_id ? (
                 <div className="mt-4 rounded-2xl bg-white/5 ring-1 ring-white/10 p-5">
                   <div className="flex items-center justify-between gap-3 flex-wrap">
                     <div>
@@ -584,7 +669,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin })
                       <a className="text-sm font-semibold text-teal-200 hover:underline" href={upgrade.ticket_url} target="_blank" rel="noreferrer">Abrir no Mercado Pago</a>
                     ) : null}
 
-              {upgradeSuccess ? (
+              {showUpgrade && upgradeSuccess ? (
                 <div className="mt-4 rounded-2xl bg-emerald-500/10 ring-1 ring-emerald-400/20 p-5">
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -620,7 +705,11 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin })
                 </div>
               ) : null}
 
-              {poll?.id ? (
+              {showPoll && pollLoading ? (
+                <div className="mt-4 rounded-2xl bg-white/5 ring-1 ring-white/10 p-5 text-slate-200">Carregando votação…</div>
+              ) : null}
+
+              {showPoll && poll?.id ? (
                 <div className="mt-4 rounded-2xl bg-white/5 ring-1 ring-white/10 p-5">
                   <div className="flex items-start justify-between gap-3 flex-wrap">
                     <div>
@@ -666,7 +755,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin })
 
               <div className="mt-6 flex items-center justify-between gap-3 flex-wrap">
                 <div className="text-sm text-slate-300">
-                  Escolha <b>{totalLimit}</b> item(ns) do mês ({miniLimit} miniatura(s){bossLimit ? ` + ${bossLimit} boss(es)` : ""}) entre <b>{options.length}</b> opções.
+                  Escolha <b>{totalLimit}</b> item(ns) do mês ({miniLimit} miniatura(s){bossLimit ? ` + ${bossLimit} boss(es)` : ""}) entre <b>{optionsLoading ? '…' : options.length}</b> opções.
                   {!editable ? (
                     <span className="ml-2 text-slate-400">(Escolhas bloqueadas: status {st.label})</span>
                   ) : null}
@@ -677,6 +766,10 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin })
                   <span className="ml-2 text-slate-400">• Boss: <b className="text-slate-200">{selectedCounts.boss}</b>/{bossLimit}</span>
                 </div>
               </div>
+
+              {optionsLoading && !options.length ? (
+                <div className="mt-4 rounded-2xl bg-white/5 ring-1 ring-white/10 p-4 text-slate-200">Carregando catálogo VIP…</div>
+              ) : null}
 
               <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {options.map((opt) => {
@@ -696,12 +789,12 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin })
                       ) : null}
                       <button
                         type="button"
-                        onClick={() => setPreview(opt)}
+                        onClick={() => openPreviewLite(opt)}
                         className="block w-full text-left"
                       >
-                        <div className="aspect-square bg-slate-900/80">
+                        <div className="aspect-square bg-slate-900/70 p-2">
                           {opt.image_url ? (
-                            <img src={opt.image_url} alt={opt.title} className="h-full w-full object-cover" loading="lazy" />
+                            <img src={opt.image_url} alt={opt.title} className="h-full w-full object-contain rounded-xl ring-1 ring-white/10" loading="lazy" />
                           ) : (
                             <div className="h-full w-full grid place-items-center text-slate-500 text-xs">Sem imagem</div>
                           )}
@@ -717,9 +810,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin })
                                 {kind === 'boss' ? 'Boss' : 'Miniatura'}
                               </span>
                             </div>
-                            {opt.description ? (
-                              <p className="mt-1 text-[11px] text-slate-400 line-clamp-2">{opt.description}</p>
-                            ) : null}
+                            {/* descrição/carrossel carregam no preview (sob demanda) */}
                           </div>
                           <button
                             type="button"
@@ -753,7 +844,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin })
                         </div>
                         <button
                           type="button"
-                          onClick={() => setPreview(opt)}
+                          onClick={() => openPreviewLite(opt)}
                           className="mt-2 text-[11px] text-sky-300 hover:text-sky-200"
                         >
                           Ver imagens
@@ -778,12 +869,12 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin })
                     </div>
                     <div className="p-4 space-y-3">
                       {preview.image_url ? (
-                        <img src={preview.image_url} alt={preview.title} className="w-full aspect-square object-cover rounded-xl ring-1 ring-white/10" />
+                        <img src={preview.image_url} alt={preview.title} className="w-full aspect-square object-contain rounded-xl ring-1 ring-white/10 bg-black/25" />
                       ) : null}
                       {Array.isArray(preview.gallery_images) && preview.gallery_images.length ? (
                         <div className="grid grid-cols-3 gap-2">
                           {preview.gallery_images.map((url, idx) => (
-                            <img key={idx} src={url} alt={`${preview.title} ${idx + 1}`} className="w-full aspect-square object-cover rounded-lg ring-1 ring-white/10" />
+                            <img key={idx} src={url} alt={`${preview.title} ${idx + 1}`} className="w-full aspect-square object-contain rounded-lg ring-1 ring-white/10 bg-black/25" />
                           ))}
                         </div>
                       ) : (
