@@ -6,7 +6,26 @@ const fmtBRL = (n) =>
     ? n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
     : "—";
 
-const prodStatusLabel = (s) => {
+const fmtDate = (iso) => {
+  if (!iso) return "—";
+  try {
+    const d = new Date(iso);
+    return d.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+  } catch {
+    return String(iso);
+  }
+};
+
+const badgeBase = "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] ring-1";
+const statusBadge = (status) => {
+  const s = String(status || "").toLowerCase();
+  if (s === "paid") return { label: "Pago", cls: "bg-emerald-400/15 text-emerald-200 ring-emerald-400/30" };
+  if (["failed", "canceled", "cancelled", "rejected"].includes(s))
+    return { label: "Falhou", cls: "bg-red-500/15 text-red-200 ring-red-500/30" };
+  return { label: "Pendente", cls: "bg-amber-400/15 text-amber-200 ring-amber-400/30" };
+};
+
+const prodStatusBadge = (s) => {
   const v = String(s || "recebido").toLowerCase();
   switch (v) {
     case "editavel":
@@ -28,17 +47,6 @@ const prodStatusLabel = (s) => {
     default:
       return { label: v, cls: "bg-slate-500/15 text-slate-200 ring-white/15" };
   }
-};
-
-const payStatusUI = (status) => {
-  const s = String(status || "").toLowerCase();
-  if (s === "paid") {
-    return { label: "Pago", cls: "bg-emerald-400/15 text-emerald-200 ring-emerald-400/30" };
-  }
-  if (s === "failed" || s === "canceled" || s === "cancelled" || s === "rejected") {
-    return { label: "Falhou", cls: "bg-red-500/15 text-red-200 ring-red-500/30" };
-  }
-  return { label: "Pendente", cls: "bg-amber-400/15 text-amber-200 ring-amber-400/30" };
 };
 
 function copyToClipboard(text) {
@@ -64,47 +72,490 @@ function fmtAddress(p) {
   return parts.join("\n");
 }
 
+function onlyDigits(s) {
+  return String(s || "").replace(/\D/g, "");
+}
+
+function shortId(id) {
+  const v = String(id || "");
+  if (v.length <= 8) return v;
+  return `${v.slice(0, 4)}…${v.slice(-4)}`;
+}
+
+function exportCsv(rows) {
+  const header = [
+    "created_at",
+    "order_id",
+    "customer_name",
+    "customer_email",
+    "customer_phone",
+    "total",
+    "status",
+    "production_status",
+    "shipping_tracking",
+    "order_type",
+    "items",
+  ];
+  const esc = (v) => {
+    const s = String(v ?? "");
+    if (/[,"\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+    return s;
+  };
+  const lines = [header.join(",")];
+  (rows || []).forEach((o) => {
+    const items = (o.order_items || [])
+      .map((it) => `${it.qty || 1}x ${it.name || "Item"}${it.scale ? ` (${it.scale})` : ""}`)
+      .join(" | ");
+    const line = [
+      o.created_at,
+      o.id,
+      o.customer_name || o.profile?.full_name || "",
+      o.customer_email || "",
+      o.customer_phone || o.profile?.phone || "",
+      o.total,
+      o.status,
+      o.production_status,
+      o.shipping_tracking,
+      o.order_type,
+      items,
+    ].map(esc);
+    lines.push(line.join(","));
+  });
+  const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `admin_pedidos_${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function KpiCard({ label, value, hint }) {
+  return (
+    <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-4">
+      <div className="text-xs text-slate-400">{label}</div>
+      <div className="mt-1 text-2xl font-semibold text-white">{value}</div>
+      {hint ? <div className="mt-1 text-xs text-slate-500">{hint}</div> : null}
+    </div>
+  );
+}
+
+function SectionTitle({ icon, title, subtitle, right }) {
+  return (
+    <div className="flex items-start justify-between gap-3">
+      <div className="flex items-start gap-3">
+        <span className="material-icons text-slate-200/90">{icon}</span>
+        <div>
+          <div className="text-lg font-semibold text-white">{title}</div>
+          {subtitle ? <div className="text-sm text-slate-400">{subtitle}</div> : null}
+        </div>
+      </div>
+      {right ? <div className="shrink-0">{right}</div> : null}
+    </div>
+  );
+}
+
+function SidebarItem({ active, icon, children, onClick, badge }) {
+  return (
+    <button
+      onClick={onClick}
+      className={[
+        "w-full flex items-center justify-between gap-3 rounded-xl px-3 py-2 text-left transition ring-1",
+        active ? "bg-white/[0.06] ring-white/15" : "bg-transparent ring-white/10 hover:bg-white/[0.04]",
+      ].join(" ")}
+    >
+      <span className="flex items-center gap-3 min-w-0">
+        <span className="material-icons text-[18px] text-slate-200/90">{icon}</span>
+        <span className="text-sm text-slate-100 truncate">{children}</span>
+      </span>
+      {badge ? <span className={`${badgeBase} bg-white/5 text-slate-200 ring-white/10`}>{badge}</span> : null}
+    </button>
+  );
+}
+
+function DetailRow({ label, value, action }) {
+  return (
+    <div className="flex items-start justify-between gap-3 py-2 border-b border-white/10">
+      <div className="min-w-0">
+        <div className="text-[11px] text-slate-500">{label}</div>
+        <div className="text-sm text-slate-200 whitespace-pre-wrap break-words">{value || "—"}</div>
+      </div>
+      {action ? <div className="shrink-0">{action}</div> : null}
+    </div>
+  );
+}
+
+function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTracking, onRequestRefund, toast }) {
+  if (!open) return null;
+  const p = order?.profile || null;
+  const address = fmtAddress(p);
+  const phone = order?.customer_phone || p?.phone || "";
+  const waPhone = onlyDigits(phone);
+  const waMsg = encodeURIComponent(
+    `Olá! Sobre seu pedido ${shortId(order?.id)}:\nStatus: ${String(order?.production_status || "recebido")}\n\nQualquer dúvida, me responda aqui.`
+  );
+  const waUrl = waPhone ? `https://wa.me/55${waPhone}?text=${waMsg}` : null;
+
+  return (
+    <div className="fixed inset-0 z-[9999]">
+      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+      <div className="absolute right-0 top-0 h-full w-full sm:w-[560px] bg-[#0a0f1a] border-l border-white/10">
+        <div className="p-4 border-b border-white/10 flex items-start justify-between gap-3">
+          <div>
+            <div className="text-white font-semibold">Pedido {shortId(order?.id)}</div>
+            <div className="text-xs text-slate-400">{fmtDate(order?.created_at)}</div>
+          </div>
+          <button
+            onClick={onClose}
+            className="rounded-xl px-3 py-2 text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+            aria-label="Fechar"
+          >
+            <span className="material-icons text-[18px]">close</span>
+          </button>
+        </div>
+
+        <div className="p-4 overflow-y-auto h-[calc(100%-64px)]">
+          {toast ? (
+            <div className="mb-3 rounded-2xl bg-white/[0.04] ring-1 ring-white/10 px-3 py-2 text-sm text-slate-200">
+              {toast}
+            </div>
+          ) : null}
+
+          <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-3">
+            <div className="flex flex-wrap items-center gap-2">
+              {(() => {
+                const b = statusBadge(order?.status);
+                return <span className={`${badgeBase} ${b.cls}`}>💳 {b.label}</span>;
+              })()}
+              {(() => {
+                const b = prodStatusBadge(order?.production_status);
+                return <span className={`${badgeBase} ${b.cls}`}>🏭 {b.label}</span>;
+              })()}
+              {order?.order_type ? (
+                <span className={`${badgeBase} bg-white/5 text-slate-200 ring-white/10`}>
+                  {String(order.order_type).toLowerCase() === "vip" ? "VIP" : "Loja"}
+                </span>
+              ) : null}
+              {order?.refund_requested ? (
+                <span className={`${badgeBase} bg-red-500/10 text-red-200 ring-red-500/30`}>Reembolso solicitado</span>
+              ) : null}
+            </div>
+
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <div>
+                <div className="text-[11px] text-slate-500">Total</div>
+                <div className="text-lg font-semibold text-white">{fmtBRL(order?.total)}</div>
+              </div>
+              <div>
+                <div className="text-[11px] text-slate-500">Pagamento</div>
+                <div className="text-sm text-slate-200">{order?.payment_provider || "—"}</div>
+                <div className="text-xs text-slate-500 break-words">{order?.provider_payment_id || ""}</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-3">
+            <div className="text-sm font-semibold text-white">Cliente</div>
+            <DetailRow
+              label="Nome"
+              value={order?.customer_name || p?.full_name}
+              action={
+                order?.customer_name ? (
+                  <button
+                    onClick={() => copyToClipboard(order.customer_name)}
+                    className="rounded-xl px-2 py-1 text-xs text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+                  >
+                    Copiar
+                  </button>
+                ) : null
+              }
+            />
+            <DetailRow
+              label="Email"
+              value={order?.customer_email}
+              action={
+                order?.customer_email ? (
+                  <button
+                    onClick={() => copyToClipboard(order.customer_email)}
+                    className="rounded-xl px-2 py-1 text-xs text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+                  >
+                    Copiar
+                  </button>
+                ) : null
+              }
+            />
+            <DetailRow
+              label="Telefone"
+              value={phone}
+              action={
+                waUrl ? (
+                  <a
+                    className="rounded-xl px-2 py-1 text-xs text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+                    href={waUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    WhatsApp
+                  </a>
+                ) : null
+              }
+            />
+            <DetailRow
+              label="Endereço"
+              value={address}
+              action={
+                address ? (
+                  <button
+                    onClick={() => copyToClipboard(address)}
+                    className="rounded-xl px-2 py-1 text-xs text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+                  >
+                    Copiar
+                  </button>
+                ) : null
+              }
+            />
+          </div>
+
+          <div className="mt-4 rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-3">
+            <div className="text-sm font-semibold text-white">Itens</div>
+            <div className="mt-2 space-y-2">
+              {(order?.order_items || []).length ? (
+                order.order_items.map((it, idx) => (
+                  <div key={idx} className="flex items-center gap-3 rounded-xl bg-black/20 ring-1 ring-white/10 p-2">
+                    <div className="w-10 h-10 rounded-lg overflow-hidden bg-white/5 ring-1 ring-white/10 shrink-0">
+                      {it?.img ? <img src={it.img} alt="" className="w-full h-full object-contain" /> : null}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-sm text-slate-100 truncate">{it.name}</div>
+                      <div className="text-xs text-slate-400">
+                        {it.qty || 1}x {it.scale ? `• escala ${it.scale}` : ""} {it.unit_price != null ? `• ${fmtBRL(it.unit_price)}` : ""}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-sm text-slate-400">Nenhum item.</div>
+              )}
+            </div>
+
+            {order?.vip_selection?.selected_titles?.length ? (
+              <div className="mt-3 text-xs text-slate-300">
+                <span className="text-slate-500">Seleção VIP:</span>{" "}
+                {order.vip_selection.selected_titles.join(", ")}
+              </div>
+            ) : null}
+          </div>
+
+          <div className="mt-4 rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-3">
+            <div className="text-sm font-semibold text-white">Ações</div>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <button
+                onClick={() => copyToClipboard(order?.id)}
+                className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+              >
+                Copiar ID
+              </button>
+
+              <button
+                onClick={() => copyToClipboard(order?.provider_payment_id)}
+                className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+                disabled={!order?.provider_payment_id}
+              >
+                Copiar ID pagamento
+              </button>
+
+              <button
+                onClick={() => onUpdateTracking?.(order)}
+                className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+                disabled={String(order?.status || "").toLowerCase() !== "paid"}
+                title={String(order?.status || "").toLowerCase() !== "paid" ? "Apenas pedidos pagos" : ""}
+              >
+                Editar rastreio
+              </button>
+
+              <button
+                onClick={() => onUpdateStatus?.(order)}
+                className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+                disabled={String(order?.status || "").toLowerCase() !== "paid"}
+                title={String(order?.status || "").toLowerCase() !== "paid" ? "Apenas pedidos pagos" : ""}
+              >
+                Alterar status
+              </button>
+
+              <button
+                onClick={() => onRequestRefund?.(order)}
+                className="rounded-xl px-3 py-2 text-sm text-red-200 hover:bg-red-500/10 ring-1 ring-red-500/30 col-span-2"
+              >
+                Marcar reembolso solicitado
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StatusModal({ open, mode, order, onClose, onSubmit }) {
+  const [productionStatus, setProductionStatus] = React.useState("recebido");
+  const [eta, setEta] = React.useState("3 a 7 dias úteis");
+  const [tracking, setTracking] = React.useState("");
+
+  React.useEffect(() => {
+    if (!open) return;
+    setProductionStatus(String(order?.production_status || "recebido"));
+    setEta("3 a 7 dias úteis");
+    setTracking(String(order?.shipping_tracking || ""));
+  }, [open, order]);
+
+  if (!open) return null;
+
+  const submit = () => {
+    if (mode === "status") {
+      const next = String(productionStatus || "recebido").toLowerCase();
+      const patch = { production_status: next };
+      if (next === "em_producao") patch.production_eta = eta;
+      if (next === "enviado" && tracking.trim()) patch.shipping_tracking = tracking.trim();
+      onSubmit?.(patch);
+      return;
+    }
+    if (mode === "tracking") {
+      onSubmit?.({ shipping_tracking: tracking.trim(), ...(tracking.trim() ? { production_status: "enviado" } : {}) });
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[9999]">
+      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+      <div className="absolute left-1/2 top-1/2 w-[92vw] max-w-[520px] -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-[#0a0f1a] ring-1 ring-white/10 p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="text-white font-semibold">
+              {mode === "status" ? "Alterar status de produção" : "Editar rastreio"}
+            </div>
+            <div className="text-xs text-slate-400">Pedido {shortId(order?.id)}</div>
+          </div>
+          <button
+            onClick={onClose}
+            className="rounded-xl px-3 py-2 text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+            aria-label="Fechar"
+          >
+            <span className="material-icons text-[18px]">close</span>
+          </button>
+        </div>
+
+        <div className="mt-4 space-y-3">
+          {mode === "status" ? (
+            <>
+              <label className="block">
+                <div className="text-xs text-slate-400 mb-1">Status</div>
+                <select
+                  value={productionStatus}
+                  onChange={(e) => setProductionStatus(e.target.value)}
+                  className="w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-slate-100"
+                >
+                  <option value="editavel">Editável</option>
+                  <option value="recebido">Recebido</option>
+                  <option value="em_producao">Em produção</option>
+                  <option value="pronto">Pronto</option>
+                  <option value="enviado">Enviado</option>
+                  <option value="entregue">Entregue</option>
+                  <option value="cancelado">Cancelado</option>
+                  <option value="reembolsado">Reembolsado</option>
+                </select>
+              </label>
+
+              {String(productionStatus).toLowerCase() === "em_producao" ? (
+                <label className="block">
+                  <div className="text-xs text-slate-400 mb-1">Estimativa</div>
+                  <input
+                    value={eta}
+                    onChange={(e) => setEta(e.target.value)}
+                    className="w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-slate-100"
+                    placeholder="Ex: 3 a 7 dias úteis"
+                  />
+                </label>
+              ) : null}
+
+              {String(productionStatus).toLowerCase() === "enviado" ? (
+                <label className="block">
+                  <div className="text-xs text-slate-400 mb-1">Rastreio (opcional)</div>
+                  <input
+                    value={tracking}
+                    onChange={(e) => setTracking(e.target.value)}
+                    className="w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-slate-100"
+                    placeholder="Código de rastreio"
+                  />
+                </label>
+              ) : null}
+            </>
+          ) : (
+            <label className="block">
+              <div className="text-xs text-slate-400 mb-1">Rastreio</div>
+              <input
+                value={tracking}
+                onChange={(e) => setTracking(e.target.value)}
+                className="w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-slate-100"
+                placeholder="Código de rastreio"
+              />
+              <div className="mt-1 text-[11px] text-slate-500">
+                Dica: ao definir rastreio, o pedido pode ser marcado como <span className="text-slate-300">Enviado</span>.
+              </div>
+            </label>
+          )}
+        </div>
+
+        <div className="mt-4 flex items-center justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={submit}
+            className="rounded-xl px-3 py-2 text-sm text-white bg-emerald-500/20 hover:bg-emerald-500/25 ring-1 ring-emerald-500/30"
+          >
+            Salvar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminOrdersPage({ user, accessToken, onNavigateHome, onRequireLogin }) {
-  const [tab, setTab] = React.useState("orders");
+  const isAdmin = isAdminEmail(user?.email || "");
+  const [section, setSection] = React.useState("dashboard");
+
   const [orders, setOrders] = React.useState([]);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState("");
+
   const [q, setQ] = React.useState("");
   const [filterPay, setFilterPay] = React.useState("all");
   const [filterProd, setFilterProd] = React.useState("all");
+  const [filterType, setFilterType] = React.useState("all");
+
   const [toast, setToast] = React.useState("");
-  const [statusActionModal, setStatusActionModal] = React.useState({ open: false, orderId: null, patch: null, fields: {} });
+  const [details, setDetails] = React.useState({ open: false, orderId: null });
+  const [actionModal, setActionModal] = React.useState({ open: false, mode: "status", orderId: null });
 
   const [vipPolls, setVipPolls] = React.useState([]);
   const [vipPollsLoading, setVipPollsLoading] = React.useState(false);
   const [vipPollsError, setVipPollsError] = React.useState("");
 
-  const isAdmin = isAdminEmail(user?.email || "");
-
-  const closeStatusActionModal = () => setStatusActionModal({ open: false, orderId: null, patch: null, fields: {} });
-
-  const submitStatusActionModal = async () => {
-    const data = statusActionModal;
-    if (!data?.orderId || !data?.patch) return;
-    const extra = {};
-    if (String(data.patch.production_status || '').toLowerCase() === 'em_producao') {
-      const eta = String(data.fields.production_eta || '').trim();
-      if (!eta) return showToast('⚠️ Informe a estimativa de produção.');
-      extra.production_eta = eta;
-    }
-    if (String(data.patch.production_status || '').toLowerCase() === 'enviado') {
-      const tr = String(data.fields.shipping_tracking || '').trim();
-      if (tr) extra.shipping_tracking = tr;
-    }
-    closeStatusActionModal();
-    await updateOrder(data.orderId, { ...data.patch, ...extra });
-  };
-
   const showToast = (msg) => {
     setToast(msg);
     window.clearTimeout(showToast._t);
-    showToast._t = window.setTimeout(() => setToast(""), 1800);
+    showToast._t = window.setTimeout(() => setToast(""), 2000);
   };
+
+  React.useEffect(() => {
+    if (!user) onRequireLogin?.("Faça login como admin para acessar o painel.");
+  }, [user]);
 
   const fetchOrders = React.useCallback(async () => {
     if (!accessToken) return;
@@ -112,9 +563,7 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome, onR
     setError("");
     try {
       const resp = await fetch("/api/admin/orders", {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
       const data = await resp.json().catch(() => ({}));
       if (!resp.ok) throw new Error(data?.error || "Não foi possível carregar pedidos.");
@@ -144,51 +593,26 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome, onR
     }
   }, [accessToken]);
 
-    React.useEffect(() => {
-    if (!user) onRequireLogin?.('Faça login como admin para ver pedidos.');
-  }, [user]);
-
-React.useEffect(() => {
+  React.useEffect(() => {
     fetchOrders();
   }, [fetchOrders]);
 
   React.useEffect(() => {
-    if (tab === "vip_voting") fetchVipVoting();
-  }, [tab, fetchVipVoting]);
+    if (section === "vip") fetchVipVoting();
+  }, [section, fetchVipVoting]);
 
   async function updateOrder(orderId, patch) {
     try {
       const current = (orders || []).find((o) => o.id === orderId);
       const currentPay = String(current?.status || "").toLowerCase();
-      const changingFlow = Object.prototype.hasOwnProperty.call(patch || {}, "production_status") || Object.prototype.hasOwnProperty.call(patch || {}, "shipping_tracking");
+      const changingFlow =
+        Object.prototype.hasOwnProperty.call(patch || {}, "production_status") ||
+        Object.prototype.hasOwnProperty.call(patch || {}, "shipping_tracking") ||
+        Object.prototype.hasOwnProperty.call(patch || {}, "refund_requested");
+
       if (changingFlow && currentPay !== "paid") {
         showToast("⚠️ Só pedidos pagos podem ter status/rastreio alterados.");
         return;
-      }
-      const finalPatch = { ...patch };
-      if (Object.prototype.hasOwnProperty.call(finalPatch, 'production_status')) {
-        const nextStatus = String(finalPatch.production_status || '').toLowerCase();
-        if (nextStatus === 'em_producao' && !finalPatch.production_eta) {
-          setStatusActionModal({
-            open: true,
-            orderId,
-            patch: finalPatch,
-            fields: { production_eta: '3 a 7 dias úteis' },
-          });
-          return;
-        }
-        if (nextStatus === 'enviado' && !finalPatch.shipping_tracking) {
-          setStatusActionModal({
-            open: true,
-            orderId,
-            patch: finalPatch,
-            fields: { shipping_tracking: '' },
-          });
-          return;
-        }
-        if (nextStatus === 'cancelado' && !finalPatch.cancelled_by) {
-          finalPatch.cancelled_by = 'admin';
-        }
       }
 
       const resp = await fetch("/api/admin/update-order", {
@@ -197,613 +621,580 @@ React.useEffect(() => {
           "Content-Type": "application/json",
           Authorization: `Bearer ${accessToken}`,
         },
-        body: JSON.stringify({ order_id: orderId, ...finalPatch }),
+        body: JSON.stringify({ order_id: orderId, ...patch }),
       });
+
       const data = await resp.json().catch(() => ({}));
       if (!resp.ok) throw new Error(data?.error || "Não foi possível atualizar.");
       showToast("✅ Atualizado!");
-      // atualiza localmente
-      setOrders((prev) =>
-        prev.map((o) => (o.id === orderId ? { ...o, ...finalPatch } : o))
-      );
+      setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, ...patch } : o)));
     } catch (e) {
       showToast(`⚠️ ${e?.message || "Falha"}`);
     }
   }
 
-  const filtered = React.useMemo(() => {
+  const filteredOrders = React.useMemo(() => {
     const query = String(q || "").trim().toLowerCase();
-    return (orders || [])
-      .filter((o) => {
-        if (filterPay === "paid") return String(o.status || "").toLowerCase() === "paid";
-        if (filterPay === "pending") return String(o.status || "").toLowerCase() !== "paid";
-        return true;
-      })
-      .filter((o) => {
-        if (filterProd === "all") return true;
-        return String(o.production_status || "recebido").toLowerCase() === filterProd;
-      })
-      .filter((o) => {
-        if (!query) return true;
-        const id = String(o.id || "").toLowerCase();
-        const email = String(o.customer_email || o.profile?.id || "").toLowerCase();
-        const name = String(o.customer_name || o.profile?.full_name || "").toLowerCase();
-        const phone = String(o.customer_phone || o.profile?.phone || "").toLowerCase();
-        const tracking = String(o.shipping_tracking || "").toLowerCase();
-        return id.includes(query) || email.includes(query) || name.includes(query) || phone.includes(query) || tracking.includes(query);
-      });
-  }, [orders, q, filterPay, filterProd]);
+    return (orders || []).filter((o) => {
+      if (filterPay !== "all" && String(o.status || "").toLowerCase() !== filterPay) return false;
+      if (filterProd !== "all" && String(o.production_status || "recebido").toLowerCase() !== filterProd) return false;
+      if (filterType !== "all") {
+        const t = String(o.order_type || "store").toLowerCase();
+        if (filterType === "vip" && t !== "vip") return false;
+        if (filterType === "store" && t === "vip") return false;
+      }
+      if (!query) return true;
+      const hay = [
+        o.id,
+        o.customer_email,
+        o.customer_name,
+        o.customer_phone,
+        o.profile?.full_name,
+        o.profile?.phone,
+        o.shipping_tracking,
+        (o.order_items || []).map((it) => it.name).join(" "),
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return hay.includes(query);
+    });
+  }, [orders, q, filterPay, filterProd, filterType]);
 
+  const stats = React.useMemo(() => {
+    const list = orders || [];
+    const total = list.length;
+    const paid = list.filter((o) => String(o.status || "").toLowerCase() === "paid");
+    const pending = list.filter((o) => String(o.status || "").toLowerCase() !== "paid");
+    const revenue = paid.reduce((acc, o) => acc + (Number(o.total) || 0), 0);
+    const refundReq = list.filter((o) => !!o.refund_requested).length;
+    const vipCount = list.filter((o) => String(o.order_type || "").toLowerCase() === "vip").length;
+    return { total, paid: paid.length, pending: pending.length, revenue, refundReq, vipCount };
+  }, [orders]);
 
-
-  const metrics = React.useMemo(() => {
-    const list = filtered || [];
-    return {
-      total: list.length,
-      pendentes: list.filter(o => String(o.status||'').toLowerCase() !== 'paid').length,
-      producao: list.filter(o => String(o.production_status||'recebido').toLowerCase() === 'em_producao').length,
-      enviados: list.filter(o => String(o.production_status||'recebido').toLowerCase() === 'enviado').length,
-    };
-  }, [filtered]);
-
-  if (!user) {
-    return (
-      <main className="flex-1">
-        <section className="container-cc px-4 sm:px-6 lg:px-8 py-10">
-          <div className="mx-auto">
-            <div className="rounded-2xl ring-1 ring-white/10 bg-white/5 p-5 text-slate-200">
-              Faça login para acessar o painel admin.
-            </div>
-          </div>
-        </section>
-  
-      {statusActionModal.open ? (
-        <div className="fixed inset-0 z-[210] bg-black/60 backdrop-blur-sm grid place-items-center p-4">
-          <div className="w-full max-w-md rounded-2xl bg-slate-950 ring-1 ring-white/10 shadow-2xl p-5">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-xs text-slate-400">Atualizar pedido</p>
-                <h3 className="text-lg font-bold">{String(statusActionModal?.patch?.production_status || '').toLowerCase() === 'em_producao' ? 'Definir estimativa de produção' : 'Informar rastreio'}</h3>
-              </div>
-              <button onClick={closeStatusActionModal} className="rounded-lg p-2 ring-1 ring-white/10 hover:bg-white/5" aria-label="Fechar">
-                <span className="material-icons text-base">close</span>
-              </button>
-            </div>
-
-            {String(statusActionModal?.patch?.production_status || '').toLowerCase() === 'em_producao' ? (
-              <div className="mt-4">
-                <label className="text-sm text-slate-300 block mb-2">Estimativa que vai no e-mail do cliente</label>
-                <input
-                  autoFocus
-                  value={statusActionModal.fields.production_eta || ''}
-                  onChange={(e) => setStatusActionModal((prev) => ({ ...prev, fields: { ...prev.fields, production_eta: e.target.value } }))}
-                  placeholder="Ex.: 3 a 7 dias úteis"
-                  className="w-full rounded-xl bg-white/5 ring-1 ring-white/10 px-3 py-2.5 outline-none focus:ring-emerald-400/40"
-                />
-              </div>
-            ) : (
-              <div className="mt-4">
-                <label className="text-sm text-slate-300 block mb-2">Código de rastreio (opcional)</label>
-                <input
-                  autoFocus
-                  value={statusActionModal.fields.shipping_tracking || ''}
-                  onChange={(e) => setStatusActionModal((prev) => ({ ...prev, fields: { ...prev.fields, shipping_tracking: e.target.value } }))}
-                  placeholder="Ex.: NB123456789BR"
-                  className="w-full rounded-xl bg-white/5 ring-1 ring-white/10 px-3 py-2.5 outline-none focus:ring-emerald-400/40"
-                />
-              </div>
-            )}
-
-            <div className="mt-5 flex items-center justify-end gap-2">
-              <button onClick={closeStatusActionModal} className="rounded-xl px-3 py-2 text-sm ring-1 ring-white/15 hover:bg-white/5">Cancelar</button>
-              <button onClick={submitStatusActionModal} className="rounded-xl px-3 py-2 text-sm bg-emerald-400 text-black font-semibold hover:bg-emerald-300">Salvar e atualizar</button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-    </main>
-    );
-  }
+  const activeOrder = React.useMemo(() => (orders || []).find((o) => o.id === details.orderId) || null, [orders, details.orderId]);
+  const activeActionOrder = React.useMemo(() => (orders || []).find((o) => o.id === actionModal.orderId) || null, [orders, actionModal.orderId]);
 
   if (!isAdmin) {
     return (
-      <main className="flex-1">
-        <section className="container-cc px-4 sm:px-6 lg:px-8 py-10">
-          <div className="mx-auto">
-            <div className="rounded-2xl ring-1 ring-white/10 bg-white/5 p-5 text-slate-200">
-              Você não tem permissão para acessar esta página.
-            </div>
+      <div className="max-w-3xl mx-auto px-4 py-10">
+        <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-6">
+          <div className="text-white text-xl font-semibold">Acesso restrito</div>
+          <div className="mt-1 text-slate-400">
+            Este painel é apenas para administradores. Faça login com um email autorizado.
           </div>
-        </section>
-  
-      {statusActionModal.open ? (
-        <div className="fixed inset-0 z-[210] bg-black/60 backdrop-blur-sm grid place-items-center p-4">
-          <div className="w-full max-w-md rounded-2xl bg-slate-950 ring-1 ring-white/10 shadow-2xl p-5">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-xs text-slate-400">Atualizar pedido</p>
-                <h3 className="text-lg font-bold">{String(statusActionModal?.patch?.production_status || '').toLowerCase() === 'em_producao' ? 'Definir estimativa de produção' : 'Informar rastreio'}</h3>
-              </div>
-              <button onClick={closeStatusActionModal} className="rounded-lg p-2 ring-1 ring-white/10 hover:bg-white/5" aria-label="Fechar">
-                <span className="material-icons text-base">close</span>
-              </button>
-            </div>
-
-            {String(statusActionModal?.patch?.production_status || '').toLowerCase() === 'em_producao' ? (
-              <div className="mt-4">
-                <label className="text-sm text-slate-300 block mb-2">Estimativa que vai no e-mail do cliente</label>
-                <input
-                  autoFocus
-                  value={statusActionModal.fields.production_eta || ''}
-                  onChange={(e) => setStatusActionModal((prev) => ({ ...prev, fields: { ...prev.fields, production_eta: e.target.value } }))}
-                  placeholder="Ex.: 3 a 7 dias úteis"
-                  className="w-full rounded-xl bg-white/5 ring-1 ring-white/10 px-3 py-2.5 outline-none focus:ring-emerald-400/40"
-                />
-              </div>
-            ) : (
-              <div className="mt-4">
-                <label className="text-sm text-slate-300 block mb-2">Código de rastreio (opcional)</label>
-                <input
-                  autoFocus
-                  value={statusActionModal.fields.shipping_tracking || ''}
-                  onChange={(e) => setStatusActionModal((prev) => ({ ...prev, fields: { ...prev.fields, shipping_tracking: e.target.value } }))}
-                  placeholder="Ex.: NB123456789BR"
-                  className="w-full rounded-xl bg-white/5 ring-1 ring-white/10 px-3 py-2.5 outline-none focus:ring-emerald-400/40"
-                />
-              </div>
-            )}
-
-            <div className="mt-5 flex items-center justify-end gap-2">
-              <button onClick={closeStatusActionModal} className="rounded-xl px-3 py-2 text-sm ring-1 ring-white/15 hover:bg-white/5">Cancelar</button>
-              <button onClick={submitStatusActionModal} className="rounded-xl px-3 py-2 text-sm bg-emerald-400 text-black font-semibold hover:bg-emerald-300">Salvar e atualizar</button>
-            </div>
+          <div className="mt-5 flex items-center gap-2">
+            <button
+              onClick={() => onNavigateHome?.()}
+              className="rounded-xl px-4 py-2 text-sm text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+            >
+              Voltar para o site
+            </button>
           </div>
         </div>
-      ) : null}
-    </main>
+      </div>
     );
   }
 
   return (
-    <main className="flex-1">
-      {toast ? (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[200]">
-          <div className="container-cc rounded-full bg-emerald-500 text-black font-semibold px-4 py-2 shadow-lg ring-4 ring-emerald-400/30">
-            {toast}
-          </div>
+    <div className="max-w-7xl mx-auto px-3 sm:px-6 py-6">
+      {/* Topbar */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <div className="text-2xl font-semibold text-white">Admin</div>
+          <div className="text-sm text-slate-400">Pedidos, produção, rastreio e votação VIP — tudo em um painel.</div>
         </div>
-      ) : null}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => fetchOrders()}
+            className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+          >
+            <span className="material-icons text-[18px] align-middle mr-1">refresh</span>
+            Atualizar
+          </button>
+          <button
+            onClick={() => onNavigateHome?.()}
+            className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+          >
+            <span className="material-icons text-[18px] align-middle mr-1">home</span>
+            Site
+          </button>
+        </div>
+      </div>
 
-      <section className="container-cc px-4 sm:px-6 lg:px-8 py-10">
-        <div className="mx-auto">
-          <div className="flex items-start justify-between gap-4 flex-wrap">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold">Painel Admin</h1>
-              <p className="mt-2 text-slate-300 text-sm">
-                {tab === 'vip_voting' ? 'Acompanhe o resultado da votação VIP por mês.' : 'Atualize status de produção/envio e copie dados para produzir.'}
-              </p>
+      {/* Mobile tabs */}
+      <div className="mt-4 sm:hidden flex gap-2 overflow-x-auto pb-1">
+        {[
+          ["dashboard", "space_dashboard", "Dashboard"],
+          ["orders", "inventory_2", "Pedidos"],
+          ["vip", "workspace_premium", "VIP"],
+          ["help", "help", "Atalhos"],
+        ].map(([key, icon, label]) => (
+          <button
+            key={key}
+            onClick={() => setSection(key)}
+            className={[
+              "shrink-0 rounded-full px-3 py-1.5 text-sm ring-1 transition",
+              section === key ? "bg-white/[0.08] text-white ring-white/15" : "bg-white/[0.03] text-slate-200 ring-white/10",
+            ].join(" ")}
+          >
+            <span className="material-icons text-[16px] align-middle mr-1">{icon}</span>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-5 grid grid-cols-1 sm:grid-cols-[260px_1fr] gap-4">
+        {/* Sidebar */}
+        <aside className="hidden sm:block">
+          <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-3">
+            <SidebarItem active={section === "dashboard"} icon="space_dashboard" onClick={() => setSection("dashboard")}>
+              Dashboard
+            </SidebarItem>
+            <div className="mt-2">
+              <SidebarItem
+                active={section === "orders"}
+                icon="inventory_2"
+                badge={String(stats.total)}
+                onClick={() => setSection("orders")}
+              >
+                Pedidos
+              </SidebarItem>
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={onNavigateHome}
-                className="container-cc rounded-xl px-4 py-2 text-sm ring-1 ring-white/15 hover:bg-white/5"
-              >
-                Voltar
-              </button>
-              <button
-                onClick={fetchOrders}
-                disabled={loading}
-                className="container-cc rounded-xl px-4 py-2 text-sm bg-emerald-400 text-black font-semibold hover:bg-emerald-300 disabled:opacity-60"
-              >
-                {loading ? "Atualizando…" : "Atualizar"}
-              </button>
+            <div className="mt-2">
+              <SidebarItem active={section === "vip"} icon="workspace_premium" onClick={() => setSection("vip")}>
+                VIP — Votação
+              </SidebarItem>
+            </div>
+            <div className="mt-2">
+              <SidebarItem active={section === "help"} icon="help" onClick={() => setSection("help")}>
+                Atalhos / Processo
+              </SidebarItem>
             </div>
           </div>
 
-          <div className="mt-5 flex flex-wrap gap-2">
-            <button
-              onClick={() => setTab('orders')}
-              className={
-                tab === 'orders'
-                  ? 'rounded-full px-4 py-2 text-sm font-semibold bg-white/10 ring-1 ring-white/20'
-                  : 'rounded-full px-4 py-2 text-sm ring-1 ring-white/10 hover:bg-white/5'
-              }
-            >
-              Pedidos
-            </button>
-            <button
-              onClick={() => setTab('vip_voting')}
-              className={
-                tab === 'vip_voting'
-                  ? 'rounded-full px-4 py-2 text-sm font-semibold bg-white/10 ring-1 ring-white/20'
-                  : 'rounded-full px-4 py-2 text-sm ring-1 ring-white/10 hover:bg-white/5'
-              }
-            >
-              Votação VIP
-            </button>
+          <div className="mt-3 rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-3">
+            <div className="text-xs text-slate-500">Conta admin</div>
+            <div className="mt-1 text-sm text-slate-200 break-words">{user?.email}</div>
           </div>
+        </aside>
 
-          {tab === 'orders' ? (
-            <>
-          <div className="mt-6 grid grid-cols-2 lg:grid-cols-4 gap-3">
-            {[
-              ['Pedidos', metrics.total],
-              ['Pendentes', metrics.pendentes],
-              ['Em produção', metrics.producao],
-              ['Enviados', metrics.enviados],
-            ].map(([label, value]) => (
-              <div key={label} className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
-                <div className="text-xs text-slate-400">{label}</div>
-                <div className="mt-1 text-2xl font-extrabold">{value}</div>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-3">
-            <div className="md:col-span-2">
-              <div className="relative">
-                <span className="material-icons absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[20px]">search</span>
-                <input
-                  value={q}
-                  onChange={(e) => setQ(e.target.value)}
-                  placeholder="Buscar por nome, email, telefone, id, rastreio…"
-                  className="w-full pl-10 pr-3 py-2 rounded-xl bg-slate-900 ring-1 ring-white/10 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
-                />
-              </div>
-            </div>
-            <div>
-              <select
-                value={filterPay}
-                onChange={(e) => setFilterPay(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl bg-slate-900 ring-1 ring-white/10 text-slate-100 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <option value="all">Pagamento: todos</option>
-                <option value="paid">Pagamento: pago</option>
-                <option value="pending">Pagamento: pendente</option>
-              </select>
-            </div>
-            <div>
-              <select
-                value={filterProd}
-                onChange={(e) => setFilterProd(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl bg-slate-900 ring-1 ring-white/10 text-slate-100 focus:outline-none"
-              >
-                <option value="all">Produção: todos</option>
-                <option value="editavel">Editável</option>
-                <option value="recebido">Recebido</option>
-                <option value="em_producao">Em produção</option>
-                <option value="pronto">Pronto</option>
-                <option value="enviado">Enviado</option>
-                <option value="entregue">Entregue</option>
-                <option value="cancelado">Cancelado</option>
-                <option value="reembolsado">Reembolsado</option>
-              </select>
-            </div>
-          </div>
-
-          {error ? (
-            <div className="container-cc mt-4 text-sm text-red-300 bg-red-500/10 ring-1 ring-red-500/30 rounded-xl px-4 py-3">
-              {error}
+        {/* Content */}
+        <main className="min-w-0">
+          {toast ? (
+            <div className="mb-3 rounded-2xl bg-white/[0.04] ring-1 ring-white/10 px-3 py-2 text-sm text-slate-200">
+              {toast}
             </div>
           ) : null}
 
-          <div className="mt-6 space-y-4">
-            {(!loading && filtered.length === 0) ? (
-              <div className="rounded-2xl ring-1 ring-white/10 bg-white/5 p-5 text-slate-200">
-                Nenhum pedido encontrado.
-              </div>
-            ) : null}
-
-            {filtered.map((o) => {
-              const p = o.profile;
-              const customerName = o.customer_name || p?.full_name || "—";
-              const customerPhone = o.customer_phone || p?.phone || "";
-              const customerEmail = o.customer_email || "";
-              const address = fmtAddress(p);
-
-              const pay = payStatusUI(o.status);
-              const prod = prodStatusLabel(o.production_status);
-              const canEditFlow = String(o.status || '').toLowerCase() === 'paid';
-              const vipSelection = o.vip_selection || null;
-
-              return (
-                <div key={o.id} className="rounded-2xl bg-slate-900/60 ring-1 ring-white/10 p-4 sm:p-5">
-                  <div className="flex items-start justify-between gap-4 flex-wrap">
-                    <div className="min-w-0">
-                      <p className="text-xs text-slate-400">{new Date(o.created_at).toLocaleString("pt-BR")}</p>
-                      <p className="mt-1 font-bold text-lg truncate">{customerName}</p>
-                      <div className="mt-2 flex flex-wrap items-center gap-2">
-                        {String(o.order_type || "").toLowerCase() === "vip" ? (
-                          <span className="inline-flex items-center gap-1 text-xs rounded-full px-2 py-1 ring-1 ring-violet-400/30 bg-violet-500/15 text-violet-100">
-                            <span className="material-icons text-[14px]">stars</span>
-                            VIP
-                          </span>
-                        ) : null}
-                        <span className={`inline-flex items-center gap-1 text-xs rounded-full px-2 py-1 ring-1 ${pay.cls}`}>
-                          Pagamento: {pay.label}
-                        </span>
-                        <span className={`inline-flex items-center gap-1 text-xs rounded-full px-2 py-1 ring-1 ${prod.cls}`}>
-                          Produção: {prod.label}
-                        </span>
-                        {o.shipping_tracking ? (
-                          <span className="inline-flex items-center gap-1 text-xs rounded-full px-2 py-1 ring-1 ring-white/15 bg-white/5 text-slate-200">
-                            Rastreio: {String(o.shipping_tracking)}
-                          </span>
-                        ) : null}
-                      </div>
-
-                      {(o.refund_requested && String(o.production_status || "").toLowerCase() !== "reembolsado") ? (
-                        <div className="mt-3 rounded-xl bg-amber-500/10 ring-1 ring-amber-400/30 px-3 py-2 text-sm text-amber-200">
-                          <span className="font-semibold">Reembolso solicitado:</span> o cliente cancelou o pedido e pediu o reembolso.
-                          {o.refund_requested_at ? (
-                            <span className="text-amber-200/80"> {" "}({new Date(o.refund_requested_at).toLocaleString("pt-BR")})</span>
-                          ) : null}
-                        </div>
-                      ) : null}
-
-                      {String(o.order_type || '').toLowerCase() === 'vip' ? (
-                        <div className="mt-3 rounded-xl bg-violet-500/10 ring-1 ring-violet-400/25 px-3 py-2 text-sm text-violet-100">
-                          <div className="flex items-center justify-between gap-2 flex-wrap">
-                            <span className="font-semibold">Miniaturas VIP escolhidas</span>
-                            <span className="text-xs text-violet-200/80">{vipSelection?.cycle_key || 'ciclo atual'}</span>
-                          </div>
-                          {Array.isArray(vipSelection?.selected_titles) && vipSelection.selected_titles.length ? (
-                            <ul className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                              {vipSelection.selected_titles.map((name, idx) => (
-                                <li key={`${o.id}-vipsel-${idx}`} className="rounded-lg bg-black/20 ring-1 ring-white/10 px-2 py-1 text-xs">• {name}</li>
-                              ))}
-                            </ul>
-                          ) : (
-                            <div className="mt-2 text-xs text-violet-200/80">Cliente ainda não escolheu as miniaturas deste ciclo.</div>
-                          )}
-                        </div>
-                      ) : null}
-                    </div>
-
-                    <div className="text-right">
-                      <p className="text-xs text-slate-400">Total</p>
-                      <p className="text-xl font-extrabold">{fmtBRL(Number(o.total))}</p>
-                      <p className="mt-1 text-xs text-slate-500">ID: {String(o.id).slice(0, 8)}…</p>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 grid grid-cols-1 lg:grid-cols-3 gap-3">
-                    <div className="rounded-xl bg-black/20 ring-1 ring-white/10 p-3">
-                      <p className="text-xs text-slate-400">Contato</p>
-                      <div className="mt-2 text-sm text-slate-200 space-y-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="truncate">{customerEmail || "—"}</span>
-                          {customerEmail ? (
-                            <button
-                              onClick={() => { copyToClipboard(customerEmail); showToast("Copiado!"); }}
-                              className="text-xs rounded-lg px-2 py-1 ring-1 ring-white/10 hover:bg-white/5"
-                            >
-                              copiar
-                            </button>
-                          ) : null}
-                        </div>
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="truncate">{customerPhone || "—"}</span>
-                          {customerPhone ? (
-                            <button
-                              onClick={() => { copyToClipboard(customerPhone); showToast("Copiado!"); }}
-                              className="text-xs rounded-lg px-2 py-1 ring-1 ring-white/10 hover:bg-white/5"
-                            >
-                              copiar
-                            </button>
-                          ) : null}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="rounded-xl bg-black/20 ring-1 ring-white/10 p-3">
-                      <p className="text-xs text-slate-400">Endereço</p>
-                      <p className="mt-2 text-sm text-slate-200 whitespace-pre-line min-h-[56px]">{address || "—"}</p>
-                      {address ? (
-                        <button
-                          onClick={() => { copyToClipboard(address); showToast("Endereço copiado!"); }}
-                          className="mt-2 text-xs rounded-lg px-2 py-1 ring-1 ring-white/10 hover:bg-white/5"
-                        >
-                          copiar endereço
-                        </button>
-                      ) : null}
-                    </div>
-
-                    <div className="rounded-xl bg-black/20 ring-1 ring-white/10 p-3">
-                      <p className="text-xs text-slate-400">Ações</p>
-                      <div className="mt-2 grid grid-cols-1 gap-2">
-                        <select
-                          value={String(o.production_status || "recebido").toLowerCase()}
-                          onChange={(e) => updateOrder(o.id, { production_status: e.target.value })}
-                          disabled={!canEditFlow}
-                          className="w-full px-3 py-2 rounded-xl bg-slate-900 ring-1 ring-white/10 text-slate-100 focus:outline-none"
-                        >
-                        <option value="editavel">Editável</option>
-                          <option value="recebido">Recebido</option>
-                          <option value="em_producao">Em produção</option>
-                          <option value="pronto">Pronto</option>
-                          <option value="enviado">Enviado</option>
-                          <option value="entregue">Entregue</option>
-                          <option value="cancelado">Cancelado</option>
-                          <option value="reembolsado">Reembolsado</option>
-                        </select>
-
-                        <input
-                          defaultValue={o.shipping_tracking || ""}
-                          placeholder="Código de rastreio (opcional)"
-                          disabled={!canEditFlow}
-                          className="w-full px-3 py-2 rounded-xl bg-slate-900 ring-1 ring-white/10 text-slate-100 placeholder:text-slate-500 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-                          onBlur={(e) => updateOrder(o.id, { shipping_tracking: e.target.value })}
-                        />
-                        <p className="text-xs text-slate-500">* digite e saia do campo para salvar</p>
-                        {!canEditFlow ? (
-                          <p className="text-xs text-amber-300/90">Pagamento pendente/falhou: alterações de status e rastreio ficam bloqueadas.</p>
-                        ) : null}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Itens */}
-                  {Array.isArray(o.order_items) && o.order_items.length > 0 ? (
-                    <div className="mt-4 rounded-xl bg-white/5 ring-1 ring-white/10">
-                      <ul className="divide-y divide-white/10">
-                        {o.order_items.map((it, idx) => (
-                          <li key={idx} className="flex items-center justify-between gap-3 px-3 py-2">
-                            <div className="flex items-center gap-3 min-w-0">
-                              {it.img ? (
-                                <img
-                                  src={it.img}
-                                  alt={it.name || "Produto"}
-                                  className="h-10 w-10 rounded-md object-cover ring-1 ring-white/10 bg-slate-800"
-                                  loading="lazy"
-                                />
-                              ) : (
-                                <div className="h-10 w-10 rounded-md bg-slate-800 ring-1 ring-white/10 grid place-items-center text-slate-400">
-                                  <span className="material-icons text-base">image</span>
-                                </div>
-                              )}
-                              <div className="min-w-0">
-                                <p className="text-sm text-slate-200 truncate">{it.name || "Produto"}</p>
-                                <p className="text-xs text-slate-400 truncate">
-                                  {it.scale ? `Escala: ${it.scale} • ` : ""}{Number(it.qty) || 1}x
-                                </p>
-                              </div>
-                            </div>
-
-                            <div className="text-right shrink-0">
-                              <p className="text-xs text-slate-400">Unit.</p>
-                              <p className="text-sm text-slate-200">{fmtBRL(Number(it.unit_price))}</p>
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : null}
-                </div>
-              );
-            })}
-          </div>
-            </>
-          ) : (
-            <div className="mt-6">
-              <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-5">
-                <div className="flex items-start justify-between gap-3 flex-wrap">
-                  <div>
-                    <div className="text-xs uppercase tracking-wide text-slate-400">Votação VIP</div>
-                    <div className="mt-1 text-lg font-extrabold">Resultados</div>
-                    <div className="mt-1 text-sm text-slate-300">Mostra as opções e a contagem de votos por mês.</div>
-                  </div>
+          {section === "dashboard" ? (
+            <div className="space-y-4">
+              <SectionTitle
+                icon="space_dashboard"
+                title="Dashboard"
+                subtitle="Visão rápida (últimos 300 pedidos carregados)."
+                right={
                   <button
-                    onClick={fetchVipVoting}
-                    disabled={vipPollsLoading}
-                    className="container-cc rounded-xl px-4 py-2 text-sm bg-emerald-400 text-black font-semibold hover:bg-emerald-300 disabled:opacity-60"
+                    onClick={() => exportCsv(filteredOrders)}
+                    className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
                   >
-                    {vipPollsLoading ? 'Atualizando…' : 'Atualizar'}
+                    <span className="material-icons text-[18px] align-middle mr-1">download</span>
+                    Exportar CSV
                   </button>
-                </div>
+                }
+              />
 
-                {vipPollsError ? (
-                  <div className="container-cc mt-4 text-sm text-red-300 bg-red-500/10 ring-1 ring-red-500/30 rounded-xl px-4 py-3">
-                    {vipPollsError}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <KpiCard label="Pedidos" value={stats.total} hint="Total carregado" />
+                <KpiCard label="Pagos" value={stats.paid} hint="Prontos para produção/envio" />
+                <KpiCard label="Pendentes" value={stats.pending} hint="Aguardando pagamento" />
+                <KpiCard label="Faturamento (pagos)" value={fmtBRL(stats.revenue)} hint="Soma dos pedidos pagos" />
+                <KpiCard label="VIP" value={stats.vipCount} hint="Pedidos do tipo VIP" />
+                <KpiCard label="Reembolso solicitado" value={stats.refundReq} hint="Monitorar e tratar" />
+              </div>
+
+              <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-4">
+                <div className="text-sm font-semibold text-white">Fila rápida</div>
+                <div className="mt-1 text-sm text-slate-400">Pedidos pagos que ainda não foram enviados.</div>
+                <div className="mt-3 overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="text-left text-slate-400">
+                      <tr className="border-b border-white/10">
+                        <th className="py-2 pr-3">Pedido</th>
+                        <th className="py-2 pr-3">Cliente</th>
+                        <th className="py-2 pr-3">Total</th>
+                        <th className="py-2 pr-3">Produção</th>
+                        <th className="py-2 pr-3">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody className="text-slate-200">
+                      {(orders || [])
+                        .filter((o) => String(o.status || "").toLowerCase() === "paid")
+                        .filter((o) => !["enviado", "entregue"].includes(String(o.production_status || "").toLowerCase()))
+                        .slice(0, 8)
+                        .map((o) => (
+                          <tr key={o.id} className="border-b border-white/5">
+                            <td className="py-2 pr-3 whitespace-nowrap">
+                              <button
+                                onClick={() => setDetails({ open: true, orderId: o.id })}
+                                className="text-slate-100 hover:underline"
+                              >
+                                {shortId(o.id)}
+                              </button>
+                              <div className="text-[11px] text-slate-500">{fmtDate(o.created_at)}</div>
+                            </td>
+                            <td className="py-2 pr-3 min-w-[220px]">
+                              <div className="text-slate-100">{o.customer_name || o.profile?.full_name || "—"}</div>
+                              <div className="text-[11px] text-slate-500">{o.customer_email || ""}</div>
+                            </td>
+                            <td className="py-2 pr-3 whitespace-nowrap">{fmtBRL(o.total)}</td>
+                            <td className="py-2 pr-3 whitespace-nowrap">
+                              {(() => {
+                                const b = prodStatusBadge(o.production_status);
+                                return <span className={`${badgeBase} ${b.cls}`}>{b.label}</span>;
+                              })()}
+                            </td>
+                            <td className="py-2 pr-3 whitespace-nowrap">
+                              <button
+                                onClick={() => setActionModal({ open: true, mode: "status", orderId: o.id })}
+                                className="rounded-xl px-2 py-1 text-xs text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+                              >
+                                Status
+                              </button>
+                              <button
+                                onClick={() => setActionModal({ open: true, mode: "tracking", orderId: o.id })}
+                                className="ml-2 rounded-xl px-2 py-1 text-xs text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+                              >
+                                Rastreio
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      {!orders?.length ? (
+                        <tr>
+                          <td colSpan={5} className="py-4 text-slate-400">
+                            Nenhum pedido.
+                          </td>
+                        </tr>
+                      ) : null}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {section === "orders" ? (
+            <div className="space-y-4">
+              <SectionTitle
+                icon="inventory_2"
+                title="Pedidos"
+                subtitle="Busque, filtre e atualize status/rastreio. (Pedidos pagos liberam ações.)"
+                right={
+                  <button
+                    onClick={() => exportCsv(filteredOrders)}
+                    className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+                  >
+                    <span className="material-icons text-[18px] align-middle mr-1">download</span>
+                    Exportar CSV
+                  </button>
+                }
+              />
+
+              <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-3">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+                  <label className="block md:col-span-2">
+                    <div className="text-xs text-slate-500 mb-1">Busca</div>
+                    <input
+                      value={q}
+                      onChange={(e) => setQ(e.target.value)}
+                      placeholder="ID, email, nome, telefone, item, rastreio..."
+                      className="w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-slate-100"
+                    />
+                  </label>
+
+                  <label className="block">
+                    <div className="text-xs text-slate-500 mb-1">Pagamento</div>
+                    <select
+                      value={filterPay}
+                      onChange={(e) => setFilterPay(e.target.value)}
+                      className="w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-slate-100"
+                    >
+                      <option value="all">Todos</option>
+                      <option value="paid">Pago</option>
+                      <option value="pending">Pendente</option>
+                      <option value="failed">Falhou</option>
+                    </select>
+                  </label>
+
+                  <label className="block">
+                    <div className="text-xs text-slate-500 mb-1">Produção</div>
+                    <select
+                      value={filterProd}
+                      onChange={(e) => setFilterProd(e.target.value)}
+                      className="w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-slate-100"
+                    >
+                      <option value="all">Todos</option>
+                      <option value="editavel">Editável</option>
+                      <option value="recebido">Recebido</option>
+                      <option value="em_producao">Em produção</option>
+                      <option value="pronto">Pronto</option>
+                      <option value="enviado">Enviado</option>
+                      <option value="entregue">Entregue</option>
+                      <option value="cancelado">Cancelado</option>
+                      <option value="reembolsado">Reembolsado</option>
+                    </select>
+                  </label>
+
+                  <label className="block">
+                    <div className="text-xs text-slate-500 mb-1">Tipo</div>
+                    <select
+                      value={filterType}
+                      onChange={(e) => setFilterType(e.target.value)}
+                      className="w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-slate-100"
+                    >
+                      <option value="all">Todos</option>
+                      <option value="store">Loja</option>
+                      <option value="vip">VIP</option>
+                    </select>
+                  </label>
+
+                  <div className="md:col-span-3 flex items-end gap-2">
+                    <div className="text-xs text-slate-500">
+                      Exibindo <span className="text-slate-200">{filteredOrders.length}</span> de{" "}
+                      <span className="text-slate-200">{orders.length}</span>
+                    </div>
                   </div>
+
+                  <div className="flex items-end justify-end">
+                    <button
+                      onClick={() => {
+                        setQ("");
+                        setFilterPay("all");
+                        setFilterProd("all");
+                        setFilterType("all");
+                      }}
+                      className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+                    >
+                      Limpar filtros
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="text-left text-slate-400 bg-black/10">
+                      <tr className="border-b border-white/10">
+                        <th className="py-3 px-3">Pedido</th>
+                        <th className="py-3 px-3">Cliente</th>
+                        <th className="py-3 px-3">Total</th>
+                        <th className="py-3 px-3">Pagamento</th>
+                        <th className="py-3 px-3">Produção</th>
+                        <th className="py-3 px-3">Rastreio</th>
+                        <th className="py-3 px-3 text-right">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody className="text-slate-200">
+                      {filteredOrders.map((o) => {
+                        const pay = statusBadge(o.status);
+                        const prod = prodStatusBadge(o.production_status);
+                        return (
+                          <tr key={o.id} className="border-b border-white/5 hover:bg-white/[0.02]">
+                            <td className="py-3 px-3 whitespace-nowrap">
+                              <button
+                                onClick={() => setDetails({ open: true, orderId: o.id })}
+                                className="text-slate-100 hover:underline"
+                              >
+                                {shortId(o.id)}
+                              </button>
+                              <div className="text-[11px] text-slate-500">{fmtDate(o.created_at)}</div>
+                            </td>
+                            <td className="py-3 px-3 min-w-[240px]">
+                              <div className="text-slate-100">{o.customer_name || o.profile?.full_name || "—"}</div>
+                              <div className="text-[11px] text-slate-500">{o.customer_email || ""}</div>
+                            </td>
+                            <td className="py-3 px-3 whitespace-nowrap">{fmtBRL(o.total)}</td>
+                            <td className="py-3 px-3 whitespace-nowrap">
+                              <span className={`${badgeBase} ${pay.cls}`}>{pay.label}</span>
+                            </td>
+                            <td className="py-3 px-3 whitespace-nowrap">
+                              <span className={`${badgeBase} ${prod.cls}`}>{prod.label}</span>
+                            </td>
+                            <td className="py-3 px-3 whitespace-nowrap">
+                              {o.shipping_tracking ? (
+                                <button
+                                  onClick={() => {
+                                    copyToClipboard(o.shipping_tracking);
+                                    showToast("📋 Rastreio copiado!");
+                                  }}
+                                  className="text-slate-100 hover:underline"
+                                >
+                                  {o.shipping_tracking}
+                                </button>
+                              ) : (
+                                <span className="text-slate-500">—</span>
+                              )}
+                            </td>
+                            <td className="py-3 px-3 whitespace-nowrap text-right">
+                              <button
+                                onClick={() => setDetails({ open: true, orderId: o.id })}
+                                className="rounded-xl px-2 py-1 text-xs text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+                              >
+                                Detalhes
+                              </button>
+                              <button
+                                onClick={() => setActionModal({ open: true, mode: "status", orderId: o.id })}
+                                className="ml-2 rounded-xl px-2 py-1 text-xs text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+                                disabled={String(o.status || "").toLowerCase() !== "paid"}
+                              >
+                                Status
+                              </button>
+                              <button
+                                onClick={() => setActionModal({ open: true, mode: "tracking", orderId: o.id })}
+                                className="ml-2 rounded-xl px-2 py-1 text-xs text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+                                disabled={String(o.status || "").toLowerCase() !== "paid"}
+                              >
+                                Rastreio
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {loading ? (
+                        <tr>
+                          <td colSpan={7} className="py-8 px-3 text-slate-400">
+                            Carregando...
+                          </td>
+                        </tr>
+                      ) : null}
+                      {!loading && error ? (
+                        <tr>
+                          <td colSpan={7} className="py-8 px-3 text-red-200">
+                            {error}
+                          </td>
+                        </tr>
+                      ) : null}
+                      {!loading && !error && !filteredOrders.length ? (
+                        <tr>
+                          <td colSpan={7} className="py-8 px-3 text-slate-400">
+                            Nenhum pedido encontrado.
+                          </td>
+                        </tr>
+                      ) : null}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {section === "vip" ? (
+            <div className="space-y-4">
+              <SectionTitle
+                icon="workspace_premium"
+                title="VIP — Votação"
+                subtitle="Acompanhe os resultados do tema do próximo mês."
+                right={
+                  <button
+                    onClick={() => fetchVipVoting()}
+                    className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+                  >
+                    Atualizar
+                  </button>
+                }
+              />
+
+              <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-4">
+                {vipPollsLoading ? <div className="text-slate-400">Carregando...</div> : null}
+                {vipPollsError ? <div className="text-red-200">{vipPollsError}</div> : null}
+
+                {!vipPollsLoading && !vipPollsError && !vipPolls.length ? (
+                  <div className="text-slate-400">Nenhuma votação encontrada.</div>
                 ) : null}
 
-                {vipPollsLoading ? (
-                  <div className="mt-4 text-slate-300">Carregando…</div>
-                ) : vipPolls.length === 0 ? (
-                  <div className="mt-4 text-slate-300">Nenhuma votação encontrada.</div>
-                ) : (
-                  <div className="mt-5 space-y-4">
-                    {vipPolls.map((p) => (
-                      <div key={p?.poll?.id || Math.random()} className="rounded-2xl bg-black/20 ring-1 ring-white/10 p-4">
-                        <div className="flex items-start justify-between gap-3 flex-wrap">
-                          <div>
-                            <div className="text-xs text-slate-400">Mês</div>
-                            <div className="text-lg font-extrabold">{p?.poll?.month_key || '—'}</div>
-                            <div className="text-sm text-slate-300">{p?.poll?.title || 'Votação VIP'}</div>
+                <div className="space-y-4">
+                  {vipPolls.map((p, idx) => (
+                    <div key={idx} className="rounded-2xl bg-black/20 ring-1 ring-white/10 p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="text-white font-semibold">{p?.poll?.title || "Votação"}</div>
+                          <div className="text-xs text-slate-500">
+                            {p?.poll?.month_key || "—"} • {p?.total_votes || 0} votos • {p?.poll?.status || "—"}
                           </div>
-                          <div className="text-right">
-                            <div className="text-xs text-slate-400">Status</div>
-                            <div className="mt-1 inline-flex items-center rounded-full px-3 py-1 text-xs ring-1 ring-white/15 bg-white/5">
-                              {String(p?.poll?.status || 'open').toUpperCase()}
-                            </div>
-                            <div className="mt-1 text-xs text-slate-400">Total votos: <b className="text-slate-200">{p?.total_votes ?? 0}</b></div>
-                          </div>
-                        </div>
-
-                        <div className="mt-4 space-y-3">
-                          {(p?.options || []).map((opt) => (
-                            <div key={opt.id} className="rounded-xl bg-white/5 ring-1 ring-white/10 p-3">
-                              <div className="flex items-center justify-between gap-3">
-                                <div className="min-w-0">
-                                  <div className="font-semibold text-slate-100 truncate">{opt.title}</div>
-                                  {opt.description ? <div className="text-xs text-slate-300 mt-0.5">{opt.description}</div> : null}
-                                </div>
-                                <div className="text-right shrink-0">
-                                  <div className="text-xs text-slate-400">Votos</div>
-                                  <div className="text-sm font-bold">{opt.votes} <span className="text-slate-400">({opt.pct}%)</span></div>
-                                </div>
-                              </div>
-                              <div className="mt-2 h-2 rounded-full bg-black/30 overflow-hidden ring-1 ring-white/10">
-                                <div className="h-full bg-emerald-400" style={{ width: `${opt.pct || 0}%` }} />
-                              </div>
-                            </div>
-                          ))}
                         </div>
                       </div>
-                    ))}
-                  </div>
-                )}
+
+                      <div className="mt-3 space-y-2">
+                        {(p?.options || []).map((o) => (
+                          <div key={o.id} className="rounded-xl bg-white/[0.03] ring-1 ring-white/10 p-2">
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="text-slate-100 truncate">{o.title}</div>
+                                {o.description ? <div className="text-xs text-slate-500 line-clamp-2">{o.description}</div> : null}
+                              </div>
+                              <div className="text-xs text-slate-300 whitespace-nowrap">
+                                {o.votes} • {o.pct}%
+                              </div>
+                            </div>
+                            <div className="mt-2 h-2 rounded-full bg-black/30 overflow-hidden ring-1 ring-white/10">
+                              <div className="h-full bg-white/30" style={{ width: `${o.pct || 0}%` }} />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
-          )}
-        </div>
-      </section>
+          ) : null}
 
-      {statusActionModal.open ? (
-        <div className="fixed inset-0 z-[210] bg-black/60 backdrop-blur-sm grid place-items-center p-4">
-          <div className="w-full max-w-md rounded-2xl bg-slate-950 ring-1 ring-white/10 shadow-2xl p-5">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-xs text-slate-400">Atualizar pedido</p>
-                <h3 className="text-lg font-bold">{String(statusActionModal?.patch?.production_status || '').toLowerCase() === 'em_producao' ? 'Definir estimativa de produção' : 'Informar rastreio'}</h3>
+          {section === "help" ? (
+            <div className="space-y-4">
+              <SectionTitle icon="help" title="Atalhos / Processo" subtitle="Checklist rápido para operar o admin sem esquecer nada." />
+              <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-4 space-y-3">
+                <div className="text-sm text-slate-200">
+                  <span className="text-white font-semibold">Fluxo recomendado:</span>
+                </div>
+                <ol className="list-decimal pl-5 text-sm text-slate-300 space-y-1">
+                  <li>Abra <b>Pedidos</b> e filtre por <b>Pagamento: Pago</b>.</li>
+                  <li>Em cada pedido pago, coloque <b>Em produção</b> (com estimativa) e depois <b>Pronto</b>.</li>
+                  <li>Quando postar, adicione o <b>Rastreio</b> e marque como <b>Enviado</b>.</li>
+                  <li>Ao entregar, marque como <b>Entregue</b>.</li>
+                  <li>Se houver solicitação de reembolso, marque como <b>Reembolso solicitado</b> (e trate no provedor).</li>
+                </ol>
+                <div className="text-sm text-slate-300">
+                  <b>Dicas:</b> clique no rastreio para copiar; use o botão WhatsApp nos detalhes para avisar o cliente.
+                </div>
               </div>
-              <button onClick={closeStatusActionModal} className="rounded-lg p-2 ring-1 ring-white/10 hover:bg-white/5" aria-label="Fechar">
-                <span className="material-icons text-base">close</span>
-              </button>
             </div>
+          ) : null}
+        </main>
+      </div>
 
-            {String(statusActionModal?.patch?.production_status || '').toLowerCase() === 'em_producao' ? (
-              <div className="mt-4">
-                <label className="text-sm text-slate-300 block mb-2">Estimativa que vai no e-mail do cliente</label>
-                <input
-                  autoFocus
-                  value={statusActionModal.fields.production_eta || ''}
-                  onChange={(e) => setStatusActionModal((prev) => ({ ...prev, fields: { ...prev.fields, production_eta: e.target.value } }))}
-                  placeholder="Ex.: 3 a 7 dias úteis"
-                  className="w-full rounded-xl bg-white/5 ring-1 ring-white/10 px-3 py-2.5 outline-none focus:ring-emerald-400/40"
-                />
-              </div>
-            ) : (
-              <div className="mt-4">
-                <label className="text-sm text-slate-300 block mb-2">Código de rastreio (opcional)</label>
-                <input
-                  autoFocus
-                  value={statusActionModal.fields.shipping_tracking || ''}
-                  onChange={(e) => setStatusActionModal((prev) => ({ ...prev, fields: { ...prev.fields, shipping_tracking: e.target.value } }))}
-                  placeholder="Ex.: NB123456789BR"
-                  className="w-full rounded-xl bg-white/5 ring-1 ring-white/10 px-3 py-2.5 outline-none focus:ring-emerald-400/40"
-                />
-              </div>
-            )}
+      <OrderDetailsModal
+        open={details.open}
+        order={activeOrder}
+        onClose={() => setDetails({ open: false, orderId: null })}
+        onUpdateStatus={(o) => setActionModal({ open: true, mode: "status", orderId: o?.id })}
+        onUpdateTracking={(o) => setActionModal({ open: true, mode: "tracking", orderId: o?.id })}
+        onRequestRefund={(o) => updateOrder(o?.id, { refund_requested: true, refund_requested_at: new Date().toISOString() })}
+        toast={toast}
+      />
 
-            <div className="mt-5 flex items-center justify-end gap-2">
-              <button onClick={closeStatusActionModal} className="rounded-xl px-3 py-2 text-sm ring-1 ring-white/15 hover:bg-white/5">Cancelar</button>
-              <button onClick={submitStatusActionModal} className="rounded-xl px-3 py-2 text-sm bg-emerald-400 text-black font-semibold hover:bg-emerald-300">Salvar e atualizar</button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-    </main>
+      <StatusModal
+        open={actionModal.open}
+        mode={actionModal.mode}
+        order={activeActionOrder}
+        onClose={() => setActionModal({ open: false, mode: "status", orderId: null })}
+        onSubmit={(patch) => {
+          const id = activeActionOrder?.id;
+          setActionModal({ open: false, mode: "status", orderId: null });
+          if (id) updateOrder(id, patch);
+        }}
+      />
+    </div>
   );
 }

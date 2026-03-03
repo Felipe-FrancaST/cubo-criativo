@@ -179,7 +179,7 @@ export default function MenuDrawer({
               onClose?.();
             }}
           >
-            Admin — Pedidos
+            Admin — Painel
           </DrawerButton>
         ) : null}
 
