@@ -46,7 +46,8 @@ export default function PromoProductCard({ p, addToCart, buyNow, openGallery }) 
             alt={p.nome}
             loading="lazy"
             decoding="async"
-            className="block object-cover w-full h-full group-hover:scale-[1.03] transition"
+            // Mesmo motivo do ProductCard: muitos arquivos têm margem/"respiro".
+            className="block object-cover object-center w-full h-full scale-[1.12] group-hover:scale-[1.16] transition"
             onError={() => setImgError(true)}
           />
         ) : (
