@@ -60,7 +60,7 @@ export default function HomePage({
           <div className="text-center lg:text-left lg:pr-6">
             <p className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-white/10 bg-white/5 text-slate-200">
               <span className="inline-flex h-2 w-2 rounded-full bg-emerald-400" />
-              Loja online • Miniaturas e Impressões 3D
+              Loja online • Miniaturas e Action Figures
             </p>
 
             <h1 className="mt-4 font-black leading-tight text-3xl sm:text-5xl lg:text-6xl">
