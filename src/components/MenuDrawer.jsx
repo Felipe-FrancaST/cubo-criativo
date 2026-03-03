@@ -37,12 +37,41 @@ export default function MenuDrawer({
   const lastFocusRef = React.useRef(null);
 
   React.useEffect(() => {
-    if (!open) return;
+    const panel = panelRef.current;
+    if (!open || !panel) return;
+
+    // salva o foco anterior pra devolver quando fechar
+    lastFocusRef.current = document.activeElement;
+
+    // foca o primeiro item interativo do drawer
+    // (defer pra garantir que a animação/montagem já ocorreu)
+    const t = window.setTimeout(() => focusFirst(panel), 0);
+
     const onKey = (e) => {
-      if (e.key === "Escape") onClose?.();
+      if (!open) return;
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onClose?.();
+        return;
+      }
+      handleFocusTrapKeydown(e, panel);
     };
+
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      window.clearTimeout(t);
+      window.removeEventListener("keydown", onKey);
+
+      // devolve o foco pra onde estava antes
+      const prev = lastFocusRef.current;
+      if (prev && typeof prev.focus === "function") {
+        try {
+          prev.focus({ preventScroll: true });
+        } catch {
+          prev.focus();
+        }
+      }
+    };
   }, [open, onClose]);
 
   return (
