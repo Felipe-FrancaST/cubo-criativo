@@ -36,7 +36,8 @@ export default function PromoProductCard({ p, addToCart, buyNow, openGallery }) 
       {/* Imagem */}
       <button
         type="button"
-        className="aspect-[4/5] min-h-[220px] sm:min-h-[260px] bg-slate-800/60 grid place-items-center overflow-hidden w-full relative"
+        // Imagens 1:1 -> evita corte mantendo a imagem inteira.
+        className="aspect-square min-h-[220px] sm:min-h-[260px] bg-slate-800/60 grid place-items-center overflow-hidden w-full relative"
         onClick={() => openGallery?.(p)}
         title="Ver mais fotos"
       >
@@ -46,9 +47,7 @@ export default function PromoProductCard({ p, addToCart, buyNow, openGallery }) 
             alt={p.nome}
             loading="lazy"
             decoding="async"
-            // Mesmo motivo do ProductCard: muitos arquivos têm margem/"respiro".
-            // Zoom mais forte + posição levemente mais alta para preencher o card.
-            className="block object-cover object-[50%_25%] w-full h-full origin-center scale-[1.42] group-hover:scale-[1.50] transition"
+            className="block object-contain w-full h-full p-2 origin-center group-hover:scale-[1.02] transition"
             onError={() => setImgError(true)}
           />
         ) : (

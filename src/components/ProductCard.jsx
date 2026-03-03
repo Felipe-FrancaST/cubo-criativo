@@ -56,7 +56,8 @@ export default function ProductCard({ p, addToCart, buyNow, openGallery, onRequi
       <div
         role="button"
         tabIndex={0}
-        className="aspect-[4/5] min-h-[220px] sm:min-h-[260px] bg-slate-800/60 grid place-items-center overflow-hidden w-full relative cursor-pointer focus:outline-none focus:ring-2 focus:ring-teal-400/40"
+        // Suas imagens são 1:1 (1200x1200). Para evitar corte, usamos área 1:1 e object-contain.
+        className="aspect-square min-h-[220px] sm:min-h-[260px] bg-slate-800/60 grid place-items-center overflow-hidden w-full relative cursor-pointer focus:outline-none focus:ring-2 focus:ring-teal-400/40"
         onClick={() => openGallery?.(p)}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
@@ -73,10 +74,9 @@ export default function ProductCard({ p, addToCart, buyNow, openGallery, onRequi
             alt={p.nome}
             loading="lazy"
             decoding="async"
-            // Muitos renders/PNGs vêm com "respiro" (área vazia) no próprio arquivo.
-            // Zoom mais forte + posição levemente mais alta ajuda a preencher o card
-            // mesmo quando o arquivo tem bordas/área vazia embutida.
-            className="block object-cover object-[50%_25%] w-full h-full origin-center scale-[1.42] group-hover:scale-[1.50] transition"
+            // Mantém a imagem inteira (sem recortar). Se existir "respiro" no PNG,
+            // ele aparece como margem/área vazia, mas o produto não fica cortado.
+            className="block object-contain w-full h-full p-2 origin-center group-hover:scale-[1.02] transition"
             onError={() => setImgError(true)}
           />
         ) : (
