@@ -36,7 +36,7 @@ export default function PromoProductCard({ p, addToCart, buyNow, openGallery }) 
       {/* Imagem */}
       <button
         type="button"
-        className="aspect-[4/5] bg-slate-800/60 grid place-items-center overflow-hidden w-full relative"
+        className="aspect-[4/5] min-h-[220px] sm:min-h-[260px] bg-slate-800/60 grid place-items-center overflow-hidden w-full relative"
         onClick={() => openGallery?.(p)}
         title="Ver mais fotos"
       >
@@ -46,7 +46,7 @@ export default function PromoProductCard({ p, addToCart, buyNow, openGallery }) 
             alt={p.nome}
             loading="lazy"
             decoding="async"
-            className="object-cover w-full h-full group-hover:scale-[1.03] transition"
+            className="block object-cover w-full h-full group-hover:scale-[1.03] transition"
             onError={() => setImgError(true)}
           />
         ) : (

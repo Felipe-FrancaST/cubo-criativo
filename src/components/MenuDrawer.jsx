@@ -7,10 +7,10 @@ function DrawerButton({ icon, children, onClick, right }) {
   return (
     <button
       onClick={onClick}
-      className="w-full flex items-center justify-between gap-3 rounded-xl px-4 py-3 ring-1 ring-white/10 hover:bg-white/5 transition"
+      className="w-full flex items-center justify-between gap-3 rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 ring-1 ring-white/10 hover:bg-white/5 transition"
     >
       <span className="flex items-center gap-3 min-w-0">
-        <span className="material-icons text-[20px] text-slate-200">{icon}</span>
+        <span className="material-icons text-[18px] sm:text-[20px] text-slate-200">{icon}</span>
         <span className="text-sm text-slate-100 truncate">{children}</span>
       </span>
       {right ? <span className="material-icons text-[18px] text-slate-400">{right}</span> : null}

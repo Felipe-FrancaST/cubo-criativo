@@ -56,7 +56,7 @@ export default function ProductCard({ p, addToCart, buyNow, openGallery, onRequi
       <div
         role="button"
         tabIndex={0}
-        className="aspect-[4/5] bg-slate-800/60 grid place-items-center overflow-hidden w-full relative cursor-pointer focus:outline-none focus:ring-2 focus:ring-teal-400/40"
+        className="aspect-[4/5] min-h-[220px] sm:min-h-[260px] bg-slate-800/60 grid place-items-center overflow-hidden w-full relative cursor-pointer focus:outline-none focus:ring-2 focus:ring-teal-400/40"
         onClick={() => openGallery?.(p)}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
@@ -73,7 +73,7 @@ export default function ProductCard({ p, addToCart, buyNow, openGallery, onRequi
             alt={p.nome}
             loading="lazy"
             decoding="async"
-            className="object-cover w-full h-full group-hover:scale-[1.02] transition"
+            className="block object-cover w-full h-full group-hover:scale-[1.02] transition"
             onError={() => setImgError(true)}
           />
         ) : (
