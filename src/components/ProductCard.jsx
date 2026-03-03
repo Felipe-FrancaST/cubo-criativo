@@ -74,8 +74,9 @@ export default function ProductCard({ p, addToCart, buyNow, openGallery, onRequi
             loading="lazy"
             decoding="async"
             // Muitos renders/PNGs vêm com "respiro" (área vazia) no próprio arquivo.
-            // Um leve zoom padrão ajuda a preencher o card e manter consistência visual.
-            className="block object-cover object-center w-full h-full scale-[1.12] group-hover:scale-[1.16] transition"
+            // Zoom mais forte + posição levemente mais alta ajuda a preencher o card
+            // mesmo quando o arquivo tem bordas/área vazia embutida.
+            className="block object-cover object-[50%_25%] w-full h-full origin-center scale-[1.42] group-hover:scale-[1.50] transition"
             onError={() => setImgError(true)}
           />
         ) : (

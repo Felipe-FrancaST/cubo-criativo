@@ -47,7 +47,8 @@ export default function PromoProductCard({ p, addToCart, buyNow, openGallery }) 
             loading="lazy"
             decoding="async"
             // Mesmo motivo do ProductCard: muitos arquivos têm margem/"respiro".
-            className="block object-cover object-center w-full h-full scale-[1.12] group-hover:scale-[1.16] transition"
+            // Zoom mais forte + posição levemente mais alta para preencher o card.
+            className="block object-cover object-[50%_25%] w-full h-full origin-center scale-[1.42] group-hover:scale-[1.50] transition"
             onError={() => setImgError(true)}
           />
         ) : (
