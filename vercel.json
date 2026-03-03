@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/p/(.*)",
+      "destination": "/p/$1/index.html"
+    },
+    {
       "source": "/api/create-vip-upgrade-pix-payment",
       "destination": "/api/create-pix-payment?mode=vip_upgrade"
     },
