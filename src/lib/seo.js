@@ -40,26 +40,51 @@ export function clearJsonLd(id) {
 
 export function applySeo(input = {}) {
   if (typeof document === 'undefined') return;
+
   const data = { ...DEFAULTS, ...input };
+
+  const origin =
+    typeof window !== 'undefined' && window.location && window.location.origin
+      ? window.location.origin
+      : '';
+
+  // normaliza path (sempre com / e sem //)
+  let path = data.path || '/';
+  if (!path.startsWith('/')) path = `/${path}`;
+  path = path.replace(/\/+/g, '/');
+
+  // garante imagem absoluta (melhor para previews em WhatsApp/Instagram/Twitter)
+  let image = data.image || DEFAULTS.image;
+  const isAbs = /^https?:\/\//i.test(image);
+  if (!isAbs) {
+    if (!image.startsWith('/')) image = `/${image}`;
+    image = origin ? `${origin}${image}` : image;
+  }
+
   document.title = data.title;
 
   ensureMeta('meta[name="description"]', { name: 'description', content: data.description });
+
+  // Open Graph
   ensureMeta('meta[property="og:type"]', { property: 'og:type', content: 'website' });
+  ensureMeta('meta[property="og:locale"]', { property: 'og:locale', content: 'pt_BR' });
   ensureMeta('meta[property="og:title"]', { property: 'og:title', content: data.title });
   ensureMeta('meta[property="og:description"]', { property: 'og:description', content: data.description });
-  ensureMeta('meta[property="og:image"]', { property: 'og:image', content: data.image });
-  ensureMeta('meta[property="og:locale"]', { property: 'og:locale', content: 'pt_BR' });
+  ensureMeta('meta[property="og:image"]', { property: 'og:image', content: image });
+  ensureMeta('meta[property="og:url"]', { property: 'og:url', content: origin ? `${origin}${path}` : path });
+
+  // Twitter
   ensureMeta('meta[name="twitter:card"]', { name: 'twitter:card', content: 'summary_large_image' });
   ensureMeta('meta[name="twitter:title"]', { name: 'twitter:title', content: data.title });
   ensureMeta('meta[name="twitter:description"]', { name: 'twitter:description', content: data.description });
-  ensureMeta('meta[name="twitter:image"]', { name: 'twitter:image', content: data.image });
+  ensureMeta('meta[name="twitter:image"]', { name: 'twitter:image', content: image });
 
+  // Canonical por rota (SPA)
   let canonical = document.head.querySelector('link[rel="canonical"]');
   if (!canonical) {
     canonical = document.createElement('link');
     canonical.setAttribute('rel', 'canonical');
     document.head.appendChild(canonical);
   }
-  const origin = window.location.origin;
-  canonical.setAttribute('href', `${origin}${data.path}`);
+  canonical.setAttribute('href', origin ? `${origin}${path}` : path);
 }

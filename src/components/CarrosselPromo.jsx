@@ -163,7 +163,8 @@ export default function CarrosselPromo({
                   <img
                     src={s?.image_url}
                     alt={s?.alt || `promo ${idx + 1}`}
-                    loading="lazy"
+                    loading={idx === 0 ? "eager" : "lazy"}
+                    fetchPriority={idx === 0 ? "high" : "auto"}
                     decoding="async"
                     style={{
                       maxHeight: "100%",
