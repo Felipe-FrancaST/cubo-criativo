@@ -135,6 +135,40 @@ export default function SiteHeader({
     <span className="material-icons text-[18px] sm:text-[20px]">person</span>
   </IconButton>
 ) : null}
+
+              {/* Social (mobile) — ao lado do carrinho */}
+              <div className="flex sm:hidden items-center gap-1">
+                <a
+                  href={`https://wa.me/${brand.whatsapp}`}
+                  target="_blank"
+                  className="inline-flex items-center justify-center rounded-full p-1.5 ring-1 ring-white/12 hover:bg-white/5"
+                  title="WhatsApp"
+                  rel="noreferrer"
+                  onClick={() => trackEvent("whatsapp_click", { location: "header_mobile" })}
+                >
+                  <img src="/icons/whatsapp.svg" alt="WhatsApp" className="h-4 w-4" />
+                </a>
+                <a
+                  href="https://instagram.com/cubo_criativo3d"
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={() => trackEvent("social_click", { network: "instagram", location: "header_mobile" })}
+                  className="inline-flex items-center justify-center rounded-full p-1.5 ring-1 ring-white/12 hover:bg-white/5"
+                  title="Instagram"
+                >
+                  <img src="/icons/instagram.svg" alt="Instagram" className="h-4 w-4" />
+                </a>
+                <a
+                  href="https://tiktok.com/@cubo.criativo"
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={() => trackEvent("social_click", { network: "tiktok", location: "header_mobile" })}
+                  className="inline-flex items-center justify-center rounded-full p-1.5 ring-1 ring-white/12 hover:bg-white/5"
+                  title="TikTok"
+                >
+                  <img src="/icons/tiktok.svg" alt="TikTok" className="h-4 w-4" />
+                </a>
+              </div>
 {/* Carrinho */}
               <IconButton title={cartOpen ? "Fechar carrinho" : "Carrinho"} onClick={onToggleCart} className="relative">
                 <span className="material-icons text-[16px] sm:text-[20px]">{cartOpen ? "close" : "shopping_cart"}</span>
