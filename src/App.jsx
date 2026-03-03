@@ -1333,6 +1333,37 @@ React.useEffect(() => {
         onSignOut={() => signOut()}
       />
 
+      {/* TRUST BAR */}
+      <div className="border-b border-white/10 bg-black/20">
+        <div className="container-cc px-4 sm:px-6 lg:px-8 py-2">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-[12px] sm:text-[13px] text-slate-200">
+            <div className="flex items-center gap-2">
+              <span className="material-icons text-[18px] text-slate-300">local_shipping</span>
+              <span>Envio p/ todo o Brasil (rastreio)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="material-icons text-[18px] text-slate-300">lock</span>
+              <span>Pagamento seguro (Mercado Pago)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="material-icons text-[18px] text-slate-300">schedule</span>
+              <span>Produção: 3–7 dias úteis</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="material-icons text-[18px] text-slate-300">support_agent</span>
+              <a
+                className="underline decoration-dotted hover:text-white"
+                href={`https://wa.me/${brand.whatsapp}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Suporte no WhatsApp
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Conteúdo */}
       {page}
 
@@ -1340,29 +1371,54 @@ React.useEffect(() => {
       (
         <footer id="contato" className="mt-auto border-t border-white/10">
           <div
-            className="container-cc grid grid-cols-1 md:grid-cols-3 gap-6 text-sm px-4 sm:px-6 lg:px-8 py-10" >
+            className="container-cc grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 text-sm px-4 sm:px-6 lg:px-8 py-10" >
             <div>
               <p className="font-extrabold text-lg">{brand.name}</p>
               <p className="text-slate-400 mt-2">Cultura geek, qualidade de coleção.</p>
               <p className="text-xs text-slate-500 mt-3">Produção sob encomenda: 3–7 dias úteis • envio com rastreio</p>
             </div>
             <div>
-              <p className="font-bold">Pagamento</p>
+              <p className="font-bold">Compra segura</p>
               <ul className="mt-2 text-slate-300 space-y-1">
-                <li>• Checkout no site (Mercado Pago)</li>
+                <li>• Checkout no site via Mercado Pago</li>
+                <li>• PIX e cartão (conforme checkout)</li>
                 <li>• Também finalizamos pelo WhatsApp</li>
+              </ul>
+            </div>
+            <div>
+              <p className="font-bold">Links úteis</p>
+              <ul className="mt-2 text-slate-300 space-y-1">
+                <li><a href="/catalogo" className="underline decoration-dotted">Catálogo</a></li>
+                <li><a href="/promocoes" className="underline decoration-dotted">Promoções</a></li>
+                <li><a href="/faq" className="underline decoration-dotted">FAQ</a></li>
+                <li><a href="/trocas-e-devolucoes" className="underline decoration-dotted">Trocas / devoluções</a></li>
+                <li><a href="/privacy.html" className="underline decoration-dotted">Política de Privacidade</a></li>
+                <li><a href="/terms.html" className="underline decoration-dotted">Termos</a></li>
               </ul>
             </div>
             <div>
               <p className="font-bold">Contato</p>
               <ul className="mt-2 text-slate-300 space-y-1">
-                <li>WhatsApp: (77) 99821-1169</li>
-                <li>E-mail: {brand.email}</li>
-                <li>Instagram: @cubo_criativo3d</li>
+                <li>
+                  <a className="underline decoration-dotted" href={`https://wa.me/${brand.whatsapp}`} target="_blank" rel="noreferrer">
+                    WhatsApp
+                  </a>
+                  : (77) 99821-1169
+                </li>
+                <li>
+                  <a className="underline decoration-dotted" href={`mailto:${brand.email}`}>
+                    E-mail
+                  </a>
+                  : {brand.email}
+                </li>
+                <li>
+                  <a className="underline decoration-dotted" href="https://instagram.com/cubo_criativo3d" target="_blank" rel="noreferrer">
+                    Instagram
+                  </a>
+                  : {brand.insta}
+                </li>
                 <li>Cidade/UF: {brand.city}</li>
-                <li><a href="/faq" className="underline decoration-dotted">FAQ</a></li>
-                <li><a href="/privacy.html" className="underline decoration-dotted">Política de Privacidade</a> • <a href="/terms.html" className="underline decoration-dotted">Termos</a></li>
-                <li><a href="/trocas-e-devolucoes" className="underline decoration-dotted">Trocas / devoluções</a></li>
+                <li>Horário: Seg–Sex, 09h–18h</li>
               </ul>
             </div>
           </div>
