@@ -7,10 +7,10 @@ function DrawerButton({ icon, children, onClick, right }) {
   return (
     <button
       onClick={onClick}
-      className="w-full flex items-center justify-between gap-3 rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 ring-1 ring-white/10 hover:bg-white/5 transition"
+      className="w-full flex items-center justify-between gap-3 rounded-xl px-2.5 sm:px-4 py-2 sm:py-3 ring-1 ring-white/10 hover:bg-white/5 transition"
     >
       <span className="flex items-center gap-3 min-w-0">
-        <span className="material-icons text-[18px] sm:text-[20px] text-slate-200">{icon}</span>
+        <span className="material-icons text-[16px] sm:text-[20px] text-slate-200">{icon}</span>
         <span className="text-sm text-slate-100 truncate">{children}</span>
       </span>
       {right ? <span className="material-icons text-[18px] text-slate-400">{right}</span> : null}
@@ -65,7 +65,12 @@ export default function MenuDrawer({
         <div className="p-4 flex items-center justify-between border-b border-white/10">
           <div className="flex items-center gap-3">
             <div className="rounded-2xl bg-white p-2">
-              <img src={brand.logo} alt={brand.name} className="h-8 w-auto" />
+              <img
+                src={brand.logo}
+                alt={brand.name}
+                className="site-logo h-7 w-auto"
+                style={{ height: 32, width: "auto" }}
+              />
             </div>
             <div className="leading-tight">
               <p className="font-extrabold">{brand.name}</p>

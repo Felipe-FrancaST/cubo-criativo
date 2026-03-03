@@ -129,6 +129,20 @@ body{
 /* imagens: comportamento padrão mais nítido */
 img{ image-rendering: auto; }
 
+/* =====================
+   FALLBACKS DE RESPONSIVIDADE
+   (garante comportamento mesmo se alguma classe do build falhar)
+   ===================== */
+.site-logo{ height: 40px; width: auto; object-fit: contain; display: block; }
+@media (max-width: 640px){
+  .site-logo{ height: 32px; }
+}
+
+/* Evita header "alto" demais em alguns layouts (mobile) */
+@media (max-width: 640px){
+  header .container-cc{ padding-top: .5rem; padding-bottom: .5rem; }
+}
+
 /* reduz motion para quem prefere (combina com seu carrossel) */
 @media (prefers-reduced-motion: reduce){
   *{ animation: none !important; transition: none !important; }

@@ -8,7 +8,7 @@ function IconButton({ title, onClick, children, className = "", ...rest }) {
       onClick={onClick}
       title={title}
       aria-label={title}
-      className={`inline-flex items-center justify-center rounded-full p-2 sm:p-2.5 ring-1 ring-white/12 hover:bg-white/5 transition ${className}`}
+      className={`inline-flex items-center justify-center rounded-full p-1.5 sm:p-2 ring-1 ring-white/12 hover:bg-white/5 transition ${className}`}
       {...rest}
     >
       {children}
@@ -64,7 +64,7 @@ export default function SiteHeader({
           <div className="container-cc px-4 sm:px-6 lg:px-8 py-2.5 sm:py-3 flex items-center gap-3 sm:gap-4">
             {/* Menu lateral */}
             <IconButton title={menuOpen ? "Fechar menu" : "Abrir menu"} onClick={onToggleMenu}>
-              <span className="material-icons text-[18px] sm:text-[20px]">{menuOpen ? "close" : "menu"}</span>
+              <span className="material-icons text-[16px] sm:text-[20px]">{menuOpen ? "close" : "menu"}</span>
             </IconButton>
 
             {/* Logo */}
@@ -74,7 +74,13 @@ export default function SiteHeader({
                   logoAnimate ? "scale-110 rotate-3" : "scale-100"
                 }`}
               >
-                <img src={brand.logo} alt={brand.name} className="h-8 sm:h-10 w-auto object-contain" />
+                {/* Fallback: garante tamanho mesmo se alguma classe não aplicar no build */}
+                <img
+                  src={brand.logo}
+                  alt={brand.name}
+                  className="site-logo h-8 sm:h-10 w-auto object-contain"
+                  style={{ height: 40, width: "auto" }}
+                />
               </span>
               <div className="hidden sm:flex flex-col leading-tight text-left">
                 <span className="font-extrabold tracking-tight">{brand.name}</span>
@@ -131,7 +137,7 @@ export default function SiteHeader({
 ) : null}
 {/* Carrinho */}
               <IconButton title={cartOpen ? "Fechar carrinho" : "Carrinho"} onClick={onToggleCart} className="relative">
-                <span className="material-icons text-[18px] sm:text-[20px]">{cartOpen ? "close" : "shopping_cart"}</span>
+                <span className="material-icons text-[16px] sm:text-[20px]">{cartOpen ? "close" : "shopping_cart"}</span>
                 {cartCount > 0 && (
                   <span className="absolute -top-1 -right-1 text-[10px] bg-teal-400 text-black font-bold rounded-full px-1.5 py-0.5 shadow">
                     {cartCount}
