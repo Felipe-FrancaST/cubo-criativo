@@ -352,9 +352,6 @@ export default function App() {
   const accessToken = session?.access_token || "";
   const isAdmin = isAdminEmail(user?.email || "");
 
-  // UI
-  const [trustOpen, setTrustOpen] = React.useState(false);
-
   // ===== Rotas (history API sem dependências) =====
   const [route, setRoute] = React.useState(() => (typeof window === "undefined" ? "/" : getRouteFromLocation()));
   const pendingScroll = React.useRef(null);
@@ -1344,68 +1341,7 @@ React.useEffect(() => {
       {/* TRUST BAR */}
       <div className="border-b border-white/10 bg-black/20">
         <div className="container-cc px-4 sm:px-6 lg:px-8 py-2">
-          {/* Mobile: compacto (não ocupa tela) */}
-          <div className="md:hidden">
-            <div className="flex items-center justify-between gap-3 text-[12px] text-slate-200">
-              <div className="flex items-center gap-2">
-                <span className="material-icons text-[18px] text-slate-300" title="Envio com rastreio">local_shipping</span>
-                <span className="material-icons text-[18px] text-slate-300" title="Pagamento seguro">lock</span>
-                <span className="material-icons text-[18px] text-slate-300" title="Produção 3–7 dias úteis">schedule</span>
-                <a
-                  className="inline-flex items-center"
-                  href={`https://wa.me/${brand.whatsapp}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  title="Suporte no WhatsApp"
-                >
-                  <span className="material-icons text-[18px] text-slate-300">support_agent</span>
-                </a>
-              </div>
-
-              <button
-                type="button"
-                className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[12px] text-slate-200 hover:bg-white/10"
-                onClick={() => setTrustOpen((v) => !v)}
-                aria-expanded={trustOpen}
-              >
-                <span className="material-icons text-[16px] text-slate-300">info</span>
-                <span>{trustOpen ? "Ocultar" : "Detalhes"}</span>
-              </button>
-            </div>
-
-            {trustOpen && (
-              <div className="mt-2 rounded-2xl border border-white/10 bg-black/40 p-3 text-[12px] text-slate-200">
-                <div className="grid grid-cols-1 gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="material-icons text-[18px] text-slate-300">local_shipping</span>
-                    <span>Envio p/ todo o Brasil (rastreio)</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="material-icons text-[18px] text-slate-300">lock</span>
-                    <span>Pagamento seguro (Mercado Pago)</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="material-icons text-[18px] text-slate-300">schedule</span>
-                    <span>Produção: 3–7 dias úteis</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="material-icons text-[18px] text-slate-300">support_agent</span>
-                    <a
-                      className="underline decoration-dotted hover:text-white"
-                      href={`https://wa.me/${brand.whatsapp}`}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Suporte no WhatsApp
-                    </a>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Desktop: completo */}
-          <div className="hidden md:grid grid-cols-4 gap-2 text-[12px] sm:text-[13px] text-slate-200">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-[12px] sm:text-[13px] text-slate-200">
             <div className="flex items-center gap-2">
               <span className="material-icons text-[18px] text-slate-300">local_shipping</span>
               <span>Envio p/ todo o Brasil (rastreio)</span>
