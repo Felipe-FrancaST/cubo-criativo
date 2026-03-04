@@ -636,7 +636,6 @@ function CloseVotingModal({ state, onClose, onConfirm, onSelectWinner }) {
 }
 
 export default function AdminOrdersPage({ user, accessToken, onNavigateHome, onRequireLogin }) {
-  const BUILD_TAG = "vipvoteclose-v6";
   const isAdmin = isAdminEmail(user?.email || "");
   const [section, setSection] = React.useState("dashboard");
 
@@ -707,44 +706,22 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome, onR
   }, [accessToken]);
 
   async function closeVipVoting(poll, winner_option_id) {
-    if (!accessToken) {
-      setCloseVote((s) => ({ ...s, busy: false, error: "Sessão expirada. Refaça o login e tente novamente." }));
-      return;
-    }
-    if (!poll?.id) {
-      setCloseVote((s) => ({ ...s, busy: false, error: "Votação inválida (poll.id ausente). Atualize a página." }));
-      return;
-    }
-    if (!winner_option_id) {
-      setCloseVote((s) => ({ ...s, busy: false, error: "Selecione um vencedor antes de encerrar." }));
-      return;
-    }
+    // API returns items in the shape { poll: {...}, options: [...] }.
+    // Accept either a raw poll row (with id) or the wrapped object.
+    const pollId = poll?.id || poll?.poll?.id;
+    if (!accessToken || !pollId || !winner_option_id) return;
     try {
       setCloseVote((s) => ({ ...s, busy: true, error: "" }));
-      const url = "/api/admin?action=vip-close-voting";
-      console.log(`[ADMIN ${BUILD_TAG}] close voting ->`, url, { poll_id: poll.id, winner_option_id });
-      const resp = await fetch(url, {
+      const resp = await fetch("/api/admin?action=vip-close-voting", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${accessToken}`,
         },
-        body: JSON.stringify({ poll_id: poll.id, winner_option_id }),
+        body: JSON.stringify({ poll_id: pollId, winner_option_id }),
       });
-      const raw = await resp.text().catch(() => "");
-      const data = raw
-        ? (() => {
-            try {
-              return JSON.parse(raw);
-            } catch {
-              return { raw };
-            }
-          })()
-        : {};
-      if (!resp.ok) {
-        const msg = data?.error || data?.message || raw || "Não foi possível encerrar a votação.";
-        throw new Error(msg);
-      }
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data?.error || "Não foi possível encerrar a votação.");
       showToast("✅ Votação encerrada!");
       setCloseVote({ open: false, poll: null, winnerId: null, busy: false, error: "" });
       await fetchVipVoting();
