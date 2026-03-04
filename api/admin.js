@@ -9,6 +9,7 @@
  * - /api/admin/update-order -> /api/admin?action=update-order
  * - /api/admin/vip-voting   -> /api/admin?action=vip-voting
  * - /api/admin/vip-close-voting -> /api/admin?action=vip-close-voting
+ * - /api/admin/vip-start-voting -> /api/admin?action=vip-start-voting
  */
 
 import { supabaseAdmin } from "../server/supabase.js";
@@ -437,6 +438,91 @@ async function handleVipCloseVoting(req, res) {
   return res.status(200).json({ ok: true, poll_id, winner_option_id, winner_title: opt.title || null });
 }
 
+async function handleVipStartVoting(req, res) {
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+
+  const auth = await requireAdmin(req);
+  if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
+
+  const body = await readJsonBody(req);
+  const month_key = String(body.month_key || "").trim();
+  const title = String(body.title || "").trim();
+  const options = Array.isArray(body.options) ? body.options : [];
+
+  if (!month_key || !/^\d{4}-\d{2}$/.test(month_key)) {
+    return res.status(400).json({ error: "month_key inválido. Use formato YYYY-MM." });
+  }
+  if (!title) return res.status(400).json({ error: "Título/pergunta é obrigatório." });
+  if (options.length < 2) return res.status(400).json({ error: "Inclua pelo menos 2 opções." });
+
+  const cleanOptions = options
+    .map((o, idx) => ({
+      title: String(o?.title || "").trim(),
+      description: String(o?.description || "").trim() || null,
+      image_url: String(o?.image_url || "").trim() || null,
+      sort_order: Number.isFinite(Number(o?.sort_order)) ? Number(o.sort_order) : idx,
+      active: o?.active === false ? false : true,
+    }))
+    .filter((o) => o.title);
+
+  if (cleanOptions.length < 2) return res.status(400).json({ error: "Opções inválidas." });
+
+  const sb = supabaseAdmin();
+
+  // Enforce: only one open poll at a time.
+  const { data: openPoll, error: openErr } = await sb
+    .from("vip_theme_polls")
+    .select("id,month_key,status")
+    .eq("status", "open")
+    .maybeSingle();
+  if (openErr && !/multiple/i.test(String(openErr.message || ""))) {
+    return res.status(500).json({ error: openErr.message || "Falha ao verificar votação aberta." });
+  }
+  if (openPoll?.id) {
+    return res
+      .status(400)
+      .json({ error: `Já existe uma votação aberta (${openPoll.month_key}). Encerre antes de criar outra.` });
+  }
+
+  // Prevent duplicate month_key polls
+  const { data: existingMonth, error: exErr } = await sb
+    .from("vip_theme_polls")
+    .select("id")
+    .eq("month_key", month_key)
+    .limit(1);
+  if (exErr) return res.status(500).json({ error: exErr.message || "Falha ao validar mês." });
+  if (Array.isArray(existingMonth) && existingMonth.length) {
+    return res.status(400).json({ error: `Já existe votação cadastrada para ${month_key}.` });
+  }
+
+  const { data: poll, error: pollErr } = await sb
+    .from("vip_theme_polls")
+    .insert({ month_key, title, status: "open" })
+    .select("id,month_key,title,status,created_at")
+    .single();
+  if (pollErr) return res.status(500).json({ error: pollErr.message || "Falha ao criar votação." });
+
+  const optionRows = cleanOptions.map((o, idx) => ({
+    poll_id: poll.id,
+    title: o.title,
+    description: o.description,
+    image_url: o.image_url,
+    sort_order: Number.isFinite(Number(o.sort_order)) ? Number(o.sort_order) : idx,
+    active: o.active,
+  }));
+
+  const { error: optErr } = await sb.from("vip_theme_options").insert(optionRows);
+  if (optErr) {
+    // rollback poll if options insert fails
+    try {
+      await sb.from("vip_theme_polls").delete().eq("id", poll.id);
+    } catch {}
+    return res.status(500).json({ error: optErr.message || "Falha ao criar opções." });
+  }
+
+  return res.status(200).json({ ok: true, poll });
+}
+
 async function handleUpdateOrder(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
@@ -546,6 +632,7 @@ export default async function handler(req, res) {
     if (action === "update-order") return await handleUpdateOrder(req, res);
     if (action === "vip-voting") return await handleVipVoting(req, res);
     if (action === "vip-close-voting") return await handleVipCloseVoting(req, res);
+    if (action === "vip-start-voting") return await handleVipStartVoting(req, res);
 
     return res.status(404).json({ error: "Unknown admin action" });
   } catch (e) {

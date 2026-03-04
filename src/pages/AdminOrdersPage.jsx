@@ -635,6 +635,152 @@ function CloseVotingModal({ state, onClose, onConfirm, onSelectWinner }) {
   );
 }
 
+function StartVotingModal({ state, onClose, onChange, onConfirm }) {
+  const open = !!state?.open;
+  const busy = !!state?.busy;
+  const error = state?.error;
+  const data = state?.data || { month_key: "", title: "", options: [] };
+  const opts = Array.isArray(data.options) ? data.options : [];
+
+  if (!open) return null;
+
+  const setField = (k, v) => onChange?.({ ...data, [k]: v });
+  const setOpt = (idx, patch) => {
+    const next = opts.map((o, i) => (i === idx ? { ...o, ...patch } : o));
+    setField("options", next);
+  };
+  const addOpt = () => setField("options", [...opts, { title: "", description: "", image_url: "" }]);
+  const delOpt = (idx) => setField("options", opts.filter((_, i) => i !== idx));
+
+  return (
+    <div className="fixed inset-0 z-50">
+      <div className="absolute inset-0 bg-black/70" onClick={() => (!busy ? onClose?.() : null)} />
+      <div className="absolute inset-0 flex items-center justify-center p-4">
+        <div className="w-full max-w-2xl rounded-2xl bg-slate-950 ring-1 ring-white/10 shadow-2xl">
+          <div className="p-5 border-b border-white/10 flex items-start justify-between gap-3">
+            <div>
+              <div className="text-white text-lg font-extrabold">Iniciar nova votação</div>
+              <div className="mt-1 text-sm text-slate-400">Crie a votação que vai aparecer para todos os VIPs.</div>
+            </div>
+            <button
+              onClick={() => (!busy ? onClose?.() : null)}
+              className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+              disabled={busy}
+            >
+              Fechar
+            </button>
+          </div>
+
+          <div className="p-5">
+            {error ? <div className="mb-3 rounded-xl bg-red-500/10 ring-1 ring-red-400/20 p-3 text-sm text-red-200">{error}</div> : null}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <label className="block">
+                <div className="text-xs text-slate-400 mb-1">Mês (YYYY-MM)</div>
+                <input
+                  value={data.month_key}
+                  onChange={(e) => setField("month_key", e.target.value)}
+                  className="w-full rounded-xl bg-black/30 ring-1 ring-white/10 px-3 py-2 text-slate-100"
+                  placeholder="2026-03"
+                  disabled={busy}
+                />
+              </label>
+              <label className="block md:col-span-2">
+                <div className="text-xs text-slate-400 mb-1">Pergunta / Título</div>
+                <input
+                  value={data.title}
+                  onChange={(e) => setField("title", e.target.value)}
+                  className="w-full rounded-xl bg-black/30 ring-1 ring-white/10 px-3 py-2 text-slate-100"
+                  placeholder="Qual tema você quer no próximo mês?"
+                  disabled={busy}
+                />
+              </label>
+            </div>
+
+            <div className="mt-4 flex items-center justify-between">
+              <div className="text-xs uppercase tracking-wide text-slate-400">Opções</div>
+              <button
+                onClick={() => (!busy ? addOpt() : null)}
+                className="rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+                disabled={busy}
+              >
+                + Adicionar opção
+              </button>
+            </div>
+
+            <div className="mt-2 space-y-2">
+              {opts.map((o, idx) => (
+                <div key={idx} className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-slate-100 font-semibold">Opção {idx + 1}</div>
+                    <button
+                      onClick={() => (!busy ? delOpt(idx) : null)}
+                      className="rounded-xl px-3 py-2 text-xs text-slate-200 hover:bg-white/5 ring-1 ring-white/10 disabled:opacity-50"
+                      disabled={busy || opts.length <= 2}
+                      title={opts.length <= 2 ? "Mínimo de 2 opções" : "Remover"}
+                    >
+                      Remover
+                    </button>
+                  </div>
+                  <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <label className="block">
+                      <div className="text-xs text-slate-400 mb-1">Título</div>
+                      <input
+                        value={o.title || ""}
+                        onChange={(e) => setOpt(idx, { title: e.target.value })}
+                        className="w-full rounded-xl bg-black/30 ring-1 ring-white/10 px-3 py-2 text-slate-100"
+                        placeholder="Ex: Vampiros & Caçadores"
+                        disabled={busy}
+                      />
+                    </label>
+                    <label className="block">
+                      <div className="text-xs text-slate-400 mb-1">Imagem (URL) (opcional)</div>
+                      <input
+                        value={o.image_url || ""}
+                        onChange={(e) => setOpt(idx, { image_url: e.target.value })}
+                        className="w-full rounded-xl bg-black/30 ring-1 ring-white/10 px-3 py-2 text-slate-100"
+                        placeholder="https://..."
+                        disabled={busy}
+                      />
+                    </label>
+                    <label className="block md:col-span-2">
+                      <div className="text-xs text-slate-400 mb-1">Descrição (opcional)</div>
+                      <input
+                        value={o.description || ""}
+                        onChange={(e) => setOpt(idx, { description: e.target.value })}
+                        className="w-full rounded-xl bg-black/30 ring-1 ring-white/10 px-3 py-2 text-slate-100"
+                        placeholder="Noite, maldições e caçadas."
+                        disabled={busy}
+                      />
+                    </label>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button
+                onClick={() => (!busy ? onClose?.() : null)}
+                className="rounded-xl px-4 py-2 text-sm text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+                disabled={busy}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => onConfirm?.(data)}
+                className="rounded-xl px-4 py-2 text-sm font-extrabold bg-emerald-400 text-black ring-4 ring-emerald-400/20 disabled:opacity-50"
+                disabled={busy}
+              >
+                {busy ? "Criando…" : "Iniciar votação"}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminOrdersPage({ user, accessToken, onNavigateHome, onRequireLogin }) {
   const isAdmin = isAdminEmail(user?.email || "");
   const [section, setSection] = React.useState("dashboard");
@@ -657,6 +803,7 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome, onR
   const [vipPollsError, setVipPollsError] = React.useState("");
 
   const [closeVote, setCloseVote] = React.useState({ open: false, poll: null, winnerId: null, busy: false, error: "" });
+  const [startVote, setStartVote] = React.useState({ open: false, data: null, busy: false, error: "" });
 
   const showToast = (msg) => {
     setToast(msg);
@@ -704,6 +851,36 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome, onR
       setVipPollsLoading(false);
     }
   }, [accessToken]);
+
+  const nextMonthKey = React.useCallback(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() + 1);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    return `${y}-${m}`;
+  }, []);
+
+  async function startVipVoting(payload) {
+    if (!accessToken) return;
+    try {
+      setStartVote((s) => ({ ...s, busy: true, error: "" }));
+      const resp = await fetch("/api/admin?action=vip-start-voting", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(payload),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data?.error || "Não foi possível iniciar a votação.");
+      showToast("✅ Votação criada e aberta!");
+      setStartVote({ open: false, data: null, busy: false, error: "" });
+      await fetchVipVoting();
+    } catch (e) {
+      setStartVote((s) => ({ ...s, busy: false, error: e?.message || "Falha ao criar votação." }));
+    }
+  }
 
   async function closeVipVoting(poll, winner_option_id) {
     // API returns items in the shape { poll: {...}, options: [...] }.
@@ -1234,12 +1411,38 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome, onR
                 title="VIP — Votação"
                 subtitle="Acompanhe os resultados do tema do próximo mês."
                 right={
-                  <button
-                    onClick={() => fetchVipVoting()}
-                    className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
-                  >
-                    Atualizar
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => fetchVipVoting()}
+                      className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+                    >
+                      Atualizar
+                    </button>
+
+                    {!vipPolls.some((x) => String(x?.poll?.status || "").toLowerCase() === "open") ? (
+                      <button
+                        onClick={() =>
+                          setStartVote({
+                            open: true,
+                            busy: false,
+                            error: "",
+                            data: {
+                              month_key: nextMonthKey(),
+                              title: "Qual tema você quer no próximo mês?",
+                              options: [
+                                { title: "", description: "", image_url: "" },
+                                { title: "", description: "", image_url: "" },
+                                { title: "", description: "", image_url: "" },
+                              ],
+                            },
+                          })
+                        }
+                        className="rounded-xl px-3 py-2 text-sm font-semibold bg-emerald-400 text-black ring-4 ring-emerald-400/20"
+                      >
+                        + Nova votação
+                      </button>
+                    ) : null}
+                  </div>
                 }
               />
 
@@ -1384,6 +1587,13 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome, onR
         onClose={() => setCloseVote({ open: false, poll: null, winnerId: null, busy: false, error: "" })}
         onSelectWinner={(id) => setCloseVote((s) => ({ ...s, winnerId: id }))}
         onConfirm={(winnerId) => closeVipVoting(closeVote.poll, winnerId)}
+      />
+
+      <StartVotingModal
+        state={startVote}
+        onClose={() => setStartVote({ open: false, data: null, busy: false, error: "" })}
+        onChange={(data) => setStartVote((s) => ({ ...s, data }))}
+        onConfirm={(data) => startVipVoting(data)}
       />
     </div>
   );
