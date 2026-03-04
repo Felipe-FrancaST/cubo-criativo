@@ -549,6 +549,92 @@ function StatusModal({ open, mode, order, onClose, onSubmit }) {
   );
 }
 
+function CloseVotingModal({ state, onClose, onConfirm, onSelectWinner }) {
+  const open = !!state?.open;
+  const pollPack = state?.poll;
+  const poll = pollPack?.poll;
+  const options = pollPack?.options || [];
+  const winnerId = state?.winnerId;
+  const busy = !!state?.busy;
+  const error = state?.error;
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50">
+      <div className="absolute inset-0 bg-black/70" onClick={() => (!busy ? onClose?.() : null)} />
+      <div className="absolute inset-0 flex items-center justify-center p-4">
+        <div className="w-full max-w-xl rounded-2xl bg-slate-950 ring-1 ring-white/10 shadow-2xl">
+          <div className="p-5 border-b border-white/10 flex items-start justify-between gap-3">
+            <div>
+              <div className="text-white text-lg font-extrabold">Encerrar votação</div>
+              <div className="mt-1 text-sm text-slate-400">
+                Selecione o vencedor. Isso vai aparecer para todos os VIPs como “votação encerrada”.
+              </div>
+              <div className="mt-2 text-xs text-slate-500">
+                {poll?.month_key || "—"} • {poll?.title || "Votação"}
+              </div>
+            </div>
+            <button
+              onClick={() => (!busy ? onClose?.() : null)}
+              className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+              disabled={busy}
+            >
+              Fechar
+            </button>
+          </div>
+
+          <div className="p-5">
+            {error ? <div className="mb-3 rounded-xl bg-red-500/10 ring-1 ring-red-400/20 p-3 text-sm text-red-200">{error}</div> : null}
+
+            <div className="space-y-2">
+              {options.map((o) => (
+                <label
+                  key={o.id}
+                  className={`flex items-center gap-3 rounded-xl p-3 ring-1 transition cursor-pointer ${
+                    String(winnerId) === String(o.id) ? "bg-emerald-500/10 ring-emerald-400/25" : "bg-white/[0.03] ring-white/10 hover:bg-white/[0.06]"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="winner"
+                    checked={String(winnerId) === String(o.id)}
+                    onChange={() => onSelectWinner?.(o.id)}
+                    className="accent-emerald-400"
+                    disabled={busy}
+                  />
+                  <div className="min-w-0">
+                    <div className="text-slate-100 font-semibold truncate">{o.title}</div>
+                    {o.description ? <div className="text-xs text-slate-500 line-clamp-2">{o.description}</div> : null}
+                  </div>
+                  <div className="ml-auto text-xs text-slate-400 whitespace-nowrap">{o.votes || 0} votos</div>
+                </label>
+              ))}
+            </div>
+
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button
+                onClick={() => (!busy ? onClose?.() : null)}
+                className="rounded-xl px-4 py-2 text-sm text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+                disabled={busy}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => onConfirm?.(winnerId)}
+                className="rounded-xl px-4 py-2 text-sm font-extrabold bg-emerald-400 text-black ring-4 ring-emerald-400/20 disabled:opacity-50"
+                disabled={busy || !winnerId}
+              >
+                {busy ? "Encerrando…" : "Encerrar e publicar vencedor"}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminOrdersPage({ user, accessToken, onNavigateHome, onRequireLogin }) {
   const isAdmin = isAdminEmail(user?.email || "");
   const [section, setSection] = React.useState("dashboard");
@@ -569,6 +655,8 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome, onR
   const [vipPolls, setVipPolls] = React.useState([]);
   const [vipPollsLoading, setVipPollsLoading] = React.useState(false);
   const [vipPollsError, setVipPollsError] = React.useState("");
+
+  const [closeVote, setCloseVote] = React.useState({ open: false, poll: null, winnerId: null, busy: false, error: "" });
 
   const showToast = (msg) => {
     setToast(msg);
@@ -615,6 +703,28 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome, onR
       setVipPollsLoading(false);
     }
   }, [accessToken]);
+
+  async function closeVipVoting(poll, winner_option_id) {
+    if (!accessToken || !poll?.id || !winner_option_id) return;
+    try {
+      setCloseVote((s) => ({ ...s, busy: true, error: "" }));
+      const resp = await fetch("/api/admin/vip-close-voting", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ poll_id: poll.id, winner_option_id }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data?.error || "Não foi possível encerrar a votação.");
+      showToast("✅ Votação encerrada!");
+      setCloseVote({ open: false, poll: null, winnerId: null, busy: false, error: "" });
+      await fetchVipVoting();
+    } catch (e) {
+      setCloseVote((s) => ({ ...s, busy: false, error: e?.message || "Falha ao encerrar votação." }));
+    }
+  }
 
   React.useEffect(() => {
     fetchOrders();
@@ -1147,7 +1257,53 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome, onR
                             {p?.poll?.month_key || "—"} • {p?.total_votes || 0} votos • {p?.poll?.status || "—"}
                           </div>
                         </div>
+
+                        <div className="flex items-center gap-2">
+                          {String(p?.poll?.status || "").toLowerCase() === "closed" ? (
+                            <span className="rounded-full px-2 py-1 text-[11px] bg-emerald-500/15 text-emerald-200 ring-1 ring-emerald-400/20">
+                              Encerrada
+                            </span>
+                          ) : (
+                            <span className="rounded-full px-2 py-1 text-[11px] bg-violet-500/15 text-violet-200 ring-1 ring-violet-400/20">
+                              Aberta
+                            </span>
+                          )}
+
+                          {String(p?.poll?.status || "").toLowerCase() === "open" ? (
+                            <button
+                              onClick={() =>
+                                setCloseVote({
+                                  open: true,
+                                  poll: p,
+                                  winnerId: null,
+                                  busy: false,
+                                  error: "",
+                                })
+                              }
+                              className="rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+                            >
+                              Encerrar votação
+                            </button>
+                          ) : null}
+                        </div>
                       </div>
+
+                      {String(p?.poll?.status || "").toLowerCase() === "closed" ? (
+                        (() => {
+                          const winnerId = p?.poll?.winner_option_id;
+                          const winner = (p?.options || []).find((o) => String(o.id) === String(winnerId));
+                          return winner ? (
+                            <div className="mt-3 rounded-xl bg-emerald-500/10 ring-1 ring-emerald-400/20 p-3">
+                              <div className="text-xs uppercase tracking-wide text-emerald-200/90">Vencedor</div>
+                              <div className="mt-1 text-slate-100 font-extrabold">{winner.title}</div>
+                            </div>
+                          ) : (
+                            <div className="mt-3 rounded-xl bg-amber-500/10 ring-1 ring-amber-400/20 p-3 text-sm text-amber-200">
+                              Votação encerrada, mas o vencedor não está salvo no banco (adicione a coluna <b>winner_option_id</b> em <b>vip_theme_polls</b>).
+                            </div>
+                          );
+                        })()
+                      ) : null}
 
                       <div className="mt-3 space-y-2">
                         {(p?.options || []).map((o) => (
@@ -1217,6 +1373,13 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome, onR
           setActionModal({ open: false, mode: "status", orderId: null });
           if (id) updateOrder(id, patch);
         }}
+      />
+
+      <CloseVotingModal
+        state={closeVote}
+        onClose={() => setCloseVote({ open: false, poll: null, winnerId: null, busy: false, error: "" })}
+        onSelectWinner={(id) => setCloseVote((s) => ({ ...s, winnerId: id }))}
+        onConfirm={(winnerId) => closeVipVoting(closeVote.poll, winnerId)}
       />
     </div>
   );

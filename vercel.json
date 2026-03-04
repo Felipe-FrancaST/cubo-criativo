@@ -17,6 +17,10 @@
       "destination": "/api/admin?action=vip-voting"
     },
     {
+      "source": "/api/admin/vip-close-voting",
+      "destination": "/api/admin?action=vip-close-voting"
+    },
+    {
       "source": "/api/create-vip-upgrade-pix-payment",
       "destination": "/api/create-pix-payment?mode=vip_upgrade"
     },

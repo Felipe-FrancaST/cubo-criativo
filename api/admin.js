@@ -8,6 +8,7 @@
  * - /api/admin/orders       -> /api/admin?action=orders
  * - /api/admin/update-order -> /api/admin?action=update-order
  * - /api/admin/vip-voting   -> /api/admin?action=vip-voting
+ * - /api/admin/vip-close-voting -> /api/admin?action=vip-close-voting
  */
 
 import { supabaseAdmin } from "../server/supabase.js";
@@ -293,13 +294,29 @@ async function handleVipVoting(req, res) {
 
   let pollsQuery = sb
     .from("vip_theme_polls")
-    .select("id,month_key,title,status,created_at,updated_at")
+    // winner_option_id/closed_at are optional columns (the code is tolerant if they don't exist)
+    .select("id,month_key,title,status,winner_option_id,closed_at,created_at,updated_at")
     .order("month_key", { ascending: false })
     .limit(limit);
 
   if (monthKey) pollsQuery = pollsQuery.eq("month_key", monthKey);
 
-  const { data: polls, error: pollsErr } = await pollsQuery;
+  let { data: polls, error: pollsErr } = await pollsQuery;
+  if (pollsErr) {
+    const msg = String(pollsErr.message || "");
+    // Backward compatibility: DB may not have winner columns yet
+    if (/winner_option_id|closed_at|column/i.test(msg)) {
+      let fallbackQuery = sb
+        .from("vip_theme_polls")
+        .select("id,month_key,title,status,created_at,updated_at")
+        .order("month_key", { ascending: false })
+        .limit(limit);
+      if (monthKey) fallbackQuery = fallbackQuery.eq("month_key", monthKey);
+      const fb = await fallbackQuery;
+      polls = fb.data;
+      pollsErr = fb.error;
+    }
+  }
   if (pollsErr) return res.status(500).json({ error: pollsErr.message || "Failed to load polls" });
 
   const pollList = Array.isArray(polls) ? polls : [];
@@ -355,6 +372,54 @@ async function handleVipVoting(req, res) {
   });
 
   return res.status(200).json({ polls: result });
+}
+
+async function handleVipCloseVoting(req, res) {
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+
+  const auth = await requireAdmin(req);
+  if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
+
+  const body = safeBody(req);
+  const poll_id = String(body.poll_id || "").trim();
+  const winner_option_id = body.winner_option_id;
+  if (!poll_id) return res.status(400).json({ error: "Missing poll_id" });
+  if (!winner_option_id) return res.status(400).json({ error: "Missing winner_option_id" });
+
+  const sb = supabaseAdmin();
+
+  // Validate option belongs to poll
+  const { data: opt, error: optErr } = await sb
+    .from("vip_theme_options")
+    .select("id,poll_id,title")
+    .eq("id", winner_option_id)
+    .maybeSingle();
+  if (optErr) return res.status(500).json({ error: optErr.message || "Failed to validate option" });
+  if (!opt || String(opt.poll_id) !== String(poll_id)) {
+    return res.status(400).json({ error: "Opção inválida para esta votação." });
+  }
+
+  // Close poll + persist winner. Some projects may not yet have winner columns;
+  // in that case, we still at least flip status to 'closed'.
+  const patch = {
+    status: "closed",
+    winner_option_id,
+    closed_at: new Date().toISOString(),
+  };
+
+  let upd = await sb.from("vip_theme_polls").update(patch).eq("id", poll_id);
+  if (upd?.error) {
+    const msg = String(upd.error.message || "");
+    // Fallback if winner columns don't exist in the DB
+    if (/winner_option_id|closed_at|column/i.test(msg)) {
+      const upd2 = await sb.from("vip_theme_polls").update({ status: "closed" }).eq("id", poll_id);
+      if (upd2?.error) return res.status(500).json({ error: upd2.error.message || "Failed to close poll" });
+    } else {
+      return res.status(500).json({ error: upd.error.message || "Failed to close poll" });
+    }
+  }
+
+  return res.status(200).json({ ok: true, poll_id, winner_option_id, winner_title: opt.title || null });
 }
 
 async function handleUpdateOrder(req, res) {
@@ -465,6 +530,7 @@ export default async function handler(req, res) {
     if (action === "orders") return await handleOrders(req, res);
     if (action === "update-order") return await handleUpdateOrder(req, res);
     if (action === "vip-voting") return await handleVipVoting(req, res);
+    if (action === "vip-close-voting") return await handleVipCloseVoting(req, res);
 
     return res.status(404).json({ error: "Unknown admin action" });
   } catch (e) {

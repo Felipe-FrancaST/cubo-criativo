@@ -275,13 +275,24 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
     if (!user) return;
     setPollLoading(true);
     try {
-      const { data: p } = await supabase
+      let pollResp = await supabase
         .from('vip_theme_polls')
-        .select('id,month_key,title,status')
-        .eq('status', 'open')
+        .select('id,month_key,title,status,winner_option_id,closed_at')
         .order('month_key', { ascending: false })
         .limit(1)
         .maybeSingle();
+
+      // compat: winner columns may not exist yet
+      if (pollResp?.error && String(pollResp.error.message || '').match(/winner_option_id|closed_at|column/i)) {
+        pollResp = await supabase
+          .from('vip_theme_polls')
+          .select('id,month_key,title,status')
+          .order('month_key', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+      }
+
+      const p = pollResp?.data;
       setPoll(p || null);
       if (p?.id) {
         const [{ data: opts2 }, { data: mine }, { data: counts }] = await Promise.all([
@@ -414,6 +425,10 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
 
   async function vote(optionId) {
     if (!user || !poll?.id) return;
+    if (String(poll?.status || '').toLowerCase() !== 'open') {
+      setMsg('A votação já foi encerrada.');
+      return;
+    }
     if (!isVip) {
       setMsg('A votação é exclusiva para membros VIP.');
       return;
@@ -871,8 +886,39 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                       <div className="mt-1 text-xl font-extrabold text-slate-100">Tema do próximo mês</div>
                       <div className="text-sm text-slate-300 mt-1">{poll?.title || `Votação ${poll?.month_key}`}</div>
                     </div>
-                    <div className="text-xs text-slate-400">Ciclo: <b>{poll?.month_key}</b></div>
+                    <div className="text-right">
+                      <div className="text-xs text-slate-400">Ciclo: <b>{poll?.month_key}</b></div>
+                      <div className="mt-1 text-xs">
+                        {String(poll?.status || '').toLowerCase() === 'closed' ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 text-emerald-200 ring-1 ring-emerald-400/20 px-2 py-1">
+                            <span className="material-icons text-[14px]">verified</span>
+                            Votação encerrada
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/15 text-violet-200 ring-1 ring-violet-400/20 px-2 py-1">
+                            <span className="material-icons text-[14px]">how_to_vote</span>
+                            Votação aberta
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
+
+                  {String(poll?.status || '').toLowerCase() === 'closed' ? (
+                    (() => {
+                      const wId = poll?.winner_option_id;
+                      const w = (pollOptions || []).find((o) => String(o.id) === String(wId));
+                      return (
+                        <div className="mt-4 rounded-2xl bg-emerald-500/10 ring-1 ring-emerald-400/20 p-4">
+                          <div className="text-xs uppercase tracking-wide text-emerald-200/90">Resultado</div>
+                          <div className="mt-1 text-lg font-extrabold text-emerald-100">
+                            {w?.title ? `Vencedor: ${w.title}` : 'Votação encerrada (vencedor não divulgado)'}
+                          </div>
+                          <div className="mt-1 text-sm text-slate-200/80">Assim que o próximo ciclo abrir, você já vai ver as opções atualizadas.</div>
+                        </div>
+                      );
+                    })()
+                  ) : null}
 
                   <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {(pollOptions || []).map((o) => {
@@ -883,7 +929,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                       return (
                         <button
                           key={o.id}
-                          disabled={voteBusy}
+                          disabled={voteBusy || String(poll?.status || '').toLowerCase() !== 'open'}
                           onClick={() => vote(o.id)}
                           className={`text-left rounded-2xl ring-1 p-4 transition hover:-translate-y-0.5 ${active ? 'bg-violet-500/15 ring-violet-400/30' : 'bg-black/25 ring-white/10 hover:bg-white/5'}`}
                         >
