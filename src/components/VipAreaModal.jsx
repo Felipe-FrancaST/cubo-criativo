@@ -62,10 +62,6 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin })
   const [orderStatus, setOrderStatus] = React.useState("editavel");
   const [shippingTracking, setShippingTracking] = React.useState("");
   const [options, setOptions] = React.useState([]);
-  const [optionsLoading, setOptionsLoading] = React.useState(false);
-  const [pollLoading, setPollLoading] = React.useState(false);
-  const [tab, setTab] = React.useState('escolhas');
-
   // selected: escolhas em edição (não necessariamente salvas)
   const [selected, setSelected] = React.useState([]);
   // savedSelected: escolhas já salvas no ciclo
@@ -76,6 +72,16 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin })
   const [msg, setMsg] = React.useState("");
   const [preview, setPreview] = React.useState(null);
   const [vipPlans, setVipPlans] = React.useState(FALLBACK_VIP_PLANS);
+
+  // UI (organização)
+  const [showPoll, setShowPoll] = React.useState(false);
+  const [showUpgrade, setShowUpgrade] = React.useState(false);
+  const [optionsLoading, setOptionsLoading] = React.useState(false);
+  const [pollLoading, setPollLoading] = React.useState(false);
+
+  // Aviso elegante quando o usuário estoura o limite do plano
+  const [limitNotice, setLimitNotice] = React.useState(null); // { title, text }
+  const limitTimerRef = React.useRef(null);
 
   // Votação (tema do próximo mês)
   const [poll, setPoll] = React.useState(null);
@@ -158,6 +164,41 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin })
     if (t === 'boss') return selectedCounts.boss < bossLimit;
     return selectedCounts.mini < miniLimit;
   }
+
+  function showLimitNotice(kind) {
+    // kind: 'total' | 'mini' | 'boss'
+    if (limitTimerRef.current) {
+      clearTimeout(limitTimerRef.current);
+      limitTimerRef.current = null;
+    }
+
+    const planName = selectedPlan?.short_name || selectedPlan?.name || 'seu plano';
+    const base = `Você já atingiu o limite do ${planName}.`;
+
+    let title = 'Limite do plano atingido';
+    let text = base;
+    if (kind === 'mini') {
+      text = `${base} Seu plano permite ${miniLimit} miniatura(s). Para escolher mais miniaturas, faça o upgrade.`;
+    } else if (kind === 'boss') {
+      text = `${base} Seu plano permite ${bossLimit} boss(es). Para escolher mais bosses, faça o upgrade.`;
+    } else {
+      text = `${base} Seu plano permite ${totalLimit} item(ns) por mês. Para escolher mais, faça o upgrade.`;
+    }
+
+    // Se não existir próximo plano, não promete upgrade — só informa o limite.
+    if (!nextPlan) {
+      text = `${base} Você já escolheu a quantidade máxima deste ciclo.`;
+    }
+
+    setLimitNotice({ title, text });
+    limitTimerRef.current = setTimeout(() => setLimitNotice(null), 7000);
+  }
+
+  React.useEffect(() => {
+    return () => {
+      if (limitTimerRef.current) clearTimeout(limitTimerRef.current);
+    };
+  }, []);
 
   function readCache(key) {
     try {
@@ -321,7 +362,6 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin })
       // Carrega catálogo + votação em background
       loadOptionsLite();
       loadPollAsync();
-      setTab('escolhas');
     } catch (e) {
       setError(e?.message || "Não foi possível carregar a Área VIP.");
     } finally {
@@ -512,52 +552,10 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin })
     }
   }
 
-  function TabButton({ id, icon, label }) {
-    const active = tab === id;
-    return (
-      <button
-        type="button"
-        onClick={() => setTab(id)}
-        className={`shrink-0 inline-flex items-center gap-2 rounded-full px-3.5 py-2 text-xs sm:text-sm font-extrabold ring-1 transition ${active ? 'bg-white text-black ring-white/20' : 'bg-white/5 text-slate-200 ring-white/10 hover:bg-white/10'}`}
-      >
-        <span className="material-icons text-[18px]">{icon}</span>
-        {label}
-      </button>
-    );
-  }
-
-  function SkeletonGrid({ count = 6 }) {
-    return (
-      <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
-        {Array.from({ length: count }).map((_, i) => (
-          <div key={i} className="rounded-2xl overflow-hidden bg-white/5 ring-1 ring-white/10 animate-pulse">
-            <div className="aspect-square bg-white/5" />
-            <div className="p-3 space-y-2">
-              <div className="h-3 w-3/4 bg-white/10 rounded" />
-              <div className="h-3 w-1/2 bg-white/10 rounded" />
-              <div className="h-8 w-full bg-white/10 rounded-lg" />
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  const savedOptionObjs = React.useMemo(() => {
-    const setIds = new Set(savedSelected || []);
-    return (options || []).filter((o) => setIds.has(o.id));
-  }, [options, savedSelected]);
-
-  const displayOptionObjs = React.useMemo(() => {
-    const setIds = new Set(displaySelected || []);
-    return (options || []).filter((o) => setIds.has(o.id));
-  }, [options, displaySelected]);
-
   return (
-    <Modal open={open} onClose={onClose} maxWidth="max-w-5xl">
+    <Modal open={open} onClose={onClose} maxWidth="max-w-4xl">
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-950 via-slate-950 to-black ring-1 ring-white/10">
         <div className="absolute inset-0 opacity-35 pointer-events-none" style={{ backgroundImage: "radial-gradient(circle at 20% 10%, rgba(168,85,247,.35), transparent 45%), radial-gradient(circle at 80% 20%, rgba(34,197,94,.22), transparent 55%), radial-gradient(circle at 50% 90%, rgba(56,189,248,.18), transparent 55%)" }} />
-
         <div className="relative p-5 sm:p-7">
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -593,10 +591,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin })
           {!user ? (
             <div className="mt-6 rounded-2xl bg-white/5 ring-1 ring-white/10 p-4 text-slate-200">Entre para acessar a Área VIP.</div>
           ) : loading ? (
-            <div className="mt-6 rounded-2xl bg-white/5 ring-1 ring-white/10 p-4 text-slate-200 animate-pulse">
-              <div className="h-4 w-40 bg-white/10 rounded" />
-              <div className="mt-3 h-3 w-64 bg-white/10 rounded" />
-            </div>
+            <div className="mt-6 rounded-2xl bg-white/5 ring-1 ring-white/10 p-4 text-slate-200">Carregando…</div>
           ) : error ? (
             <div className="mt-6 rounded-2xl bg-rose-500/10 ring-1 ring-rose-400/20 p-4 text-rose-100">{error}</div>
           ) : !isVip ? (
@@ -606,17 +601,30 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin })
             </div>
           ) : (
             <>
-              {/* Resumo */}
-              <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-4">
-                <div className="lg:col-span-2 rounded-2xl bg-white/5 ring-1 ring-white/10 p-5">
-                  <div className="flex items-start justify-between gap-4 flex-wrap">
+
+              {String(orderStatus || '').toLowerCase() === 'enviado' && shippingTracking ? (
+                <div className="mt-4 rounded-2xl bg-amber-500/10 ring-1 ring-amber-400/20 p-4">
+                  <p className="text-sm font-semibold text-amber-100">Código de rastreio</p>
+                  <div className="mt-2 flex flex-col sm:flex-row gap-2 sm:items-center">
+                    <code className="rounded-lg bg-black/30 px-3 py-2 text-xs text-amber-50 ring-1 ring-amber-200/10">{shippingTracking}</code>
+                    <button type="button" onClick={() => navigator.clipboard.writeText(String(shippingTracking || ''))} className="rounded-lg px-3 py-2 text-xs font-semibold ring-1 ring-amber-300/20 hover:bg-white/5">Copiar</button>
+                    <a href={`https://rastreamento.correios.com.br/app/index.php?objetos=${encodeURIComponent(shippingTracking)}`} target="_blank" rel="noreferrer" className="rounded-lg px-3 py-2 text-xs font-semibold bg-amber-300 text-black hover:bg-amber-200">Rastrear pedido</a>
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="md:col-span-2 rounded-2xl bg-white/5 ring-1 ring-white/10 p-5">
+                  <div className="flex items-start justify-between gap-3 flex-wrap">
                     <div>
                       <div className="text-xs uppercase tracking-wide text-slate-400">Seu nível VIP</div>
                       <div className="mt-1 text-xl sm:text-2xl font-extrabold text-violet-100">{selectedPlan?.short_name || selectedPlan?.name || 'VIP'}</div>
-                      <div className="mt-2 text-sm text-slate-300">{miniLimit} miniatura(s){bossLimit ? ` + ${bossLimit} boss(es)` : ''} • total {totalLimit}</div>
+                      <div className="mt-2 text-sm text-slate-300">
+                        {miniLimit} miniatura(s){bossLimit ? ` + ${bossLimit} boss(es)` : ''} • total {totalLimit}
+                      </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-xs uppercase tracking-wide text-slate-400">Progresso do ciclo</div>
+                      <div className="text-xs uppercase tracking-wide text-slate-400">Seu ciclo</div>
                       <div className="mt-1 text-sm text-slate-200">
                         Mini: <b>{selectedCounts.mini}</b>/{miniLimit}
                         <span className="ml-2 text-slate-400">•</span>
@@ -625,430 +633,321 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin })
                       <div className="text-xs text-slate-400 mt-1">Total: <b>{selectedCounts.total}</b>/{totalLimit}</div>
                     </div>
                   </div>
-
-                  {/* Minhas escolhas do mês */}
-                  <div className="mt-4 rounded-2xl bg-black/25 ring-1 ring-white/10 p-4">
-                    <div className="flex items-start justify-between gap-3 flex-wrap">
-                      <div>
-                        <div className="text-sm font-extrabold text-slate-100">Minhas escolhas do mês</div>
-                        <div className="text-xs text-slate-400">O que está salvo para o ciclo <b>{cycle}</b>.</div>
-                      </div>
-                      {savedSelected?.length ? (
-                        <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs ring-1 ring-emerald-400/20 bg-emerald-500/10 text-emerald-100">
-                          <span className="material-icons text-[16px]">check_circle</span>
-                          Salvo
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs ring-1 ring-white/15 bg-white/5 text-slate-200">
-                          <span className="material-icons text-[16px]">edit</span>
-                          Ainda não salvo
-                        </span>
-                      )}
-                    </div>
-
-                    {savedSelected?.length ? (
-                      <div className="mt-3 grid grid-cols-3 sm:grid-cols-5 gap-2">
-                        {(savedOptionObjs.length ? savedOptionObjs : Array.from({ length: Math.min(savedSelected.length, 5) })).map((o, idx) => (
-                          <div key={o?.id || idx} className="rounded-xl bg-white/5 ring-1 ring-white/10 overflow-hidden">
-                            <div className="aspect-square bg-black/30 p-2">
-                              {o?.image_url ? (
-                                <img src={o.image_url} alt={o.title || 'Miniatura'} className="h-full w-full object-contain rounded-lg ring-1 ring-white/10" loading="lazy" />
-                              ) : (
-                                <div className="h-full w-full animate-pulse bg-white/5 rounded-lg" />
-                              )}
-                            </div>
-                            <div className="px-2 py-1.5">
-                              <div className="text-[11px] font-semibold text-slate-200 truncate">{o?.title || '—'}</div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="mt-3 text-sm text-slate-300">Faça suas escolhas abaixo e clique em <b>Salvar escolhas</b>.</div>
-                    )}
-                  </div>
                 </div>
 
                 <div className="rounded-2xl bg-gradient-to-br from-violet-500/15 to-fuchsia-500/10 ring-1 ring-violet-400/20 p-5">
-                  <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start justify-between gap-2">
                     <div>
-                      <div className="text-xs uppercase tracking-wide text-slate-300">Atalhos</div>
-                      <div className="mt-1 font-extrabold text-slate-50">Tudo no lugar</div>
-                      <div className="mt-2 text-sm text-slate-200/80">Use as abas para navegar sem bagunça.</div>
+                      <div className="text-xs uppercase tracking-wide text-slate-300">Painel VIP</div>
+                      <div className="mt-1 font-extrabold text-slate-50">Ações</div>
+                      <div className="mt-2 text-sm text-slate-200/80">Abra somente o que você precisar (sem amontoar tudo).</div>
                     </div>
                     <span className="material-icons text-violet-200">auto_awesome</span>
                   </div>
 
-                  <div className="mt-4 space-y-2">
+                  <div className="mt-4 grid grid-cols-1 gap-2">
                     <button
                       type="button"
-                      onClick={() => setTab('escolhas')}
+                      onClick={() => setShowPoll((v) => !v)}
                       className="w-full rounded-xl px-4 py-3 font-extrabold ring-1 ring-white/10 bg-white/5 hover:bg-white/10 text-slate-100 flex items-center justify-between"
                     >
-                      <span className="inline-flex items-center gap-2"><span className="material-icons text-[18px]">grid_view</span> Escolhas do mês</span>
-                      <span className="material-icons text-[18px]">chevron_right</span>
+                      <span className="inline-flex items-center gap-2"><span className="material-icons text-[18px]">how_to_vote</span> Votação do tema</span>
+                      <span className="material-icons text-[18px]">{showPoll ? 'expand_less' : 'expand_more'}</span>
                     </button>
+
                     <button
                       type="button"
-                      onClick={() => setTab('votacao')}
-                      className="w-full rounded-xl px-4 py-3 font-extrabold ring-1 ring-white/10 bg-white/5 hover:bg-white/10 text-slate-100 flex items-center justify-between"
+                      disabled={!nextPlan || upgradeBusy}
+                      onClick={() => { setShowUpgrade(true); setUpgradePayOpen(true); }}
+                      className={`w-full rounded-xl px-4 py-3 font-extrabold ring-1 ring-white/10 flex items-center justify-between ${(!nextPlan || upgradeBusy) ? 'bg-slate-700/40 text-slate-300' : 'bg-violet-300 text-black hover:bg-violet-200'}`}
                     >
-                      <span className="inline-flex items-center gap-2"><span className="material-icons text-[18px]">how_to_vote</span> Votação</span>
-                      <span className="material-icons text-[18px]">chevron_right</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setTab('upgrade')}
-                      className={`w-full rounded-xl px-4 py-3 font-extrabold ring-1 ring-white/10 flex items-center justify-between ${!nextPlan ? 'bg-slate-700/40 text-slate-300' : 'bg-violet-300 text-black hover:bg-violet-200'}`}
-                      disabled={!nextPlan}
-                    >
-                      <span className="inline-flex items-center gap-2"><span className="material-icons text-[18px]">upgrade</span> Upgrade</span>
+                      <span className="inline-flex items-center gap-2"><span className="material-icons text-[18px]">upgrade</span> Upgrade de nível</span>
                       <span className="text-xs">{nextPlan ? fmtBRLFromCents(upgradeDiffCents) : '—'}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setTab('historico')}
-                      className="w-full rounded-xl px-4 py-3 font-extrabold ring-1 ring-white/10 bg-white/5 hover:bg-white/10 text-slate-100 flex items-center justify-between"
-                    >
-                      <span className="inline-flex items-center gap-2"><span className="material-icons text-[18px]">receipt_long</span> Pedido & rastreio</span>
-                      <span className="material-icons text-[18px]">chevron_right</span>
                     </button>
                   </div>
                 </div>
               </div>
 
-              {/* Tabs */}
-              <div className="mt-5">
-                <div className="sticky top-0 z-10 -mx-5 sm:-mx-7 px-5 sm:px-7 py-3 bg-gradient-to-b from-slate-950 via-slate-950/95 to-transparent">
-                  <div className="flex items-center gap-2 overflow-x-auto pb-1">
-                    <TabButton id="escolhas" icon="grid_view" label="Escolhas" />
-                    <TabButton id="votacao" icon="how_to_vote" label="Votação" />
-                    <TabButton id="upgrade" icon="upgrade" label="Upgrade" />
-                    <TabButton id="historico" icon="receipt_long" label="Pedido" />
-                  </div>
-                </div>
-
-                {/* Conteúdo */}
-                {tab === 'historico' ? (
-                  <div className="mt-2 rounded-2xl bg-white/5 ring-1 ring-white/10 p-5">
-                    <div className="flex items-start justify-between gap-3 flex-wrap">
+              {upgradePayOpen ? (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+                  <div className="absolute inset-0 bg-black/70" onClick={() => setUpgradePayOpen(false)} />
+                  <div className="relative w-full max-w-md rounded-2xl bg-slate-950 ring-1 ring-white/10 p-5">
+                    <div className="flex items-start justify-between gap-3">
                       <div>
-                        <div className="text-sm font-extrabold text-slate-100">Seu pedido VIP</div>
-                        <div className="mt-1 text-sm text-slate-300">Status atual: <b>{st.label}</b></div>
-                        {!editable ? <div className="mt-1 text-xs text-slate-400">As escolhas ficam bloqueadas quando o status sai de “Editável”.</div> : null}
+                        <div className="text-xs uppercase tracking-wide text-slate-400">Upgrade de Nível</div>
+                        <div className="mt-1 text-xl font-extrabold text-slate-100">Escolha a forma de pagamento</div>
+                        <div className="mt-2 text-sm text-slate-300">Valor: <b>{fmtBRLFromCents(upgradeDiffCents)}</b></div>
                       </div>
-                      <button type="button" onClick={() => setTab('escolhas')} className="rounded-xl px-3 py-2 text-xs font-extrabold ring-1 ring-white/10 bg-white/5 hover:bg-white/10">
-                        Voltar para escolhas
+                      <button onClick={() => setUpgradePayOpen(false)} className="rounded-xl p-2 ring-1 ring-white/15 hover:bg-white/5" aria-label="Fechar">
+                        <span className="material-icons">close</span>
                       </button>
                     </div>
 
-                    {String(orderStatus || '').toLowerCase() === 'enviado' && shippingTracking ? (
-                      <div className="mt-4 rounded-2xl bg-amber-500/10 ring-1 ring-amber-400/20 p-4">
-                        <p className="text-sm font-semibold text-amber-100">Código de rastreio</p>
-                        <div className="mt-2 flex flex-col sm:flex-row gap-2 sm:items-center">
-                          <code className="rounded-lg bg-black/30 px-3 py-2 text-xs text-amber-50 ring-1 ring-amber-200/10">{shippingTracking}</code>
-                          <button type="button" onClick={() => navigator.clipboard.writeText(String(shippingTracking || ''))} className="rounded-lg px-3 py-2 text-xs font-semibold ring-1 ring-amber-300/20 hover:bg-white/5">Copiar</button>
-                          <a href={`https://rastreamento.correios.com.br/app/index.php?objetos=${encodeURIComponent(shippingTracking)}`} target="_blank" rel="noreferrer" className="rounded-lg px-3 py-2 text-xs font-semibold bg-amber-300 text-black hover:bg-amber-200">Rastrear pedido</a>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="mt-4 rounded-2xl bg-black/25 ring-1 ring-white/10 p-4 text-sm text-slate-300">
-                        {shippingTracking ? (
-                          <div>Rastreio: <code className="px-2 py-1 rounded bg-black/30 ring-1 ring-white/10 text-xs">{shippingTracking}</code></div>
-                        ) : (
-                          <div>Ainda sem rastreio. Assim que o pedido for <b>Enviado</b>, o código aparece aqui.</div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ) : null}
-
-                {tab === 'upgrade' ? (
-                  <div className="mt-2 rounded-2xl bg-white/5 ring-1 ring-white/10 p-5">
-                    <div className="flex items-start justify-between gap-3 flex-wrap">
-                      <div>
-                        <div className="text-sm font-extrabold text-slate-100">Upgrade de nível</div>
-                        <div className="mt-1 text-sm text-slate-300">Seu plano: <b>{selectedPlan?.short_name || selectedPlan?.name}</b></div>
-                        <div className="text-xs text-slate-400 mt-1">Próximo: <b>{nextPlan?.short_name || nextPlan?.name || '—'}</b></div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-xs text-slate-400">Diferença</div>
-                        <div className="text-lg font-extrabold text-emerald-200">{nextPlan ? fmtBRLFromCents(upgradeDiffCents) : '—'}</div>
-                      </div>
+                    <div className="mt-4 grid grid-cols-1 gap-2">
+                      <button
+                        disabled={upgradeBusy}
+                        onClick={() => { setUpgradePayMethod('card'); setUpgradePayOpen(false); startUpgradeCard(); }}
+                        className="rounded-xl px-4 py-3 font-extrabold bg-teal-400 text-black ring-4 ring-teal-400/20 hover:opacity-95 disabled:opacity-60"
+                      >
+                        Pagar com cartão
+                      </button>
+                      <button
+                        disabled={upgradeBusy}
+                        onClick={() => { setUpgradePayMethod('pix'); setUpgradePayOpen(false); startUpgradePix(); }}
+                        className="rounded-xl px-4 py-3 font-semibold ring-1 ring-white/15 hover:bg-white/5 disabled:opacity-60"
+                      >
+                        Pagar com Pix
+                      </button>
                     </div>
+                  </div>
+                </div>
+              ) : null}
 
-                    {!nextPlan ? (
-                      <div className="mt-4 text-sm text-slate-300">Você já está no maior nível disponível ✅</div>
-                    ) : (
-                      <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        <button
-                          disabled={upgradeBusy}
-                          onClick={() => startUpgradeCard()}
-                          className="rounded-xl px-4 py-3 font-extrabold bg-teal-400 text-black ring-4 ring-teal-400/20 hover:opacity-95 disabled:opacity-60"
-                        >
-                          Pagar com cartão
-                        </button>
-                        <button
-                          disabled={upgradeBusy}
-                          onClick={() => startUpgradePix()}
-                          className="rounded-xl px-4 py-3 font-semibold ring-1 ring-white/15 hover:bg-white/5 disabled:opacity-60"
-                        >
-                          Gerar Pix
-                        </button>
-                      </div>
-                    )}
-
-                    {upgrade?.order_id ? (
-                      <div className="mt-4 rounded-2xl bg-black/25 ring-1 ring-white/10 p-4">
-                        <div className="flex items-center justify-between gap-3 flex-wrap">
-                          <div>
-                            <div className="text-sm font-extrabold text-slate-100">Pix do upgrade</div>
-                            <div className="text-xs text-slate-400">Status: <b>{upgrade?.status || 'pendente'}</b></div>
-                          </div>
-                          {upgrade?.ticket_url ? (
-                            <a className="text-sm font-semibold text-teal-200 hover:underline" href={upgrade.ticket_url} target="_blank" rel="noreferrer">Abrir no Mercado Pago</a>
-                          ) : null}
-                        </div>
-
-                        {upgrade?.qr_code_base64 ? (
-                          <img alt="QR Code Pix" src={`data:image/png;base64,${upgrade.qr_code_base64}`} className="mt-3 w-48 h-48 rounded-2xl ring-1 ring-white/10 bg-black/30" />
-                        ) : null}
-
-                        {upgrade?.qr_code ? (
-                          <div className="mt-3">
-                            <div className="text-xs text-slate-400">Pix copia e cola</div>
-                            <div className="mt-1 flex flex-col sm:flex-row gap-2">
-                              <textarea readOnly value={upgrade.qr_code} className="w-full min-h-[88px] rounded-xl bg-black/30 ring-1 ring-white/10 p-3 text-xs text-slate-100" />
-                              <button onClick={() => navigator.clipboard.writeText(String(upgrade.qr_code || ''))} className="rounded-xl px-4 py-3 font-extrabold bg-violet-300 text-black hover:bg-violet-200">Copiar</button>
-                            </div>
-                          </div>
-                        ) : null}
-                      </div>
+              {showUpgrade && upgrade?.order_id ? (
+                <div className="mt-4 rounded-2xl bg-white/5 ring-1 ring-white/10 p-5">
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <div>
+                      <div className="text-sm font-extrabold text-slate-100">Pix do upgrade</div>
+                      <div className="text-xs text-slate-400">Status: <b>{upgrade?.status || 'pendente'}</b></div>
+                    </div>
+                    {upgrade?.ticket_url ? (
+                      <a className="text-sm font-semibold text-teal-200 hover:underline" href={upgrade.ticket_url} target="_blank" rel="noreferrer">Abrir no Mercado Pago</a>
                     ) : null}
 
-                    {upgradeSuccess ? (
-                      <div className="mt-4 rounded-2xl bg-emerald-500/10 ring-1 ring-emerald-400/20 p-4 text-emerald-100">
-                        Você subiu de nível ✅
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
-
-                {tab === 'votacao' ? (
-                  <div className="mt-2 rounded-2xl bg-white/5 ring-1 ring-white/10 p-5">
-                    <div className="flex items-start justify-between gap-3 flex-wrap">
-                      <div>
-                        <div className="text-sm font-extrabold text-slate-100">Votação do tema</div>
-                        <div className="mt-1 text-sm text-slate-300">Ajude a escolher o tema do próximo ciclo.</div>
-                      </div>
-                      <div className="text-xs text-slate-400">Seu voto: <b>{myVote ? 'Registrado' : '—'}</b></div>
+              {showUpgrade && upgradeSuccess ? (
+                <div className="mt-4 rounded-2xl bg-emerald-500/10 ring-1 ring-emerald-400/20 p-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-xs uppercase tracking-wide text-emerald-200/90">Upgrade concluído</div>
+                      <div className="mt-1 text-xl font-extrabold text-emerald-100">Você subiu de nível ✅</div>
+                      <div className="mt-2 text-sm text-slate-200/80">Seu novo nível já está ativo. Pode continuar escolhendo as miniaturas do seu plano.</div>
                     </div>
-
-                    {pollLoading ? (
-                      <div className="mt-4 animate-pulse">
-                        <div className="h-4 w-52 bg-white/10 rounded" />
-                        <div className="mt-3 h-3 w-80 bg-white/10 rounded" />
-                        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <div className="h-28 rounded-2xl bg-white/5 ring-1 ring-white/10" />
-                          <div className="h-28 rounded-2xl bg-white/5 ring-1 ring-white/10" />
-                        </div>
-                      </div>
-                    ) : !poll?.id ? (
-                      <div className="mt-4 text-sm text-slate-300">Nenhuma votação aberta no momento.</div>
-                    ) : (
-                      <>
-                        <div className="mt-3 text-sm text-slate-200"><b>{poll.title || 'Tema do próximo mês'}</b></div>
-                        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          {(pollOptions || []).map((o) => {
-                            const votes = Number(voteCounts?.[String(o.id)] || 0);
-                            const isMine = String(myVote || '') === String(o.id);
-                            return (
-                              <button
-                                key={o.id}
-                                type="button"
-                                disabled={voteBusy}
-                                onClick={() => vote(o.id)}
-                                className={`text-left rounded-2xl overflow-hidden ring-1 transition ${isMine ? 'bg-violet-500/15 ring-violet-300/40' : 'bg-white/5 ring-white/10 hover:bg-white/10'}`}
-                              >
-                                <div className="p-4 flex items-start gap-3">
-                                  <div className="w-16 h-16 rounded-xl bg-black/30 ring-1 ring-white/10 overflow-hidden shrink-0">
-                                    {o.image_url ? <img src={o.image_url} alt={o.title} className="w-full h-full object-contain" loading="lazy" /> : null}
-                                  </div>
-                                  <div className="min-w-0 flex-1">
-                                    <div className="flex items-center justify-between gap-2">
-                                      <div className="font-extrabold text-slate-100 truncate">{o.title}</div>
-                                      <span className="text-xs rounded-full px-2 py-1 bg-black/30 ring-1 ring-white/10 text-slate-200">{votes} voto(s)</span>
-                                    </div>
-                                    {o.description ? <div className="mt-1 text-xs text-slate-400 line-clamp-2">{o.description}</div> : null}
-                                    <div className="mt-2 text-xs font-semibold text-sky-200">{isMine ? 'Seu voto ✓' : 'Votar'}</div>
-                                  </div>
-                                </div>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </>
-                    )}
+                    <span className="material-icons text-emerald-200">verified</span>
                   </div>
-                ) : null}
+                </div>
+              ) : null}
 
-                {tab === 'escolhas' ? (
-                  <div className="mt-2 rounded-2xl bg-white/5 ring-1 ring-white/10 p-5">
-                    <div className="flex items-start justify-between gap-3 flex-wrap">
-                      <div className="text-sm text-slate-200">
-                        Escolha <b>{totalLimit}</b> item(ns) do mês ({miniLimit} miniatura(s){bossLimit ? ` + ${bossLimit} boss(es)` : ""}).
-                        {!editable ? (
-                          <span className="ml-2 text-slate-400">(Escolhas bloqueadas: status {st.label})</span>
-                        ) : null}
-                      </div>
-                      <div className="text-sm text-slate-200">
-                        Selecionadas: <b>{selectedCounts.total}</b>/{totalLimit}
-                        <span className="ml-2 text-slate-400">• Mini: <b className="text-slate-200">{selectedCounts.mini}</b>/{miniLimit}</span>
-                        <span className="ml-2 text-slate-400">• Boss: <b className="text-slate-200">{selectedCounts.boss}</b>/{bossLimit}</span>
-                      </div>
-                    </div>
-
-                    {/* Seleção atual (quando editando) */}
-                    {editing && displaySelected?.length ? (
-                      <div className="mt-4 rounded-2xl bg-black/25 ring-1 ring-white/10 p-4">
-                        <div className="text-xs uppercase tracking-wide text-slate-400">Sua seleção (em edição)</div>
-                        <div className="mt-3 grid grid-cols-3 sm:grid-cols-6 gap-2">
-                          {(displayOptionObjs.length ? displayOptionObjs : Array.from({ length: Math.min(displaySelected.length, 6) })).map((o, idx) => (
-                            <div key={o?.id || idx} className="rounded-xl bg-white/5 ring-1 ring-white/10 overflow-hidden">
-                              <div className="aspect-square bg-black/30 p-2">
-                                {o?.image_url ? (
-                                  <img src={o.image_url} alt={o.title || 'Miniatura'} className="h-full w-full object-contain rounded-lg ring-1 ring-white/10" loading="lazy" />
-                                ) : (
-                                  <div className="h-full w-full animate-pulse bg-white/5 rounded-lg" />
-                                )}
-                              </div>
-                              <div className="px-2 py-1.5">
-                                <div className="text-[11px] font-semibold text-slate-200 truncate">{o?.title || '—'}</div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ) : null}
-
-                    
-
-                    {optionsLoading && !options.length ? (
-                      <SkeletonGrid count={6} />
-                    ) : (
-                      <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
-                        {options.map((opt) => {
-                          const isSel = displaySelected.includes(opt.id);
-                          const kind = (String(opt?.item_type || 'miniature').toLowerCase() === 'boss') ? 'boss' : 'miniature';
-                          const addBlocked = editing && !isSel && !canAdd(opt.id);
-                          return (
-                            <div
-                              key={opt.id}
-                              className={`rounded-2xl overflow-hidden ring-1 transition relative ${isSel ? "bg-violet-500/15 ring-violet-300/40 shadow-[0_0_0_1px_rgba(167,139,250,0.25)]" : "bg-white/5 ring-white/10"}`}
-                            >
-                              {isSel ? (
-                                <div className="absolute top-2 left-2 z-10 inline-flex items-center gap-1 rounded-full bg-violet-500/25 text-violet-50 ring-1 ring-violet-300/30 px-2 py-1 text-[10px] font-extrabold">
-                                  <span className="material-icons text-[14px]">check</span>
-                                  Selecionado
-                                </div>
-                              ) : null}
-                              <button
-                                type="button"
-                                onClick={() => openPreviewLite(opt)}
-                                className="block w-full text-left"
-                              >
-                                <div className="aspect-square bg-slate-900/70 p-2">
-                                  {opt.image_url ? (
-                                    <img src={opt.image_url} alt={opt.title} className="h-full w-full object-contain rounded-xl ring-1 ring-white/10" loading="lazy" />
-                                  ) : (
-                                    <div className="h-full w-full grid place-items-center text-slate-500 text-xs">Sem imagem</div>
-                                  )}
-                                </div>
-                              </button>
-
-                              <div className="p-2.5">
-                                <div className="flex items-start justify-between gap-2">
-                                  <div className="min-w-0">
-                                    <p className="text-xs sm:text-sm font-extrabold text-slate-100 truncate">{opt.title}</p>
-                                    <div className="mt-1 flex flex-wrap gap-1">
-                                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] ring-1 ${kind === 'boss' ? 'bg-amber-500/10 ring-amber-400/25 text-amber-100' : 'bg-emerald-500/10 ring-emerald-400/25 text-emerald-100'}`}>
-                                        {kind === 'boss' ? 'Boss' : 'Miniatura'}
-                                      </span>
-                                    </div>
-                                  </div>
-                                  <button
-                                    type="button"
-                                    disabled={!editable || !editing || saving || addBlocked}
-                                    onClick={() => {
-                                      if (!editing) return;
-                                      setSelected((prev) => {
-                                        const has = prev.includes(opt.id);
-                                        if (has) return prev.filter((x) => x !== opt.id);
-                                        let mini = 0;
-                                        let boss = 0;
-                                        for (const id of prev) {
-                                          const t = optionTypeById.get(id) || 'miniature';
-                                          if (t === 'boss') boss += 1;
-                                          else mini += 1;
-                                        }
-                                        const total = mini + boss;
-                                        const tNew = optionTypeById.get(opt.id) || 'miniature';
-                                        if (total >= totalLimit) return prev;
-                                        if (tNew === 'boss' && boss >= bossLimit) return prev;
-                                        if (tNew !== 'boss' && mini >= miniLimit) return prev;
-                                        return [...prev, opt.id];
-                                      });
-                                    }}
-                                    className={`shrink-0 rounded-lg p-1.5 ring-1 ${isSel ? "bg-violet-500/25 ring-violet-300/30 text-violet-50" : "bg-white/5 ring-white/10 text-slate-300"} ${(!editable || !editing || saving) ? "opacity-60 cursor-not-allowed" : "hover:bg-white/10"}`}
-                                    aria-label={isSel ? 'Remover miniatura' : 'Selecionar miniatura'}
-                                  >
-                                    <span className="material-icons text-[18px]">{isSel ? "check_circle" : "add_circle"}</span>
-                                  </button>
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={() => openPreviewLite(opt)}
-                                  className="mt-2 text-[11px] text-sky-300 hover:text-sky-200"
-                                >
-                                  Ver imagens
-                                </button>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                    <div className="mt-5 flex items-center justify-between gap-3 flex-wrap">
-                      <div />
-                      {editing ? (
-                        <button
-                          type="button"
-                          disabled={!editable || saving || selectedCounts.mini !== miniLimit || selectedCounts.boss !== bossLimit || selectedCounts.total !== totalLimit}
-                          onClick={saveSelection}
-                          className={`rounded-xl px-4 py-2 font-extrabold ring-1 ring-white/10 ${(!editable || saving || selectedCounts.mini !== miniLimit || selectedCounts.boss !== bossLimit || selectedCounts.total !== totalLimit) ? "bg-slate-700/40 text-slate-300" : "bg-emerald-300 text-black hover:bg-emerald-200"}`}
-                        >
-                          {saving ? "Salvando…" : "Salvar escolhas"}
-                        </button>
+                  </div>
+                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="rounded-2xl bg-black/30 ring-1 ring-white/10 p-4 flex items-center justify-center">
+                      {upgrade?.qr_code_base64 ? (
+                        <img alt="QR Code Pix" className="w-56 h-56" src={`data:image/png;base64,${upgrade.qr_code_base64}`} />
                       ) : (
-                        <button
-                          type="button"
-                          disabled={!editable}
-                          onClick={() => {
-                            if (!editable) return;
-                            setSelected(Array.isArray(savedSelected) ? savedSelected : []);
-                            setEditing(true);
-                            setMsg("");
-                          }}
-                          className={`rounded-xl px-4 py-2 font-extrabold ring-1 ring-white/10 ${!editable ? "bg-slate-700/40 text-slate-300" : "bg-violet-300 text-black hover:bg-violet-200"}`}
-                        >
-                          Editar
-                        </button>
+                        <div className="text-slate-300">QR Code indisponível</div>
                       )}
                     </div>
-                    {msg ? <div className="mt-3 text-sm text-slate-200">{msg}</div> : null}
+                    <div>
+                      <div className="text-xs uppercase tracking-wide text-slate-400">Copia e cola</div>
+                      <textarea readOnly value={upgrade?.qr_code || ''} className="mt-2 w-full h-40 rounded-xl bg-black/30 ring-1 ring-white/10 p-3 text-xs text-slate-100" />
+                      <button
+                        onClick={() => { try { navigator.clipboard.writeText(upgrade?.qr_code || ''); setMsg('Código Pix copiado ✅'); } catch {} }}
+                        className="mt-3 w-full rounded-xl px-4 py-3 font-extrabold bg-teal-400 text-black ring-4 ring-teal-400/20"
+                      >
+                        Copiar código Pix
+                      </button>
+                    </div>
                   </div>
-                ) : null}
+                </div>
+              ) : null}
+
+              {showPoll && pollLoading ? (
+                <div className="mt-4 rounded-2xl bg-white/5 ring-1 ring-white/10 p-5 text-slate-200">Carregando votação…</div>
+              ) : null}
+
+              {showPoll && poll?.id ? (
+                <div className="mt-4 rounded-2xl bg-white/5 ring-1 ring-white/10 p-5">
+                  <div className="flex items-start justify-between gap-3 flex-wrap">
+                    <div>
+                      <div className="text-xs uppercase tracking-wide text-slate-400">Votação VIP</div>
+                      <div className="mt-1 text-xl font-extrabold text-slate-100">Tema do próximo mês</div>
+                      <div className="text-sm text-slate-300 mt-1">{poll?.title || `Votação ${poll?.month_key}`}</div>
+                    </div>
+                    <div className="text-xs text-slate-400">Ciclo: <b>{poll?.month_key}</b></div>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {(pollOptions || []).map((o) => {
+                      const votes = Number(voteCounts[String(o.id)] || 0);
+                      const totalVotes = Object.values(voteCounts || {}).reduce((a, b) => a + (Number(b) || 0), 0);
+                      const pct = totalVotes ? Math.round((votes / totalVotes) * 100) : 0;
+                      const active = String(myVote) === String(o.id);
+                      return (
+                        <button
+                          key={o.id}
+                          disabled={voteBusy}
+                          onClick={() => vote(o.id)}
+                          className={`text-left rounded-2xl ring-1 p-4 transition hover:-translate-y-0.5 ${active ? 'bg-violet-500/15 ring-violet-400/30' : 'bg-black/25 ring-white/10 hover:bg-white/5'}`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <div className="font-extrabold text-slate-100">{o.title}</div>
+                              {o.description ? <div className="text-xs text-slate-300 mt-1 line-clamp-2">{o.description}</div> : null}
+                            </div>
+                            {active ? <span className="material-icons text-violet-200">check_circle</span> : <span className="material-icons text-slate-400">how_to_vote</span>}
+                          </div>
+                          <div className="mt-3">
+                            <div className="h-2 rounded-full bg-white/10 overflow-hidden">
+                              <div className="h-full bg-violet-400" style={{ width: `${pct}%` }} />
+                            </div>
+                            <div className="mt-2 text-xs text-slate-400">{votes} voto(s) • {pct}%</div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="mt-6 flex items-center justify-between gap-3 flex-wrap">
+                <div className="text-sm text-slate-300">
+                  Escolha <b>{totalLimit}</b> item(ns) do mês ({miniLimit} miniatura(s){bossLimit ? ` + ${bossLimit} boss(es)` : ""}) entre <b>{optionsLoading ? '…' : options.length}</b> opções.
+                  {!editable ? (
+                    <span className="ml-2 text-slate-400">(Escolhas bloqueadas: status {st.label})</span>
+                  ) : null}
+                </div>
+                <div className="text-sm text-slate-200">
+                  Selecionadas: <b>{selectedCounts.total}</b>/{totalLimit}
+                  <span className="ml-2 text-slate-400">• Mini: <b className="text-slate-200">{selectedCounts.mini}</b>/{miniLimit}</span>
+                  <span className="ml-2 text-slate-400">• Boss: <b className="text-slate-200">{selectedCounts.boss}</b>/{bossLimit}</span>
+                </div>
+              </div>
+
+              {limitNotice ? (
+                <div className="mt-4 rounded-2xl bg-gradient-to-br from-violet-500/15 to-fuchsia-500/10 ring-1 ring-violet-400/20 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="material-icons text-violet-200">info</span>
+                        <p className="font-extrabold text-slate-100">{limitNotice.title}</p>
+                      </div>
+                      <p className="mt-1 text-sm text-slate-200/85">{limitNotice.text}</p>
+                      {nextPlan ? (
+                        <div className="mt-3 flex flex-col sm:flex-row gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setLimitNotice(null);
+                              setShowUpgrade(true);
+                              setUpgradePayOpen(true);
+                            }}
+                            className="btn btn-primary"
+                          >
+                            Fazer upgrade ({nextPlan?.short_name || nextPlan?.name})
+                          </button>
+                          <button type="button" onClick={() => setLimitNotice(null)} className="btn btn-outline">
+                            Entendi
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="mt-3">
+                          <button type="button" onClick={() => setLimitNotice(null)} className="btn btn-outline">
+                            Entendi
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    <button onClick={() => setLimitNotice(null)} className="rounded-xl p-2 ring-1 ring-white/10 hover:bg-white/5" aria-label="Fechar aviso">
+                      <span className="material-icons text-[18px]">close</span>
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
+              {optionsLoading && !options.length ? (
+                <div className="mt-4 rounded-2xl bg-white/5 ring-1 ring-white/10 p-4 text-slate-200">Carregando catálogo VIP…</div>
+              ) : null}
+
+              <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {options.map((opt) => {
+                  const isSel = displaySelected.includes(opt.id);
+                  const kind = (String(opt?.item_type || 'miniature').toLowerCase() === 'boss') ? 'boss' : 'miniature';
+                  const addBlocked = editing && !isSel && !canAdd(opt.id);
+                  return (
+                    <div
+                      key={opt.id}
+                      className={`rounded-2xl overflow-hidden ring-1 transition relative ${isSel ? "bg-violet-500/15 ring-violet-300/40 shadow-[0_0_0_1px_rgba(167,139,250,0.25)]" : "bg-white/5 ring-white/10"}`}
+                    >
+                      {isSel ? (
+                        <div className="absolute top-2 left-2 z-10 inline-flex items-center gap-1 rounded-full bg-violet-500/25 text-violet-50 ring-1 ring-violet-300/30 px-2 py-1 text-[10px] font-extrabold">
+                          <span className="material-icons text-[14px]">check</span>
+                          Selecionado
+                        </div>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={() => openPreviewLite(opt)}
+                        className="block w-full text-left"
+                      >
+                        <div className="aspect-square bg-slate-900/70 p-2">
+                          {opt.image_url ? (
+                            <img src={opt.image_url} alt={opt.title} className="h-full w-full object-contain rounded-xl ring-1 ring-white/10" loading="lazy" />
+                          ) : (
+                            <div className="h-full w-full grid place-items-center text-slate-500 text-xs">Sem imagem</div>
+                          )}
+                        </div>
+                      </button>
+
+                      <div className="p-2.5">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="text-xs sm:text-sm font-extrabold text-slate-100 truncate">{opt.title}</p>
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] ring-1 ${kind === 'boss' ? 'bg-amber-500/10 ring-amber-400/25 text-amber-100' : 'bg-emerald-500/10 ring-emerald-400/25 text-emerald-100'}`}>
+                                {kind === 'boss' ? 'Boss' : 'Miniatura'}
+                              </span>
+                            </div>
+                            {/* descrição/carrossel carregam no preview (sob demanda) */}
+                          </div>
+                          <button
+                            type="button"
+                            disabled={!editable || !editing || saving || addBlocked}
+                            onClick={() => {
+                              if (!editing) return;
+                              setSelected((prev) => {
+                                const has = prev.includes(opt.id);
+                                if (has) return prev.filter((x) => x !== opt.id);
+                                // Recalcula contadores usando o estado "prev" para evitar race condition
+                                let mini = 0;
+                                let boss = 0;
+                                for (const id of prev) {
+                                  const t = optionTypeById.get(id) || 'miniature';
+                                  if (t === 'boss') boss += 1;
+                                  else mini += 1;
+                                }
+                                const total = mini + boss;
+                                const tNew = optionTypeById.get(opt.id) || 'miniature';
+                                if (total >= totalLimit) {
+                                  showLimitNotice('total');
+                                  return prev;
+                                }
+                                if (tNew === 'boss' && boss >= bossLimit) {
+                                  showLimitNotice('boss');
+                                  return prev;
+                                }
+                                if (tNew !== 'boss' && mini >= miniLimit) {
+                                  showLimitNotice('mini');
+                                  return prev;
+                                }
+                                return [...prev, opt.id];
+                              });
+                            }}
+                            className={`shrink-0 rounded-lg p-1.5 ring-1 ${isSel ? "bg-violet-500/25 ring-violet-300/30 text-violet-50" : "bg-white/5 ring-white/10 text-slate-300"} ${(!editable || !editing || saving) ? "opacity-60 cursor-not-allowed" : "hover:bg-white/10"}`}
+                            aria-label={isSel ? 'Remover miniatura' : 'Selecionar miniatura'}
+                          >
+                            <span className="material-icons text-[18px]">{isSel ? "check_circle" : "add_circle"}</span>
+                          </button>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => openPreviewLite(opt)}
+                          className="mt-2 text-[11px] text-sky-300 hover:text-sky-200"
+                        >
+                          Ver imagens
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
 
               {preview ? (
@@ -1080,6 +979,35 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin })
                   </div>
                 </div>
               ) : null}
+
+              <div className="mt-5 flex items-center justify-between gap-3 flex-wrap">
+                <div />
+                {editing ? (
+                  <button
+                    type="button"
+                    disabled={!editable || saving || selectedCounts.mini !== miniLimit || selectedCounts.boss !== bossLimit || selectedCounts.total !== totalLimit}
+                    onClick={saveSelection}
+                    className={`rounded-xl px-4 py-2 font-extrabold ring-1 ring-white/10 ${(!editable || saving || selectedCounts.mini !== miniLimit || selectedCounts.boss !== bossLimit || selectedCounts.total !== totalLimit) ? "bg-slate-700/40 text-slate-300" : "bg-emerald-300 text-black hover:bg-emerald-200"}`}
+                  >
+                    {saving ? "Salvando…" : "Salvar escolhas"}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={!editable}
+                    onClick={() => {
+                      if (!editable) return;
+                      setSelected(Array.isArray(savedSelected) ? savedSelected : []);
+                      setEditing(true);
+                      setMsg("");
+                    }}
+                    className={`rounded-xl px-4 py-2 font-extrabold ring-1 ring-white/10 ${!editable ? "bg-slate-700/40 text-slate-300" : "bg-violet-300 text-black hover:bg-violet-200"}`}
+                  >
+                    Editar
+                  </button>
+                )}
+              </div>
+              {msg ? <div className="mt-3 text-sm text-slate-200">{msg}</div> : null}
             </>
           )}
         </div>

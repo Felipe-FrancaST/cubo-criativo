@@ -123,6 +123,32 @@ body{
 .btn-ghost:hover{ background: rgba(255,255,255,.06); }
 .btn-ghost:active{ transform: translateY(1px); }
 
+/* botões padrão (mini design system) */
+.btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:.5rem;
+  padding:.65rem 1rem;
+  border-radius: .9rem;
+  font-weight: 800;
+  border: 1px solid var(--ring);
+  transition: transform .05s ease, background .2s ease, opacity .2s ease;
+}
+.btn:active{ transform: translateY(1px); }
+.btn:disabled{ opacity: .6; cursor: not-allowed; }
+
+.btn-primary{
+  background: color-mix(in oklab, var(--brand) 95%, white 0%);
+  color: #0b0f14;
+  box-shadow: 0 0 0 6px color-mix(in oklab, var(--brand) 25%, transparent);
+  border-color: color-mix(in oklab, var(--brand) 55%, black 10%);
+}
+.btn-primary:hover{ opacity: .95; }
+
+.btn-outline{
+  background: rgba(255,255,255,.03);
+  color: var(--text);
+}
+.btn-outline:hover{ background: rgba(255,255,255,.06); }
+
 /* classe para containers centralizados com o mesmo maxWidth do app */
 .container-cc{ max-width: var(--container-max); margin-inline:auto; }
 
