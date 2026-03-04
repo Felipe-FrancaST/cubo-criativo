@@ -5,6 +5,18 @@
       "destination": "/p/$1/index.html"
     },
     {
+      "source": "/api/admin/orders",
+      "destination": "/api/admin?action=orders"
+    },
+    {
+      "source": "/api/admin/update-order",
+      "destination": "/api/admin?action=update-order"
+    },
+    {
+      "source": "/api/admin/vip-voting",
+      "destination": "/api/admin?action=vip-voting"
+    },
+    {
       "source": "/api/create-vip-upgrade-pix-payment",
       "destination": "/api/create-pix-payment?mode=vip_upgrade"
     },
