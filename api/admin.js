@@ -17,16 +17,31 @@ import { renderOrderStatusEmail } from "../server/emailTemplates.js";
 
 export const config = { runtime: "nodejs" };
 
-function safeBody(req) {
-  if (!req.body) return {};
-  if (typeof req.body === "string") {
-    try {
-      return JSON.parse(req.body);
-    } catch {
-      return {};
+// Vercel Node runtimes may not populate req.body automatically.
+// This helper reads JSON body safely from either req.body or the raw stream.
+async function readJsonBody(req) {
+  // If some middleware populated req.body, use it.
+  if (req.body) {
+    if (typeof req.body === "string") {
+      try {
+        return JSON.parse(req.body);
+      } catch {
+        return {};
+      }
     }
+    if (typeof req.body === "object") return req.body;
   }
-  return req.body;
+
+  // Fallback: read the raw request stream.
+  try {
+    const chunks = [];
+    for await (const chunk of req) chunks.push(Buffer.from(chunk));
+    const raw = Buffer.concat(chunks).toString("utf8").trim();
+    if (!raw) return {};
+    return JSON.parse(raw);
+  } catch {
+    return {};
+  }
 }
 
 // -----------------------------
@@ -380,7 +395,7 @@ async function handleVipCloseVoting(req, res) {
   const auth = await requireAdmin(req);
   if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
 
-  const body = safeBody(req);
+  const body = await readJsonBody(req);
   const poll_id = String(body.poll_id || "").trim();
   const winner_option_id = body.winner_option_id;
   if (!poll_id) return res.status(400).json({ error: "Missing poll_id" });
@@ -428,7 +443,7 @@ async function handleUpdateOrder(req, res) {
   const auth = await requireAdmin(req);
   if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
 
-  const body = safeBody(req);
+  const body = await readJsonBody(req);
   const order_id = String(body.order_id || "").trim();
   if (!order_id) return res.status(400).json({ error: "Missing order_id" });
 

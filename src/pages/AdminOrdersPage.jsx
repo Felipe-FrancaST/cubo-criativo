@@ -691,8 +691,7 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome, onR
     setVipPollsLoading(true);
     setVipPollsError("");
     try {
-      // Call the consolidated admin endpoint directly (avoids relying on rewrites)
-      const resp = await fetch("/api/admin?action=vip-voting", {
+      const resp = await fetch("/api/admin/vip-voting", {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
       const data = await resp.json().catch(() => ({}));
@@ -709,8 +708,7 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome, onR
     if (!accessToken || !poll?.id || !winner_option_id) return;
     try {
       setCloseVote((s) => ({ ...s, busy: true, error: "" }));
-      // Call the consolidated admin endpoint directly (avoids relying on rewrites)
-      const resp = await fetch("/api/admin?action=vip-close-voting", {
+      const resp = await fetch("/api/admin/vip-close-voting", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
