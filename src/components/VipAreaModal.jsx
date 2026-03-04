@@ -82,6 +82,9 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
   const [optionsLoading, setOptionsLoading] = React.useState(false);
   const [pollLoading, setPollLoading] = React.useState(false);
 
+  // Navegação (melhor experiência no mobile)
+  const [tab, setTab] = React.useState('escolhas'); // 'escolhas' | 'pedido' | 'votacao' | 'upgrade'
+
   // Aviso elegante quando o usuário estoura o limite do plano
   const [limitNotice, setLimitNotice] = React.useState(null); // { title, text }
   const limitTimerRef = React.useRef(null);
@@ -212,6 +215,20 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
       if (limitTimerRef.current) clearTimeout(limitTimerRef.current);
     };
   }, []);
+
+  // Lazy-load por aba (evita travar o mobile)
+  React.useEffect(() => {
+    if (!user || !isVip) return;
+    // sincroniza os painéis antigos com a navegação por abas
+    setShowPoll(tab === 'votacao');
+    setShowUpgrade(tab === 'upgrade');
+    if (tab === 'escolhas' && !optionsLoading && (!options || options.length === 0)) {
+      loadOptionsLite();
+    }
+    if (tab === 'votacao' && !pollLoading && !poll?.id) {
+      loadPollAsync();
+    }
+  }, [tab, user, isVip]);
 
   function readCache(key) {
     try {
@@ -641,71 +658,124 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
           ) : (
             <>
 
-              {String(orderStatus || '').toLowerCase() === 'enviado' && shippingTracking ? (
-                <div className="mt-4 rounded-2xl bg-amber-500/10 ring-1 ring-amber-400/20 p-4">
-                  <p className="text-sm font-semibold text-amber-100">Código de rastreio</p>
-                  <div className="mt-2 flex flex-col sm:flex-row gap-2 sm:items-center">
-                    <code className="rounded-lg bg-black/30 px-3 py-2 text-xs text-amber-50 ring-1 ring-amber-200/10">{shippingTracking}</code>
-                    <button type="button" onClick={() => navigator.clipboard.writeText(String(shippingTracking || ''))} className="rounded-lg px-3 py-2 text-xs font-semibold ring-1 ring-amber-300/20 hover:bg-white/5">Copiar</button>
-                    <a href={`https://rastreamento.correios.com.br/app/index.php?objetos=${encodeURIComponent(shippingTracking)}`} target="_blank" rel="noreferrer" className="rounded-lg px-3 py-2 text-xs font-semibold bg-amber-300 text-black hover:bg-amber-200">Rastrear pedido</a>
-                  </div>
-                </div>
-              ) : null}
-
-              <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="md:col-span-2 rounded-2xl bg-white/5 ring-1 ring-white/10 p-5">
-                  <div className="flex items-start justify-between gap-3 flex-wrap">
-                    <div>
-                      <div className="text-xs uppercase tracking-wide text-slate-400">Seu nível VIP</div>
-                      <div className="mt-1 text-xl sm:text-2xl font-extrabold text-violet-100">{selectedPlan?.short_name || selectedPlan?.name || 'VIP'}</div>
-                      <div className="mt-2 text-sm text-slate-300">
-                        {miniLimit} miniatura(s){bossLimit ? ` + ${bossLimit} boss(es)` : ''} • total {totalLimit}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-xs uppercase tracking-wide text-slate-400">Seu ciclo</div>
-                      <div className="mt-1 text-sm text-slate-200">
-                        Mini: <b>{selectedCounts.mini}</b>/{miniLimit}
-                        <span className="ml-2 text-slate-400">•</span>
-                        <span className="ml-2">Boss: <b>{selectedCounts.boss}</b>/{bossLimit}</span>
-                      </div>
-                      <div className="text-xs text-slate-400 mt-1">Total: <b>{selectedCounts.total}</b>/{totalLimit}</div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-2xl bg-gradient-to-br from-violet-500/15 to-fuchsia-500/10 ring-1 ring-violet-400/20 p-5">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <div className="text-xs uppercase tracking-wide text-slate-300">Painel VIP</div>
-                      <div className="mt-1 font-extrabold text-slate-50">Ações</div>
-                      <div className="mt-2 text-sm text-slate-200/80">Abra somente o que você precisar (sem amontoar tudo).</div>
-                    </div>
-                    <span className="material-icons text-violet-200">auto_awesome</span>
-                  </div>
-
-                  <div className="mt-4 grid grid-cols-1 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setShowPoll((v) => !v)}
-                      className="w-full rounded-xl px-4 py-3 font-extrabold ring-1 ring-white/10 bg-white/5 hover:bg-white/10 text-slate-100 flex items-center justify-between"
-                    >
-                      <span className="inline-flex items-center gap-2"><span className="material-icons text-[18px]">how_to_vote</span> Votação do tema</span>
-                      <span className="material-icons text-[18px]">{showPoll ? 'expand_less' : 'expand_more'}</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      disabled={!nextPlan || upgradeBusy}
-                      onClick={() => { setShowUpgrade(true); setUpgradePayOpen(true); }}
-                      className={`w-full rounded-xl px-4 py-3 font-extrabold ring-1 ring-white/10 flex items-center justify-between ${(!nextPlan || upgradeBusy) ? 'bg-slate-700/40 text-slate-300' : 'bg-violet-300 text-black hover:bg-violet-200'}`}
-                    >
-                      <span className="inline-flex items-center gap-2"><span className="material-icons text-[18px]">upgrade</span> Upgrade de nível</span>
-                      <span className="text-xs">{nextPlan ? fmtBRLFromCents(upgradeDiffCents) : '—'}</span>
-                    </button>
+              {/* Tabs (mobile-first): evita tela embolada */}
+              <div className="mt-5 sticky top-3 z-20">
+                <div className="rounded-2xl bg-black/35 backdrop-blur-md ring-1 ring-white/10 p-2">
+                  <div className="flex gap-2 overflow-x-auto no-scrollbar">
+                    {[{k:'escolhas',label:'Escolhas',ic:'checklist'},{k:'pedido',label:'Pedido',ic:'local_shipping'},{k:'votacao',label:'Votação',ic:'how_to_vote'},{k:'upgrade',label:'Upgrade',ic:'upgrade'}].map((t) => {
+                      const active = tab === t.k;
+                      return (
+                        <button
+                          key={t.k}
+                          type="button"
+                          onClick={() => setTab(t.k)}
+                          className={`shrink-0 inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-extrabold ring-1 transition ${active ? 'bg-violet-400 text-black ring-violet-200/30' : 'bg-white/5 text-slate-200 ring-white/10 hover:bg-white/10'}`}
+                        >
+                          <span className="material-icons text-[16px]">{t.ic}</span>
+                          {t.label}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
+
+              {/* Resumo do ciclo (compacto no mobile) */}
+              <div className="mt-4 rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-xs uppercase tracking-wide text-slate-400">Seu nível</div>
+                    <div className="mt-1 text-lg sm:text-xl font-extrabold text-violet-100">{selectedPlan?.short_name || selectedPlan?.name || 'VIP'}</div>
+                    <div className="mt-1 text-xs text-slate-300">{miniLimit} miniatura(s){bossLimit ? ` + ${bossLimit} boss(es)` : ''} • total {totalLimit}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-xs uppercase tracking-wide text-slate-400">Progresso</div>
+                    <div className="mt-1 text-sm text-slate-200"><b>{selectedCounts.total}</b>/{totalLimit}</div>
+                    <div className="mt-1 text-[11px] text-slate-400">Mini {selectedCounts.mini}/{miniLimit}{bossLimit ? ` • Boss ${selectedCounts.boss}/${bossLimit}` : ''}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Guia rápido (melhora entendimento no mobile) */}
+              <div className="mt-4 rounded-2xl bg-gradient-to-br from-sky-500/10 to-emerald-500/5 ring-1 ring-white/10 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-xs uppercase tracking-wide text-slate-300">Como funciona</div>
+                    <div className="mt-1 text-sm text-slate-200/90">Em 3 passos, sem complicação:</div>
+                    <ol className="mt-2 space-y-1 text-xs text-slate-300">
+                      <li><b>1.</b> Vá em <b>Escolhas</b> e selecione exatamente <b>{totalLimit}</b> item(ns).</li>
+                      <li><b>2.</b> Clique em <b>Salvar escolhas</b> (aparece ao completar o limite).</li>
+                      <li><b>3.</b> Acompanhe em <b>Pedido</b> quando entrar em produção / envio.</li>
+                    </ol>
+                  </div>
+                  <span className="material-icons text-sky-200">tips_and_updates</span>
+                </div>
+              </div>
+
+              {/* Conteúdo por aba */}
+              {tab === 'pedido' ? (
+                <div className="mt-5 space-y-4">
+                  <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="text-xs uppercase tracking-wide text-slate-400">Status do seu pedido VIP</div>
+                        <div className="mt-1 text-xl font-extrabold text-slate-100">{st.label}</div>
+                        <div className="mt-2 text-sm text-slate-300">
+                          {editable ? 'Você pode editar e salvar suas escolhas enquanto o status estiver em Editável.' : 'Suas escolhas podem estar bloqueadas por causa do status atual.'}
+                        </div>
+                      </div>
+                      <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs ring-1 ${st.cls}`}>
+                        <span className="material-icons text-[16px]">flag</span>
+                        <b>{st.label}</b>
+                      </span>
+                    </div>
+                  </div>
+
+                  {String(orderStatus || '').toLowerCase() === 'enviado' && shippingTracking ? (
+                    <div className="rounded-2xl bg-amber-500/10 ring-1 ring-amber-400/20 p-5">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <p className="text-sm font-extrabold text-amber-100">Código de rastreio</p>
+                        <a href={`https://rastreamento.correios.com.br/app/index.php?objetos=${encodeURIComponent(shippingTracking)}`} target="_blank" rel="noreferrer" className="rounded-lg px-3 py-2 text-xs font-extrabold bg-amber-300 text-black hover:bg-amber-200">Rastrear</a>
+                      </div>
+                      <div className="mt-3 flex flex-col gap-2">
+                        <code className="rounded-lg bg-black/30 px-3 py-3 text-xs text-amber-50 ring-1 ring-amber-200/10 break-all">{shippingTracking}</code>
+                        <button type="button" onClick={() => navigator.clipboard.writeText(String(shippingTracking || ''))} className="rounded-xl px-4 py-3 text-xs font-extrabold ring-1 ring-amber-300/20 hover:bg-white/5">Copiar código</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-5 text-sm text-slate-300">
+                      Quando seu pedido for enviado, o <b>código de rastreio</b> vai aparecer aqui.
+                    </div>
+                  )}
+                </div>
+              ) : null}
+
+              {tab === 'upgrade' ? (
+                <div className="mt-5 space-y-4">
+                  <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="text-xs uppercase tracking-wide text-slate-400">Upgrade de nível</div>
+                        <div className="mt-1 text-xl font-extrabold text-slate-100">Mais escolhas por mês</div>
+                        <div className="mt-2 text-sm text-slate-300">Faça upgrade para liberar mais miniaturas/bosses neste ciclo.</div>
+                      </div>
+                      <span className="material-icons text-violet-200">upgrade</span>
+                    </div>
+                    <div className="mt-4 grid gap-2">
+                      <button
+                        type="button"
+                        disabled={!nextPlan || upgradeBusy}
+                        onClick={() => { setUpgradePayOpen(true); }}
+                        className={`w-full rounded-xl px-4 py-3 font-extrabold ring-1 ring-white/10 ${(!nextPlan || upgradeBusy) ? 'bg-slate-700/40 text-slate-300' : 'bg-violet-300 text-black hover:bg-violet-200'}`}
+                      >
+                        {nextPlan ? `Fazer upgrade para ${nextPlan?.short_name || nextPlan?.name}` : 'Upgrade indisponível'}
+                        {nextPlan ? <span className="ml-2 text-xs font-semibold">({fmtBRLFromCents(upgradeDiffCents)})</span> : null}
+                      </button>
+                      {!nextPlan ? <div className="text-xs text-slate-400">Você já está no nível máximo.</div> : null}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
 
               {upgradePayOpen ? (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
@@ -837,6 +907,8 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                 </div>
               ) : null}
 
+              {tab === 'escolhas' ? (
+                <>
               <div className="mt-6 flex items-center justify-between gap-3 flex-wrap">
                 <div className="text-sm text-slate-300">
                   Escolha <b>{totalLimit}</b> item(ns) do mês ({miniLimit} miniatura(s){bossLimit ? ` + ${bossLimit} boss(es)` : ""}) entre <b>{optionsLoading ? '…' : options.length}</b> opções.
@@ -1115,6 +1187,8 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                 )}
               </div>
               {msg ? <div className="mt-3 text-sm text-slate-200">{msg}</div> : null}
+                </>
+              ) : null}
             </>
           )}
         </div>

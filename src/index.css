@@ -155,6 +155,10 @@ body{
 /* imagens: comportamento padrão mais nítido */
 img{ image-rendering: auto; }
 
+/* util: esconde scrollbar em listas horizontais (mobile) */
+.no-scrollbar::-webkit-scrollbar{ display: none; }
+.no-scrollbar{ -ms-overflow-style: none; scrollbar-width: none; }
+
 /* =====================
    FALLBACKS DE RESPONSIVIDADE
    (garante comportamento mesmo se alguma classe do build falhar)
