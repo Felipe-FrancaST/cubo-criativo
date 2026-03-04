@@ -147,6 +147,16 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin })
     return map;
   }, [options]);
 
+  const optionById = React.useMemo(() => {
+    const map = new Map();
+    for (const o of (options || [])) map.set(o.id, o);
+    return map;
+  }, [options]);
+
+  const selectedCards = React.useMemo(() => {
+    return (displaySelected || []).map((id) => ({ id, opt: optionById.get(id) || null }));
+  }, [displaySelected, optionById]);
+
   const selectedCounts = React.useMemo(() => {
     let mini = 0;
     let boss = 0;
@@ -810,6 +820,54 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin })
                   <span className="ml-2 text-slate-400">• Mini: <b className="text-slate-200">{selectedCounts.mini}</b>/{miniLimit}</span>
                   <span className="ml-2 text-slate-400">• Boss: <b className="text-slate-200">{selectedCounts.boss}</b>/{bossLimit}</span>
                 </div>
+              </div>
+
+              {/* Miniaturas escolhidas (fixo no topo, como antes) */}
+              <div className="mt-4 rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div>
+                    <div className="text-xs uppercase tracking-wide text-slate-400">Minhas escolhas do mês</div>
+                    <div className="mt-1 text-sm text-slate-200">
+                      {editing ? 'Você está editando suas escolhas.' : 'Suas escolhas estão salvas e podem estar bloqueadas pelo status.'}
+                    </div>
+                  </div>
+                  <div className="text-xs text-slate-400">Ciclo: <b>{cycle}</b></div>
+                </div>
+
+                {selectedCards.length ? (
+                  <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                    {selectedCards.map(({ id, opt }) => (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => { if (opt) openPreviewLite(opt); }}
+                        className="text-left rounded-2xl bg-black/25 ring-1 ring-white/10 hover:bg-white/5 transition overflow-hidden"
+                        title={opt?.title || 'Escolha'}
+                      >
+                        <div className="aspect-square bg-slate-900/70 p-2">
+                          {opt?.image_url ? (
+                            <img
+                              src={opt.image_url}
+                              alt={opt.title}
+                              className="h-full w-full object-contain rounded-xl ring-1 ring-white/10"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="h-full w-full grid place-items-center text-slate-500 text-xs">Carregando…</div>
+                          )}
+                        </div>
+                        <div className="p-2">
+                          <div className="text-xs font-extrabold text-slate-100 truncate">{opt?.title || '—'}</div>
+                          <div className="mt-1 text-[10px] text-slate-400">Toque para ver detalhes</div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="mt-4 rounded-xl bg-black/20 ring-1 ring-white/10 p-4 text-sm text-slate-300">
+                    Você ainda não escolheu nada neste ciclo.
+                  </div>
+                )}
               </div>
 
               {limitNotice ? (
