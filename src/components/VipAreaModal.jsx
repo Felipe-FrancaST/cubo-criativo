@@ -46,15 +46,18 @@ function findPlanByProfileValue(plans, profilePlan) {
   }) || null;
 }
 
-export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin }) {
+export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, asPage = false, onGoHome }) {
   const { user } = useAuth();
 
+  const isOpen = asPage ? true : open;
+
   React.useEffect(() => {
-    if (open && !user) {
+    if (isOpen && !user) {
+      // Em modo página não fechamos nada — apenas pedimos login.
       onRequireLogin?.("Entre para acessar a Área VIP.");
-      onClose?.();
+      if (!asPage) onClose?.();
     }
-  }, [open, user]);
+  }, [isOpen, user, asPage]);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState("");
   const [vipUntil, setVipUntil] = React.useState(null);
@@ -562,8 +565,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin })
     }
   }
 
-  return (
-    <Modal open={open} onClose={onClose} maxWidth="max-w-4xl">
+  const body = (
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-950 via-slate-950 to-black ring-1 ring-white/10">
         <div className="absolute inset-0 opacity-35 pointer-events-none" style={{ backgroundImage: "radial-gradient(circle at 20% 10%, rgba(168,85,247,.35), transparent 45%), radial-gradient(circle at 80% 20%, rgba(34,197,94,.22), transparent 55%), radial-gradient(circle at 50% 90%, rgba(56,189,248,.18), transparent 55%)" }} />
         <div className="relative p-5 sm:p-7">
@@ -593,13 +595,40 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin })
                 )}
               </div>
             </div>
-            <button onClick={onClose} className="rounded-xl p-2 ring-1 ring-white/15 hover:bg-white/5" aria-label="Fechar">
-              <span className="material-icons">close</span>
-            </button>
+            {asPage ? (
+              <div className="flex items-center gap-2">
+                {onGoHome ? (
+                  <button
+                    type="button"
+                    onClick={onGoHome}
+                    className="rounded-xl px-3 py-2 text-xs font-semibold ring-1 ring-white/15 hover:bg-white/5 transition"
+                    title="Voltar"
+                  >
+                    <span className="inline-flex items-center gap-2">
+                      <span className="material-icons text-[16px]">arrow_back</span>
+                      Voltar
+                    </span>
+                  </button>
+                ) : null}
+              </div>
+            ) : (
+              <button onClick={onClose} className="rounded-xl p-2 ring-1 ring-white/15 hover:bg-white/5" aria-label="Fechar">
+                <span className="material-icons">close</span>
+              </button>
+            )}
           </div>
 
           {!user ? (
-            <div className="mt-6 rounded-2xl bg-white/5 ring-1 ring-white/10 p-4 text-slate-200">Entre para acessar a Área VIP.</div>
+            <div className="mt-6 rounded-2xl bg-white/5 ring-1 ring-white/10 p-5">
+              <p className="text-slate-200">Entre para acessar a Área VIP.</p>
+              <button
+                type="button"
+                onClick={() => onRequireLogin?.("Entre para acessar a Área VIP.")}
+                className="mt-4 rounded-xl px-4 py-3 font-extrabold bg-teal-400 text-black ring-4 ring-teal-400/20"
+              >
+                Entrar
+              </button>
+            </div>
           ) : loading ? (
             <div className="mt-6 rounded-2xl bg-white/5 ring-1 ring-white/10 p-4 text-slate-200">Carregando…</div>
           ) : error ? (
@@ -1090,6 +1119,19 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin })
           )}
         </div>
       </div>
+  );
+
+  if (asPage) {
+    return (
+      <div className="container-cc px-4 sm:px-6 lg:px-8 py-8">
+        {body}
+      </div>
+    );
+  }
+
+  return (
+    <Modal open={isOpen} onClose={onClose} maxWidth="max-w-4xl">
+      {body}
     </Modal>
   );
 }

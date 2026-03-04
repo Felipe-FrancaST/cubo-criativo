@@ -31,6 +31,7 @@ import TermosPage from "./pages/TermosPage.jsx";
 import CupomGamePage from "./pages/CupomGamePage.jsx";
 import VipRpgPage from "./pages/VipRpgPage.jsx";
 import SobEncomendaPage from "./pages/SobEncomendaPage.jsx";
+import VipAreaPage from "./pages/VipAreaPage.jsx";
 import { isAdminEmail } from "./lib/admin.js";
 import { applySeo, setJsonLd, clearJsonLd } from "./lib/seo.js";
 import { trackEvent } from "./lib/analytics.js";
@@ -381,6 +382,7 @@ export default function App() {
       "/termos": { title: "Termos de uso | Cubo Criativo", description: "Condições gerais de navegação e compra no site da Cubo Criativo.", path: "/termos" },
       "/cupom": { title: "Cubo Game | Cubo Criativo", description: "Jogue 1x por semana no Cubo Game e ganhe cupom para usar no carrinho.", path: "/cupom" },
       "/vip": { title: "Cubo Level 1 RPG | Clube VIP", description: "Assine o Cubo Level 1 RPG: 3 miniaturas/mês e Cubo Game diário para VIPs.", path: "/vip" },
+      "/area-vip": { title: "Área VIP | Cubo Criativo", description: "Escolha suas miniaturas do ciclo, vote no tema e acompanhe o status do seu pedido VIP.", path: "/area-vip" },
     };
     // Rotas dinâmicas (/p/:slug) são tratadas em um effect separado para SEO + schema.
     if (String(route || "").startsWith("/p/")) {
@@ -1251,7 +1253,10 @@ React.useEffect(() => {
       return <CupomGamePage onGoHome={() => navigate("/")} user={user} accessToken={accessToken} />;
     }
     if (route === "/vip") {
-      return <VipRpgPage user={user} accessToken={accessToken} onOpenAuth={() => setAuthOpen(true)} onOpenSettings={openSettings} onOpenVipArea={() => setVipAreaOpen(true)} onGoHome={() => navigate("/")} />;
+      return <VipRpgPage user={user} accessToken={accessToken} onOpenAuth={() => setAuthOpen(true)} onOpenSettings={openSettings} onOpenVipArea={() => navigate("/area-vip")} onGoHome={() => navigate("/")} />;
+    }
+    if (route === "/area-vip") {
+      return <VipAreaPage onGoHome={() => navigate("/")} onGoVip={() => navigate("/vip")} onRequireLogin={(msg) => requireLogin(msg)} />;
     }
     if (route === "/conta") {
       return <AccountPage onGoHome={() => navigate("/")} />;
@@ -1320,7 +1325,7 @@ React.useEffect(() => {
         onGoHomeSection={goHomeSection}
         onOpenAuth={() => setAuthOpen(true)}
         onOpenOrders={() => setOrdersOpen(true)}
-        onOpenVipArea={() => setVipAreaOpen(true)}
+        onOpenVipArea={() => navigate("/area-vip")}
         onPaymentConfirmed={() => {
           setCart([]);
           setCartOpen(false);
