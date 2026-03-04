@@ -861,6 +861,8 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin })
                 {options.map((opt) => {
                   const isSel = displaySelected.includes(opt.id);
                   const kind = (String(opt?.item_type || 'miniature').toLowerCase() === 'boss') ? 'boss' : 'miniature';
+                  // IMPORTANTE: não desabilitar o botão quando o limite for atingido.
+                  // Se desabilitar, o usuário não consegue clicar e ver a mensagem de upgrade.
                   const addBlocked = editing && !isSel && !canAdd(opt.id);
                   return (
                     <div
@@ -900,12 +902,30 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin })
                           </div>
                           <button
                             type="button"
-                            disabled={!editable || !editing || saving || addBlocked}
+                            disabled={!editable || !editing || saving}
                             onClick={() => {
                               if (!editing) return;
                               setSelected((prev) => {
                                 const has = prev.includes(opt.id);
                                 if (has) return prev.filter((x) => x !== opt.id);
+                                // Se estiver bloqueado, mostramos o aviso e não alteramos o estado
+                                if (addBlocked) {
+                                  // Decide qual limite estourou (total/mini/boss) usando o estado atual
+                                  let mini = 0;
+                                  let boss = 0;
+                                  for (const id of prev) {
+                                    const t = optionTypeById.get(id) || 'miniature';
+                                    if (t === 'boss') boss += 1;
+                                    else mini += 1;
+                                  }
+                                  const total = mini + boss;
+                                  const tNew = optionTypeById.get(opt.id) || 'miniature';
+                                  if (total >= totalLimit) showLimitNotice('total');
+                                  else if (tNew === 'boss' && boss >= bossLimit) showLimitNotice('boss');
+                                  else if (tNew !== 'boss' && mini >= miniLimit) showLimitNotice('mini');
+                                  else showLimitNotice('total');
+                                  return prev;
+                                }
                                 // Recalcula contadores usando o estado "prev" para evitar race condition
                                 let mini = 0;
                                 let boss = 0;
@@ -931,7 +951,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin })
                                 return [...prev, opt.id];
                               });
                             }}
-                            className={`shrink-0 rounded-lg p-1.5 ring-1 ${isSel ? "bg-violet-500/25 ring-violet-300/30 text-violet-50" : "bg-white/5 ring-white/10 text-slate-300"} ${(!editable || !editing || saving) ? "opacity-60 cursor-not-allowed" : "hover:bg-white/10"}`}
+                            className={`shrink-0 rounded-lg p-1.5 ring-1 transition ${isSel ? "bg-violet-500/25 ring-violet-300/30 text-violet-50" : "bg-white/5 ring-white/10 text-slate-300"} ${(!editable || !editing || saving) ? "opacity-60 cursor-not-allowed" : addBlocked ? "hover:bg-rose-500/10 hover:ring-rose-400/30" : "hover:bg-white/10"}`}
                             aria-label={isSel ? 'Remover miniatura' : 'Selecionar miniatura'}
                           >
                             <span className="material-icons text-[18px]">{isSel ? "check_circle" : "add_circle"}</span>
