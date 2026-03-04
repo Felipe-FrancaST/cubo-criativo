@@ -221,34 +221,48 @@ async function handleOrders(req, res) {
   const profileById = new Map();
   (profiles || []).forEach((p) => profileById.set(p.id, p));
 
-  const currentCycle = new Date().toISOString().slice(0, 7);
-  const vipUserIds = Array.from(
+  // VIP selections: map selection to the order's cycle (YYYY-MM) so old VIP orders also show their picks.
+  const vipOrders = (list || []).filter((o) => String(o.order_type || "").toLowerCase() === "vip" && o.user_id);
+  const vipUserIds = Array.from(new Set(vipOrders.map((o) => o.user_id).filter(Boolean)));
+  const vipCycles = Array.from(
     new Set(
-      list
-        .filter((o) => String(o.order_type || "").toLowerCase() === "vip")
-        .map((o) => o.user_id)
+      vipOrders
+        .map((o) => {
+          const c = String(o.created_at || "");
+          return c && c.length >= 7 ? c.slice(0, 7) : null;
+        })
         .filter(Boolean)
     )
   );
 
-  const vipSelByUser = new Map();
-  if (vipUserIds.length) {
+  const vipSelByUserCycle = new Map();
+  if (vipUserIds.length && vipCycles.length) {
     const [{ data: sels }, { data: opts }] = await Promise.all([
       sb
         .from("vip_mini_selections")
         .select("user_id,cycle_key,selected_option_ids,updated_at")
         .in("user_id", vipUserIds)
-        .eq("cycle_key", currentCycle),
-      sb.from("vip_mini_options").select("id,title"),
+        .in("cycle_key", vipCycles),
+      // image_url permite mostrar as miniaturas no admin
+      sb.from("vip_mini_options").select("id,title,image_url"),
     ]);
 
-    const titlesById = new Map((opts || []).map((o) => [String(o.id), o.title]));
+    const optById = new Map((opts || []).map((o) => [String(o.id), o]));
     (sels || []).forEach((sel) => {
       const ids = Array.isArray(sel.selected_option_ids) ? sel.selected_option_ids : [];
-      vipSelByUser.set(String(sel.user_id), {
+      const selectedOptions = ids
+        .map((id) => {
+          const o = optById.get(String(id));
+          if (!o) return null;
+          return { id: o.id, title: o.title, image_url: o.image_url || null };
+        })
+        .filter(Boolean);
+
+      vipSelByUserCycle.set(`${sel.user_id}:${sel.cycle_key}`, {
         cycle_key: sel.cycle_key,
         updated_at: sel.updated_at || null,
-        selected_titles: ids.map((id) => titlesById.get(String(id))).filter(Boolean),
+        selected_titles: selectedOptions.map((x) => x.title).filter(Boolean),
+        selected_options: selectedOptions,
       });
     });
   }
@@ -259,7 +273,7 @@ async function handleOrders(req, res) {
     order_items: itemsByOrder.get(o.id) || [],
     vip_selection:
       String(o.order_type || "").toLowerCase() === "vip" && o.user_id
-        ? vipSelByUser.get(String(o.user_id)) || null
+        ? vipSelByUserCycle.get(`${o.user_id}:${String(o.created_at || "").slice(0, 7)}`) || null
         : null,
   }));
 

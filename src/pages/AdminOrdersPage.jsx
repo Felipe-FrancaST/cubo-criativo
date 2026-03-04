@@ -341,9 +341,32 @@ function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTrack
             </div>
 
             {order?.vip_selection?.selected_titles?.length ? (
-              <div className="mt-3 text-xs text-slate-300">
-                <span className="text-slate-500">Seleção VIP:</span>{" "}
-                {order.vip_selection.selected_titles.join(", ")}
+              <div className="mt-3">
+                <div className="text-xs text-slate-500">Seleção VIP:</div>
+                {Array.isArray(order?.vip_selection?.selected_options) && order.vip_selection.selected_options.length ? (
+                  <div className="mt-2 grid grid-cols-3 gap-2">
+                    {order.vip_selection.selected_options.map((opt) => (
+                      <div
+                        key={String(opt?.id || opt?.title)}
+                        className="rounded-xl bg-black/20 ring-1 ring-white/10 p-2"
+                        title={opt?.title || ""}
+                      >
+                        <div className="w-full aspect-square rounded-lg overflow-hidden bg-white/5 ring-1 ring-white/10">
+                          {opt?.image_url ? (
+                            <img src={opt.image_url} alt={opt?.title || ""} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full grid place-items-center text-[10px] text-slate-500">sem imagem</div>
+                          )}
+                        </div>
+                        <div className="mt-2 text-[11px] text-slate-200 leading-snug break-words" style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                          {opt?.title}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="mt-1 text-xs text-slate-300">{order.vip_selection.selected_titles.join(", ")}</div>
+                )}
               </div>
             ) : null}
           </div>
