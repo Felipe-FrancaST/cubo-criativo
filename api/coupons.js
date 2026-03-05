@@ -1,10 +1,21 @@
 import { getUserFromAuthHeader, supabaseAdmin } from '../server/supabase.js';
 import { getGamePeriodInfo, makeCouponCode, calcCouponDiscount } from '../server/couponGame.js';
+import { rateLimit } from '../server/rateLimit.js';
 
-function safeBody(req) {
-  if (!req.body) return {};
+async function readJsonBody(req) {
+  if (req.body && typeof req.body === 'object') return req.body;
   if (typeof req.body === 'string') { try { return JSON.parse(req.body); } catch { return {}; } }
-  return req.body;
+
+  // Fallback for Vercel/Node when body parser doesn't populate req.body
+  const chunks = [];
+  await new Promise((resolve) => {
+    req.on('data', (c) => chunks.push(c));
+    req.on('end', resolve);
+    req.on('error', resolve);
+  });
+  if (!chunks.length) return {};
+  const raw = Buffer.concat(chunks).toString('utf8');
+  try { return JSON.parse(raw); } catch { return {}; }
 }
 
 
@@ -94,7 +105,7 @@ async function handleGameComplete(req, res) {
   const user = await getUserFromAuthHeader(req);
   if (!user) return res.status(401).json({ error: 'Faça login para jogar.' });
   const sb = supabaseAdmin();
-  const body = safeBody(req);
+  const body = await readJsonBody(req);
   const won = !!body.won;
   const score = Number(body.score || 0);
   const attempts = Number(body.attempts || 0);
@@ -177,7 +188,7 @@ async function handleGameComplete(req, res) {
 async function handleValidate(req, res) {
   const user = await getUserFromAuthHeader(req);
   if (!user) return res.status(401).json({ error: 'Faça login para usar cupom.' });
-  const body = safeBody(req);
+  const body = await readJsonBody(req);
   const code = String(body.code || '').trim().toUpperCase();
   const subtotal = Number(body.subtotal || 0);
   if (!code) return res.status(400).json({ error: 'Informe o cupom.' });
@@ -238,6 +249,8 @@ async function handleMyCoupons(req, res) {
 }
 
 export default async function handler(req, res) {
+  
+  if (!rateLimit(req, res, { key: 'api:coupons', limit: 40, windowMs: 60000 })) return;
   try {
     const action = String(req.query?.action || '').toLowerCase();
     if (!action) return res.status(400).json({ error: 'Ação não informada.' });

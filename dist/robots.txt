@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://www.cubocriativo3d.com.br/sitemap.xml

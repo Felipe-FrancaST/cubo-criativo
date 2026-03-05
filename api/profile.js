@@ -11,15 +11,23 @@
  * - SUPABASE_SERVICE_ROLE_KEY
  */
 import { getUserFromAuthHeader, supabaseAdmin } from "../server/supabase.js";
+import { rateLimit } from '../server/rateLimit.js';
 
 export const config = { runtime: "nodejs" };
 
-function safeBody(req) {
-  if (!req.body) return {};
-  if (typeof req.body === "string") {
-    try { return JSON.parse(req.body); } catch { return {}; }
-  }
-  return req.body;
+async function readJsonBody(req) {
+  if (req.body && typeof req.body === 'object') return req.body;
+  if (typeof req.body === "string") { try { return JSON.parse(req.body); } catch { return {}; } }
+
+  const chunks = [];
+  await new Promise((resolve) => {
+    req.on("data", (c) => chunks.push(c));
+    req.on("end", resolve);
+    req.on("error", resolve);
+  });
+  if (!chunks.length) return {};
+  const raw = Buffer.concat(chunks).toString("utf8");
+  try { return JSON.parse(raw); } catch { return {}; }
 }
 
 const ALLOWED = new Set([
@@ -45,6 +53,8 @@ const ALLOWED = new Set([
 ]);
 
 export default async function handler(req, res) {
+  
+  if (!rateLimit(req, res, { key: 'api:profile', limit: 30, windowMs: 60000 })) return;
   try {
     const user = await getUserFromAuthHeader(req);
     if (!user) return res.status(401).json({ error: "Unauthorized" });
@@ -65,7 +75,7 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "POST") {
-      const body = safeBody(req);
+      const body = await readJsonBody(req);
       const incoming = body?.profile && typeof body.profile === "object" ? body.profile : body;
 
       const payload = { id: user.id };

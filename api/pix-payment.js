@@ -1,6 +1,7 @@
 import { renderVipWelcomeEmail } from "../server/emailTemplates.js";
 import { getUserFromAuthHeader, supabaseAdmin } from "../server/supabase.js";
 import { getVipPlanById } from "../server/vipPlans.js";
+import { rateLimit } from '../server/rateLimit.js';
 
 export const config = { runtime: "nodejs" };
 
@@ -249,6 +250,8 @@ async function handleVerify(req, res) {
 }
 
 export default async function handler(req, res) {
+  
+  if (!rateLimit(req, res, { key: 'api:pix-status', limit: 60, windowMs: 60000 })) return;
   try {
     if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
     const action = String(req.query?.action || "").toLowerCase();

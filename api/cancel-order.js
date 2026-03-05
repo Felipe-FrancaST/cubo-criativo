@@ -1,6 +1,7 @@
 // api/cancel-order.js
 import { getUserFromAuthHeader, supabaseAdmin } from "../server/supabase.js";
 import { renderOrderStatusEmail } from "../server/emailTemplates.js";
+import { rateLimit } from '../server/rateLimit.js';
 
 async function sendResendEmail({to,subject,html}){
   const apiKey=String(process.env.RESEND_API_KEY||"" ).trim(); const from=String(process.env.RESEND_FROM||"" ).trim();
@@ -23,7 +24,9 @@ function buildCancelEmail(kind, order) {
 }
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  
+  if (!rateLimit(req, res, { key: 'api:cancel-order', limit: 20, windowMs: 60000 })) return;
+if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   try {
     const user = await getUserFromAuthHeader(req);

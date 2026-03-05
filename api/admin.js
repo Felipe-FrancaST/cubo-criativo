@@ -15,6 +15,7 @@
 import { supabaseAdmin } from "../server/supabase.js";
 import { requireAdmin } from "../server/admin/adminAuth.js";
 import { renderOrderStatusEmail } from "../server/emailTemplates.js";
+import { rateLimit } from '../server/rateLimit.js';
 
 export const config = { runtime: "nodejs" };
 
@@ -625,6 +626,8 @@ async function handleUpdateOrder(req, res) {
 }
 
 export default async function handler(req, res) {
+  
+  if (!rateLimit(req, res, { key: 'api:admin', limit: 60, windowMs: 60000 })) return;
   try {
     const action = String(req.query?.action || "").trim().toLowerCase();
 

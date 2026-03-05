@@ -17,6 +17,7 @@ import crypto from "crypto";
 import { getUserFromAuthHeader, supabaseAdmin } from "../server/supabase.js";
 import { calcCouponDiscount } from "../server/couponGame.js";
 import { getVipPlanById, listVipPlans, vipPlanDisplayName } from "../server/vipPlans.js";
+import { rateLimit } from '../server/rateLimit.js';
 
 export const config = { runtime: "nodejs" };
 
@@ -127,6 +128,8 @@ async function ensureCouponCpfAllowed(sb, { coupon, currentUser }) {
 }
 
 export default async function handler(req, res) {
+  
+  if (!rateLimit(req, res, { key: 'api:checkout', limit: 25, windowMs: 60000 })) return;
   try {
     if (req.method !== "POST") {
       return res.status(405).json({ error: "Method not allowed. Use POST." });
