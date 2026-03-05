@@ -556,6 +556,16 @@ async function handleUpdateOrder(req, res) {
   if (body.shipping_tracking !== undefined) {
     const tr = String(body.shipping_tracking || "").trim();
     next.shipping_tracking = tr || null;
+    // Keep new columns in sync when available
+    next.tracking_code = tr || null;
+  }
+  if (body.tracking_code !== undefined) {
+    const tc = String(body.tracking_code || "").trim();
+    next.tracking_code = tc || null;
+  }
+  if (body.tracking_url !== undefined) {
+    const tu = String(body.tracking_url || "").trim();
+    next.tracking_url = tu || null;
   }
 
   const production_eta = String(body.production_eta || "").trim();
@@ -576,10 +586,21 @@ async function handleUpdateOrder(req, res) {
   if (production_eta) next.production_eta = production_eta;
 
   let updateResp = await sb.from("orders").update(next).eq("id", order_id);
-  if (updateResp?.error && /production_eta|column/i.test(String(updateResp.error.message || ""))) {
-    const nextNoEta = { ...next };
-    delete nextNoEta.production_eta;
-    updateResp = await sb.from("orders").update(nextNoEta).eq("id", order_id);
+
+  // Some deployments may not have every optional column yet. If we hit a missing-column error,
+  // retry the update with those optional fields removed.
+  if (updateResp?.error && /column/i.test(String(updateResp.error.message || ""))) {
+    const msg = String(updateResp.error.message || "");
+    const retry = { ...next };
+
+    if (/production_eta/i.test(msg)) delete retry.production_eta;
+    if (/tracking_code/i.test(msg)) delete retry.tracking_code;
+    if (/tracking_url/i.test(msg)) delete retry.tracking_url;
+
+    // Only retry if we actually removed something.
+    if (Object.keys(retry).length !== Object.keys(next).length) {
+      updateResp = await sb.from("orders").update(retry).eq("id", order_id);
+    }
   }
   if (updateResp?.error) return res.status(500).json({ error: updateResp.error.message || "Update failed" });
 
