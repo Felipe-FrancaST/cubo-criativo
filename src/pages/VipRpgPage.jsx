@@ -32,6 +32,7 @@ export default function VipRpgPage({
   const [pixStatus, setPixStatus] = React.useState('');
   const [vipProfile, setVipProfile] = React.useState(null);
   const [vipLoading, setVipLoading] = React.useState(false);
+  const [vipChecked, setVipChecked] = React.useState(false);
   const [plans, setPlans] = React.useState([]);
   const [selectedPlanId, setSelectedPlanId] = React.useState('CUBO_L1_RPG');
 
@@ -41,10 +42,11 @@ export default function VipRpgPage({
   // Se o usuário já é VIP, não mostramos página intermediária.
   // Ao acessar /vip, redirecionamos direto para /area-vip.
   React.useEffect(() => {
+    if (!vipChecked) return;
     if (vipLoading) return;
     if (!isVip) return;
     onOpenVipArea?.();
-  }, [vipLoading, isVip, onOpenVipArea]);
+  }, [vipChecked, vipLoading, isVip, onOpenVipArea]);
 
   const fallbackPlans = React.useMemo(
     () => [
@@ -92,10 +94,12 @@ export default function VipRpgPage({
     async function loadVipProfile() {
       if (!accessToken) {
         if (alive) setVipProfile(null);
+        if (alive) setVipChecked(true);
         return;
       }
       try {
         setVipLoading(true);
+        setVipChecked(false);
         const res = await fetch('/api/profile', { headers: { Authorization: `Bearer ${accessToken}` } });
         const data = await res.json().catch(() => ({}));
         if (!alive) return;
@@ -104,6 +108,7 @@ export default function VipRpgPage({
         if (alive) setVipProfile(null);
       } finally {
         if (alive) setVipLoading(false);
+        if (alive) setVipChecked(true);
       }
     }
     loadVipProfile();
@@ -111,6 +116,22 @@ export default function VipRpgPage({
       alive = false;
     };
   }, [accessToken, ok]);
+
+  // Evita "flash" da página de planos para quem já está logado.
+  // Quando o usuário entra em /vip com sessão válida, esperamos checar o profile
+  // antes de renderizar os planos (se for VIP, redireciona direto).
+  if (accessToken && !vipChecked) {
+    return (
+      <main className="min-h-screen">
+        <section className="mx-auto w-full max-w-4xl px-4 pt-16 pb-24">
+          <div className="container-cc rounded-3xl p-6 ring-1 ring-white/10 bg-white/5">
+            <div className="text-sm text-slate-200 font-extrabold">Carregando…</div>
+            <div className="mt-2 text-xs text-slate-400">Verificando seu status VIP.</div>
+          </div>
+        </section>
+      </main>
+    );
+  }
 
   async function ensureProfileComplete() {
     const res = await fetch('/api/profile', { headers: { Authorization: `Bearer ${accessToken}` } });
@@ -460,16 +481,9 @@ export default function VipRpgPage({
 
             <div className="mt-8 flex flex-wrap gap-2">
               <button onClick={onGoHome} className="container-cc rounded-xl px-4 py-2 text-sm ring-1 ring-white/10 hover:bg-white/5">Voltar</button>
-              {user ? (
-                <button
-                  onClick={() => onOpenVipArea?.()}
-                  className="container-cc rounded-xl px-4 py-2 text-sm ring-1 ring-violet-400/25 bg-violet-500/10 hover:bg-violet-500/15"
-                >
-                  Abrir Área VIP
-                </button>
-              ) : (
+              {!user ? (
                 <button onClick={onOpenAuth} className="container-cc rounded-xl px-4 py-2 text-sm ring-1 ring-white/10 hover:bg-white/5">Entrar para assinar</button>
-              )}
+              ) : null}
             </div>
           </div>
         </div>
