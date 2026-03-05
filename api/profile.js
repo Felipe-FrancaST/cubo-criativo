@@ -34,6 +34,14 @@ const ALLOWED = new Set([
   "zip",
   "cpf",
   "birthdate",
+  "has_second_address",
+  "address2_line1",
+  "address2_number",
+  "address2_line2",
+  "address2_neighborhood",
+  "address2_city",
+  "address2_state",
+  "address2_zip",
 ]);
 
 export default async function handler(req, res) {
@@ -47,7 +55,7 @@ export default async function handler(req, res) {
       const { data, error } = await sb
         .from("profiles")
         .select(
-          "full_name, phone, cpf, birthdate, address_line1, address_number, address_line2, neighborhood, city, state, zip, vip_until, vip_plan"
+          "full_name, phone, cpf, birthdate, address_line1, address_number, address_line2, neighborhood, city, state, zip, vip_until, vip_plan, has_second_address, address2_line1, address2_number, address2_line2, address2_neighborhood, address2_city, address2_state, address2_zip"
         )
         .eq("id", user.id)
         .maybeSingle();
@@ -64,7 +72,8 @@ export default async function handler(req, res) {
       for (const [k, v] of Object.entries(incoming || {})) {
         if (!ALLOWED.has(k)) continue;
         const val = typeof v === "string" ? v.trim() : v;
-        if (val === "" || val === null || val === undefined) continue;
+        // Permite null para limpar campos (ex: segundo endereço)
+        if (val === "" || val === undefined) continue;
         payload[k] = val;
       }
 

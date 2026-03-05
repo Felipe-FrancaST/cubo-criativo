@@ -26,7 +26,15 @@ function findVipPlanForProfile(plans, profilePlan) {
 }
 
 export default function ProfileSettingsModal({ open, onClose, required = false, onSaved, initialTab = "profile", onSignOut, onNavigate, onRequireLogin, mode = "modal" }) {
-  const { user, session, resetPassword } = useAuth();
+  const { user, session, resetPassword } = useAuth();  const go = React.useCallback((path) => {
+    const normalized = String(path || '/');
+    try { if (onNavigate) return onNavigate(normalized); } catch {}
+    if (typeof window !== 'undefined') {
+      try { window.history.pushState({}, '', normalized); } catch {}
+      try { window.dispatchEvent(new PopStateEvent('popstate')); } catch {}
+    }
+  }, [onNavigate]);
+
 
   const isPage = mode === "page";
   function maybeClose() {
@@ -68,6 +76,16 @@ export default function ProfileSettingsModal({ open, onClose, required = false, 
   const [city, setCity] = React.useState("");
   const [stateUF, setStateUF] = React.useState("");
   const [zip, setZip] = React.useState("");
+
+
+const [hasSecondAddress, setHasSecondAddress] = React.useState(false);
+const [zip2, setZip2] = React.useState("");
+const [street2, setStreet2] = React.useState("");
+const [number2, setNumber2] = React.useState("");
+const [addr22, setAddr22] = React.useState("");
+const [neighborhood2, setNeighborhood2] = React.useState("");
+const [city2, setCity2] = React.useState("");
+const [stateUF2, setStateUF2] = React.useState("");
 
   const [avatarPreview, setAvatarPreview] = React.useState("");
   const [avatarFileName, setAvatarFileName] = React.useState("");
@@ -154,6 +172,15 @@ export default function ProfileSettingsModal({ open, onClose, required = false, 
     setCity(data?.city || "");
     setStateUF(data?.state || "");
     setZip(data?.zip || "");
+
+setHasSecondAddress(Boolean(data?.has_second_address));
+setStreet2(data?.address2_line1 || "");
+setNumber2(data?.address2_number || "");
+setAddr22(data?.address2_line2 || "");
+setNeighborhood2(data?.address2_neighborhood || "");
+setCity2(data?.address2_city || "");
+setStateUF2(data?.address2_state || "");
+setZip2(data?.address2_zip || "");
     setLoading(false);
   }, [user, jwt]);
 
@@ -574,6 +601,12 @@ export default function ProfileSettingsModal({ open, onClose, required = false, 
     if (!street.trim()) return fail("Informe a rua.");
     if (!number.trim()) return fail("Informe o número.");
 
+    if (hasSecondAddress) {
+      if (zip2.trim() && !isValidCep(zip2)) return fail("Segundo endereço: informe um CEP válido ou deixe em branco.");
+      if (zip2.trim() && (!city2.trim() || !stateUF2.trim())) return fail("Segundo endereço: informe cidade e UF (ou limpe o CEP).");
+      if (zip2.trim() && !street2.trim()) return fail("Segundo endereço: informe a rua (ou limpe o CEP).");
+    }
+
     let avatarUrl = '';
     try { avatarUrl = await uploadAvatarIfNeeded(); } catch (e) { return fail(`Não foi possível salvar a foto de perfil: ${e?.message || e}`); }
 
@@ -619,7 +652,7 @@ export default function ProfileSettingsModal({ open, onClose, required = false, 
 
   function goSettingsRoute(path) {
     try { maybeClose(); } catch {}
-    try { onNavigate?.(path); } catch {}
+    try { go(path); } catch {}
   }
 
   const inner = (
@@ -747,10 +780,10 @@ export default function ProfileSettingsModal({ open, onClose, required = false, 
                                       // Fallback: se não houver slug, mantém a navegação antiga via query.
                                       const slug = String(p?.slug || "").trim();
                                       if (slug) {
-                                        onNavigate?.(`/p/${encodeURIComponent(slug)}`);
+                                        go(`/p/${encodeURIComponent(slug)}`);
                                       } else {
                                         const pid = encodeURIComponent(String(p.id || ""));
-                                        onNavigate?.(`/estoque?product=${pid}&open=1`);
+                                        go(`/estoque?product=${pid}&open=1`);
                                       }
                                       onClose?.();
                                     }}
