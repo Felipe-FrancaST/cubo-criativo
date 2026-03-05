@@ -32,21 +32,43 @@ export default function VipRpgPage({
   const [pixStatus, setPixStatus] = React.useState('');
   const [vipProfile, setVipProfile] = React.useState(null);
   const [vipLoading, setVipLoading] = React.useState(false);
-  const [vipChecked, setVipChecked] = React.useState(false);
+  const [vipChecked, setVipChecked] = React.useState(() => !accessToken);
   const [plans, setPlans] = React.useState([]);
   const [selectedPlanId, setSelectedPlanId] = React.useState('CUBO_L1_RPG');
 
   const vipUntil = vipProfile?.vip_until || null;
   const isVip = Boolean(vipUntil && new Date(vipUntil) > new Date());
 
+  // Cache local (reduz "flash" ao abrir /vip para quem já é VIP)
+  const cachedVipUntil = React.useMemo(() => {
+    try {
+      return String(window?.localStorage?.getItem('vip_until_cache') || '');
+    } catch {
+      return '';
+    }
+  }, [accessToken]);
+
+  const isVipCached = Boolean(
+    accessToken &&
+      cachedVipUntil &&
+      (() => {
+        const d = new Date(cachedVipUntil);
+        return Number.isFinite(d.getTime()) && d > new Date();
+      })()
+  );
+
   // Se o usuário já é VIP, não mostramos página intermediária.
   // Ao acessar /vip, redirecionamos direto para /area-vip.
   React.useEffect(() => {
-    if (!vipChecked) return;
+    // Se já temos cache válido, redireciona imediatamente.
+    if (isVipCached) {
+      onOpenVipArea?.();
+      return;
+    }
     if (vipLoading) return;
     if (!isVip) return;
     onOpenVipArea?.();
-  }, [vipChecked, vipLoading, isVip, onOpenVipArea]);
+  }, [vipLoading, isVip, isVipCached, onOpenVipArea]);
 
   const fallbackPlans = React.useMemo(
     () => [
@@ -104,6 +126,12 @@ export default function VipRpgPage({
         const data = await res.json().catch(() => ({}));
         if (!alive) return;
         setVipProfile(data?.profile || null);
+
+        // Atualiza cache local
+        try {
+          const until = data?.profile?.vip_until ? String(data.profile.vip_until) : '';
+          if (until) window.localStorage.setItem('vip_until_cache', until);
+        } catch {}
       } catch {
         if (alive) setVipProfile(null);
       } finally {
@@ -117,18 +145,15 @@ export default function VipRpgPage({
     };
   }, [accessToken, ok]);
 
-  // Evita "flash" da página de planos para quem já está logado.
-  // Quando o usuário entra em /vip com sessão válida, esperamos checar o profile
-  // antes de renderizar os planos (se for VIP, redireciona direto).
-  if (accessToken && !vipChecked) {
+  // Evita "flash" dos planos ao entrar em /vip e já ser VIP.
+  // Mostra um estado neutro até confirmar (ou redirecionar).
+  if (accessToken && (isVipCached || !vipChecked || vipLoading || isVip)) {
     return (
-      <main className="min-h-screen">
-        <section className="mx-auto w-full max-w-4xl px-4 pt-16 pb-24">
-          <div className="container-cc rounded-3xl p-6 ring-1 ring-white/10 bg-white/5">
-            <div className="text-sm text-slate-200 font-extrabold">Carregando…</div>
-            <div className="mt-2 text-xs text-slate-400">Verificando seu status VIP.</div>
-          </div>
-        </section>
+      <main className="min-h-[70vh] flex items-center justify-center">
+        <div className="container-cc rounded-2xl p-6 ring-1 ring-white/10 bg-white/5 text-center">
+          <div className="text-sm text-slate-200 font-semibold">Abrindo Área VIP…</div>
+          <div className="mt-1 text-xs text-slate-400">Verificando sua assinatura</div>
+        </div>
       </main>
     );
   }
