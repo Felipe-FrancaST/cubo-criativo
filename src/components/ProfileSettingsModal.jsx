@@ -26,12 +26,25 @@ function findVipPlanForProfile(plans, profilePlan) {
 }
 
 export default function ProfileSettingsModal({ open, onClose, required = false, onSaved, initialTab = "profile", onSignOut, onNavigate, onRequireLogin, mode = "modal" }) {
-  const { user, session, resetPassword } = useAuth();  const go = React.useCallback((path) => {
-    const normalized = String(path || '/');
-    try { if (onNavigate) return onNavigate(normalized); } catch {}
-    if (typeof window !== 'undefined') {
-      try { window.history.pushState({}, '', normalized); } catch {}
-      try { window.dispatchEvent(new PopStateEvent('popstate')); } catch {}
+  const { user, session, resetPassword } = useAuth();
+
+  // Navegação compatível com o router simples do App.jsx.
+  // - Preferimos usar onNavigate (que chama navigate() e atualiza o state da rota).
+  // - Fallback: pushState + popstate
+  // - Último recurso: location.assign
+  const go = React.useCallback((path) => {
+    const normalized = String(path || "/");
+    try {
+      if (onNavigate) return onNavigate(normalized);
+    } catch {}
+
+    if (typeof window !== "undefined") {
+      try {
+        window.history.pushState({}, "", normalized);
+        window.dispatchEvent(new PopStateEvent("popstate"));
+        return;
+      } catch {}
+      try { window.location.assign(normalized); } catch {}
     }
   }, [onNavigate]);
 
@@ -623,6 +636,15 @@ setZip2(data?.address2_zip || "");
       city: city.trim(),
       state: stateUF.trim().toUpperCase(),
       zip: onlyDigits(zip),
+      // Segundo endereço
+      has_second_address: Boolean(hasSecondAddress),
+      address2_line1: hasSecondAddress ? street2.trim() : null,
+      address2_number: hasSecondAddress ? number2.trim() : null,
+      address2_line2: hasSecondAddress ? addr22.trim() : null,
+      address2_neighborhood: hasSecondAddress ? neighborhood2.trim() : null,
+      address2_city: hasSecondAddress ? city2.trim() : null,
+      address2_state: hasSecondAddress ? stateUF2.trim().toUpperCase() : null,
+      address2_zip: hasSecondAddress ? onlyDigits(zip2) : null,
       avatar_url: avatarUrl || undefined,
     };
     Object.keys(payload).forEach((k) => { if (payload[k] === "") delete payload[k]; });
@@ -720,6 +742,45 @@ setZip2(data?.address2_zip || "");
                 </div>
                 <div className="mt-3"><Field label="Complemento (opcional)"><input value={addr2} onChange={(e)=>setAddr2(e.target.value)} type="text" autoComplete="address-line2" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="Apartamento, bloco, etc" /></Field></div>
 
+                {/* Segundo endereço (opcional) */}
+                <div className="mt-5 rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-100">Segundo endereço</p>
+                      <p className="mt-1 text-xs text-slate-400">Opcional (ex.: trabalho, familiar, etc.).</p>
+                    </div>
+                    <label className="inline-flex items-center gap-2 text-xs text-slate-200 select-none">
+                      <input
+                        type="checkbox"
+                        checked={hasSecondAddress}
+                        onChange={(e) => setHasSecondAddress(e.target.checked)}
+                      />
+                      Ativar
+                    </label>
+                  </div>
+
+                  {hasSecondAddress ? (
+                    <div className="mt-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <Field label="CEP">
+                          <input value={zip2} onChange={(e)=>setZip2(e.target.value)} type="text" autoComplete="postal-code" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="00000-000" />
+                        </Field>
+                        <Field label="UF"><input value={stateUF2} onChange={(e)=>setStateUF2(e.target.value.toUpperCase())} type="text" autoComplete="address-level1" maxLength={2} className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="SP" /></Field>
+                      </div>
+
+                      <div className="mt-3"><Field label="Cidade"><input value={city2} onChange={(e)=>setCity2(e.target.value)} type="text" autoComplete="address-level2" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="Cidade" /></Field></div>
+                      <div className="mt-3"><Field label="Bairro"><input value={neighborhood2} onChange={(e)=>setNeighborhood2(e.target.value)} type="text" autoComplete="address-level3" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="Bairro" /></Field></div>
+                      <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div className="sm:col-span-2"><Field label="Rua"><input value={street2} onChange={(e)=>setStreet2(e.target.value)} type="text" autoComplete="address-line1" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="Rua Exemplo" /></Field></div>
+                        <Field label="Número"><input value={number2} onChange={(e)=>setNumber2(e.target.value)} type="text" inputMode="numeric" autoComplete="address-line2" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="123" /></Field>
+                      </div>
+                      <div className="mt-3"><Field label="Complemento (opcional)"><input value={addr22} onChange={(e)=>setAddr22(e.target.value)} type="text" autoComplete="address-line2" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="Apartamento, bloco, etc" /></Field></div>
+                    </div>
+                  ) : (
+                    <p className="mt-3 text-xs text-slate-400">Ative para preencher um segundo endereço e alternar depois no checkout (se você quiser).</p>
+                  )}
+                </div>
+
 
 
 
@@ -779,13 +840,17 @@ setZip2(data?.address2_zip || "");
                                       // Direciona diretamente para a página do produto (/p/:slug)
                                       // Fallback: se não houver slug, mantém a navegação antiga via query.
                                       const slug = String(p?.slug || "").trim();
+                                      // IMPORTANTE: não encode aqui. O App.jsx compara o slug bruto do banco.
+                                      // Se encodar, um slug com acentos/UTF-8 não bate e a página de produto não carrega.
                                       if (slug) {
-                                        go(`/p/${encodeURIComponent(slug)}`);
+                                        go(`/p/${slug}`);
                                       } else {
                                         const pid = encodeURIComponent(String(p.id || ""));
                                         go(`/estoque?product=${pid}&open=1`);
                                       }
-                                      onClose?.();
+                                      // Em modo página, não devemos "fechar" (voltar) ao navegar para o produto.
+                                      // Em modo modal, fechar é ok.
+                                      try { maybeClose(); } catch {}
                                     }}
                                     className="rounded-xl px-3 py-2 text-xs ring-1 ring-white/10 hover:bg-white/5"
                                   >
