@@ -26,7 +26,7 @@ function findVipPlanForProfile(plans, profilePlan) {
 }
 
 export default function ProfileSettingsModal({ open, onClose, required = false, onSaved, initialTab = "profile", onSignOut, onNavigate, onRequireLogin, mode = "modal" }) {
-  const { user, session, resetPassword } = useAuth();
+  const { user, session, resetPassword, loading: authLoading } = useAuth();
 
   // Navegação compatível com o router simples do App.jsx.
   // - Preferimos usar onNavigate (que chama navigate() e atualiza o state da rota).
@@ -56,11 +56,15 @@ export default function ProfileSettingsModal({ open, onClose, required = false, 
   }
 
   React.useEffect(() => {
-    if (open && !user) {
+    // Em refresh de página, o Supabase pode demorar alguns ms para restaurar a sessão.
+    // Não devemos abrir o modal de login enquanto o AuthProvider ainda está carregando.
+    if (!open) return;
+    if (authLoading) return;
+    if (!user) {
       onRequireLogin?.("Faça login para editar seus dados.");
       if (!required) maybeClose();
     }
-  }, [open, user]);
+  }, [open, user, authLoading, required]);
   const jwt = session?.access_token || "";
 
   const [loading, setLoading] = React.useState(false);

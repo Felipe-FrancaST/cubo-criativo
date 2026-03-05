@@ -1,5 +1,6 @@
 import React from "react";
 import { isAdminEmail } from "../lib/admin.js";
+import { useAuth } from "../auth/AuthProvider.jsx";
 
 const fmtBRL = (n) =>
   typeof n === "number" && isFinite(n)
@@ -783,6 +784,7 @@ function StartVotingModal({ state, onClose, onChange, onConfirm }) {
 }
 
 export default function AdminOrdersPage({ user, accessToken, onNavigateHome, onRequireLogin }) {
+  const { loading: authLoading } = useAuth();
   const isAdmin = isAdminEmail(user?.email || "");
   const [section, setSection] = React.useState("dashboard");
 
@@ -813,8 +815,9 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome, onR
   };
 
   React.useEffect(() => {
-    if (!user) onRequireLogin?.("Faça login como admin para acessar o painel.");
-  }, [user]);
+    // Evita abrir login durante a restauração de sessão após refresh.
+    if (!user && !authLoading) onRequireLogin?.("Faça login como admin para acessar o painel.");
+  }, [user, authLoading]);
 
   const fetchOrders = React.useCallback(async () => {
     if (!accessToken) return;

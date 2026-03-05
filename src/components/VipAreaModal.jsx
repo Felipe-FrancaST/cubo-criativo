@@ -47,17 +47,18 @@ function findPlanByProfileValue(plans, profilePlan) {
 }
 
 export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, asPage = false, onGoHome }) {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
 
   const isOpen = asPage ? true : open;
 
   React.useEffect(() => {
-    if (isOpen && !user) {
+    // Evita falso-positivo ao recarregar: aguarda o AuthProvider resolver a sessão.
+    if (isOpen && !user && !authLoading) {
       // Em modo página não fechamos nada — apenas pedimos login.
       onRequireLogin?.("Entre para acessar a Área VIP.");
       if (!asPage) onClose?.();
     }
-  }, [isOpen, user, asPage]);
+  }, [isOpen, user, asPage, authLoading]);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState("");
   const [vipUntil, setVipUntil] = React.useState(null);
