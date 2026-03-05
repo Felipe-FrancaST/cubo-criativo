@@ -35,6 +35,7 @@ export default function VipRpgPage({
   const [vipChecked, setVipChecked] = React.useState(() => !accessToken);
   const [plans, setPlans] = React.useState([]);
   const [selectedPlanId, setSelectedPlanId] = React.useState('');
+  const [plansLoading, setPlansLoading] = React.useState(true);
 
   const vipUntil = vipProfile?.vip_until || null;
   const isVip = Boolean(vipUntil && new Date(vipUntil) > new Date());
@@ -85,6 +86,7 @@ export default function VipRpgPage({
     let alive = true;
     (async () => {
       try {
+        setPlansLoading(true);
         const res = await fetch('/api/vip-plans');
         const data = await res.json().catch(() => ({}));
         if (!alive) return;
@@ -93,6 +95,8 @@ export default function VipRpgPage({
         if (arr.length && (!selectedPlanId || !arr.find((p) => p.id === selectedPlanId))) setSelectedPlanId(arr[0]?.id || '');
       } catch {
         if (alive) setPlans([]);
+      } finally {
+        if (alive) setPlansLoading(false);
       }
     })();
     return () => {
@@ -134,6 +138,37 @@ export default function VipRpgPage({
     };
   }, [accessToken, ok]);
 
+  // IMPORTANTE: estes effects precisam ficar antes de qualquer "return" condicional
+  // para evitar erro do React (hooks em ordem diferente entre renders).
+  React.useEffect(() => {
+    const onSaved = async () => {
+      if (!pendingStart) return;
+      const method = pendingStart;
+      setPendingStart(null);
+      if (method === 'pix') startPix(selectedPlanId);
+      else startCard(selectedPlanId);
+    };
+    window.addEventListener('profile:saved', onSaved);
+    return () => window.removeEventListener('profile:saved', onSaved);
+  }, [pendingStart, selectedPlanId]);
+
+  React.useEffect(() => {
+    if (!pix?.order_id || !accessToken) return;
+    let stopped = false;
+    const t = setInterval(async () => {
+      if (stopped) return;
+      const done = await verifyVipPix(pix.order_id);
+      if (done) {
+        stopped = true;
+        clearInterval(t);
+      }
+    }, 5000);
+    return () => {
+      stopped = true;
+      clearInterval(t);
+    };
+  }, [pix?.order_id, accessToken]);
+
   // Evita "flash" dos planos ao entrar em /planos-vip e já ser VIP.
   // Mostra um estado neutro até confirmar (ou redirecionar).
   if (accessToken && (isVipCached || !vipChecked || vipLoading || isVip)) {
@@ -142,6 +177,19 @@ export default function VipRpgPage({
         <div className="container-cc rounded-2xl p-6 ring-1 ring-white/10 bg-white/5 text-center">
           <div className="text-sm text-slate-200 font-semibold">Abrindo Área VIP…</div>
           <div className="mt-1 text-xs text-slate-400">Verificando sua assinatura</div>
+        </div>
+      </main>
+    );
+  }
+
+  // Enquanto carrega os planos do Supabase, mostramos um estado neutro
+  // (evita tela "indisponível" antes do fetch terminar).
+  if (plansLoading) {
+    return (
+      <main className="min-h-[70vh] flex items-center justify-center">
+        <div className="container-cc rounded-2xl p-6 ring-1 ring-white/10 bg-white/5 text-center">
+          <div className="text-sm text-slate-200 font-semibold">Carregando planos VIP…</div>
+          <div className="mt-1 text-xs text-slate-400">Aguarde um instante</div>
         </div>
       </main>
     );
@@ -217,35 +265,6 @@ export default function VipRpgPage({
     if (!pix?.order_id) return;
     await verifyVipPix(pix.order_id);
   }
-
-  React.useEffect(() => {
-    const onSaved = async () => {
-      if (!pendingStart) return;
-      const method = pendingStart;
-      setPendingStart(null);
-      if (method === 'pix') startPix(selectedPlanId);
-      else startCard(selectedPlanId);
-    };
-    window.addEventListener('profile:saved', onSaved);
-    return () => window.removeEventListener('profile:saved', onSaved);
-  }, [pendingStart, selectedPlanId]);
-
-  React.useEffect(() => {
-    if (!pix?.order_id || !accessToken) return;
-    let stopped = false;
-    const t = setInterval(async () => {
-      if (stopped) return;
-      const done = await verifyVipPix(pix.order_id);
-      if (done) {
-        stopped = true;
-        clearInterval(t);
-      }
-    }, 5000);
-    return () => {
-      stopped = true;
-      clearInterval(t);
-    };
-  }, [pix?.order_id, accessToken]);
 
   async function startPix(planId) {
     setError('');
