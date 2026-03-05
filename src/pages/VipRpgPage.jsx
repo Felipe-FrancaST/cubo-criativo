@@ -38,6 +38,14 @@ export default function VipRpgPage({
   const vipUntil = vipProfile?.vip_until || null;
   const isVip = Boolean(vipUntil && new Date(vipUntil) > new Date());
 
+  // Se o usuário já é VIP, não mostramos página intermediária.
+  // Ao acessar /vip, redirecionamos direto para /area-vip.
+  React.useEffect(() => {
+    if (vipLoading) return;
+    if (!isVip) return;
+    onOpenVipArea?.();
+  }, [vipLoading, isVip, onOpenVipArea]);
+
   const fallbackPlans = React.useMemo(
     () => [
       { id: 'CUBO_L1_RPG', name: 'Cubo Level 1 — RPG', price_brl: 40, miniatures_count: 3, boss_count: 0 },
@@ -310,31 +318,8 @@ export default function VipRpgPage({
             {vipLoading ? (
               <div className="mt-8 rounded-2xl bg-white/5 ring-1 ring-white/10 p-5 text-slate-200">Carregando…</div>
             ) : isVip ? (
-              <div className="mt-8 space-y-4">
-                <div className="rounded-2xl bg-emerald-500/10 ring-1 ring-emerald-400/25 p-5 sm:p-6">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge>👑 VIP ativo</Badge>
-                    {vipUntil ? <Badge>Válido até {new Date(vipUntil).toLocaleDateString('pt-BR')}</Badge> : null}
-                  </div>
-                  <h2 className="mt-3 text-2xl sm:text-3xl font-extrabold text-emerald-100">Você já é VIP</h2>
-                  <p className="mt-2 text-sm sm:text-base text-emerald-50/80">
-                    Acesse a Área VIP para escolher suas miniaturas do mês e acompanhar o status da produção/envio.
-                  </p>
-                  <div className="mt-4 flex flex-col sm:flex-row gap-2">
-                    <button
-                      onClick={() => onOpenVipArea?.()}
-                      className="container-cc rounded-xl px-4 py-3 font-extrabold bg-violet-400 text-black ring-4 ring-violet-400/20 hover:bg-violet-300"
-                    >
-                      Acessar Área VIP
-                    </button>
-                    <button
-                      onClick={onGoHome}
-                      className="container-cc rounded-xl px-4 py-3 font-semibold ring-1 ring-white/15 hover:bg-white/5"
-                    >
-                      Voltar
-                    </button>
-                  </div>
-                </div>
+              <div className="mt-8 rounded-2xl bg-white/5 ring-1 ring-white/10 p-5 text-slate-200">
+                Abrindo Área VIP…
               </div>
             ) : (
               <div className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-4">

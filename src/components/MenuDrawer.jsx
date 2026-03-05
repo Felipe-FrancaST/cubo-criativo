@@ -108,8 +108,16 @@ export default function MenuDrawer({
 
   <div className="space-y-2">
     <p className="text-xs font-semibold tracking-wider text-slate-500 uppercase px-1">Clube</p>
-    <DrawerButton icon="stars" onClick={() => { onNavigate("/vip"); onClose?.(); }}>
-      Clube VIP
+    <DrawerButton
+      icon="stars"
+      onClick={() => {
+        // Mantemos apenas um acesso no menu.
+        // A rota /vip redireciona automaticamente VIPs para /area-vip.
+        onNavigate("/vip");
+        onClose?.();
+      }}
+    >
+      Área VIP
     </DrawerButton>
   </div>
 
@@ -160,13 +168,13 @@ export default function MenuDrawer({
 
           <button
             onClick={() => {
-              onOpenVipArea?.();
+              onOpenSettings?.("settings");
               onClose?.();
             }}
-            className="rounded-xl px-4 py-3 text-sm ring-1 ring-violet-400/25 bg-violet-500/10 hover:bg-violet-500/15 transition flex items-center gap-2 justify-center"
+            className="rounded-xl px-4 py-3 text-sm ring-1 ring-white/10 hover:bg-white/5 transition flex items-center gap-2 justify-center"
           >
-            <span className="material-icons text-[18px]">stars</span>
-            Área VIP
+            <span className="material-icons text-[18px]">settings</span>
+            Ajustes
           </button>
         </div>
 
