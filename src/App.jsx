@@ -1350,7 +1350,7 @@ React.useEffect(() => {
               <div className="flex items-center gap-2">
                 <span className="material-icons text-[18px] text-slate-300" title="Envio com rastreio">local_shipping</span>
                 <span className="material-icons text-[18px] text-slate-300" title="Pagamento seguro">lock</span>
-                <span className="material-icons text-[18px] text-slate-300" title="Produção 3–7 dias úteis">schedule</span>
+                <span className="material-icons text-[18px] text-slate-300" title="Produção 15–30 dias úteis">schedule</span>
                 <a
                   className="inline-flex items-center"
                   href={`https://wa.me/${brand.whatsapp}`}
@@ -1386,7 +1386,7 @@ React.useEffect(() => {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="material-icons text-[18px] text-slate-300">schedule</span>
-                    <span>Produção: 3–7 dias úteis</span>
+                    <span>Produção: 15–30 dias úteis</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="material-icons text-[18px] text-slate-300">support_agent</span>
@@ -1416,7 +1416,7 @@ React.useEffect(() => {
             </div>
             <div className="flex items-center gap-2">
               <span className="material-icons text-[18px] text-slate-300">schedule</span>
-              <span>Produção: 3–7 dias úteis</span>
+              <span>Produção: 15–30 dias úteis</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="material-icons text-[18px] text-slate-300">support_agent</span>
@@ -1443,7 +1443,7 @@ React.useEffect(() => {
             <div>
               <p className="font-extrabold text-lg">{brand.name}</p>
               <p className="text-slate-400 mt-2">Cultura geek, qualidade de coleção.</p>
-              <p className="text-xs text-slate-500 mt-3">Produção sob encomenda: 3–7 dias úteis • envio com rastreio</p>
+              <p className="text-xs text-slate-500 mt-3">Produção sob encomenda: 15–30 dias úteis • envio com rastreio</p>
             </div>
             <div>
               <p className="font-bold">Compra segura</p>

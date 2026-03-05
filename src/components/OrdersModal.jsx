@@ -592,8 +592,17 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
     }
 
     const listAll = Array.isArray(ordersData) ? ordersData : [];
-    // Assinatura VIP não aparece em "Meus pedidos" (fica só no painel VIP)
-    const list = listAll.filter((o) => String(o.order_type || "shop").toLowerCase() !== "vip");
+    // Itens que NÃO devem aparecer em "Meus pedidos":
+    // - Assinatura VIP (fica só no painel VIP)
+    // - Upgrade do VIP (é um pagamento interno do VIP, não um pedido da loja)
+    const hiddenTypes = new Set([
+      'vip',
+      'vip_upgrade',
+      'vip-upgrade',
+      'upgrade_vip',
+      'upgrade',
+    ]);
+    const list = listAll.filter((o) => !hiddenTypes.has(String(o.order_type || 'shop').toLowerCase()));
     if (list.length === 0) {
       setOrders([]);
       setReviewsByOrder({});

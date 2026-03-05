@@ -289,7 +289,7 @@ export default function HomePage({
         <div className="grid lg:grid-cols-3 gap-4">
           <div className="rounded-2xl p-5 bg-white/5 ring-1 ring-white/10">
             <p className="text-xs text-slate-400">Prazo de produção</p>
-            <p className="mt-1 font-bold">Sob encomenda: 3–7 dias úteis</p>
+            <p className="mt-1 font-bold">Sob encomenda: 15–30 dias úteis</p>
             <p className="mt-2 text-sm text-slate-300">Pode variar por complexidade, pintura e fila de produção.</p>
           </div>
           <div className="rounded-2xl p-5 bg-white/5 ring-1 ring-white/10">
