@@ -8,7 +8,6 @@ import CartDrawer from "./components/CartDrawer.jsx";
 import AuthModal from "./components/AuthModal.jsx";
 import OrdersModal from "./components/OrdersModal.jsx";
 import MenuDrawer from "./components/MenuDrawer.jsx";
-import ProfileSettingsModal from "./components/ProfileSettingsModal.jsx";
 import VipAreaModal from "./components/VipAreaModal.jsx";
 import SiteHeader from "./components/SiteHeader.jsx";
 import { useAuth } from "./auth/AuthProvider.jsx";
@@ -19,6 +18,7 @@ import HomePage from "./pages/HomePage.jsx";
 import StockPage from "./pages/StockPage.jsx";
 import CatalogPage from "./pages/CatalogPage.jsx";
 import AccountPage from "./pages/AccountPage.jsx";
+import SettingsPage from "./pages/SettingsPage.jsx";
 import PromocoesPage from "./pages/PromocoesPage.jsx";
 import ProductPage from "./pages/ProductPage.jsx";
 import SobrePage from "./pages/SobrePage.jsx";
@@ -386,6 +386,8 @@ export default function App() {
       "/cupom": { title: "Cubo Game | Cubo Criativo", description: "Jogue 1x por semana no Cubo Game e ganhe cupom para usar no carrinho.", path: "/cupom" },
       "/vip": { title: "Cubo Level 1 RPG | Clube VIP", description: "Assine o Cubo Level 1 RPG: 3 miniaturas/mês e Cubo Game diário para VIPs.", path: "/vip" },
       "/area-vip": { title: "Área VIP | Cubo Criativo", description: "Escolha suas miniaturas do ciclo, vote no tema e acompanhe o status do seu pedido VIP.", path: "/area-vip" },
+      "/perfil": { title: "Minha conta | Cubo Criativo", description: "Edite seu perfil, endereço e dados para compra.", path: "/perfil" },
+      "/configuracoes": { title: "Configurações | Cubo Criativo", description: "Segurança, favoritos, avaliações e cupons.", path: "/configuracoes" },
     };
     // Rotas dinâmicas (/p/:slug) são tratadas em um effect separado para SEO + schema.
     if (String(route || "").startsWith("/p/")) {
@@ -425,9 +427,12 @@ React.useEffect(() => {
   }
 
   function openSettings(tab = 'profile', opts = {}) {
-    setSettingsTab(tab === 'settings' ? 'settings' : 'profile');
-    setSettingsAutoClose(Boolean(opts?.autoClose));
-    setSettingsOpen(true);
+    const t = tab === 'settings' ? 'settings' : 'profile';
+    setSettingsCtx({
+      returnTo: String(opts?.returnTo || route || "/"),
+      autoClose: Boolean(opts?.autoClose),
+    });
+    navigate(t === 'settings' ? '/configuracoes' : '/perfil');
   }
 
   function scrollToId(id) {
@@ -458,9 +463,8 @@ React.useEffect(() => {
   // ===== UI =====
   const [authOpen, setAuthOpen] = React.useState(false);
   const [ordersOpen, setOrdersOpen] = React.useState(false);
-  const [settingsOpen, setSettingsOpen] = React.useState(false);
-  const [settingsTab, setSettingsTab] = React.useState('profile');
-  const [settingsAutoClose, setSettingsAutoClose] = React.useState(false);
+  // Configurações/Perfil agora são PÁGINA (não modal)
+  const [settingsCtx, setSettingsCtx] = React.useState({ returnTo: "/", autoClose: false });
   const [vipAreaOpen, setVipAreaOpen] = React.useState(false);
   const [menuDrawerOpen, setMenuDrawerOpen] = React.useState(false);
 
@@ -941,12 +945,12 @@ React.useEffect(() => {
   }, []);
 
   React.useEffect(() => {
-    const anyOverlayOpen = cartOpen || galleryOpen || authOpen || ordersOpen || settingsOpen || menuDrawerOpen;
+    const anyOverlayOpen = cartOpen || galleryOpen || authOpen || ordersOpen || menuDrawerOpen;
     document.body.style.overflow = anyOverlayOpen ? "hidden" : "";
     return () => {
       document.body.style.overflow = "";
     };
-  }, [cartOpen, galleryOpen, authOpen, ordersOpen, settingsOpen, menuDrawerOpen]);
+  }, [cartOpen, galleryOpen, authOpen, ordersOpen, menuDrawerOpen]);
 
   // fecha menu lateral quando muda rota
   React.useEffect(() => {
@@ -1261,6 +1265,37 @@ React.useEffect(() => {
     if (route === "/area-vip") {
       return <VipAreaPage onGoHome={() => navigate("/")} onGoVip={() => navigate("/vip")} onRequireLogin={(msg) => requireLogin(msg)} />;
     }
+    if (route === "/configuracoes" || route === "/perfil") {
+      const initialTab = route === "/configuracoes" ? "settings" : "profile";
+      return (
+        <SettingsPage
+          initialTab={initialTab}
+          onGoBack={() => {
+            const back = String(settingsCtx?.returnTo || "/");
+            // evita loop
+            if (back === route) navigate("/");
+            else navigate(back);
+            setSettingsCtx((p) => ({ ...p, autoClose: false }));
+          }}
+          onRequireLogin={requireLogin}
+          onNavigate={navigate}
+          onSignOut={() => signOut()}
+          onSaved={() => {
+            setToastMsg("Dados salvos!");
+            setToastOpen(true);
+            clearTimeout(toastT.current);
+            toastT.current = setTimeout(() => setToastOpen(false), 1600);
+
+            if (settingsCtx?.autoClose) {
+              const back = String(settingsCtx?.returnTo || "/");
+              setSettingsCtx((p) => ({ ...p, autoClose: false }));
+              // volta para o fluxo (ex.: checkout)
+              if (back && back !== route) navigate(back);
+            }
+          }}
+        />
+      );
+    }
     if (route === "/conta") {
       return <AccountPage onGoHome={() => navigate("/")} />;
     }
@@ -1512,7 +1547,7 @@ React.useEffect(() => {
         userId={user?.id || ""}
         userEmail={user?.email || ""}
         onRequireLogin={requireLogin}
-        onRequireProfile={() => openSettings('profile')}
+        onRequireProfile={() => openSettings('profile', { autoClose: true })}
         onOpenOrders={() => setOrdersOpen(true)}
         onPaymentConfirmed={() => {
           setCart([]);
@@ -1543,33 +1578,6 @@ React.useEffect(() => {
       />
 
       <VipAreaModal onRequireLogin={requireLogin} open={vipAreaOpen} onClose={() => setVipAreaOpen(false)} onGoVip={() => { setVipAreaOpen(false); navigate("/vip"); }} />
-
-      <ProfileSettingsModal
-        open={settingsOpen}
-        onRequireLogin={requireLogin}
-        initialTab={settingsTab}
-        onNavigate={navigate}
-        onSignOut={() => signOut()}
-        onClose={() => {
-          setSettingsOpen(false);
-          setSettingsAutoClose(false);
-        }}
-        autoCloseOnSave={settingsAutoClose}
-        onSaved={() => {
-          if (settingsAutoClose) {
-            setSettingsOpen(false);
-            setSettingsAutoClose(false);
-          }
-          setToastMsg("Dados salvos!");
-          setToastOpen(true);
-          clearTimeout(toastT.current);
-          toastT.current = setTimeout(() => setToastOpen(false), 1600);
-          if (settingsAutoClose) {
-            setSettingsOpen(false);
-            setSettingsAutoClose(false);
-          }
-        }}
-      />
 
       {/* MODAL GALERIA */}
       {/*

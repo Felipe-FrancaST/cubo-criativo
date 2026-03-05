@@ -25,13 +25,19 @@ function findVipPlanForProfile(plans, profilePlan) {
   return (plans || []).find((p) => [p?.id,p?.slug,p?.name,p?.short_name,p?.title].map(normVipText).some((c)=> c && (c===q || q.includes(c) || c.includes(q)))) || null;
 }
 
-export default function ProfileSettingsModal({ open, onClose, required = false, onSaved, initialTab = "profile", onSignOut, onNavigate, onRequireLogin }) {
+export default function ProfileSettingsModal({ open, onClose, required = false, onSaved, initialTab = "profile", onSignOut, onNavigate, onRequireLogin, mode = "modal" }) {
   const { user, session, resetPassword } = useAuth();
+
+  const isPage = mode === "page";
+  function maybeClose() {
+    if (isPage) return;
+    try { onClose?.(); } catch {}
+  }
 
   React.useEffect(() => {
     if (open && !user) {
       onRequireLogin?.("Faça login para editar seus dados.");
-      if (!required) onClose?.();
+      if (!required) maybeClose();
     }
   }, [open, user]);
   const jwt = session?.access_token || "";
@@ -607,19 +613,17 @@ export default function ProfileSettingsModal({ open, onClose, required = false, 
       window.dispatchEvent(new CustomEvent('profile:saved'));
     } catch {}
     try { onSaved?.(); } catch {}
-    setTimeout(() => { try { onClose?.(); } catch {} }, 200);
+    setTimeout(() => { try { maybeClose(); } catch {} }, 200);
     setSaving(false);
   }
 
   function goSettingsRoute(path) {
-    try { onClose?.(); } catch {}
+    try { maybeClose(); } catch {}
     try { onNavigate?.(path); } catch {}
   }
 
-  return (
-    <>
-    <Modal open={open} onClose={onClose} title={activeTab === "settings" ? "Configurações" : "Perfil"}>
-      <div className="w-full max-w-3xl">
+  const inner = (
+      <div className="w-full max-w-3xl mx-auto">
         {!user ? (
           <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4 text-slate-200">
             <div className="font-semibold">Entre para continuar</div>
@@ -898,9 +902,9 @@ export default function ProfileSettingsModal({ open, onClose, required = false, 
           </div>
         )}
       </div>
-    </Modal>
+  );
 
-    {/* Modal de avaliação */}
+  const reviewModalEl = (
     <Modal
       open={!!reviewModal.open}
       onClose={() => setReviewModal({ open: false, order: null, rating: 5, comment: "", busy: false })}
@@ -964,6 +968,24 @@ export default function ProfileSettingsModal({ open, onClose, required = false, 
         </div>
       )}
     </Modal>
+  );
+
+  if (isPage) {
+    if (!open) return null;
+    return (
+      <>
+        {inner}
+        {reviewModalEl}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <Modal open={open} onClose={onClose} title={activeTab === "settings" ? "Configurações" : "Perfil"}>
+        {inner}
+      </Modal>
+      {reviewModalEl}
     </>
   );
 }
