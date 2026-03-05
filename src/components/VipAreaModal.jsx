@@ -24,14 +24,8 @@ function fmtBRLFromCents(cents) {
   if (!isFinite(n)) return '—';
   return (n / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
-
-
-
-const FALLBACK_VIP_PLANS = [
-  { id: "CUBO_L1_RPG", slug: "level-1", name: "Cubo Level 1 — RPG", short_name: "Level 1", miniatures_count: 3, boss_count: 0, items_per_month: 3 },
-  { id: "CUBO_L2_RPG", slug: "level-2", name: "Cubo Level 2 — RPG", short_name: "Level 2", miniatures_count: 4, boss_count: 1, items_per_month: 5 },
-  { id: "CUBO_L3_RPG", slug: "level-3", name: "Cubo Level 3 — RPG", short_name: "Level 3", miniatures_count: 8, boss_count: 2, items_per_month: 10 },
-];
+// Planos VIP vêm do Supabase (tabela vip_plans). Sem valores fixos no código.
+const FALLBACK_VIP_PLANS = [];
 
 function normalizeText(v) {
   return String(v || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
@@ -59,9 +53,18 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
       if (!asPage) onClose?.();
     }
   }, [isOpen, user, asPage, authLoading]);
-  const [loading, setLoading] = React.useState(false);
+  // no refresh, usamos cache local para não "piscar" o upsell
+  const cachedVipUntil = React.useMemo(() => {
+    try {
+      return String(window?.localStorage?.getItem('vip_until_cache') || '');
+    } catch {
+      return '';
+    }
+  }, [isOpen]);
+
+  const [loading, setLoading] = React.useState(() => Boolean(isOpen && user));
   const [error, setError] = React.useState("");
-  const [vipUntil, setVipUntil] = React.useState(null);
+  const [vipUntil, setVipUntil] = React.useState(() => (cachedVipUntil ? cachedVipUntil : null));
   const [vipPlan, setVipPlan] = React.useState("");
   const [orderStatus, setOrderStatus] = React.useState("editavel");
   const [shippingTracking, setShippingTracking] = React.useState("");
@@ -113,7 +116,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
   // - editando: usa selected
   // - travado: usa savedSelected
   const displaySelected = React.useMemo(() => (editing ? selected : savedSelected), [editing, selected, savedSelected]);
-  const selectedPlan = React.useMemo(() => findPlanByProfileValue(vipPlans, vipPlan) || FALLBACK_VIP_PLANS[0], [vipPlans, vipPlan]);
+  const selectedPlan = React.useMemo(() => findPlanByProfileValue(vipPlans, vipPlan) || (Array.isArray(vipPlans) ? vipPlans[0] : null), [vipPlans, vipPlan]);
 
   const nextPlan = React.useMemo(() => {
     const plans = Array.isArray(vipPlans) && vipPlans.length ? vipPlans : FALLBACK_VIP_PLANS;
@@ -122,7 +125,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
     if (idx >= 0 && idx + 1 < ordered.length) return ordered[idx + 1];
     return null;
   }, [vipPlans, selectedPlan?.id]);
-  const miniLimit = Math.max(0, Number(selectedPlan?.miniatures_count ?? selectedPlan?.items_per_month ?? 3) || 0);
+  const miniLimit = Math.max(0, Number(selectedPlan?.miniatures_count ?? selectedPlan?.items_per_month ?? 0) || 0);
   const bossLimit = Math.max(0, Number(selectedPlan?.boss_count ?? 0) || 0);
   const totalLimit = Math.max(0, Number(selectedPlan?.items_per_month ?? (miniLimit + bossLimit)) || (miniLimit + bossLimit));
 
@@ -372,8 +375,14 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
         supabase.from("vip_mini_selections").select("selected_option_ids,saved_at").eq("user_id", user.id).eq("cycle_key", cycle).maybeSingle(),
       ]);
 
-      setVipUntil(prof?.vip_until || null);
-      setVipPlan(prof?.vip_plan || "Cubo Level 1 — RPG");
+      const until = prof?.vip_until || null;
+      setVipUntil(until);
+      setVipPlan(prof?.vip_plan || "");
+
+      // Atualiza cache local para evitar "piscar" no refresh.
+      try {
+        if (until) window.localStorage.setItem('vip_until_cache', String(until));
+      } catch {}
       // Os blocos pesados entram depois
       setOptions([]);
       setPoll(null);
@@ -652,16 +661,20 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
           </div>
 
           {!user ? (
-            <div className="mt-6 rounded-2xl bg-white/5 ring-1 ring-white/10 p-5">
-              <p className="text-slate-200">Entre para acessar a Área VIP.</p>
-              <button
-                type="button"
-                onClick={() => onRequireLogin?.("Entre para acessar a Área VIP.")}
-                className="mt-4 rounded-xl px-4 py-3 font-extrabold bg-teal-400 text-black ring-4 ring-teal-400/20"
-              >
-                Entrar
-              </button>
-            </div>
+            authLoading ? (
+              <div className="mt-6 rounded-2xl bg-white/5 ring-1 ring-white/10 p-4 text-slate-200">Carregando…</div>
+            ) : (
+              <div className="mt-6 rounded-2xl bg-white/5 ring-1 ring-white/10 p-5">
+                <p className="text-slate-200">Entre para acessar a Área VIP.</p>
+                <button
+                  type="button"
+                  onClick={() => onRequireLogin?.("Entre para acessar a Área VIP.")}
+                  className="mt-4 rounded-xl px-4 py-3 font-extrabold bg-teal-400 text-black ring-4 ring-teal-400/20"
+                >
+                  Entrar
+                </button>
+              </div>
+            )
           ) : loading ? (
             <div className="mt-6 rounded-2xl bg-white/5 ring-1 ring-white/10 p-4 text-slate-200">Carregando…</div>
           ) : error ? (

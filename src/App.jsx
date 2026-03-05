@@ -30,6 +30,7 @@ import TrocasPage from "./pages/TrocasPage.jsx";
 import TermosPage from "./pages/TermosPage.jsx";
 import CupomGamePage from "./pages/CupomGamePage.jsx";
 import VipRpgPage from "./pages/VipRpgPage.jsx";
+import VipRedirectPage from "./pages/VipRedirectPage.jsx";
 import SobEncomendaPage from "./pages/SobEncomendaPage.jsx";
 import VipAreaPage from "./pages/VipAreaPage.jsx";
 import { isAdminEmail } from "./lib/admin.js";
@@ -352,6 +353,19 @@ export default function App() {
   const accessToken = session?.access_token || "";
   const isAdmin = isAdminEmail(user?.email || "");
 
+  // VIP (best-effort) via cache local para evitar flashes no menu.
+  const isVipCached = React.useMemo(() => {
+    try {
+      if (!accessToken) return false;
+      const raw = String(window?.localStorage?.getItem('vip_until_cache') || '');
+      if (!raw) return false;
+      const d = new Date(raw);
+      return Number.isFinite(d.getTime()) && d > new Date();
+    } catch {
+      return false;
+    }
+  }, [accessToken]);
+
   // UI
   const [trustOpen, setTrustOpen] = React.useState(false);
 
@@ -384,7 +398,8 @@ export default function App() {
       "/trocas-e-devolucoes": { title: "Trocas e devoluções | Cubo Criativo", description: "Informações sobre trocas, devoluções e peças sob encomenda.", path: "/trocas-e-devolucoes" },
       "/termos": { title: "Termos de uso | Cubo Criativo", description: "Condições gerais de navegação e compra no site da Cubo Criativo.", path: "/termos" },
       "/cupom": { title: "Cubo Game | Cubo Criativo", description: "Jogue 1x por semana no Cubo Game e ganhe cupom para usar no carrinho.", path: "/cupom" },
-      "/vip": { title: "Cubo Level 1 RPG | Clube VIP", description: "Assine o Cubo Level 1 RPG: 3 miniaturas/mês e Cubo Game diário para VIPs.", path: "/vip" },
+      "/vip": { title: "Clube VIP | Cubo Criativo", description: "Acesse a Área VIP ou confira os planos do Clube VIP.", path: "/vip" },
+      "/planos-vip": { title: "Planos VIP | Cubo Criativo", description: "Assine o Clube VIP e escolha miniaturas mensais, vote no tema e acompanhe seu ciclo.", path: "/planos-vip" },
       "/area-vip": { title: "Área VIP | Cubo Criativo", description: "Escolha suas miniaturas do ciclo, vote no tema e acompanhe o status do seu pedido VIP.", path: "/area-vip" },
       "/perfil": { title: "Minha conta | Cubo Criativo", description: "Edite seu perfil, endereço e dados para compra.", path: "/perfil" },
       "/configuracoes": { title: "Configurações | Cubo Criativo", description: "Segurança, favoritos, avaliações e cupons.", path: "/configuracoes" },
@@ -1260,10 +1275,14 @@ React.useEffect(() => {
       return <CupomGamePage onGoHome={() => navigate("/")} user={user} accessToken={accessToken} />;
     }
     if (route === "/vip") {
+      // Rota inteligente: VIPs vão direto pra Área VIP, não-VIPs vão para /planos-vip.
+      return <VipRedirectPage user={user} accessToken={accessToken} onNavigate={navigate} onOpenAuth={() => setAuthOpen(true)} />;
+    }
+    if (route === "/planos-vip") {
       return <VipRpgPage user={user} accessToken={accessToken} onOpenAuth={() => setAuthOpen(true)} onOpenSettings={openSettings} onOpenVipArea={() => navigate("/area-vip")} onGoHome={() => navigate("/")} />;
     }
     if (route === "/area-vip") {
-      return <VipAreaPage onGoHome={() => navigate("/")} onGoVip={() => navigate("/vip")} onRequireLogin={(msg) => requireLogin(msg)} />;
+      return <VipAreaPage onGoHome={() => navigate("/")} onGoVip={() => navigate("/planos-vip")} onRequireLogin={(msg) => requireLogin(msg)} />;
     }
     if (route === "/configuracoes" || route === "/perfil") {
       const initialTab = route === "/configuracoes" ? "settings" : "profile";
@@ -1359,6 +1378,7 @@ React.useEffect(() => {
         route={route}
         user={user}
         isAdmin={isAdmin}
+        isVip={isVipCached}
         onNavigate={navigate}
         onGoHomeSection={goHomeSection}
         onOpenAuth={() => setAuthOpen(true)}

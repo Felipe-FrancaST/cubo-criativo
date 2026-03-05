@@ -24,6 +24,7 @@ export default function MenuDrawer({
   route,
   user,
   isAdmin,
+  isVip,
   onNavigate,
   onGoHomeSection,
   onOpenAuth,
@@ -111,13 +112,15 @@ export default function MenuDrawer({
     <DrawerButton
       icon="stars"
       onClick={() => {
-        // Mantemos apenas um acesso no menu.
-        // A rota /vip redireciona automaticamente VIPs para /area-vip.
-        onNavigate("/vip");
+        // Um único CTA no menu:
+        // - não VIP: "Se torne VIP" -> planos
+        // - VIP: "Área VIP" -> área
+        if (isVip) onNavigate("/area-vip");
+        else onNavigate("/planos-vip");
         onClose?.();
       }}
     >
-      Área VIP
+      {isVip ? "Área VIP" : "Se torne VIP"}
     </DrawerButton>
   </div>
 

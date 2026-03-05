@@ -34,7 +34,7 @@ export default function VipRpgPage({
   const [vipLoading, setVipLoading] = React.useState(false);
   const [vipChecked, setVipChecked] = React.useState(() => !accessToken);
   const [plans, setPlans] = React.useState([]);
-  const [selectedPlanId, setSelectedPlanId] = React.useState('CUBO_L1_RPG');
+  const [selectedPlanId, setSelectedPlanId] = React.useState('');
 
   const vipUntil = vipProfile?.vip_until || null;
   const isVip = Boolean(vipUntil && new Date(vipUntil) > new Date());
@@ -70,16 +70,7 @@ export default function VipRpgPage({
     onOpenVipArea?.();
   }, [vipLoading, isVip, isVipCached, onOpenVipArea]);
 
-  const fallbackPlans = React.useMemo(
-    () => [
-      { id: 'CUBO_L1_RPG', name: 'Cubo Level 1 — RPG', price_brl: 40, miniatures_count: 3, boss_count: 0 },
-      { id: 'CUBO_L2_RPG', name: 'Cubo Level 2 — RPG', price_brl: 69.9, miniatures_count: 4, boss_count: 1 },
-      { id: 'CUBO_L3_RPG', name: 'Cubo Level 3 — RPG', price_brl: 99.9, miniatures_count: 8, boss_count: 2 },
-    ],
-    []
-  );
-
-  const visiblePlans = (plans && plans.length ? plans : fallbackPlans).filter((p) => p?.id);
+  const visiblePlans = (Array.isArray(plans) ? plans : []).filter((p) => p?.id);
   const selectedPlan = visiblePlans.find((p) => p.id === selectedPlanId) || visiblePlans[0] || null;
 
   function pixStatusPtLabel(v) {
@@ -99,9 +90,7 @@ export default function VipRpgPage({
         if (!alive) return;
         const arr = Array.isArray(data?.plans) ? data.plans : [];
         setPlans(arr);
-        if (arr.length && !arr.find((p) => p.id === selectedPlanId)) {
-          setSelectedPlanId(arr[0]?.id || 'CUBO_L1_RPG');
-        }
+        if (arr.length && (!selectedPlanId || !arr.find((p) => p.id === selectedPlanId))) setSelectedPlanId(arr[0]?.id || '');
       } catch {
         if (alive) setPlans([]);
       }
@@ -145,7 +134,7 @@ export default function VipRpgPage({
     };
   }, [accessToken, ok]);
 
-  // Evita "flash" dos planos ao entrar em /vip e já ser VIP.
+  // Evita "flash" dos planos ao entrar em /planos-vip e já ser VIP.
   // Mostra um estado neutro até confirmar (ou redirecionar).
   if (accessToken && (isVipCached || !vipChecked || vipLoading || isVip)) {
     return (
@@ -153,6 +142,26 @@ export default function VipRpgPage({
         <div className="container-cc rounded-2xl p-6 ring-1 ring-white/10 bg-white/5 text-center">
           <div className="text-sm text-slate-200 font-semibold">Abrindo Área VIP…</div>
           <div className="mt-1 text-xs text-slate-400">Verificando sua assinatura</div>
+        </div>
+      </main>
+    );
+  }
+
+  // Se não há planos no Supabase, mostramos um estado claro (sem valores fixos).
+  if (!visiblePlans.length) {
+    return (
+      <main className="min-h-[70vh] flex items-center justify-center">
+        <div className="container-cc rounded-2xl p-6 ring-1 ring-white/10 bg-white/5 text-center">
+          <div className="text-sm text-slate-200 font-semibold">Planos VIP indisponíveis</div>
+          <div className="mt-1 text-xs text-slate-400">
+            Nenhum plano ativo encontrado. Verifique a tabela <b>vip_plans</b> no Supabase.
+          </div>
+          <button
+            className="mt-4 rounded-xl px-4 py-2 bg-white/10 hover:bg-white/15 text-slate-100"
+            onClick={() => onGoHome?.()}
+          >
+            Voltar
+          </button>
         </div>
       </main>
     );
