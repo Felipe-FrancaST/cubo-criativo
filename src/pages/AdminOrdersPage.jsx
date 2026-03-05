@@ -655,9 +655,10 @@ function StartVotingModal({ state, onClose, onChange, onConfirm }) {
   return (
     <div className="fixed inset-0 z-50">
       <div className="absolute inset-0 bg-black/70" onClick={() => (!busy ? onClose?.() : null)} />
-      <div className="absolute inset-0 flex items-center justify-center p-4">
-        <div className="w-full max-w-2xl rounded-2xl bg-slate-950 ring-1 ring-white/10 shadow-2xl">
-          <div className="p-5 border-b border-white/10 flex items-start justify-between gap-3">
+      {/* Allow scrolling when modal content is taller than the viewport (mobile/small screens). */}
+      <div className="absolute inset-0 flex items-start justify-center p-4 overflow-y-auto">
+        <div className="w-full max-w-2xl rounded-2xl bg-slate-950 ring-1 ring-white/10 shadow-2xl my-6 max-h-[90vh] flex flex-col">
+          <div className="p-5 border-b border-white/10 flex items-start justify-between gap-3 flex-none">
             <div>
               <div className="text-white text-lg font-extrabold">Iniciar nova votação</div>
               <div className="mt-1 text-sm text-slate-400">Crie a votação que vai aparecer para todos os VIPs.</div>
@@ -671,7 +672,7 @@ function StartVotingModal({ state, onClose, onChange, onConfirm }) {
             </button>
           </div>
 
-          <div className="p-5">
+          <div className="p-5 overflow-y-auto">
             {error ? <div className="mb-3 rounded-xl bg-red-500/10 ring-1 ring-red-400/20 p-3 text-sm text-red-200">{error}</div> : null}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
