@@ -739,8 +739,15 @@ export default function ProfileSettingsModal({ open, onClose, required = false, 
                                 <div className="mt-2 flex flex-wrap gap-2">
                                   <button
                                     onClick={() => {
-                                      const pid = encodeURIComponent(String(p.id || ""));
-                                      onNavigate?.(`/estoque?product=${pid}&open=1`);
+                                      // Direciona diretamente para a página do produto (/p/:slug)
+                                      // Fallback: se não houver slug, mantém a navegação antiga via query.
+                                      const slug = String(p?.slug || "").trim();
+                                      if (slug) {
+                                        onNavigate?.(`/p/${encodeURIComponent(slug)}`);
+                                      } else {
+                                        const pid = encodeURIComponent(String(p.id || ""));
+                                        onNavigate?.(`/estoque?product=${pid}&open=1`);
+                                      }
                                       onClose?.();
                                     }}
                                     className="rounded-xl px-3 py-2 text-xs ring-1 ring-white/10 hover:bg-white/5"
