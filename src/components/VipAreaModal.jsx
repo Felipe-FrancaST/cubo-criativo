@@ -185,7 +185,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
     return selectedCounts.mini < miniLimit;
   }
 
-  function showLimitNotice(kind) {
+  function showLimitNotice(kind, anchorEl) {
     // kind: 'total' | 'mini' | 'boss'
     if (limitTimerRef.current) {
       clearTimeout(limitTimerRef.current);
@@ -210,8 +210,25 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
       text = `${base} Você já escolheu a quantidade máxima deste ciclo.`;
     }
 
-    setLimitNotice({ title, text });
-    limitTimerRef.current = setTimeout(() => setLimitNotice(null), 7000);
+    // Posiciona a notificação perto do botão/ação que disparou o limite.
+    // (Experiência melhor no mobile: aparece onde o usuário está olhando.)
+    let x = Math.round((window.innerWidth || 0) / 2);
+    let y = Math.round((window.innerHeight || 0) * 0.75);
+    try {
+      if (anchorEl && typeof anchorEl.getBoundingClientRect === 'function') {
+        const r = anchorEl.getBoundingClientRect();
+        x = Math.round(r.left + r.width / 2);
+        y = Math.round(r.top);
+      }
+      const pad = 16;
+      const maxX = Math.max(pad, (window.innerWidth || 0) - pad);
+      const maxY = Math.max(pad, (window.innerHeight || 0) - pad);
+      x = Math.min(Math.max(x, pad), maxX);
+      y = Math.min(Math.max(y, pad), maxY);
+    } catch {}
+
+    setLimitNotice({ title, text, x, y });
+    limitTimerRef.current = setTimeout(() => setLimitNotice(null), 3800);
   }
 
   React.useEffect(() => {
@@ -1032,43 +1049,20 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                 )}
               </div>
 
+              {/* Notificação de limite: aparece perto da ação e some em poucos segundos */}
               {limitNotice ? (
-                <div className="mt-4 rounded-2xl bg-gradient-to-br from-violet-500/15 to-fuchsia-500/10 ring-1 ring-violet-400/20 p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="material-icons text-violet-200">info</span>
-                        <p className="font-extrabold text-slate-100">{limitNotice.title}</p>
+                <div
+                  className="fixed z-[9999] pointer-events-none"
+                  style={{ left: `${limitNotice.x || 0}px`, top: `${limitNotice.y || 0}px` }}
+                >
+                  <div className="-translate-x-1/2 -translate-y-[115%] w-[min(360px,calc(100vw-32px))] rounded-2xl bg-gradient-to-br from-violet-500/25 to-fuchsia-500/15 ring-1 ring-violet-400/25 px-4 py-3 shadow-xl backdrop-blur">
+                    <div className="flex items-start gap-2">
+                      <span className="material-icons text-violet-200 text-[18px] mt-0.5">info</span>
+                      <div className="min-w-0">
+                        <p className="text-sm font-extrabold text-slate-100">{limitNotice.title}</p>
+                        <p className="mt-0.5 text-xs text-slate-200/85 leading-relaxed">{limitNotice.text}</p>
                       </div>
-                      <p className="mt-1 text-sm text-slate-200/85">{limitNotice.text}</p>
-                      {nextPlan ? (
-                        <div className="mt-3 flex flex-col sm:flex-row gap-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setLimitNotice(null);
-                              setShowUpgrade(true);
-                              setUpgradePayOpen(true);
-                            }}
-                            className="btn btn-primary"
-                          >
-                            Fazer upgrade ({nextPlan?.short_name || nextPlan?.name})
-                          </button>
-                          <button type="button" onClick={() => setLimitNotice(null)} className="btn btn-outline">
-                            Entendi
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="mt-3">
-                          <button type="button" onClick={() => setLimitNotice(null)} className="btn btn-outline">
-                            Entendi
-                          </button>
-                        </div>
-                      )}
                     </div>
-                    <button onClick={() => setLimitNotice(null)} className="rounded-xl p-2 ring-1 ring-white/10 hover:bg-white/5" aria-label="Fechar aviso">
-                      <span className="material-icons text-[18px]">close</span>
-                    </button>
                   </div>
                 </div>
               ) : null}
@@ -1123,8 +1117,9 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                           <button
                             type="button"
                             disabled={!editable || !editing || saving}
-                            onClick={() => {
+                            onClick={(e) => {
                               if (!editing) return;
+                              const anchor = e?.currentTarget || null;
                               setSelected((prev) => {
                                 const has = prev.includes(opt.id);
                                 if (has) return prev.filter((x) => x !== opt.id);
@@ -1140,10 +1135,10 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                                   }
                                   const total = mini + boss;
                                   const tNew = optionTypeById.get(opt.id) || 'miniature';
-                                  if (total >= totalLimit) showLimitNotice('total');
-                                  else if (tNew === 'boss' && boss >= bossLimit) showLimitNotice('boss');
-                                  else if (tNew !== 'boss' && mini >= miniLimit) showLimitNotice('mini');
-                                  else showLimitNotice('total');
+                                  if (total >= totalLimit) showLimitNotice('total', anchor);
+                                  else if (tNew === 'boss' && boss >= bossLimit) showLimitNotice('boss', anchor);
+                                  else if (tNew !== 'boss' && mini >= miniLimit) showLimitNotice('mini', anchor);
+                                  else showLimitNotice('total', anchor);
                                   return prev;
                                 }
                                 // Recalcula contadores usando o estado "prev" para evitar race condition
@@ -1157,15 +1152,15 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                                 const total = mini + boss;
                                 const tNew = optionTypeById.get(opt.id) || 'miniature';
                                 if (total >= totalLimit) {
-                                  showLimitNotice('total');
+                                  showLimitNotice('total', anchor);
                                   return prev;
                                 }
                                 if (tNew === 'boss' && boss >= bossLimit) {
-                                  showLimitNotice('boss');
+                                  showLimitNotice('boss', anchor);
                                   return prev;
                                 }
                                 if (tNew !== 'boss' && mini >= miniLimit) {
-                                  showLimitNotice('mini');
+                                  showLimitNotice('mini', anchor);
                                   return prev;
                                 }
                                 return [...prev, opt.id];
