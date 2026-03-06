@@ -451,7 +451,7 @@ function ConfirmDeleteModal({ open, order, onClose, onConfirm }) {
   const email = order?.customer_email || order?.profile?.email || "";
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[10010] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
       <div className="relative w-full max-w-lg rounded-3xl bg-[#0b0f18] ring-1 ring-white/10 shadow-2xl overflow-hidden">
         <div className="p-5 border-b border-white/10">
