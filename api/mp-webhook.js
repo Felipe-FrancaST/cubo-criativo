@@ -239,6 +239,51 @@ async function applyVipFromOrder(sb, { order, payment }) {
 }
 
 
+
+async function consumeCouponForPaidOrder(sb, { order, payment }) {
+  try {
+    if (!sb || !order?.id) return;
+    const couponCode = String(payment?.metadata?.coupon_code || '').trim().toUpperCase();
+    const discountAmount = Number(payment?.metadata?.coupon_discount || 0);
+    if (!couponCode) return;
+
+    const existing = await sb
+      .from('coupon_redemptions')
+      .select('id')
+      .eq('order_id', order.id)
+      .eq('coupon_code', couponCode)
+      .maybeSingle();
+    if (existing?.data?.id) return;
+
+    const { data: coupon } = await sb
+      .from('coupons')
+      .select('code,used_count,max_uses')
+      .eq('code', couponCode)
+      .maybeSingle();
+    if (!coupon?.code) return;
+
+    const nextUsed = (Number(coupon.used_count) || 0) + 1;
+    const maxUses = Number(coupon.max_uses) || 1;
+    if (nextUsed > maxUses) return;
+
+    const red = await sb.from('coupon_redemptions').insert({
+      coupon_code: couponCode,
+      user_id: order.user_id || payment?.metadata?.user_id || null,
+      order_id: order.id,
+      discount_amount: discountAmount > 0 ? discountAmount : null,
+    });
+    if (red?.error) {
+      console.error('coupon redemption insert error', red.error);
+      return;
+    }
+
+    const upd = await sb.from('coupons').update({ used_count: nextUsed }).eq('code', couponCode);
+    if (upd?.error) console.error('coupon use update error', upd.error);
+  } catch (e) {
+    console.error('consumeCouponForPaidOrder error', e);
+  }
+}
+
 async function applyStockDeductionIfNeeded(sb, order) {
   try {
     if (!sb || !order?.id) return;
@@ -500,6 +545,7 @@ export default async function handler(req, res) {
     // Se for assinatura VIP, marca VIP no perfil (best-effort)
     if (order && sb) {
       await applyVipFromOrder(sb, { order, payment });
+      await consumeCouponForPaidOrder(sb, { order, payment });
       await applyStockDeductionIfNeeded(sb, order);
     }
 

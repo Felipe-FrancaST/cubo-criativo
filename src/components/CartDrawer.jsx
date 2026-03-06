@@ -138,8 +138,6 @@ export default function CartDrawer({
   }, [canCheckout]);
 
   async function applyCoupon(codeParam, opts = {}) {
-  const panelRef = React.useRef(null);
-  const lastFocusRef = React.useRef(null);
     const code = String(codeParam ?? couponCode).trim().toUpperCase();
     if (!code) {
       setCouponInfo(null);

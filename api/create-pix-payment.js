@@ -417,15 +417,6 @@ export default async function handler(req, res) {
       }
     }
 
-    if (couponApplied) {
-      const { data: curr } = await sb.from("coupons").select("used_count").eq("code", couponApplied.code).maybeSingle();
-      const nextUsed = (Number(curr?.used_count) || 0) + 1;
-      const upd = await sb.from("coupons").update({ used_count: nextUsed }).eq("code", couponApplied.code).eq("user_id", user.id);
-      if (upd?.error) console.error("coupon use update error", upd.error);
-      const red = await sb.from("coupon_redemptions").insert({ coupon_code: couponApplied.code, user_id: user.id, order_id: orderId, discount_amount: couponApplied.discount });
-      if (red?.error) console.error("coupon redemption insert error", red.error);
-    }
-
     // 2) Cria pagamento Pix
     const idempotencyKey = crypto.randomUUID();
     const paymentResp = await mpFetch(token, "https://api.mercadopago.com/v1/payments", {

@@ -322,15 +322,6 @@ export default async function handler(req, res) {
       }
     }
 
-    if (couponApplied) {
-      const { data: curr } = await sb.from("coupons").select("used_count").eq("code", couponApplied.code).maybeSingle();
-      const nextUsed = (Number(curr?.used_count) || 0) + 1;
-      const upd = await sb.from("coupons").update({ used_count: nextUsed }).eq("code", couponApplied.code).eq("user_id", user.id);
-      if (upd?.error) console.error("coupon use update error", upd.error);
-      const red = await sb.from("coupon_redemptions").insert({ coupon_code: couponApplied.code, user_id: user.id, order_id: orderId, discount_amount: couponApplied.discount });
-      if (red?.error) console.error("coupon redemption insert error", red.error);
-    }
-
     // 2) Cria preferência no Mercado Pago
     const prefBody = {
       items: couponApplied && couponApplied.discount > 0 ? [...cleanItems, { title: `Desconto (${couponApplied.code})`, quantity: 1, unit_price: Number((-couponApplied.discount).toFixed(2)), currency_id: "BRL" }] : cleanItems,
