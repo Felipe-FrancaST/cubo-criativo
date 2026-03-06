@@ -188,7 +188,7 @@ function DetailRow({ label, value, action }) {
   );
 }
 
-function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTracking, onRequestRefund, toast }) {
+function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTracking, onRequestRefund, onDeleteOrder, toast }) {
   if (!open) return null;
   const p = order?.profile || null;
   const address = fmtAddress(p);
@@ -414,6 +414,20 @@ function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTrack
               >
                 Marcar reembolso solicitado
               </button>
+
+              <button
+                onClick={() => {
+                  const ok = window.confirm(
+                    "Tem certeza que deseja excluir este pedido?\n\nEssa ação é PERMANENTE e remove do banco."
+                  );
+                  if (!ok) return;
+                  onDeleteOrder?.(order);
+                }}
+                className="rounded-xl px-3 py-2 text-sm text-red-200 hover:bg-red-500/10 ring-1 ring-red-500/30 col-span-2"
+              >
+                Excluir pedido
+              </button>
+
             </div>
           </div>
         </div>
@@ -949,7 +963,30 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome, onR
     } catch (e) {
       showToast(`⚠️ ${e?.message || "Falha"}`);
     }
+  
+
+  async function deleteOrder(orderId) {
+    if (!orderId) return;
+    try {
+      const resp = await fetch("/api/admin?action=delete-order", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ order_id: orderId }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data?.error || "Não foi possível excluir.");
+      showToast("🗑️ Pedido excluído!");
+      setOrders((prev) => (prev || []).filter((o) => o.id !== orderId));
+      // close details if it was open for this order
+      setDetails((d) => (d?.orderId === orderId ? { open: false, orderId: null } : d));
+    } catch (e) {
+      showToast(`⚠️ ${e?.message || "Falha ao excluir"}`);
+    }
   }
+}
 
   const filteredOrders = React.useMemo(() => {
     const query = String(q || "").trim().toLowerCase();
@@ -1571,6 +1608,7 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome, onR
         onUpdateStatus={(o) => setActionModal({ open: true, mode: "status", orderId: o?.id })}
         onUpdateTracking={(o) => setActionModal({ open: true, mode: "tracking", orderId: o?.id })}
         onRequestRefund={(o) => updateOrder(o?.id, { refund_requested: true, refund_requested_at: new Date().toISOString() })}
+        onDeleteOrder={(o) => deleteOrder(o?.id)}
         toast={toast}
       />
 

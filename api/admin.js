@@ -298,6 +298,32 @@ async function handleOrders(req, res) {
   return res.status(200).json({ orders: merged });
 }
 
+
+async function handleDeleteOrder(req, res) {
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+
+  const auth = await requireAdmin(req);
+  if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
+
+  const body = await readJsonBody(req);
+  const orderId = String(body?.order_id || "").trim();
+  if (!orderId) return res.status(400).json({ error: "Missing order_id" });
+
+  const sb = supabaseAdmin();
+
+  // Delete children first (if table exists / FK not cascade).
+  try {
+    await sb.from("order_items").delete().eq("order_id", orderId);
+  } catch (e) {
+    // ignore (table may not exist in some deployments)
+  }
+
+  const { error: delErr } = await sb.from("orders").delete().eq("id", orderId);
+  if (delErr) return res.status(500).json({ error: delErr.message || "Failed to delete order" });
+
+  return res.status(200).json({ ok: true });
+}
+
 async function handleVipVoting(req, res) {
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
 
@@ -654,6 +680,7 @@ export default async function handler(req, res) {
 
     if (action === "orders") return await handleOrders(req, res);
     if (action === "update-order") return await handleUpdateOrder(req, res);
+    if (action === "delete-order") return await handleDeleteOrder(req, res);
     if (action === "vip-voting") return await handleVipVoting(req, res);
     if (action === "vip-close-voting") return await handleVipCloseVoting(req, res);
     if (action === "vip-start-voting") return await handleVipStartVoting(req, res);
