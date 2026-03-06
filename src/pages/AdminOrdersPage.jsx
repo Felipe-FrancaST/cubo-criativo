@@ -1019,7 +1019,7 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome, onR
     } catch (e) {
       showToast(`⚠️ ${e?.message || "Falha"}`);
     }
-  
+  }
 
   async function deleteOrder(orderId) {
     if (!orderId) return;
@@ -1044,7 +1044,6 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome, onR
       showToast(`⚠️ ${e?.message || "Falha ao excluir"}`);
     }
   }
-}
 
   const filteredOrders = React.useMemo(() => {
     const query = String(q || "").trim().toLowerCase();
