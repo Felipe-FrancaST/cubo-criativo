@@ -1174,7 +1174,8 @@ React.useEffect(() => {
   // ===== Render da página =====
   const page = (() => {
     if (String(route || "").startsWith("/p/")) {
-      const slug = String(route || "").slice(3).split("?")[0];
+      let slug = String(route || "").slice(3).split("?")[0];
+      try { slug = decodeURIComponent(slug); } catch {}
       const found = products.find((p) => String(p?.slug || "") === String(slug));
       return (
         <ProductPage

@@ -844,10 +844,8 @@ setZip2(data?.address2_zip || "");
                                       // Direciona diretamente para a página do produto (/p/:slug)
                                       // Fallback: se não houver slug, mantém a navegação antiga via query.
                                       const slug = String(p?.slug || "").trim();
-                                      // IMPORTANTE: não encode aqui. O App.jsx compara o slug bruto do banco.
-                                      // Se encodar, um slug com acentos/UTF-8 não bate e a página de produto não carrega.
-                                      if (slug) {
-                                        go(`/p/${slug}`);
+                                                                            if (slug) {
+                                        go(`/p/${encodeURIComponent(slug)}`);
                                       } else {
                                         const pid = encodeURIComponent(String(p.id || ""));
                                         go(`/estoque?product=${pid}&open=1`);
