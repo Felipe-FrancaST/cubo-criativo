@@ -69,7 +69,7 @@ async function handleGameStatus(req, res) {
   if (!user) return res.status(401).json({ error: 'Faça login para jogar.' });
   const sb = supabaseAdmin();
   const vip = await getVipInfo(sb, user.id);
-  const period = getGamePeriodInfo({ isVip: vip.isVip });
+  const period = await getGamePeriodInfo(sb, { isVip: vip.isVip });
 
   const { data: session } = await sb
     .from('coupon_game_sessions')
@@ -111,7 +111,7 @@ async function handleGameComplete(req, res) {
   const attempts = Number(body.attempts || 0);
   const duration_ms = Number(body.duration_ms || 0);
   const vip = await getVipInfo(sb, user.id);
-  const period = getGamePeriodInfo({ isVip: vip.isVip });
+  const period = await getGamePeriodInfo(sb, { isVip: vip.isVip });
 
   const { data: existing } = await sb
     .from('coupon_game_sessions')

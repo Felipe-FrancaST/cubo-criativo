@@ -16,6 +16,7 @@ import { supabaseAdmin } from "../server/supabase.js";
 import { requireAdmin } from "../server/admin/adminAuth.js";
 import { renderOrderStatusEmail } from "../server/emailTemplates.js";
 import { rateLimit } from '../server/rateLimit.js';
+import { formatRewardLabel } from '../server/couponGame.js';
 
 export const config = { runtime: "nodejs" };
 
@@ -136,6 +137,101 @@ async function notifyStatus({ sb, order, nextStatus, shipping_tracking, producti
 // -----------------------------
 // Action handlers
 // -----------------------------
+
+
+async function handleGetGameCoupon(req, res) {
+  if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
+
+  const auth = await requireAdmin(req);
+  if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
+
+  const sb = supabaseAdmin();
+  const { data, error } = await sb
+    .from("coupon_game_settings")
+    .select("id,label,discount_type,discount_value,min_order_value,active,created_at,updated_at")
+    .eq("active", true)
+    .order("updated_at", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    const msg = String(error.message || "");
+    if (/coupon_game_settings|relation|does not exist/i.test(msg)) {
+      return res.status(500).json({
+        error: "Tabela coupon_game_settings não encontrada no Supabase.",
+        needs_setup: true,
+      });
+    }
+    return res.status(500).json({ error: error.message || "Failed to load game coupon" });
+  }
+
+  return res.status(200).json({ config: data || null });
+}
+
+async function handleSaveGameCoupon(req, res) {
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+
+  const auth = await requireAdmin(req);
+  if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
+
+  const body = await readJsonBody(req);
+  const discount_type = String(body?.discount_type || "").trim().toLowerCase();
+  const discount_value = Number(body?.discount_value || 0);
+  const min_order_value = Math.max(0, Number(body?.min_order_value || 0));
+  const customLabel = String(body?.label || "").trim();
+
+  if (!["percent", "fixed_min", "shipping_reduced"].includes(discount_type)) {
+    return res.status(400).json({ error: "discount_type inválido." });
+  }
+  if (!(discount_value > 0)) {
+    return res.status(400).json({ error: "Informe um valor de desconto maior que zero." });
+  }
+  if (discount_type === "percent" && discount_value > 100) {
+    return res.status(400).json({ error: "Porcentagem não pode ser maior que 100." });
+  }
+
+  const sb = supabaseAdmin();
+  const payload = {
+    label: customLabel || formatRewardLabel({ type: discount_type, discount_value, min_order_value }),
+    discount_type,
+    discount_value,
+    min_order_value,
+    active: true,
+    updated_at: new Date().toISOString(),
+  };
+
+  const deactivate = await sb.from("coupon_game_settings").update({ active: false }).eq("active", true);
+  if (deactivate?.error) {
+    const msg = String(deactivate.error.message || "");
+    if (/coupon_game_settings|relation|does not exist/i.test(msg)) {
+      return res.status(500).json({
+        error: "Tabela coupon_game_settings não encontrada no Supabase.",
+        needs_setup: true,
+      });
+    }
+    return res.status(500).json({ error: deactivate.error.message || "Failed to reset old config" });
+  }
+
+  const ins = await sb
+    .from("coupon_game_settings")
+    .insert(payload)
+    .select("id,label,discount_type,discount_value,min_order_value,active,created_at,updated_at")
+    .single();
+
+  if (ins?.error) {
+    const msg = String(ins.error.message || "");
+    if (/coupon_game_settings|relation|does not exist/i.test(msg)) {
+      return res.status(500).json({
+        error: "Tabela coupon_game_settings não encontrada no Supabase.",
+        needs_setup: true,
+      });
+    }
+    return res.status(500).json({ error: ins.error.message || "Failed to save game coupon" });
+  }
+
+  return res.status(200).json({ ok: true, config: ins.data });
+}
 
 async function handleOrders(req, res) {
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
@@ -711,6 +807,8 @@ export default async function handler(req, res) {
     if (action === "vip-close-voting") return await handleVipCloseVoting(req, res);
     if (action === "vip-start-voting") return await handleVipStartVoting(req, res);
     if (action === "vip-delete-voting") return await handleVipDeleteVoting(req, res);
+    if (action === "game-coupon") return await handleGetGameCoupon(req, res);
+    if (action === "save-game-coupon") return await handleSaveGameCoupon(req, res);
 
     return res.status(404).json({ error: "Unknown admin action" });
   } catch (e) {

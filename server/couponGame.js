@@ -21,16 +21,69 @@ export function getWeeklyRewardPlan(date = new Date()) {
   return { week_key: key, ...plans[idx] };
 }
 
+export function formatRewardLabel({ type, discount_value, min_order_value = 0 }) {
+  const value = Number(discount_value || 0);
+  const min = Number(min_order_value || 0);
+  if (type === 'percent') return `${value}% OFF`;
+  if (type === 'shipping_reduced') return `Frete reduzido (R$${value})`;
+  if (type === 'fixed_min') {
+    return min > 0 ? `R$${value} OFF acima de R$${min}` : `R$${value} OFF`;
+  }
+  return 'Cupom do jogo';
+}
+
+export async function getActiveGameReward(sb, date = new Date()) {
+  const fallback = getWeeklyRewardPlan(date);
+
+  try {
+    const { data, error } = await sb
+      .from('coupon_game_settings')
+      .select('id,label,discount_type,discount_value,min_order_value,active,created_at,updated_at')
+      .eq('active', true)
+      .order('updated_at', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      const msg = String(error.message || '');
+      if (/coupon_game_settings|column|relation|does not exist/i.test(msg)) {
+        return { source: 'fallback', config: null, reward: fallback };
+      }
+      throw error;
+    }
+
+    if (!data) return { source: 'fallback', config: null, reward: fallback };
+
+    const reward = {
+      type: String(data.discount_type || 'percent'),
+      label: String(data.label || '').trim() || formatRewardLabel(data),
+      min_order_value: Number(data.min_order_value || 0),
+    };
+
+    if (reward.type === 'percent') reward.percent_off = Number(data.discount_value || 0);
+    else reward.amount_off = Number(data.discount_value || 0);
+
+    return { source: 'admin', config: data, reward: { ...fallback, ...reward } };
+  } catch (error) {
+    console.error('getActiveGameReward error', error);
+    return { source: 'fallback', config: null, reward: fallback };
+  }
+}
+
 // VIP joga 1x por dia. Não-VIP joga 1x por semana.
-export function getGamePeriodInfo({ isVip }) {
+export async function getGamePeriodInfo(sb, { isVip }) {
   const now = new Date();
   const yyyy = now.getUTCFullYear();
   const mm = String(now.getUTCMonth() + 1).padStart(2, '0');
   const dd = String(now.getUTCDate()).padStart(2, '0');
   const day_key = `${yyyy}-${mm}-${dd}`;
-  const weekly_reward = getWeeklyRewardPlan(now);
+  const activeReward = await getActiveGameReward(sb, now);
+  const weekly_reward = activeReward.reward;
   return {
     weekly_reward,
+    reward_source: activeReward.source,
+    reward_config: activeReward.config,
     week_key: weekly_reward.week_key,
     day_key,
     period_key: isVip ? `D:${day_key}` : `W:${weekly_reward.week_key}`,
