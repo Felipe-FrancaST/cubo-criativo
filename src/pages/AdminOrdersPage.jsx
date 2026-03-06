@@ -941,6 +941,20 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome, onR
     label: "",
   });
   const [currentGameCoupon, setCurrentGameCoupon] = React.useState(null);
+  const [gameCouponMetricsLoading, setGameCouponMetricsLoading] = React.useState(false);
+  const [gameCouponMetricsError, setGameCouponMetricsError] = React.useState("");
+  const [gameCouponMetrics, setGameCouponMetrics] = React.useState({
+    players_count: 0,
+    wins_count: 0,
+    unique_winners_count: 0,
+    coupons_generated_count: 0,
+    coupons_applied_count: 0,
+    purchases_with_coupon_count: 0,
+    revenue_generated_brl: 0,
+    discount_granted_brl: 0,
+    coupon_conversion_rate: 0,
+    coupon_orders_using_fallback: false,
+  });
 
   const [closeVote, setCloseVote] = React.useState({ open: false, poll: null, winnerId: null, busy: false, error: "" });
   const [startVote, setStartVote] = React.useState({ open: false, data: null, busy: false, error: "" });
@@ -1019,6 +1033,24 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome, onR
       setGameCouponError(e?.message || "Erro ao carregar o cupom do jogo.");
     } finally {
       setGameCouponLoading(false);
+    }
+  }, [accessToken]);
+
+  const fetchGameCouponMetrics = React.useCallback(async () => {
+    if (!accessToken) return;
+    setGameCouponMetricsLoading(true);
+    setGameCouponMetricsError("");
+    try {
+      const resp = await fetch("/api/admin?action=game-coupon-metrics", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data?.error || "Não foi possível carregar as métricas de cupons.");
+      setGameCouponMetrics((prev) => ({ ...prev, ...(data?.metrics || {}) }));
+    } catch (e) {
+      setGameCouponMetricsError(e?.message || "Erro ao carregar métricas de cupons.");
+    } finally {
+      setGameCouponMetricsLoading(false);
     }
   }, [accessToken]);
 
@@ -1107,8 +1139,11 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome, onR
 
   React.useEffect(() => {
     if (section === "vip") fetchVipVoting();
-    if (section === "coupons") fetchGameCoupon();
-  }, [section, fetchVipVoting, fetchGameCoupon]);
+    if (section === "coupons") {
+      fetchGameCoupon();
+      fetchGameCouponMetrics();
+    }
+  }, [section, fetchVipVoting, fetchGameCoupon, fetchGameCouponMetrics]);
 
   async function saveGameCoupon() {
     if (!accessToken) return;
@@ -1670,7 +1705,7 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome, onR
                 subtitle="Defina aqui qual desconto o jogo vai gerar para os usuários vencedores."
                 right={
                   <button
-                    onClick={() => fetchGameCoupon()}
+                    onClick={() => { fetchGameCoupon(); fetchGameCouponMetrics(); }}
                     className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
                   >
                     <span className="material-icons text-[18px] align-middle mr-1">refresh</span>
@@ -1678,6 +1713,38 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome, onR
                   </button>
                 }
               />
+
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                {[
+                  { label: "Pessoas jogaram", value: gameCouponMetrics.players_count, hint: `${gameCouponMetrics.unique_winners_count} vencedores únicos` },
+                  { label: "Ganharam", value: gameCouponMetrics.wins_count, hint: `${gameCouponMetrics.coupons_generated_count} cupons gerados` },
+                  { label: "Cupons aplicados", value: gameCouponMetrics.coupons_applied_count, hint: "checkout iniciado com cupom" },
+                  { label: "Viraram compra", value: gameCouponMetrics.purchases_with_coupon_count, hint: `${gameCouponMetrics.coupon_conversion_rate}% dos ganhos` },
+                  { label: "Faturamento gerado", value: fmtBRL(Number(gameCouponMetrics.revenue_generated_brl || 0)), hint: `desconto dado ${fmtBRL(Number(gameCouponMetrics.discount_granted_brl || 0))}` },
+                ].map((card) => (
+                  <div key={card.label} className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-4">
+                    <div className="text-xs uppercase tracking-wide text-slate-500">{card.label}</div>
+                    <div className="mt-2 text-2xl font-black text-white">{card.value}</div>
+                    <div className="mt-1 text-xs text-slate-400">{card.hint}</div>
+                  </div>
+                ))}
+              </div>
+
+              {gameCouponMetricsLoading ? (
+                <div className="text-sm text-slate-400">Carregando métricas do Cubo Game…</div>
+              ) : null}
+
+              {gameCouponMetricsError ? (
+                <div className="rounded-2xl bg-rose-500/10 ring-1 ring-rose-400/20 p-4 text-sm text-rose-100">
+                  {gameCouponMetricsError}
+                </div>
+              ) : null}
+
+              {gameCouponMetrics.coupon_orders_using_fallback ? (
+                <div className="rounded-2xl bg-amber-500/10 ring-1 ring-amber-400/20 p-4 text-sm text-amber-100">
+                  As métricas de aplicação/compra estão em modo compatível. Para contar checkouts iniciados com mais precisão, rode também o SQL do arquivo <code>supabase/coupon_metrics_orders.sql</code>.
+                </div>
+              ) : null}
 
               {gameCouponError ? (
                 <div className="rounded-2xl bg-rose-500/10 ring-1 ring-rose-400/20 p-4 text-sm text-rose-100">

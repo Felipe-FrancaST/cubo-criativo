@@ -285,7 +285,7 @@ export default async function handler(req, res) {
     const orderId = crypto.randomUUID();
 
     // 1) Cria pedido no Supabase
-    const { error: orderErr } = await sb.from("orders").insert({
+    let orderInsert = await sb.from("orders").insert({
       id: orderId,
       user_id: user.id,
       status: "pending",
@@ -296,10 +296,27 @@ export default async function handler(req, res) {
       order_type: isVipUpgrade ? 'vip_upgrade' : (vipPlanId ? 'vip' : 'shop'),
       vip_plan_id: vipPlanId || null,
       customer_email: user.email || null,
+      coupon_code: couponApplied?.code || null,
+      coupon_discount: couponApplied?.discount || 0,
     });
 
-    if (orderErr) {
-      console.error("supabase order insert error", orderErr);
+    if (orderInsert?.error && /coupon_code|coupon_discount|column/i.test(String(orderInsert.error.message || ""))) {
+      orderInsert = await sb.from("orders").insert({
+        id: orderId,
+        user_id: user.id,
+        status: "pending",
+        currency: "BRL",
+        total: finalTotal,
+        payment_provider: "mercadopago",
+        production_status: isVipUpgrade ? 'upgrade' : (vipPlanId ? 'editavel' : 'recebido'),
+        order_type: isVipUpgrade ? 'vip_upgrade' : (vipPlanId ? 'vip' : 'shop'),
+        vip_plan_id: vipPlanId || null,
+        customer_email: user.email || null,
+      });
+    }
+
+    if (orderInsert?.error) {
+      console.error("supabase order insert error", orderInsert.error);
       return res.status(500).json({ error: "Não foi possível criar o pedido." });
     }
 

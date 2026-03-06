@@ -348,7 +348,7 @@ export default async function handler(req, res) {
       }
     }
 
-    const { error: orderErr } = await sb.from("orders").insert({
+    let orderInsert = await sb.from("orders").insert({
       id: orderId,
       user_id: user.id,
       status: "pending",
@@ -362,9 +362,27 @@ export default async function handler(req, res) {
       customer_email: payerEmail,
       customer_name: prof?.full_name || null,
       customer_phone: prof?.phone || null,
+      coupon_code: couponApplied?.code || null,
+      coupon_discount: couponApplied?.discount || 0,
     });
-    if (orderErr) {
-      console.error("supabase order insert error", orderErr);
+    if (orderInsert?.error && /coupon_code|coupon_discount|column/i.test(String(orderInsert.error.message || ""))) {
+      orderInsert = await sb.from("orders").insert({
+        id: orderId,
+        user_id: user.id,
+        status: "pending",
+        currency: "BRL",
+        total: finalAmount,
+        payment_provider: "mercado_pago",
+        production_status: vipPlanId ? 'editavel' : 'recebido',
+        order_type: vipPlanId ? 'vip' : 'shop',
+        vip_plan_id: vipPlanId || null,
+        customer_email: payerEmail,
+        customer_name: prof?.full_name || null,
+        customer_phone: prof?.phone || null,
+      });
+    }
+    if (orderInsert?.error) {
+      console.error("supabase order insert error", orderInsert.error);
       return res.status(500).json({ error: "Não foi possível criar o pedido." });
     }
 

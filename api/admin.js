@@ -233,6 +233,119 @@ async function handleSaveGameCoupon(req, res) {
   return res.status(200).json({ ok: true, config: ins.data });
 }
 
+
+function isPaidOrderStatus(value) {
+  return String(value || "").trim().toLowerCase() === "paid";
+}
+
+function sumMoney(rows, field) {
+  return Number(
+    (Array.isArray(rows) ? rows : []).reduce((acc, row) => acc + (Number(row?.[field]) || 0), 0).toFixed(2)
+  );
+}
+
+async function selectOrdersWithCouponFallback(sb) {
+  const withCouponCols = await sb
+    .from("orders")
+    .select("id,status,total,coupon_code,coupon_discount,created_at")
+    .not("coupon_code", "is", null);
+
+  if (!withCouponCols?.error) {
+    return { rows: Array.isArray(withCouponCols.data) ? withCouponCols.data : [], hasCouponColumns: true };
+  }
+
+  const msg = String(withCouponCols?.error?.message || "");
+  if (!/coupon_code|coupon_discount|column/i.test(msg)) {
+    throw new Error(withCouponCols.error.message || "Failed to load coupon orders");
+  }
+
+  const legacy = await sb
+    .from("coupon_redemptions")
+    .select("order_id,discount_amount,coupon_code,created_at,orders!inner(id,status,total,created_at)")
+    .order("created_at", { ascending: false });
+
+  if (legacy?.error) throw new Error(legacy.error.message || "Failed to load coupon redemptions");
+
+  const rows = (legacy.data || []).map((item) => ({
+    id: item?.orders?.id || item?.order_id,
+    status: item?.orders?.status || null,
+    total: Number(item?.orders?.total || 0),
+    coupon_code: item?.coupon_code || null,
+    coupon_discount: Number(item?.discount_amount || 0),
+    created_at: item?.orders?.created_at || item?.created_at || null,
+  }));
+
+  return { rows, hasCouponColumns: false };
+}
+
+
+async function handleGameCouponMetrics(req, res) {
+  if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
+
+  const auth = await requireAdmin(req);
+  if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
+
+  const sb = supabaseAdmin();
+
+  const sessionsResp = await sb
+    .from("coupon_game_sessions")
+    .select("user_id,won,coupon_code,played_at,created_at");
+
+  if (sessionsResp?.error) {
+    const msg = String(sessionsResp.error.message || "");
+    if (/coupon_game_sessions|relation|does not exist/i.test(msg)) {
+      return res.status(500).json({
+        error: "Tabela coupon_game_sessions não encontrada no Supabase.",
+        needs_setup: true,
+      });
+    }
+    return res.status(500).json({ error: sessionsResp.error.message || "Failed to load game metrics" });
+  }
+
+  const sessions = Array.isArray(sessionsResp.data) ? sessionsResp.data : [];
+  const uniquePlayers = new Set(
+    sessions.map((row) => String(row?.user_id || "").trim()).filter(Boolean)
+  );
+  const wins = sessions.filter((row) => Boolean(row?.won));
+  const uniqueWinners = new Set(
+    wins.map((row) => String(row?.user_id || "").trim()).filter(Boolean)
+  );
+  const generatedCouponCodes = new Set(
+    wins.map((row) => String(row?.coupon_code || "").trim().toUpperCase()).filter(Boolean)
+  );
+
+  let couponOrdersInfo;
+  try {
+    couponOrdersInfo = await selectOrdersWithCouponFallback(sb);
+  } catch (error) {
+    return res.status(500).json({ error: error.message || "Failed to load coupon orders" });
+  }
+
+  const couponOrders = couponOrdersInfo.rows || [];
+  const appliedOrders = couponOrders.filter((row) => String(row?.coupon_code || "").trim());
+  const convertedOrders = appliedOrders.filter((row) => isPaidOrderStatus(row?.status));
+
+  const revenueGenerated = sumMoney(convertedOrders, "total");
+  const discountGranted = sumMoney(convertedOrders, "coupon_discount");
+  const conversionRate = wins.length > 0 ? Number(((convertedOrders.length / wins.length) * 100).toFixed(1)) : 0;
+
+  return res.status(200).json({
+    metrics: {
+      players_count: uniquePlayers.size,
+      wins_count: wins.length,
+      unique_winners_count: uniqueWinners.size,
+      coupons_generated_count: generatedCouponCodes.size,
+      coupons_applied_count: appliedOrders.length,
+      purchases_with_coupon_count: convertedOrders.length,
+      revenue_generated_brl: revenueGenerated,
+      discount_granted_brl: discountGranted,
+      coupon_conversion_rate: conversionRate,
+      coupon_orders_using_fallback: !couponOrdersInfo.hasCouponColumns,
+    },
+  });
+}
+
+
 async function handleOrders(req, res) {
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
 
@@ -809,6 +922,7 @@ export default async function handler(req, res) {
     if (action === "vip-delete-voting") return await handleVipDeleteVoting(req, res);
     if (action === "game-coupon") return await handleGetGameCoupon(req, res);
     if (action === "save-game-coupon") return await handleSaveGameCoupon(req, res);
+    if (action === "game-coupon-metrics") return await handleGameCouponMetrics(req, res);
 
     return res.status(404).json({ error: "Unknown admin action" });
   } catch (e) {
