@@ -289,7 +289,7 @@ async function handleGameCouponMetrics(req, res) {
 
   const sessionsResp = await sb
     .from("coupon_game_sessions")
-    .select("user_id,won,coupon_code,played_at,created_at");
+    .select("user_id,won,played_at");
 
   if (sessionsResp?.error) {
     const msg = String(sessionsResp.error.message || "");
@@ -310,10 +310,6 @@ async function handleGameCouponMetrics(req, res) {
   const uniqueWinners = new Set(
     wins.map((row) => String(row?.user_id || "").trim()).filter(Boolean)
   );
-  const generatedCouponCodes = new Set(
-    wins.map((row) => String(row?.coupon_code || "").trim().toUpperCase()).filter(Boolean)
-  );
-
   let couponOrdersInfo;
   try {
     couponOrdersInfo = await selectOrdersWithCouponFallback(sb);
