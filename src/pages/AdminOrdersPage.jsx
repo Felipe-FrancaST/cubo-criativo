@@ -492,6 +492,63 @@ function ConfirmDeleteModal({ open, order, onClose, onConfirm }) {
   );
 }
 
+function ConfirmDeleteVotingModal({ state, onClose, onConfirm }) {
+  const open = !!state?.open;
+  const pollWrap = state?.poll;
+  const poll = pollWrap?.poll || pollWrap;
+  if (!open) return null;
+
+  const id = shortId(poll?.id || "");
+  const month = poll?.month_key || "—";
+  const title = poll?.title || "Votação";
+  const busy = !!state?.busy;
+  const err = state?.error || "";
+
+  return (
+    <div className="fixed inset-0 z-[10020] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={busy ? undefined : onClose} />
+      <div className="relative w-full max-w-lg rounded-3xl bg-[#0b0f18] ring-1 ring-white/10 shadow-2xl overflow-hidden">
+        <div className="p-5 border-b border-white/10">
+          <p className="text-sm font-semibold text-slate-100">Excluir votação</p>
+          <p className="text-xs text-slate-400 mt-1">
+            Tem certeza? Isso vai remover a votação do admin e também vai sumir para os VIPs. Essa ação é{" "}
+            <span className="text-red-200 font-semibold">PERMANENTE</span>.
+          </p>
+        </div>
+
+        <div className="p-5 space-y-2">
+          <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
+            <p className="text-xs text-slate-400">Votação</p>
+            <p className="text-sm text-slate-100 mt-1">
+              <span className="font-semibold">#{id}</span> • {month}
+            </p>
+            <p className="text-xs text-slate-300 mt-1">{title}</p>
+          </div>
+
+          {err ? <div className="rounded-xl bg-red-500/10 ring-1 ring-red-500/30 p-3 text-sm text-red-200">{err}</div> : null}
+        </div>
+
+        <div className="p-5 flex items-center justify-end gap-2 border-t border-white/10">
+          <button
+            onClick={onClose}
+            disabled={busy}
+            className="rounded-xl px-4 py-2 text-sm text-slate-200 hover:bg-white/5 ring-1 ring-white/10 disabled:opacity-60"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={busy}
+            className="rounded-xl px-4 py-2 text-sm font-semibold text-red-100 bg-red-500/15 hover:bg-red-500/25 ring-1 ring-red-500/30 disabled:opacity-60"
+          >
+            {busy ? "Excluindo..." : "Excluir permanentemente"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function StatusModal({ open, mode, order, onClose, onSubmit }) {
   const [productionStatus, setProductionStatus] = React.useState("recebido");
   const [eta, setEta] = React.useState("3 a 7 dias úteis");
@@ -877,6 +934,7 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome, onR
 
   const [closeVote, setCloseVote] = React.useState({ open: false, poll: null, winnerId: null, busy: false, error: "" });
   const [startVote, setStartVote] = React.useState({ open: false, data: null, busy: false, error: "" });
+  const [deleteVote, setDeleteVote] = React.useState({ open: false, poll: null, busy: false, error: "" });
 
   const showToast = (msg) => {
     setToast(msg);
@@ -978,6 +1036,30 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome, onR
       await fetchVipVoting();
     } catch (e) {
       setCloseVote((s) => ({ ...s, busy: false, error: e?.message || "Falha ao encerrar votação." }));
+    }
+  }
+
+  async function deleteVipVoting(poll) {
+    const pollId = poll?.id || poll?.poll?.id;
+    if (!accessToken || !pollId) return;
+    try {
+      setDeleteVote((s) => ({ ...s, busy: true, error: "" }));
+      const resp = await fetch("/api/admin?action=vip-delete-voting", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ poll_id: pollId }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data?.error || "Não foi possível excluir a votação.");
+      showToast("🗑️ Votação excluída!");
+      setVipPolls((prev) => (prev || []).filter((x) => String(x?.poll?.id || x?.id) !== String(pollId)));
+      setDeleteVote({ open: false, poll: null, busy: false, error: "" });
+      await fetchVipVoting();
+    } catch (e) {
+      setDeleteVote((s) => ({ ...s, busy: false, error: e?.message || "Falha ao excluir votação." }));
     }
   }
 
@@ -1590,6 +1672,15 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome, onR
                               Encerrar votação
                             </button>
                           ) : null}
+
+                          {String(p?.poll?.status || "").toLowerCase() === "closed" ? (
+                            <button
+                              onClick={() => setDeleteVote({ open: true, poll: p, busy: false, error: "" })}
+                              className="rounded-xl px-3 py-2 text-xs font-semibold text-red-200 hover:bg-red-500/10 ring-1 ring-red-500/30"
+                            >
+                              Excluir votação
+                            </button>
+                          ) : null}
                         </div>
                       </div>
 
@@ -1693,6 +1784,12 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome, onR
         onClose={() => setStartVote({ open: false, data: null, busy: false, error: "" })}
         onChange={(data) => setStartVote((s) => ({ ...s, data }))}
         onConfirm={(data) => startVipVoting(data)}
+      />
+
+      <ConfirmDeleteVotingModal
+        state={deleteVote}
+        onClose={() => setDeleteVote({ open: false, poll: null, busy: false, error: "" })}
+        onConfirm={() => deleteVipVoting(deleteVote.poll)}
       />
     </div>
   );

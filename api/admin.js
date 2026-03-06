@@ -550,6 +550,32 @@ async function handleVipStartVoting(req, res) {
   return res.status(200).json({ ok: true, poll });
 }
 
+async function handleVipDeleteVoting(req, res) {
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+
+  const auth = await requireAdmin(req);
+  if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
+
+  const body = await readJsonBody(req);
+  const poll_id = String(body.poll_id || "").trim();
+  if (!poll_id) return res.status(400).json({ error: "Missing poll_id" });
+
+  const sb = supabaseAdmin();
+
+  // Best-effort: delete children first (votes/options) then poll.
+  // This works regardless of FK cascade setup.
+  const delVotes = await sb.from("vip_theme_votes").delete().eq("poll_id", poll_id);
+  if (delVotes?.error) return res.status(500).json({ error: delVotes.error.message || "Failed to delete votes" });
+
+  const delOpts = await sb.from("vip_theme_options").delete().eq("poll_id", poll_id);
+  if (delOpts?.error) return res.status(500).json({ error: delOpts.error.message || "Failed to delete options" });
+
+  const delPoll = await sb.from("vip_theme_polls").delete().eq("id", poll_id);
+  if (delPoll?.error) return res.status(500).json({ error: delPoll.error.message || "Failed to delete poll" });
+
+  return res.status(200).json({ ok: true, poll_id });
+}
+
 async function handleUpdateOrder(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
@@ -684,6 +710,7 @@ export default async function handler(req, res) {
     if (action === "vip-voting") return await handleVipVoting(req, res);
     if (action === "vip-close-voting") return await handleVipCloseVoting(req, res);
     if (action === "vip-start-voting") return await handleVipStartVoting(req, res);
+    if (action === "vip-delete-voting") return await handleVipDeleteVoting(req, res);
 
     return res.status(404).json({ error: "Unknown admin action" });
   } catch (e) {
