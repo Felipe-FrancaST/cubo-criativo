@@ -192,6 +192,8 @@ function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTrack
   if (!open) return null;
   const p = order?.profile || null;
   const address = fmtAddress(p);
+
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = React.useState(false);
   const phone = order?.customer_phone || p?.phone || "";
   const waPhone = onlyDigits(phone);
   const waMsg = encodeURIComponent(
@@ -200,7 +202,8 @@ function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTrack
   const waUrl = waPhone ? `https://wa.me/55${waPhone}?text=${waMsg}` : null;
 
   return (
-    <div className="fixed inset-0 z-[9999]">
+    <>
+      <div className="fixed inset-0 z-[9999]">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
       <div className="absolute right-0 top-0 h-full w-full sm:w-[560px] bg-[#0a0f1a] border-l border-white/10">
         <div className="p-4 border-b border-white/10 flex items-start justify-between gap-3">
@@ -416,13 +419,7 @@ function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTrack
               </button>
 
               <button
-                onClick={() => {
-                  const ok = window.confirm(
-                    "Tem certeza que deseja excluir este pedido?\n\nEssa ação é PERMANENTE e remove do banco."
-                  );
-                  if (!ok) return;
-                  onDeleteOrder?.(order);
-                }}
+                onClick={() => setConfirmDeleteOpen(true)}
                 className="rounded-xl px-3 py-2 text-sm text-red-200 hover:bg-red-500/10 ring-1 ring-red-500/30 col-span-2"
               >
                 Excluir pedido
@@ -430,6 +427,65 @@ function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTrack
 
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+
+      <ConfirmDeleteModal
+        open={confirmDeleteOpen}
+        order={order}
+        onClose={() => setConfirmDeleteOpen(false)}
+        onConfirm={() => {
+          setConfirmDeleteOpen(false);
+          onDeleteOrder?.(order);
+        }}
+      />
+    </>
+  );
+}
+
+function ConfirmDeleteModal({ open, order, onClose, onConfirm }) {
+  if (!open) return null;
+  const id = shortId(order?.id || order?.order_id || "");
+  const total = fmtBRL(order?.total);
+  const email = order?.customer_email || order?.profile?.email || "";
+
+  return (
+    <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-lg rounded-3xl bg-[#0b0f18] ring-1 ring-white/10 shadow-2xl overflow-hidden">
+        <div className="p-5 border-b border-white/10">
+          <p className="text-sm font-semibold text-slate-100">Excluir pedido</p>
+          <p className="text-xs text-slate-400 mt-1">
+            Tem certeza? Essa ação é <span className="text-red-200 font-semibold">PERMANENTE</span> e não pode ser desfeita.
+          </p>
+        </div>
+
+        <div className="p-5 space-y-2">
+          <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
+            <p className="text-xs text-slate-400">Pedido</p>
+            <p className="text-sm text-slate-100 mt-1">
+              <span className="font-semibold">#{id}</span>{email ? ` • ${email}` : ""}{total ? ` • ${total}` : ""}
+            </p>
+          </div>
+          <p className="text-xs text-slate-400">
+            Dica: se você só quer “sumir” com ele da operação, prefira marcar como <b>Cancelado</b> em vez de excluir.
+          </p>
+        </div>
+
+        <div className="p-5 flex items-center justify-end gap-2 border-t border-white/10">
+          <button
+            onClick={onClose}
+            className="rounded-xl px-4 py-2 text-sm text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={onConfirm}
+            className="rounded-xl px-4 py-2 text-sm font-semibold text-red-100 bg-red-500/15 hover:bg-red-500/25 ring-1 ring-red-500/30"
+          >
+            Excluir permanentemente
+          </button>
         </div>
       </div>
     </div>
@@ -979,7 +1035,9 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome, onR
       const data = await resp.json().catch(() => ({}));
       if (!resp.ok) throw new Error(data?.error || "Não foi possível excluir.");
       showToast("🗑️ Pedido excluído!");
-      setOrders((prev) => (prev || []).filter((o) => o.id !== orderId));
+      setOrders((prev) => (prev || []).filter((o) => String(o.id) !== String(orderId)));
+      // also refetch to avoid stale UI
+      fetchOrders();
       // close details if it was open for this order
       setDetails((d) => (d?.orderId === orderId ? { open: false, orderId: null } : d));
     } catch (e) {
@@ -1608,7 +1666,7 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome, onR
         onUpdateStatus={(o) => setActionModal({ open: true, mode: "status", orderId: o?.id })}
         onUpdateTracking={(o) => setActionModal({ open: true, mode: "tracking", orderId: o?.id })}
         onRequestRefund={(o) => updateOrder(o?.id, { refund_requested: true, refund_requested_at: new Date().toISOString() })}
-        onDeleteOrder={(o) => deleteOrder(o?.id)}
+        onDeleteOrder={(o) => deleteOrder(o?.id || o?.order_id)}
         toast={toast}
       />
 
