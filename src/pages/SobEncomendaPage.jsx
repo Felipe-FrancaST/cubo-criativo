@@ -19,7 +19,7 @@ export default function SobEncomendaPage({
           <div>
             <h1 className="text-2xl sm:text-3xl font-extrabold">Sob encomenda</h1>
             <p className="mt-1 text-sm text-slate-400">
-              Peças produzidas especialmente para você. Prazo médio: <b>15–30 dias úteis</b>.
+              {/* texto removido */}
             </p>
           </div>
           <div className="flex items-center gap-2">

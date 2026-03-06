@@ -161,7 +161,7 @@ export default function HomePage({
         <div className="flex items-end justify-between gap-4 flex-wrap">
           <div>
             <h2 className="text-2xl sm:text-3xl font-extrabold">Pronta entrega</h2>
-            <p className="mt-1 text-sm text-slate-400">Peças disponíveis agora — envio rápido e rastreio.</p>
+            {/* texto removido */}
           </div>
           <button
             onClick={onGoEstoque}
@@ -194,7 +194,7 @@ export default function HomePage({
         <div className="flex items-end justify-between gap-4 flex-wrap">
           <div>
             <h2 className="text-2xl sm:text-3xl font-extrabold">Miniaturas RPG sob encomenda</h2>
-            <p className="mt-1 text-sm text-slate-400">Produzidas no estúdio — prazo médio 15–30 dias úteis.</p>
+            {/* texto removido */}
           </div>
           <button
             onClick={onGoSobEncomenda}
@@ -229,7 +229,7 @@ export default function HomePage({
           <div>
             <h2 className="text-2xl sm:text-3xl font-extrabold">Destaques</h2>
             <p className="mt-1 text-sm text-slate-400">
-              Seleção do estúdio — pronta pra chamar atenção na estante.
+              {/* texto removido */}
             </p>
           </div>
         </div>
@@ -326,7 +326,7 @@ export default function HomePage({
         <div className="flex items-end justify-between gap-3 flex-wrap">
           <div>
             <h2 className="text-2xl sm:text-3xl font-extrabold">Depoimentos</h2>
-            <p className="mt-1 text-sm text-slate-400">Avaliações reais de pedidos entregues.</p>
+            {/* texto removido */}
           </div>
         </div>
 

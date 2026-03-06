@@ -1007,7 +1007,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                   <div>
                     <div className="text-xs uppercase tracking-wide text-slate-400">Minhas escolhas do mês</div>
                     <div className="mt-1 text-sm text-slate-200">
-                      {editing ? 'Você está editando suas escolhas.' : 'Suas escolhas estão salvas e podem estar bloqueadas pelo status.'}
+                      {editing ? 'Você está editando suas escolhas.' : ''}
                     </div>
                   </div>
                   <div className="text-xs text-slate-400">Ciclo: <b>{cycle}</b></div>

@@ -86,7 +86,7 @@ export default function CatalogPage({ items, loading = false, error = "", addToC
           <div>
             <h1 className="text-2xl sm:text-3xl font-extrabold">Catálogo</h1>
             <p className="mt-1 text-sm text-slate-400">
-              Action figures, miniaturas de RPG e colecionáveis — <b>pronta entrega</b> e <b>sob encomenda</b>.
+              {/* texto removido */}
             </p>
           </div>
           <span className="text-xs sm:text-sm text-slate-400">{loading ? "carregando…" : `${filtered.length} item(ns)`}</span>
