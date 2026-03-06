@@ -381,7 +381,8 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
 
       // Atualiza cache local para evitar "piscar" no refresh.
       try {
-        if (until) window.localStorage.setItem('vip_until_cache', String(until));
+        if (until && new Date(String(until)) > new Date()) window.localStorage.setItem('vip_until_cache', String(until));
+        else window.localStorage.removeItem('vip_until_cache');
       } catch {}
       // Os blocos pesados entram depois
       setOptions([]);

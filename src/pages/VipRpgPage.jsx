@@ -123,7 +123,8 @@ export default function VipRpgPage({
         // Atualiza cache local
         try {
           const until = data?.profile?.vip_until ? String(data.profile.vip_until) : '';
-          if (until) window.localStorage.setItem('vip_until_cache', until);
+          if (until && new Date(until) > new Date()) window.localStorage.setItem('vip_until_cache', until);
+          else window.localStorage.removeItem('vip_until_cache');
         } catch {}
       } catch {
         if (alive) setVipProfile(null);

@@ -354,17 +354,54 @@ export default function App() {
   const isAdmin = isAdminEmail(user?.email || "");
 
   // VIP (best-effort) via cache local para evitar flashes no menu.
-  const isVipCached = React.useMemo(() => {
+// IMPORTANTE: o cache pode ficar "stale" se um pagamento falhar/cancelar.
+// Por isso, validamos via /api/profile ao iniciar sessão e limpamos o cache quando não for VIP.
+const getVipCached = () => {
+  try {
+    if (!accessToken) return false;
+    const raw = String(window?.localStorage?.getItem('vip_until_cache') || '');
+    if (!raw) return false;
+    const d = new Date(raw);
+    return Number.isFinite(d.getTime()) && d > new Date();
+  } catch {
+    return false;
+  }
+};
+
+const [isVip, setIsVip] = React.useState(() => getVipCached());
+
+React.useEffect(() => {
+  // Deslogado: zera e limpa cache
+  if (!accessToken) {
+    setIsVip(false);
+    try { window.localStorage.removeItem('vip_until_cache'); } catch {}
+    return;
+  }
+
+  let alive = true;
+
+  (async () => {
     try {
-      if (!accessToken) return false;
-      const raw = String(window?.localStorage?.getItem('vip_until_cache') || '');
-      if (!raw) return false;
-      const d = new Date(raw);
-      return Number.isFinite(d.getTime()) && d > new Date();
+      const res = await fetch('/api/profile', { headers: { Authorization: `Bearer ${accessToken}` } });
+      const data = await res.json().catch(() => ({}));
+      const p = data?.profile || {};
+      const vipUntil = p?.vip_until ? String(p.vip_until) : '';
+      const vipOk = vipUntil && new Date(vipUntil) > new Date();
+
+      try {
+        if (vipOk) window.localStorage.setItem('vip_until_cache', vipUntil);
+        else window.localStorage.removeItem('vip_until_cache');
+      } catch {}
+
+      if (alive) setIsVip(Boolean(vipOk));
     } catch {
-      return false;
+      // Se falhar, mantém o que está no cache (best-effort)
+      if (alive) setIsVip(getVipCached());
     }
-  }, [accessToken]);
+  })();
+
+  return () => { alive = false; };
+}, [accessToken]);
 
   // UI
   const [trustOpen, setTrustOpen] = React.useState(false);
@@ -1379,7 +1416,7 @@ React.useEffect(() => {
         route={route}
         user={user}
         isAdmin={isAdmin}
-        isVip={isVipCached}
+        isVip={isVip}
         onNavigate={navigate}
         onGoHomeSection={goHomeSection}
         onOpenAuth={() => setAuthOpen(true)}

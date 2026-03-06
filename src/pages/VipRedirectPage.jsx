@@ -20,11 +20,7 @@ export default function VipRedirectPage({ user, accessToken, onNavigate, onOpenA
   const [checking, setChecking] = React.useState(true);
 
   React.useEffect(() => {
-    // Se já temos cache válido, corta 100% o flash.
-    if (accessToken && isVipCached()) {
-      onNavigate?.("/area-vip");
-      return;
-    }
+    // Mesmo com cache, sempre revalida no backend (pagamento pode ter falhado/cancelado).
 
     let alive = true;
 
@@ -46,7 +42,8 @@ export default function VipRedirectPage({ user, accessToken, onNavigate, onOpenA
 
         // Atualiza cache local para próximos refresh.
         try {
-          if (vipUntil) window.localStorage.setItem("vip_until_cache", vipUntil);
+          if (isVip) window.localStorage.setItem("vip_until_cache", vipUntil);
+          else window.localStorage.removeItem("vip_until_cache");
         } catch {}
 
         if (!alive) return;
