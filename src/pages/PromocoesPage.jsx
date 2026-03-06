@@ -26,11 +26,8 @@ export default function PromocoesPage({
                 Promoções
               </p>
               <h1 className="mt-3 text-3xl sm:text-4xl font-black tracking-tight">
-                Ofertas para chamar atenção
+                Ofertas Imperdíveis 
               </h1>
-              <p className="mt-2 text-slate-300 text-sm sm:text-base max-w-2xl">
-                Descontos especiais por tempo limitado. Toque em um item para ver fotos, escolher escala e comprar.
-              </p>
             </div>
 
             <div className="flex items-center gap-3">
