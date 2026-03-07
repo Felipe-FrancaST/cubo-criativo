@@ -583,6 +583,41 @@ async function handleDeleteOrder(req, res) {
   return res.status(200).json({ ok: true });
 }
 
+
+async function fetchVipVotingImageLibrary(sb) {
+  let resp = await sb
+    .from("vip_theme_image_library")
+    .select("id,title,image_url,sort_order,active,created_at")
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true });
+
+  if (resp?.error) {
+    const msg = String(resp.error.message || "");
+    if (/relation|does not exist|not exist/i.test(msg)) {
+      return { missingTable: true, items: [] };
+    }
+    return { error: resp.error };
+  }
+
+  return { items: Array.isArray(resp?.data) ? resp.data : [] };
+}
+
+async function handleVipVotingImageLibrary(req, res) {
+  if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
+
+  const auth = await requireAdmin(req);
+  if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
+
+  const sb = supabaseAdmin();
+  const lib = await fetchVipVotingImageLibrary(sb);
+  if (lib?.error) return res.status(500).json({ error: lib.error.message || "Falha ao carregar biblioteca de imagens." });
+  if (lib?.missingTable) {
+    return res.status(200).json({ items: [], setup_required: true, message: "Tabela vip_theme_image_library ainda não existe no Supabase." });
+  }
+
+  return res.status(200).json({ items: lib.items || [] });
+}
+
 async function handleVipVoting(req, res) {
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
 
@@ -745,7 +780,7 @@ async function handleVipStartVoting(req, res) {
     .map((o, idx) => ({
       title: String(o?.title || "").trim(),
       description: String(o?.description || "").trim() || null,
-      image_url: String(o?.image_url || "").trim() || null,
+      image_asset_id: String(o?.image_asset_id || "").trim() || null,
       sort_order: Number.isFinite(Number(o?.sort_order)) ? Number(o.sort_order) : idx,
       active: o?.active === false ? false : true,
     }))
@@ -781,6 +816,33 @@ async function handleVipStartVoting(req, res) {
     return res.status(400).json({ error: `Já existe votação cadastrada para ${month_key}.` });
   }
 
+  const libraryIds = Array.from(new Set(cleanOptions.map((o) => String(o.image_asset_id || "").trim()).filter(Boolean)));
+  let libraryById = new Map();
+  if (libraryIds.length) {
+    const libResp = await sb
+      .from("vip_theme_image_library")
+      .select("id,title,image_url,active")
+      .in("id", libraryIds);
+    if (libResp?.error) {
+      const msg = String(libResp.error.message || "");
+      if (/relation|does not exist|not exist/i.test(msg)) {
+        return res.status(400).json({ error: "A tabela vip_theme_image_library ainda não existe no Supabase. Rode o SQL de atualização primeiro." });
+      }
+      return res.status(500).json({ error: libResp.error.message || "Falha ao carregar imagens da votação." });
+    }
+    libraryById = new Map((libResp.data || []).map((item) => [String(item.id), item]));
+    const missingAsset = libraryIds.find((id) => !libraryById.has(String(id)));
+    if (missingAsset) return res.status(400).json({ error: "Uma das imagens selecionadas não foi encontrada na biblioteca." });
+  }
+
+  const resolvedOptions = cleanOptions.map((o) => {
+    const asset = o.image_asset_id ? libraryById.get(String(o.image_asset_id)) : null;
+    return {
+      ...o,
+      image_url: String(asset?.image_url || "").trim() || null,
+    };
+  });
+
   const { data: poll, error: pollErr } = await sb
     .from("vip_theme_polls")
     .insert({ month_key, title, status: "open" })
@@ -788,16 +850,22 @@ async function handleVipStartVoting(req, res) {
     .single();
   if (pollErr) return res.status(500).json({ error: pollErr.message || "Falha ao criar votação." });
 
-  const optionRows = cleanOptions.map((o, idx) => ({
+  const optionRows = resolvedOptions.map((o, idx) => ({
     poll_id: poll.id,
     title: o.title,
     description: o.description,
     image_url: o.image_url,
+    image_asset_id: o.image_asset_id,
     sort_order: Number.isFinite(Number(o.sort_order)) ? Number(o.sort_order) : idx,
     active: o.active,
   }));
 
-  const { error: optErr } = await sb.from("vip_theme_options").insert(optionRows);
+  let optResp = await sb.from("vip_theme_options").insert(optionRows);
+  if (optResp?.error && /image_asset_id|column/i.test(String(optResp.error.message || ""))) {
+    const fallbackRows = optionRows.map(({ image_asset_id, ...rest }) => rest);
+    optResp = await sb.from("vip_theme_options").insert(fallbackRows);
+  }
+  const optErr = optResp?.error;
   if (optErr) {
     // rollback poll if options insert fails
     try {
@@ -969,6 +1037,7 @@ export default async function handler(req, res) {
     if (action === "vip-voting") return await handleVipVoting(req, res);
     if (action === "vip-close-voting") return await handleVipCloseVoting(req, res);
     if (action === "vip-start-voting") return await handleVipStartVoting(req, res);
+    if (action === "vip-voting-image-library") return await handleVipVotingImageLibrary(req, res);
     if (action === "vip-delete-voting") return await handleVipDeleteVoting(req, res);
     if (action === "game-coupon") return await handleGetGameCoupon(req, res);
     if (action === "save-game-coupon") return await handleSaveGameCoupon(req, res);

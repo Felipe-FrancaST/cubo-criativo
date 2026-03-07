@@ -763,10 +763,11 @@ function CloseVotingModal({ state, onClose, onConfirm, onSelectWinner }) {
   );
 }
 
-function StartVotingModal({ state, onClose, onChange, onConfirm }) {
+function StartVotingModal({ state, imageLibrary, imageLibraryLoading, imageLibraryError, onClose, onChange, onConfirm }) {
   const open = !!state?.open;
   const busy = !!state?.busy;
   const error = state?.error;
+  const images = Array.isArray(imageLibrary) ? imageLibrary : [];
   const data = state?.data || { month_key: "", title: "", options: [] };
   const opts = Array.isArray(data.options) ? data.options : [];
 
@@ -777,7 +778,7 @@ function StartVotingModal({ state, onClose, onChange, onConfirm }) {
     const next = opts.map((o, i) => (i === idx ? { ...o, ...patch } : o));
     setField("options", next);
   };
-  const addOpt = () => setField("options", [...opts, { title: "", description: "", image_url: "" }]);
+  const addOpt = () => setField("options", [...opts, { title: "", description: "", image_asset_id: "" }]);
   const delOpt = (idx) => setField("options", opts.filter((_, i) => i !== idx));
 
   return (
@@ -837,6 +838,17 @@ function StartVotingModal({ state, onClose, onChange, onConfirm }) {
               </button>
             </div>
 
+            <div className="mt-2 mb-3 space-y-2">
+              {imageLibraryError ? (
+                <div className="rounded-xl bg-red-500/10 ring-1 ring-red-400/20 p-3 text-sm text-red-200">{imageLibraryError}</div>
+              ) : null}
+              {!imageLibraryLoading && !imageLibraryError && !images.length ? (
+                <div className="rounded-xl bg-amber-500/10 ring-1 ring-amber-400/20 p-3 text-sm text-amber-100">
+                  Nenhuma imagem foi encontrada na biblioteca do Supabase. Cadastre as imagens na tabela <b>vip_theme_image_library</b> para usá-las nas votações.
+                </div>
+              ) : null}
+            </div>
+
             <div className="mt-2 space-y-2">
               {opts.map((o, idx) => (
                 <div key={idx} className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-3">
@@ -863,14 +875,18 @@ function StartVotingModal({ state, onClose, onChange, onConfirm }) {
                       />
                     </label>
                     <label className="block">
-                      <div className="text-xs text-slate-400 mb-1">Imagem (URL) (opcional)</div>
-                      <input
-                        value={o.image_url || ""}
-                        onChange={(e) => setOpt(idx, { image_url: e.target.value })}
+                      <div className="text-xs text-slate-400 mb-1">Imagem da biblioteca</div>
+                      <select
+                        value={o.image_asset_id || ""}
+                        onChange={(e) => setOpt(idx, { image_asset_id: e.target.value })}
                         className="w-full rounded-xl bg-black/30 ring-1 ring-white/10 px-3 py-2 text-slate-100"
-                        placeholder="https://..."
-                        disabled={busy}
-                      />
+                        disabled={busy || imageLibraryLoading || !images.length}
+                      >
+                        <option value="">Sem imagem</option>
+                        {images.map((img) => (
+                          <option key={img.id} value={img.id}>{img.title}</option>
+                        ))}
+                      </select>
                     </label>
                     <label className="block md:col-span-2">
                       <div className="text-xs text-slate-400 mb-1">Descrição (opcional)</div>
@@ -883,6 +899,19 @@ function StartVotingModal({ state, onClose, onChange, onConfirm }) {
                       />
                     </label>
                   </div>
+
+                  {(() => {
+                    const selectedImage = images.find((img) => String(img.id) === String(o.image_asset_id || ""));
+                    return selectedImage ? (
+                      <div className="mt-3 flex items-center gap-3 rounded-xl bg-black/20 ring-1 ring-white/10 p-2">
+                        <img src={selectedImage.image_url} alt={selectedImage.title} className="h-16 w-16 rounded-xl object-cover bg-black/30 ring-1 ring-white/10" loading="lazy" />
+                        <div className="min-w-0">
+                          <div className="text-xs text-slate-500">Imagem selecionada</div>
+                          <div className="text-sm font-semibold text-slate-100 truncate">{selectedImage.title}</div>
+                        </div>
+                      </div>
+                    ) : null;
+                  })()}
                 </div>
               ))}
             </div>
@@ -931,6 +960,9 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome, onR
   const [vipPolls, setVipPolls] = React.useState([]);
   const [vipPollsLoading, setVipPollsLoading] = React.useState(false);
   const [vipPollsError, setVipPollsError] = React.useState("");
+  const [vipVotingImages, setVipVotingImages] = React.useState([]);
+  const [vipVotingImagesLoading, setVipVotingImagesLoading] = React.useState(false);
+  const [vipVotingImagesError, setVipVotingImagesError] = React.useState("");
 
   const [gameCouponLoading, setGameCouponLoading] = React.useState(false);
   const [gameCouponError, setGameCouponError] = React.useState("");
@@ -1008,6 +1040,29 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome, onR
     }
   }, [accessToken]);
 
+
+
+  const fetchVipVotingImages = React.useCallback(async () => {
+    if (!accessToken) return;
+    setVipVotingImagesLoading(true);
+    setVipVotingImagesError("");
+    try {
+      const resp = await fetch("/api/admin?action=vip-voting-image-library", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data?.error || "Não foi possível carregar a biblioteca de imagens da votação.");
+      setVipVotingImages(Array.isArray(data?.items) ? data.items : []);
+      if (data?.setup_required) {
+        setVipVotingImagesError(data?.message || "Cadastre a biblioteca de imagens no Supabase.");
+      }
+    } catch (e) {
+      setVipVotingImages([]);
+      setVipVotingImagesError(e?.message || "Erro ao carregar a biblioteca de imagens da votação.");
+    } finally {
+      setVipVotingImagesLoading(false);
+    }
+  }, [accessToken]);
 
   const fetchGameCoupon = React.useCallback(async () => {
     if (!accessToken) return;
@@ -1138,12 +1193,15 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome, onR
   }, [fetchOrders]);
 
   React.useEffect(() => {
-    if (section === "vip") fetchVipVoting();
+    if (section === "vip") {
+      fetchVipVoting();
+      fetchVipVotingImages();
+    }
     if (section === "coupons") {
       fetchGameCoupon();
       fetchGameCouponMetrics();
     }
-  }, [section, fetchVipVoting, fetchGameCoupon, fetchGameCouponMetrics]);
+  }, [section, fetchVipVoting, fetchVipVotingImages, fetchGameCoupon, fetchGameCouponMetrics]);
 
   async function saveGameCoupon() {
     if (!accessToken) return;
@@ -1895,9 +1953,9 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome, onR
                               month_key: nextMonthKey(),
                               title: "Qual tema você quer no próximo mês?",
                               options: [
-                                { title: "", description: "", image_url: "" },
-                                { title: "", description: "", image_url: "" },
-                                { title: "", description: "", image_url: "" },
+                                { title: "", description: "", image_asset_id: "" },
+                                { title: "", description: "", image_asset_id: "" },
+                                { title: "", description: "", image_asset_id: "" },
                               ],
                             },
                           })
@@ -1990,9 +2048,16 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome, onR
                         {(p?.options || []).map((o) => (
                           <div key={o.id} className="rounded-xl bg-white/[0.03] ring-1 ring-white/10 p-2">
                             <div className="flex items-center justify-between gap-3">
-                              <div className="min-w-0">
-                                <div className="text-slate-100 truncate">{o.title}</div>
-                                {o.description ? <div className="text-xs text-slate-500 line-clamp-2">{o.description}</div> : null}
+                              <div className="min-w-0 flex items-center gap-3">
+                                {o.image_url ? (
+                                  <div className="h-12 w-12 rounded-xl overflow-hidden bg-black/20 ring-1 ring-white/10 shrink-0">
+                                    <img src={o.image_url} alt={o.title} className="h-full w-full object-cover" loading="lazy" />
+                                  </div>
+                                ) : null}
+                                <div className="min-w-0">
+                                  <div className="text-slate-100 truncate">{o.title}</div>
+                                  {o.description ? <div className="text-xs text-slate-500 line-clamp-2">{o.description}</div> : null}
+                                </div>
                               </div>
                               <div className="text-xs text-slate-300 whitespace-nowrap">
                                 {o.votes} • {o.pct}%
@@ -2066,6 +2131,9 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome, onR
 
       <StartVotingModal
         state={startVote}
+        imageLibrary={vipVotingImages}
+        imageLibraryLoading={vipVotingImagesLoading}
+        imageLibraryError={vipVotingImagesError}
         onClose={() => setStartVote({ open: false, data: null, busy: false, error: "" })}
         onChange={(data) => setStartVote((s) => ({ ...s, data }))}
         onConfirm={(data) => startVipVoting(data)}
