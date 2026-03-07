@@ -965,6 +965,16 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                           onClick={() => vote(o.id)}
                           className={`text-left rounded-2xl ring-1 p-4 transition hover:-translate-y-0.5 ${active ? 'bg-violet-500/15 ring-violet-400/30' : 'bg-black/25 ring-white/10 hover:bg-white/5'}`}
                         >
+                          {o.image_url ? (
+                            <div className="mb-3 overflow-hidden rounded-2xl bg-black/25 ring-1 ring-white/10">
+                              <img
+                                src={o.image_url}
+                                alt={o.title}
+                                className="h-48 w-full object-contain bg-black/20"
+                                loading="lazy"
+                              />
+                            </div>
+                          ) : null}
                           <div className="flex items-start justify-between gap-2">
                             <div>
                               <div className="font-extrabold text-slate-100">{o.title}</div>
