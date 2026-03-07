@@ -153,7 +153,10 @@ export default function CatalogPage({ items, loading = false, error = "", addToC
                 <div className="flex items-center gap-2">
                   <div className="flex-1 rounded-[22px] border border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.02] p-2 shadow-[0_18px_40px_rgba(2,6,23,0.22)] backdrop-blur-sm">
                     <div className="flex items-center gap-3 rounded-[18px] border border-white/10 bg-slate-950/80 px-3 py-3 shadow-inner shadow-black/20">
-                      <span className="material-symbols-outlined text-[18px] text-slate-500" aria-hidden="true">search</span>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-[18px] w-[18px] text-slate-500" aria-hidden="true">
+                        <circle cx="11" cy="11" r="6.5" />
+                        <path d="M16 16l4.5 4.5" strokeLinecap="round" />
+                      </svg>
                       <input
                         type="search"
                         placeholder="Buscar no catálogo"
@@ -178,7 +181,14 @@ export default function CatalogPage({ items, loading = false, error = "", addToC
                     onClick={() => setMobileFiltersOpen(true)}
                     className="inline-flex items-center gap-2 rounded-[22px] border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.03] px-4 py-3 text-sm font-medium text-white shadow-[0_18px_40px_rgba(2,6,23,0.22)] backdrop-blur-sm transition hover:border-white/15 hover:bg-white/[0.08]"
                   >
-                    <span className="material-symbols-outlined text-[18px] text-slate-300" aria-hidden="true">tune</span>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-[18px] w-[18px] text-slate-300" aria-hidden="true">
+                      <path d="M4 7h8" strokeLinecap="round" />
+                      <path d="M16 7h4" strokeLinecap="round" />
+                      <circle cx="14" cy="7" r="2" />
+                      <path d="M4 17h4" strokeLinecap="round" />
+                      <path d="M12 17h8" strokeLinecap="round" />
+                      <circle cx="10" cy="17" r="2" />
+                    </svg>
                     Filtros
                     <span className="rounded-full border border-teal-400/20 bg-teal-400/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-teal-200">
                       {loading ? "…" : filtered.length}
