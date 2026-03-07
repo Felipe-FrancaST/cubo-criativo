@@ -52,6 +52,7 @@ export default function CatalogPage({ items, loading = false, error = "", addToC
   const [type, setType] = React.useState(() => readParam("tipo", "todos"));
   const [selectedTag, setSelectedTag] = React.useState("Todos");
   const [query, setQuery] = React.useState("");
+  const [mobileFiltersOpen, setMobileFiltersOpen] = React.useState(false);
 
   React.useEffect(() => {
     // Se o usuário navegar pelo histórico e mudar search, atualiza filtros base
@@ -148,55 +149,115 @@ export default function CatalogPage({ items, loading = false, error = "", addToC
           <>
             {/* Filtros principais */}
             <div className="mt-6 grid grid-cols-1 lg:grid-cols-[1fr_1fr_320px] gap-3">
-              <div className="lg:hidden space-y-3 rounded-[28px] border border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.02] p-3 shadow-[0_20px_60px_rgba(2,6,23,0.28)] backdrop-blur-sm">
-                <div className="flex items-center justify-between gap-3 px-1">
-                  <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">Filtrar catálogo</p>
-                    <p className="mt-1 text-xs text-slate-500">Escolha disponibilidade, tipo e encontre a peça ideal.</p>
+              <div className="lg:hidden space-y-3">
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 rounded-[22px] border border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.02] p-2 shadow-[0_18px_40px_rgba(2,6,23,0.22)] backdrop-blur-sm">
+                    <div className="flex items-center gap-3 rounded-[18px] border border-white/10 bg-slate-950/80 px-3 py-3 shadow-inner shadow-black/20">
+                      <span className="material-symbols-outlined text-[18px] text-slate-500" aria-hidden="true">search</span>
+                      <input
+                        type="search"
+                        placeholder="Buscar no catálogo"
+                        className="w-full bg-transparent text-sm text-slate-100 placeholder:text-slate-500 outline-none"
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                      />
+                      {query ? (
+                        <button
+                          type="button"
+                          onClick={() => setQuery("")}
+                          className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 text-[11px] font-medium text-slate-300 transition hover:bg-white/[0.08] hover:text-white"
+                        >
+                          Limpar
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
-                  <div className="rounded-full border border-white/10 bg-slate-950/80 px-3 py-1 text-[11px] font-medium text-slate-300">
-                    {loading ? "…" : `${filtered.length} itens`}
-                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setMobileFiltersOpen(true)}
+                    className="inline-flex items-center gap-2 rounded-[22px] border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.03] px-4 py-3 text-sm font-medium text-white shadow-[0_18px_40px_rgba(2,6,23,0.22)] backdrop-blur-sm transition hover:border-white/15 hover:bg-white/[0.08]"
+                  >
+                    <span className="material-symbols-outlined text-[18px] text-slate-300" aria-hidden="true">tune</span>
+                    Filtros
+                    <span className="rounded-full border border-teal-400/20 bg-teal-400/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-teal-200">
+                      {loading ? "…" : filtered.length}
+                    </span>
+                  </button>
                 </div>
 
-                <MobileFilterChips
-                  label="Disponibilidade"
-                  options={availabilityOptions}
-                  value={availability}
-                  onChange={setAvailability}
-                  tone="teal"
-                />
-
-                <MobileFilterChips
-                  label="Tipo"
-                  options={typeOptions}
-                  value={type}
-                  onChange={setType}
-                  tone="slate"
-                />
-
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3 backdrop-blur-sm">
-                  <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Buscar</label>
-                  <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-slate-950/80 px-3 py-3 shadow-inner shadow-black/20">
-                    <span className="material-symbols-outlined text-[18px] text-slate-500" aria-hidden="true">search</span>
-                    <input
-                      type="search"
-                      placeholder="Nome, tag ou descrição"
-                      className="w-full bg-transparent text-sm text-slate-100 placeholder:text-slate-500 outline-none"
-                      value={query}
-                      onChange={(e) => setQuery(e.target.value)}
+                {mobileFiltersOpen ? (
+                  <>
+                    <button
+                      type="button"
+                      aria-label="Fechar filtros"
+                      className="fixed inset-0 z-40 bg-slate-950/70 backdrop-blur-[2px]"
+                      onClick={() => setMobileFiltersOpen(false)}
                     />
-                    {query ? (
-                      <button
-                        type="button"
-                        onClick={() => setQuery("")}
-                        className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 text-[11px] font-medium text-slate-300 transition hover:bg-white/[0.08] hover:text-white"
-                      >
-                        Limpar
-                      </button>
-                    ) : null}
-                  </div>
-                </div>
+
+                    <div className="fixed inset-x-0 bottom-0 z-50 rounded-t-[32px] border border-white/10 bg-[#071019]/95 p-4 shadow-[0_-20px_80px_rgba(2,6,23,0.7)] backdrop-blur-xl">
+                      <div className="mx-auto mb-4 h-1.5 w-14 rounded-full bg-white/10" aria-hidden="true" />
+
+                      <div className="mb-4 flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">Filtros</p>
+                          <p className="mt-1 text-sm text-slate-300">Refine o catálogo de forma rápida e elegante.</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setMobileFiltersOpen(false)}
+                          className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:bg-white/[0.08] hover:text-white"
+                        >
+                          Fechar
+                        </button>
+                      </div>
+
+                      <div className="space-y-3 pb-[max(env(safe-area-inset-bottom),0px)]">
+                        <MobileFilterChips
+                          label="Disponibilidade"
+                          options={availabilityOptions}
+                          value={availability}
+                          onChange={setAvailability}
+                          tone="teal"
+                        />
+
+                        <MobileFilterChips
+                          label="Tipo"
+                          options={typeOptions}
+                          value={type}
+                          onChange={setType}
+                          tone="slate"
+                        />
+
+                        {tagOptions.length > 1 ? (
+                          <MobileFilterChips
+                            label="Tag"
+                            options={tagOptions.map((tag) => ({ key: tag, label: tag }))}
+                            value={selectedTag}
+                            onChange={setSelectedTag}
+                            tone="amber"
+                          />
+                        ) : null}
+
+                        <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-3">
+                          <span className="text-xs text-slate-400">{loading ? "carregando…" : `${filtered.length} item(ns) encontrados`}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAvailability("todas");
+                              setType("todos");
+                              setSelectedTag("Todos");
+                              setQuery("");
+                            }}
+                            className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.18em] text-slate-300 transition hover:bg-white/[0.08] hover:text-white"
+                          >
+                            Limpar filtros
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                ) : null}
               </div>
 
               <div className="hidden lg:flex flex-wrap gap-2">
@@ -247,16 +308,6 @@ export default function CatalogPage({ items, loading = false, error = "", addToC
             {/* Tags (secundário) */}
             {tagOptions.length > 1 && (
               <div className="mt-4">
-                <div className="lg:hidden rounded-[26px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-3 shadow-[0_20px_60px_rgba(2,6,23,0.22)] backdrop-blur-sm">
-                  <MobileFilterChips
-                    label="Tag"
-                    options={tagOptions.map((tag) => ({ key: tag, label: tag }))}
-                    value={selectedTag}
-                    onChange={setSelectedTag}
-                    tone="amber"
-                  />
-                </div>
-
                 <div className="hidden lg:flex flex-wrap gap-2">
                   {tagOptions.map((tag) => {
                     const active = selectedTag === tag;
