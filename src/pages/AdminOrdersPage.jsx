@@ -689,7 +689,7 @@ function CloseVotingModal({ state, onClose, onConfirm, onSelectWinner }) {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50">
+    <div className="fixed inset-0 z-[10030]">
       <div className="absolute inset-0 bg-black/70" onClick={() => (!busy ? onClose?.() : null)} />
       <div className="absolute inset-0 flex items-center justify-center p-4">
         <div className="w-full max-w-xl rounded-2xl bg-slate-950 ring-1 ring-white/10 shadow-2xl">
@@ -781,7 +781,7 @@ function StartVotingModal({ state, onClose, onChange, onConfirm }) {
   const delOpt = (idx) => setField("options", opts.filter((_, i) => i !== idx));
 
   return (
-    <div className="fixed inset-0 z-50">
+    <div className="fixed inset-0 z-[10040]">
       <div className="absolute inset-0 bg-black/70" onClick={() => (!busy ? onClose?.() : null)} />
       {/* Allow scrolling when modal content is taller than the viewport (mobile/small screens). */}
       <div className="absolute inset-0 flex items-start justify-center p-4 overflow-y-auto">
