@@ -261,21 +261,68 @@ async function selectOrdersWithCouponFallback(sb) {
 
   const legacy = await sb
     .from("coupon_redemptions")
-    .select("order_id,discount_amount,coupon_code,created_at,orders!inner(id,status,total,created_at)")
+    .select("order_id,discount_amount,coupon_code,created_at")
     .order("created_at", { ascending: false });
 
   if (legacy?.error) throw new Error(legacy.error.message || "Failed to load coupon redemptions");
 
-  const rows = (legacy.data || []).map((item) => ({
-    id: item?.orders?.id || item?.order_id,
-    status: item?.orders?.status || null,
-    total: Number(item?.orders?.total || 0),
-    coupon_code: item?.coupon_code || null,
-    coupon_discount: Number(item?.discount_amount || 0),
-    created_at: item?.orders?.created_at || item?.created_at || null,
-  }));
+  const orderIds = [...new Set((legacy.data || []).map((item) => item?.order_id).filter(Boolean))];
+  let ordersById = new Map();
+  if (orderIds.length) {
+    const ordersResp = await sb
+      .from("orders")
+      .select("id,status,total,created_at")
+      .in("id", orderIds);
+    if (ordersResp?.error) {
+      throw new Error(ordersResp.error.message || "Failed to load legacy coupon orders");
+    }
+    ordersById = new Map((ordersResp.data || []).map((row) => [String(row.id), row]));
+  }
+
+  const rows = (legacy.data || []).map((item) => {
+    const order = ordersById.get(String(item?.order_id || "")) || null;
+    return {
+      id: order?.id || item?.order_id,
+      status: order?.status || null,
+      total: Number(order?.total || 0),
+      coupon_code: item?.coupon_code || null,
+      coupon_discount: Number(item?.discount_amount || 0),
+      created_at: order?.created_at || item?.created_at || null,
+    };
+  });
 
   return { rows, hasCouponColumns: false };
+}
+
+async function selectGeneratedCouponsCount(sb) {
+  const direct = await sb
+    .from("coupons")
+    .select("code", { count: "exact", head: true })
+    .in("source", ["memory_game", "memory_game_perfect"]);
+
+  if (!direct?.error) {
+    return Number(direct.count || 0);
+  }
+
+  const msg = String(direct?.error?.message || "");
+  if (!/source|column|coupons|relation|does not exist/i.test(msg)) {
+    throw new Error(direct.error.message || "Failed to load generated coupons");
+  }
+
+  const bySessionCoupon = await sb
+    .from("coupon_game_sessions")
+    .select("coupon_code");
+
+  if (bySessionCoupon?.error) {
+    const sessionMsg = String(bySessionCoupon.error.message || "");
+    if (/coupon_code|column/i.test(sessionMsg)) return 0;
+    throw new Error(bySessionCoupon.error.message || "Failed to load generated coupons");
+  }
+
+  const codes = new Set(
+    (bySessionCoupon.data || []).map((row) => String(row?.coupon_code || "").trim()).filter(Boolean)
+  );
+  return codes.size;
 }
 
 
@@ -321,6 +368,13 @@ async function handleGameCouponMetrics(req, res) {
   const appliedOrders = couponOrders.filter((row) => String(row?.coupon_code || "").trim());
   const convertedOrders = appliedOrders.filter((row) => isPaidOrderStatus(row?.status));
 
+  let generatedCouponsCount = 0;
+  try {
+    generatedCouponsCount = await selectGeneratedCouponsCount(sb);
+  } catch (error) {
+    return res.status(500).json({ error: error.message || "Failed to load generated coupons" });
+  }
+
   const revenueGenerated = sumMoney(convertedOrders, "total");
   const discountGranted = sumMoney(convertedOrders, "coupon_discount");
   const conversionRate = wins.length > 0 ? Number(((convertedOrders.length / wins.length) * 100).toFixed(1)) : 0;
@@ -330,7 +384,7 @@ async function handleGameCouponMetrics(req, res) {
       players_count: uniquePlayers.size,
       wins_count: wins.length,
       unique_winners_count: uniqueWinners.size,
-      coupons_generated_count: generatedCouponCodes.size,
+      coupons_generated_count: generatedCouponsCount,
       coupons_applied_count: appliedOrders.length,
       purchases_with_coupon_count: convertedOrders.length,
       revenue_generated_brl: revenueGenerated,
