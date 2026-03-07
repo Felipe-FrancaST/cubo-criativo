@@ -48,6 +48,8 @@ export default function CarrosselPromo({
   }, [images]);
 
   // Fonte final: props > Supabase > fallback local
+  const shouldHoldForRemote = !Array.isArray(images) && loadingRemote && remoteSlides.length === 0;
+
   const slides = React.useMemo(() => {
     if (Array.isArray(images) && images.length) {
       return images.map((src, idx) => ({
@@ -58,13 +60,14 @@ export default function CarrosselPromo({
       }));
     }
     if (remoteSlides.length) return remoteSlides;
+    if (shouldHoldForRemote) return [];
     // fallback: mantém o layout ok caso o banco ainda não esteja populado
     return [
       { id: "local-1", image_url: "/images/promo.jpg", alt: "promo 1", link_url: null },
       { id: "local-2", image_url: "/images/promo1.jpg", alt: "promo 2", link_url: null },
       { id: "local-3", image_url: "/images/promo2.jpg", alt: "promo 3", link_url: null },
     ];
-  }, [images, remoteSlides]);
+  }, [images, remoteSlides, shouldHoldForRemote]);
 
   // evita manipular DOM fora do React (onError) e permite fallback por slide
   const [failedMap, setFailedMap] = React.useState(() => ({}));
@@ -132,7 +135,7 @@ export default function CarrosselPromo({
           Não foi possível carregar o carrossel. ({remoteErr})
         </div>
       )}
-      {loadingRemote && !Array.isArray(images) && (
+      {loadingRemote && !Array.isArray(images) && !shouldHoldForRemote && (
         <div className="absolute z-10 left-3 top-3 rounded-full bg-black/40 ring-1 ring-white/15 px-3 py-1 text-xs text-slate-200">
           Carregando…
         </div>
@@ -140,6 +143,11 @@ export default function CarrosselPromo({
 
       {/* altura responsiva */}
       <div className="h-[280px] sm:h-[360px] lg:h-[420px] relative">
+        {shouldHoldForRemote && (
+          <div className="absolute inset-0 grid place-items-center p-3" aria-hidden="true">
+            <div className="h-full w-full rounded-[1.25rem] bg-white/[0.04] ring-1 ring-white/10 animate-pulse" />
+          </div>
+        )}
         {/* imagens empilhadas com fade */}
         {slides.map((s, idx) => {
           const active = idx === i;
