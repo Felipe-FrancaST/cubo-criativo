@@ -349,7 +349,7 @@ function getRouteFromLocation() {
    APP
    ======================================================================== */
 export default function App() {
-  const { user, session, signOut } = useAuth();
+  const { user, session, signOut, isPasswordRecovery } = useAuth();
   const accessToken = session?.access_token || "";
   const isAdmin = isAdminEmail(user?.email || "");
 
@@ -513,6 +513,12 @@ React.useEffect(() => {
   }, [route]);
 
   // ===== UI =====
+  React.useEffect(() => {
+    if (!isPasswordRecovery) return;
+    if (route === "/configuracoes") return;
+    navigate("/configuracoes");
+  }, [isPasswordRecovery, route]);
+
   const [authOpen, setAuthOpen] = React.useState(false);
   const [ordersOpen, setOrdersOpen] = React.useState(false);
   // Configurações/Perfil agora são PÁGINA (não modal)

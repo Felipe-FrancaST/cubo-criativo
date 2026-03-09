@@ -1,4 +1,5 @@
 import React from "react";
+import { createClient } from "@supabase/supabase-js";
 import Modal from "./Modal.jsx";
 import { useAuth } from "../auth/AuthProvider.jsx";
 import { supabase } from "../lib/supabaseClient";
@@ -26,7 +27,7 @@ function findVipPlanForProfile(plans, profilePlan) {
 }
 
 export default function ProfileSettingsModal({ open, onClose, required = false, onSaved, initialTab = "profile", onSignOut, onNavigate, onRequireLogin, mode = "modal" }) {
-  const { user, session, resetPassword, loading: authLoading } = useAuth();
+  const { user, session, resetPassword, loading: authLoading, isPasswordRecovery, clearPasswordRecovery } = useAuth();
 
   // Navegação compatível com o router simples do App.jsx.
   // - Preferimos usar onNavigate (que chama navigate() e atualiza o state da rota).
@@ -107,11 +108,12 @@ const [stateUF2, setStateUF2] = React.useState("");
   const [avatarPreview, setAvatarPreview] = React.useState("");
   const [avatarFileName, setAvatarFileName] = React.useState("");
   const [avatarFile, setAvatarFile] = React.useState(null);
+  const [currentPassword, setCurrentPassword] = React.useState("");
   const [newPassword, setNewPassword] = React.useState("");
   const [newPassword2, setNewPassword2] = React.useState("");
   const [pwdBusy, setPwdBusy] = React.useState(false);
   const [deleteBusy, setDeleteBusy] = React.useState(false);
-  const [deleteAccountModal, setDeleteAccountModal] = React.useState({ open: false, password: "", confirm: false });
+  const [deleteAccountModal, setDeleteAccountModal] = React.useState({ open: false, password: "", confirm: false, error: "" });
   const [settingsSection, setSettingsSection] = React.useState("security");
 
   // Favoritos
@@ -132,6 +134,26 @@ const [stateUF2, setStateUF2] = React.useState("");
   const [cepBusy, setCepBusy] = React.useState(false);
   const [cepHint, setCepHint] = React.useState("");
 
+
+  const updateDeleteAccountModal = React.useCallback((patch) => {
+    setDeleteAccountModal((prev) => ({ ...prev, ...(typeof patch === "function" ? patch(prev) : patch) }));
+  }, []);
+
+  async function verifyCurrentPassword(password) {
+    const email = String(user?.email || '').trim();
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    if (!email || !password) throw new Error('Informe sua senha atual.');
+    if (!supabaseUrl || !supabaseAnonKey) throw new Error('Configuração de autenticação ausente.');
+
+    const temp = createClient(supabaseUrl, supabaseAnonKey, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
+    const { data, error } = await temp.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    if (!data?.user || data.user.id !== user?.id) throw new Error('Senha atual incorreta.');
+    try { await temp.auth.signOut(); } catch {}
+    return true;
+  }
+
   function isValidCpf(raw) {
     const v = onlyDigits(raw);
     if (v.length !== 11) return false;
@@ -149,10 +171,10 @@ const [stateUF2, setStateUF2] = React.useState("");
 
   React.useEffect(() => {
     if (!open) return;
-    const t = initialTab === "settings" ? "settings" : "profile";
+    const t = (initialTab === "settings" || isPasswordRecovery) ? "settings" : "profile";
     setActiveTab(t);
     setSettingsSection(t === "settings" ? "security" : settingsSection);
-  }, [open, initialTab]);
+  }, [open, initialTab, isPasswordRecovery]);
 
   React.useEffect(() => {
     if (!open || !user) return;
@@ -536,22 +558,22 @@ setZip2(data?.address2_zip || "");
   async function savePassword() {
     setError("");
     setOk("");
+    if (!currentPassword) return setError("Digite sua senha atual para continuar.");
     if (!newPassword || newPassword.length < 6) return setError("A nova senha deve ter pelo menos 6 caracteres.");
     if (newPassword !== newPassword2) return setError("As senhas não coincidem.");
+    if (currentPassword === newPassword) return setError("Escolha uma nova senha diferente da atual.");
     try {
       setPwdBusy(true);
+      await verifyCurrentPassword(currentPassword);
       const { error: updErr } = await supabase.auth.updateUser({ password: newPassword });
       if (updErr) throw updErr;
+      setCurrentPassword("");
       setNewPassword("");
       setNewPassword2("");
+      clearPasswordRecovery?.();
       setOk("Senha atualizada com sucesso ✅");
     } catch (e) {
-      try {
-        await resetPassword({ email: String(user?.email || "") });
-        setOk("Enviamos um link para redefinir sua senha no e-mail ✅");
-      } catch (e2) {
-        setError(e2?.message || e?.message || "Não foi possível alterar a senha.");
-      }
+      setError(e?.message || "Não foi possível alterar a senha.");
     } finally {
       setPwdBusy(false);
     }
@@ -563,6 +585,7 @@ setZip2(data?.address2_zip || "");
     setOk("");
 
     const password = String(deleteAccountModal?.password || '').trim();
+    updateDeleteAccountModal({ error: '' });
     const confirmDelete = !!deleteAccountModal?.confirm;
 
     if (!password) return setError('Digite sua senha atual para confirmar.');
@@ -578,13 +601,18 @@ setZip2(data?.address2_zip || "");
       const json = await resp.json().catch(() => ({}));
       if (!resp.ok) throw new Error(json?.error || 'Não foi possível excluir sua conta.');
 
-      setDeleteAccountModal({ open: false, password: '', confirm: false });
+      setDeleteAccountModal({ open: false, password: '', confirm: false, error: '' });
       setOk('Conta excluída com sucesso. Encerrando sua sessão…');
       try { await onSignOut?.(); } catch {}
       try { maybeClose(); } catch {}
       try { go('/'); } catch {}
     } catch (e) {
-      setError(e?.message || 'Não foi possível excluir sua conta.');
+      const msg = e?.message || 'Não foi possível excluir sua conta.';
+      if (/senha incorreta|invalid login credentials/i.test(String(msg))) {
+        updateDeleteAccountModal({ error: 'A senha informada não confere. Confira e tente novamente.' });
+      } else {
+        setError(msg);
+      }
     } finally {
       setDeleteBusy(false);
     }
@@ -593,7 +621,7 @@ setZip2(data?.address2_zip || "");
 
   const closeDeleteAccountModal = React.useCallback(() => {
     if (deleteBusy) return;
-    setDeleteAccountModal({ open: false, password: '', confirm: false });
+    setDeleteAccountModal({ open: false, password: '', confirm: false, error: '' });
   }, [deleteBusy]);
 
   async function submitReview() {
@@ -847,13 +875,28 @@ setZip2(data?.address2_zip || "");
                   <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
                     <p className="text-sm font-semibold text-slate-100">Segurança da conta</p>
                     <p className="mt-1 text-xs text-slate-400">Troque sua senha com segurança. Se preferir, envie um link de recuperação por e-mail.</p>
+                    {isPasswordRecovery ? (
+                      <div className="mt-4 rounded-2xl border border-emerald-400/20 bg-gradient-to-br from-emerald-500/15 via-emerald-500/10 to-transparent p-4">
+                        <div className="flex items-start gap-3">
+                          <div className="mt-0.5 grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-emerald-500/15 text-emerald-200 ring-1 ring-emerald-400/30">
+                            <span className="material-icons">lock_reset</span>
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold text-emerald-100">Defina sua nova senha</p>
+                            <p className="mt-1 text-sm leading-6 text-slate-200">Seu link de recuperação foi reconhecido. Escolha uma nova senha abaixo para concluir a alteração.</p>
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
                     <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <Field label="Nova senha"><input value={newPassword} onChange={(e)=>setNewPassword(e.target.value)} type="password" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="Mínimo 6 caracteres" /></Field>
-                      <Field label="Confirmar nova senha"><input value={newPassword2} onChange={(e)=>setNewPassword2(e.target.value)} type="password" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="Repita a senha" /></Field>
+                      <Field label="Senha atual"><input value={currentPassword} onChange={(e)=>setCurrentPassword(e.target.value)} type="password" autoComplete="current-password" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="Digite sua senha atual" /></Field>
+                      <div className="hidden sm:block" />
+                      <Field label="Nova senha"><input value={newPassword} onChange={(e)=>setNewPassword(e.target.value)} type="password" autoComplete="new-password" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="Mínimo 6 caracteres" /></Field>
+                      <Field label="Confirmar nova senha"><input value={newPassword2} onChange={(e)=>setNewPassword2(e.target.value)} type="password" autoComplete="new-password" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="Repita a senha" /></Field>
                     </div>
                     <div className="mt-3 flex flex-wrap gap-2">
                       <button onClick={savePassword} disabled={pwdBusy} className={`rounded-xl px-4 py-2 font-semibold ring-1 ring-white/10 ${pwdBusy ? "bg-slate-700/50 text-slate-300" : "bg-indigo-400 hover:bg-indigo-300 text-black"}`}>{pwdBusy ? "Atualizando…" : "Trocar senha"}</button>
-                      <button onClick={async()=>{ try { setError(""); setOk(""); await resetPassword({ email: String(user.email || "") }); setOk("Enviamos um link de recuperação para seu e-mail ✅"); } catch (e) { setError(e?.message || "Não foi possível enviar o link."); } }} className="rounded-xl px-4 py-2 ring-1 ring-white/10 hover:bg-white/5">Enviar link por e-mail</button>
+                      <button onClick={async()=>{ try { setError(""); setOk(""); await resetPassword({ email: String(user.email || "") }); setOk("Enviamos um link de redefinição. Ao clicar no e-mail, você será levado direto para esta tela ✅"); } catch (e) { setError(e?.message || "Não foi possível enviar o link."); } }} className="rounded-xl px-4 py-2 ring-1 ring-white/10 hover:bg-white/5">Enviar link por e-mail</button>
                     </div>
 
                     <div className="mt-5 rounded-2xl border border-rose-400/20 bg-rose-500/8 p-4">
@@ -867,7 +910,7 @@ setZip2(data?.address2_zip || "");
                           onClick={() => {
                             setError('');
                             setOk('');
-                            setDeleteAccountModal({ open: true, password: '', confirm: false });
+                            setDeleteAccountModal({ open: true, password: '', confirm: false, error: '' });
                           }}
                           className="inline-flex items-center justify-center gap-2 rounded-xl border border-rose-400/30 bg-rose-500/15 px-4 py-2 text-sm font-semibold text-rose-100 transition hover:bg-rose-500/20"
                         >
@@ -1090,7 +1133,7 @@ setZip2(data?.address2_zip || "");
         <Field label="Digite sua senha para confirmar">
           <input
             value={deleteAccountModal.password}
-            onChange={(e) => setDeleteAccountModal((prev) => ({ ...prev, password: e.target.value }))}
+            onChange={(e) => updateDeleteAccountModal({ password: e.target.value, error: "" })}
             type="password"
             autoComplete="current-password"
             className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-rose-400/60"
@@ -1098,11 +1141,25 @@ setZip2(data?.address2_zip || "");
           />
         </Field>
 
+        {deleteAccountModal.error ? (
+          <div className="rounded-2xl border border-amber-400/20 bg-gradient-to-br from-amber-500/15 via-amber-500/10 to-transparent p-4">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-amber-500/15 text-amber-200 ring-1 ring-amber-400/30">
+                <span className="material-icons">priority_high</span>
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-amber-100">Senha incorreta</p>
+                <p className="mt-1 text-sm leading-6 text-slate-200">{deleteAccountModal.error}</p>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
         <label className="flex items-start gap-3 rounded-2xl bg-white/5 p-3 ring-1 ring-white/10">
           <input
             type="checkbox"
             checked={!!deleteAccountModal.confirm}
-            onChange={(e) => setDeleteAccountModal((prev) => ({ ...prev, confirm: e.target.checked }))}
+            onChange={(e) => updateDeleteAccountModal({ confirm: e.target.checked, error: "" })}
             className="mt-1 h-4 w-4 rounded border-white/20 bg-slate-900"
           />
           <span className="text-sm leading-6 text-slate-200">Entendo que essa exclusão é permanente e desejo remover minha conta agora.</span>

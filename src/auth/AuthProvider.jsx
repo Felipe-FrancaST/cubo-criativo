@@ -7,6 +7,10 @@ export function AuthProvider({ children }) {
   const [session, setSession] = React.useState(null);
   const [user, setUser] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
+  const [isPasswordRecovery, setIsPasswordRecovery] = React.useState(() => {
+    if (typeof window === "undefined") return false;
+    try { return window.sessionStorage.getItem("cc_password_recovery") === "1"; } catch { return false; }
+  });
 
   React.useEffect(() => {
     let mounted = true;
@@ -18,10 +22,21 @@ export function AuthProvider({ children }) {
       setLoading(false);
     });
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, nextSession) => {
       setSession(nextSession || null);
       setUser(nextSession?.user || null);
       setLoading(false);
+
+      if (event === "PASSWORD_RECOVERY") {
+        setIsPasswordRecovery(true);
+        try { window.sessionStorage.setItem("cc_password_recovery", "1"); } catch {}
+        return;
+      }
+
+      if (event === "SIGNED_OUT") {
+        setIsPasswordRecovery(false);
+        try { window.sessionStorage.removeItem("cc_password_recovery"); } catch {}
+      }
     });
 
     return () => {
@@ -151,8 +166,13 @@ export function AuthProvider({ children }) {
 
   async function resetPassword({ email }) {
     const redirectTo =
-      typeof window !== "undefined" ? window.location.origin : undefined;
+      typeof window !== "undefined" ? `${window.location.origin}/configuracoes` : undefined;
     return supabase.auth.resetPasswordForEmail(email, redirectTo ? { redirectTo } : undefined);
+  }
+
+  function clearPasswordRecovery() {
+    setIsPasswordRecovery(false);
+    try { if (typeof window !== "undefined") window.sessionStorage.removeItem("cc_password_recovery"); } catch {}
   }
 
   async function signOut() {
@@ -168,8 +188,8 @@ export function AuthProvider({ children }) {
   }
 
   const value = React.useMemo(
-    () => ({ session, user, loading, signUp, signIn, signInWithGoogle, resetPassword, signOut }),
-    [session, user, loading]
+    () => ({ session, user, loading, signUp, signIn, signInWithGoogle, resetPassword, signOut, isPasswordRecovery, clearPasswordRecovery }),
+    [session, user, loading, isPasswordRecovery]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
