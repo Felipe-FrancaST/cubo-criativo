@@ -12,6 +12,26 @@ function Field({ label, children }) {
   );
 }
 
+function FloatingNotice({ tone = "success", message }) {
+  if (!message) return null;
+  const palette = tone === "error"
+    ? "border-rose-400/35 bg-slate-950/95 text-rose-100 shadow-[0_20px_60px_-20px_rgba(244,63,94,0.45)]"
+    : "border-emerald-400/35 bg-slate-950/95 text-emerald-100 shadow-[0_20px_60px_-20px_rgba(52,211,153,0.45)]";
+  const icon = tone === "error" ? "error" : "mark_email_read";
+  return (
+    <div className="pointer-events-none sticky top-3 z-[140] mb-4 flex justify-center px-1">
+      <div className={`max-w-md rounded-2xl border px-4 py-3 backdrop-blur-xl ring-1 ring-white/10 ${palette}`.trim()}>
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white/8 ring-1 ring-white/10">
+            <span className="material-icons text-[18px]">{icon}</span>
+          </div>
+          <p className="text-sm font-medium leading-6">{message}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AuthModal({ open, onClose, onSuccess }) {
   const { signIn, signUp, signInWithGoogle, resetPassword } = useAuth();
 
@@ -187,7 +207,7 @@ export default function AuthModal({ open, onClose, onSuccess }) {
       setBusy(true);
       const { error: err } = await resetPassword({ email });
       if (err) throw err;
-      setInfo("Enviamos um e-mail com o link para redefinir a senha.");
+      setInfo("Enviamos o link de recuperação para seu e-mail. Abra a mensagem e defina sua nova senha por lá ✅");
     } catch (e) {
       setError(e?.message || "Não foi possível enviar o e-mail de recuperação.");
     } finally {
@@ -269,6 +289,8 @@ export default function AuthModal({ open, onClose, onSuccess }) {
         </div>
 
         <form onSubmit={submit} className="mt-4 space-y-3">
+          {error ? <FloatingNotice tone="error" message={error} /> : null}
+          {info ? <FloatingNotice tone="success" message={info} /> : null}
           {mode === "signup" && (
             <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
               <p className="text-sm font-semibold text-slate-100">Dados para entrega</p>
@@ -436,13 +458,6 @@ export default function AuthModal({ open, onClose, onSuccess }) {
             />
           </div>
 
-          {error && (
-            <p className="text-sm text-red-300 bg-red-500/10 ring-1 ring-red-500/30 rounded-xl px-4 py-3">{error}</p>
-          )}
-          {info && (
-            <p className="text-sm text-emerald-200 bg-emerald-500/10 ring-1 ring-emerald-500/30 rounded-xl px-4 py-3">{info}</p>
-          )}
-
           <button
             disabled={busy}
             className={`w-full rounded-xl px-4 py-3 font-semibold ring-1 ring-white/10 transition ${
@@ -459,7 +474,7 @@ export default function AuthModal({ open, onClose, onSuccess }) {
               disabled={busy}
               className="hover:text-slate-200 underline underline-offset-4"
             >
-              Esqueci minha senha
+              Esqueceu a senha?
             </button>
             {mode === "signup" ? (
               <span className="text-right">Pode ser necessário confirmar o e-mail antes de entrar.</span>
