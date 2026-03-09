@@ -166,7 +166,7 @@ export function AuthProvider({ children }) {
 
   async function resetPassword({ email }) {
     const redirectTo =
-      typeof window !== "undefined" ? `${window.location.origin}/configuracoes` : undefined;
+      typeof window !== "undefined" ? `${window.location.origin}/redefinir-senha` : undefined;
     return supabase.auth.resetPasswordForEmail(email, redirectTo ? { redirectTo } : undefined);
   }
 

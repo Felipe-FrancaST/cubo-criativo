@@ -31,8 +31,8 @@ import TermosPage from "./pages/TermosPage.jsx";
 import CupomGamePage from "./pages/CupomGamePage.jsx";
 import VipRpgPage from "./pages/VipRpgPage.jsx";
 import VipRedirectPage from "./pages/VipRedirectPage.jsx";
-import SobEncomendaPage from "./pages/SobEncomendaPage.jsx";
 import VipAreaPage from "./pages/VipAreaPage.jsx";
+import PasswordResetPage from "./pages/PasswordResetPage.jsx";
 import { isAdminEmail } from "./lib/admin.js";
 import { applySeo, setJsonLd, clearJsonLd } from "./lib/seo.js";
 import { trackEvent } from "./lib/analytics.js";
@@ -440,6 +440,7 @@ React.useEffect(() => {
       "/area-vip": { title: "Área VIP | Cubo Criativo", description: "Escolha suas miniaturas do ciclo, vote no tema e acompanhe o status do seu pedido VIP.", path: "/area-vip" },
       "/perfil": { title: "Minha conta | Cubo Criativo", description: "Edite seu perfil, endereço e dados para compra.", path: "/perfil" },
       "/configuracoes": { title: "Configurações | Cubo Criativo", description: "Segurança, favoritos, avaliações e cupons.", path: "/configuracoes" },
+      "/redefinir-senha": { title: "Redefinir senha | Cubo Criativo", description: "Defina uma nova senha com segurança a partir do link enviado ao seu e-mail.", path: "/redefinir-senha" },
     };
     // Rotas dinâmicas (/p/:slug) são tratadas em um effect separado para SEO + schema.
     if (String(route || "").startsWith("/p/")) {
@@ -515,8 +516,8 @@ React.useEffect(() => {
   // ===== UI =====
   React.useEffect(() => {
     if (!isPasswordRecovery) return;
-    if (route === "/configuracoes") return;
-    navigate("/configuracoes");
+    if (route === "/redefinir-senha") return;
+    navigate("/redefinir-senha");
   }, [isPasswordRecovery, route]);
 
   const [authOpen, setAuthOpen] = React.useState(false);
@@ -1110,11 +1111,11 @@ React.useEffect(() => {
 
   const allCatalogItems = React.useMemo(() => products.map(classifyProduct), [products, classifyProduct]);
 
-  const prontaEntrega = React.useMemo(() => allCatalogItems.filter((p) => p._isStock), [allCatalogItems]);
-  const sobEncomenda = React.useMemo(() => allCatalogItems.filter((p) => !p._isStock), [allCatalogItems]);
+  const prontaEntrega = React.useMemo(() => allCatalogItems.filter((p) => String(p?.status || "").toLowerCase() === "estoque"), [allCatalogItems]);
+  const catalogoItems = React.useMemo(() => allCatalogItems.filter((p) => String(p?.status || "catalogo").toLowerCase() === "catalogo"), [allCatalogItems]);
   const rpgSobEncomenda = React.useMemo(
-    () => allCatalogItems.filter((p) => p._isRpg && !p._isStock),
-    [allCatalogItems]
+    () => catalogoItems.filter((p) => p._isRpg),
+    [catalogoItems]
   );
 
   const featured = React.useMemo(() => {
@@ -1160,7 +1161,7 @@ React.useEffect(() => {
       source = prontaEntrega;
     } else if (route === "/catalogo") {
       listName = 'Catálogo — Action figures, miniaturas de RPG e colecionáveis';
-      source = allCatalogItems;
+      source = catalogoItems;
     } else if (route === "/promocoes") {
       listName = 'Promoções de miniaturas';
       source = promocoes;
@@ -1173,7 +1174,7 @@ React.useEffect(() => {
     return () => {
       // limpa quando trocar para rotas institucionais/conta/admin
     };
-  }, [route, featured, prontaEntrega, allCatalogItems, promocoes]);
+  }, [route, featured, prontaEntrega, catalogoItems, promocoes]);
 
   // ===== SEO + Schema para página de produto (/p/:slug) =====
   React.useEffect(() => {
@@ -1272,7 +1273,7 @@ React.useEffect(() => {
     if (route === "/catalogo") {
       return (
         <CatalogPage
-          items={allCatalogItems}
+          items={catalogoItems}
           loading={productsLoading}
           error={productsError}
           addToCart={addToCart}
@@ -1284,18 +1285,8 @@ React.useEffect(() => {
       );
     }
     if (route === "/sob-encomenda") {
-      return (
-        <SobEncomendaPage
-          items={sobEncomenda}
-          loading={productsLoading}
-          error={productsError}
-          addToCart={addToCart}
-          buyNow={buyNow}
-          openGallery={openGallery}
-          onGoCatalogo={() => navigate("/catalogo")}
-          onRequireLogin={(msg) => requireLogin(msg)}
-        />
-      );
+      navigate("/catalogo");
+      return null;
     }
     if (route === "/sobre") {
       return <SobrePage onGoHome={() => navigate("/")} />;
@@ -1327,6 +1318,9 @@ React.useEffect(() => {
     }
     if (route === "/area-vip") {
       return <VipAreaPage onGoHome={() => navigate("/")} onGoVip={() => navigate("/planos-vip")} onRequireLogin={(msg) => requireLogin(msg)} />;
+    }
+    if (route === "/redefinir-senha") {
+      return <PasswordResetPage onGoHome={() => navigate("/")} onGoLogin={() => setAuthOpen(true)} />;
     }
     if (route === "/configuracoes" || route === "/perfil") {
       const initialTab = route === "/configuracoes" ? "settings" : "profile";
@@ -1374,13 +1368,13 @@ React.useEffect(() => {
         addToCart={addToCart}
         buyNow={buyNow}
         openGallery={openGallery}
-        onGoEstoque={() => navigate("/catalogo?disponibilidade=pronta")}
+        onGoEstoque={() => navigate("/estoque")}
         onGoCatalogo={() => navigate("/catalogo")}
         onGoPromocoes={() => navigate("/promocoes")}
         onGoFaq={() => navigate("/faq")}
         onGoPoliticas={() => navigate("/politica-de-privacidade")}
         onGoCupom={() => navigate("/cupom")}
-        onGoSobEncomenda={() => navigate("/sob-encomenda")}
+        onGoSobEncomenda={() => navigate("/catalogo")}
       
           onRequireLogin={(msg) => requireLogin(msg)}
         />

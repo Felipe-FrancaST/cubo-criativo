@@ -15,26 +15,6 @@ function Field({ label, children }) {
   );
 }
 
-function FloatingNotice({ tone = "success", message, className = "" }) {
-  if (!message) return null;
-  const palette = tone === "error"
-    ? "border-rose-400/35 bg-slate-950/95 text-rose-100 shadow-[0_20px_60px_-20px_rgba(244,63,94,0.45)]"
-    : "border-emerald-400/35 bg-slate-950/95 text-emerald-100 shadow-[0_20px_60px_-20px_rgba(52,211,153,0.45)]";
-  const icon = tone === "error" ? "error" : "check_circle";
-  return (
-    <div className={`pointer-events-none sticky top-3 z-[140] mb-4 flex justify-center px-1 ${className}`.trim()}>
-      <div className={`max-w-xl rounded-2xl border px-4 py-3 backdrop-blur-xl ring-1 ring-white/10 ${palette}`.trim()}>
-        <div className="flex items-start gap-3">
-          <div className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white/8 ring-1 ring-white/10">
-            <span className="material-icons text-[18px]">{icon}</span>
-          </div>
-          <p className="text-sm font-medium leading-6">{message}</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 const FALLBACK_VIP_PLANS = [
   { id: "CUBO_L1_RPG", slug: "level-1", name: "Cubo Level 1 — RPG", short_name: "Level 1", miniatures_count: 3, boss_count: 0, items_per_month: 3 },
   { id: "CUBO_L2_RPG", slug: "level-2", name: "Cubo Level 2 — RPG", short_name: "Level 2", miniatures_count: 4, boss_count: 1, items_per_month: 5 },
@@ -578,30 +558,22 @@ setZip2(data?.address2_zip || "");
   async function savePassword() {
     setError("");
     setOk("");
-    const recoveryMode = !!isPasswordRecovery;
-    if (!recoveryMode && !currentPassword) return setError("Digite sua senha atual para continuar.");
+    if (!currentPassword) return setError("Digite sua senha atual para continuar.");
     if (!newPassword || newPassword.length < 6) return setError("A nova senha deve ter pelo menos 6 caracteres.");
     if (newPassword !== newPassword2) return setError("As senhas não coincidem.");
-    if (!recoveryMode && currentPassword === newPassword) return setError("Escolha uma nova senha diferente da atual.");
+    if (currentPassword === newPassword) return setError("Escolha uma nova senha diferente da atual.");
     try {
       setPwdBusy(true);
-      if (!recoveryMode) {
-        await verifyCurrentPassword(currentPassword);
-      }
+      await verifyCurrentPassword(currentPassword);
       const { error: updErr } = await supabase.auth.updateUser({ password: newPassword });
       if (updErr) throw updErr;
       setCurrentPassword("");
       setNewPassword("");
       setNewPassword2("");
       clearPasswordRecovery?.();
-      setOk(recoveryMode ? "Nova senha definida com sucesso ✅" : "Senha atualizada com sucesso ✅");
+      setOk("Senha atualizada com sucesso ✅");
     } catch (e) {
-      const msg = e?.message || "Não foi possível alterar a senha.";
-      if (/senha atual incorreta|invalid login credentials/i.test(String(msg))) {
-        setError("A senha atual não confere. Revise e tente novamente.");
-      } else {
-        setError(msg);
-      }
+      setError(e?.message || "Não foi possível alterar a senha.");
     } finally {
       setPwdBusy(false);
     }
@@ -616,8 +588,8 @@ setZip2(data?.address2_zip || "");
     updateDeleteAccountModal({ error: '' });
     const confirmDelete = !!deleteAccountModal?.confirm;
 
-    if (!password) return updateDeleteAccountModal({ error: 'Digite sua senha atual para confirmar a exclusão.' });
-    if (!confirmDelete) return updateDeleteAccountModal({ error: 'Confirme que entende a exclusão permanente para continuar.' });
+    if (!password) return setError('Digite sua senha atual para confirmar.');
+    if (!confirmDelete) return setError('Marque a confirmação para excluir a conta.');
 
     try {
       setDeleteBusy(true);
@@ -903,8 +875,6 @@ setZip2(data?.address2_zip || "");
                   <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
                     <p className="text-sm font-semibold text-slate-100">Segurança da conta</p>
                     <p className="mt-1 text-xs text-slate-400">Troque sua senha com segurança. Se preferir, envie um link de recuperação por e-mail.</p>
-                    {error ? <FloatingNotice tone="error" message={error} /> : null}
-                    {ok ? <FloatingNotice tone="success" message={ok} /> : null}
                     {isPasswordRecovery ? (
                       <div className="mt-4 rounded-2xl border border-emerald-400/20 bg-gradient-to-br from-emerald-500/15 via-emerald-500/10 to-transparent p-4">
                         <div className="flex items-start gap-3">
@@ -919,18 +889,14 @@ setZip2(data?.address2_zip || "");
                       </div>
                     ) : null}
                     <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {!isPasswordRecovery ? (
-                        <>
-                          <Field label="Senha atual"><input value={currentPassword} onChange={(e)=>setCurrentPassword(e.target.value)} type="password" autoComplete="current-password" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="Digite sua senha atual" /></Field>
-                          <div className="hidden sm:block" />
-                        </>
-                      ) : null}
-                      <Field label={isPasswordRecovery ? "Nova senha" : "Nova senha"}><input value={newPassword} onChange={(e)=>setNewPassword(e.target.value)} type="password" autoComplete="new-password" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="Mínimo 6 caracteres" /></Field>
+                      <Field label="Senha atual"><input value={currentPassword} onChange={(e)=>setCurrentPassword(e.target.value)} type="password" autoComplete="current-password" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="Digite sua senha atual" /></Field>
+                      <div className="hidden sm:block" />
+                      <Field label="Nova senha"><input value={newPassword} onChange={(e)=>setNewPassword(e.target.value)} type="password" autoComplete="new-password" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="Mínimo 6 caracteres" /></Field>
                       <Field label="Confirmar nova senha"><input value={newPassword2} onChange={(e)=>setNewPassword2(e.target.value)} type="password" autoComplete="new-password" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="Repita a senha" /></Field>
                     </div>
                     <div className="mt-3 flex flex-wrap gap-2">
-                      <button onClick={savePassword} disabled={pwdBusy} className={`rounded-xl px-4 py-2 font-semibold ring-1 ring-white/10 ${pwdBusy ? "bg-slate-700/50 text-slate-300" : "bg-indigo-400 hover:bg-indigo-300 text-black"}`}>{pwdBusy ? "Atualizando…" : (isPasswordRecovery ? "Definir nova senha" : "Trocar senha")}</button>
-                      {!isPasswordRecovery ? <button onClick={async()=>{ try { setError(""); setOk(""); await resetPassword({ email: String(user.email || "") }); setOk("Enviamos o link de recuperação para seu e-mail. Abra a mensagem e defina sua nova senha por lá ✅"); } catch (e) { setError(e?.message || "Não foi possível enviar o link."); } }} className="rounded-xl px-4 py-2 ring-1 ring-white/10 hover:bg-white/5">Esqueceu a senha?</button> : null}
+                      <button onClick={savePassword} disabled={pwdBusy} className={`rounded-xl px-4 py-2 font-semibold ring-1 ring-white/10 ${pwdBusy ? "bg-slate-700/50 text-slate-300" : "bg-indigo-400 hover:bg-indigo-300 text-black"}`}>{pwdBusy ? "Atualizando…" : "Trocar senha"}</button>
+                      <button onClick={async()=>{ try { setError(""); setOk(""); await resetPassword({ email: String(user.email || "") }); setOk("Enviamos um link de redefinição. Ao clicar no e-mail, você será levado direto para esta tela ✅"); } catch (e) { setError(e?.message || "Não foi possível enviar o link."); } }} className="rounded-xl px-4 py-2 ring-1 ring-white/10 hover:bg-white/5">Enviar link por e-mail</button>
                     </div>
 
                     <div className="mt-5 rounded-2xl border border-rose-400/20 bg-rose-500/8 p-4">
@@ -1127,6 +1093,9 @@ setZip2(data?.address2_zip || "");
               </>
             )}
 
+            {error ? <p className="text-sm text-red-300 bg-red-500/10 ring-1 ring-red-500/30 rounded-xl px-4 py-3">{error}</p> : null}
+            {ok ? <p className="text-sm text-emerald-200 bg-emerald-500/10 ring-1 ring-emerald-500/30 rounded-xl px-4 py-3">{ok}</p> : null}
+
             <div className="flex items-center justify-end gap-2">
               {!required && <button onClick={onClose} className="rounded-xl px-4 py-3 ring-1 ring-white/10 hover:bg-white/5">Fechar</button>}
               {activeTab === "profile" ? (
@@ -1149,7 +1118,6 @@ setZip2(data?.address2_zip || "");
       maxWidth="max-w-[560px]"
     >
       <div className="space-y-4">
-        {deleteAccountModal.error ? <FloatingNotice tone="error" message={deleteAccountModal.error} className="top-2" /> : null}
         <div className="rounded-2xl border border-rose-400/20 bg-gradient-to-br from-rose-500/15 via-rose-500/10 to-transparent p-4">
           <div className="flex items-start gap-3">
             <div className="mt-0.5 grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-rose-500/15 text-rose-200 ring-1 ring-rose-400/30">
@@ -1172,6 +1140,21 @@ setZip2(data?.address2_zip || "");
             placeholder="Sua senha atual"
           />
         </Field>
+
+        {deleteAccountModal.error ? (
+          <div className="rounded-2xl border border-amber-400/20 bg-gradient-to-br from-amber-500/15 via-amber-500/10 to-transparent p-4">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-amber-500/15 text-amber-200 ring-1 ring-amber-400/30">
+                <span className="material-icons">priority_high</span>
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-amber-100">Senha incorreta</p>
+                <p className="mt-1 text-sm leading-6 text-slate-200">{deleteAccountModal.error}</p>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
         <label className="flex items-start gap-3 rounded-2xl bg-white/5 p-3 ring-1 ring-white/10">
           <input
             type="checkbox"

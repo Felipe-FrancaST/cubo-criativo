@@ -93,11 +93,8 @@ export default function MenuDrawer({
     <DrawerButton icon="view_module" onClick={() => { onNavigate("/catalogo"); onClose?.(); }}>
       Catálogo
     </DrawerButton>
-    <DrawerButton icon="local_shipping" onClick={() => { onNavigate("/catalogo?disponibilidade=pronta"); onClose?.(); }}>
+    <DrawerButton icon="local_shipping" onClick={() => { onNavigate("/estoque"); onClose?.(); }}>
       Pronta entrega
-    </DrawerButton>
-    <DrawerButton icon="schedule" onClick={() => { onNavigate("/sob-encomenda"); onClose?.(); }}>
-      Sob encomenda
     </DrawerButton>
     <DrawerButton icon="local_offer" onClick={() => { onNavigate("/promocoes"); onClose?.(); }}>
       Promoções

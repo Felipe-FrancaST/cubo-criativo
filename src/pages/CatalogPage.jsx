@@ -10,18 +10,27 @@ function readParam(name, fallback = "") {
   }
 }
 
+function FilterChip({ active, children, onClick, tone = "default" }) {
+  const activeClass = tone === "accent"
+    ? "bg-amber-400 text-black ring-amber-300/40"
+    : "bg-white/10 text-white ring-white/15";
+  return (
+    <button type="button" onClick={onClick} className={`rounded-full px-3 py-2 text-sm font-medium ring-1 transition ${active ? activeClass : "bg-slate-900/60 text-slate-200 ring-white/10 hover:bg-white/5"}`}>
+      {children}
+    </button>
+  );
+}
+
 export default function CatalogPage({ items, loading = false, error = "", addToCart, buyNow, openGallery, onRequireLogin }) {
-  // Deep link: /catalogo?disponibilidade=pronta|encomenda  & tipo=action|rpg
-  const [availability, setAvailability] = React.useState(() => readParam("disponibilidade", "todas"));
   const [type, setType] = React.useState(() => readParam("tipo", "todos"));
   const [selectedTag, setSelectedTag] = React.useState("Todos");
-  const [query, setQuery] = React.useState("");
+  const [query, setQuery] = React.useState(() => readParam("q", ""));
+  const [filtersOpen, setFiltersOpen] = React.useState(false);
 
   React.useEffect(() => {
-    // Se o usuário navegar pelo histórico e mudar search, atualiza filtros base
     const onPop = () => {
-      setAvailability(readParam("disponibilidade", "todas"));
       setType(readParam("tipo", "todos"));
+      setQuery(readParam("q", ""));
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
@@ -32,7 +41,6 @@ export default function CatalogPage({ items, loading = false, error = "", addToC
     const isInternal = (t) => {
       const s = String(t || "").toLowerCase().trim();
       if (!s) return true;
-      // tags internas / técnicas
       if (s === "rpg") return true;
       if (s === "action" || s === "action figure" || s === "figure action") return true;
       if (s.startsWith("tipo:")) return true;
@@ -52,42 +60,30 @@ export default function CatalogPage({ items, loading = false, error = "", addToC
   const filtered = React.useMemo(() => {
     const q = query.trim().toLowerCase();
     return (items || []).filter((p) => {
-      // disponibilidade
-      const isStock = !!p?._isStock;
-      const matchAvail =
-        availability === "todas" ||
-        (availability === "pronta" && isStock) ||
-        (availability === "encomenda" && !isStock);
-
-      // tipo
       const t = String(p?._typeLabel || "").toLowerCase();
-      const matchType =
-        type === "todos" ||
-        (type === "action" && t.includes("action")) ||
-        (type === "rpg" && t.includes("rpg"));
-
-      // tags
+      const matchType = type === "todos" || (type === "action" && t.includes("action")) || (type === "rpg" && t.includes("rpg"));
       const matchTag = selectedTag === "Todos" || (p.tags || []).includes(selectedTag);
-
-      // busca
       const name = String(p?.nome || "").toLowerCase();
       const desc = String(p?.descricao || "").toLowerCase();
       const tags = Array.isArray(p?.tags) ? p.tags.map((t) => String(t).toLowerCase()).join(" ") : "";
       const matchQuery = !q || name.includes(q) || desc.includes(q) || tags.includes(q);
-
-      return matchAvail && matchType && matchTag && matchQuery;
+      return matchType && matchTag && matchQuery;
     });
-  }, [items, availability, type, selectedTag, query]);
+  }, [items, type, selectedTag, query]);
+
+  const activeFilterCount = (type !== "todos" ? 1 : 0) + (selectedTag !== "Todos" ? 1 : 0);
+  function clearFilters() {
+    setType("todos");
+    setSelectedTag("Todos");
+  }
 
   return (
     <main className="flex-1">
-      <section className="container-cc px-4 sm:px-6 lg:px-8 py-10 sm:py-14" >
+      <section className="container-cc px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
         <div className="flex items-end justify-between gap-4 flex-wrap">
           <div>
             <h1 className="text-2xl sm:text-3xl font-extrabold">Catálogo</h1>
-            <p className="mt-1 text-sm text-slate-400">
-              {/* texto removido */}
-            </p>
+            <p className="mt-1 text-sm text-slate-400">Peças produzidas sob encomenda e modelos do catálogo para escolher com calma.</p>
           </div>
           <span className="text-xs sm:text-sm text-slate-400">{loading ? "carregando…" : `${filtered.length} item(ns)`}</span>
         </div>
@@ -98,158 +94,150 @@ export default function CatalogPage({ items, loading = false, error = "", addToC
           </div>
         ) : (
           <>
-            {/* Filtros principais */}
-            <div className="mt-6 grid grid-cols-1 lg:grid-cols-[1fr_1fr_320px] gap-3">
-              <div className="lg:hidden">
-                <label className="block text-xs text-slate-400 mb-1">Disponibilidade</label>
-                <select
-                  className="w-full rounded-lg bg-slate-800/60 ring-1 ring-white/10 px-3 py-2 text-sm outline-none"
-                  value={availability}
-                  onChange={(e) => setAvailability(e.target.value)}
-                >
-                  <option value="todas">Todos</option>
-                  <option value="pronta">Pronta entrega</option>
-                  <option value="encomenda">Sob encomenda</option>
-                </select>
+            <div className="mt-6 rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,.9),rgba(2,6,23,.86))] p-3 sm:p-4 shadow-xl shadow-black/20 backdrop-blur-xl">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <label className="relative flex-1">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">
+                    <svg viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-current" strokeWidth="1.8">
+                      <circle cx="11" cy="11" r="7" />
+                      <path d="m20 20-3.5-3.5" strokeLinecap="round" />
+                    </svg>
+                  </span>
+                  <input type="search" placeholder="Buscar por nome, tag ou descrição…" className="w-full rounded-2xl bg-slate-950/55 pl-11 pr-11 py-3 text-sm text-slate-100 placeholder:text-slate-500 ring-1 ring-white/10 outline-none focus:ring-teal-400/60" value={query} onChange={(e) => setQuery(e.target.value)} />
+                  {query ? (
+                    <button type="button" onClick={() => setQuery("")} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl p-2 text-slate-300 hover:bg-white/5" aria-label="Limpar busca">
+                      <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current" strokeWidth="2">
+                        <path d="M6 6l12 12M18 6 6 18" strokeLinecap="round" />
+                      </svg>
+                    </button>
+                  ) : null}
+                </label>
+
+                <button type="button" onClick={() => setFiltersOpen(true)} className="inline-flex lg:hidden items-center justify-center gap-2 rounded-2xl bg-white/5 px-4 py-3 text-sm font-semibold text-slate-100 ring-1 ring-white/10 hover:bg-white/8">
+                  <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current" strokeWidth="1.8">
+                    <path d="M4 7h16M7 12h10M10 17h4" strokeLinecap="round" />
+                  </svg>
+                  <span>Filtros{activeFilterCount ? ` (${activeFilterCount})` : ""}</span>
+                </button>
               </div>
 
-              <div className="hidden lg:flex flex-wrap gap-2">
-                {[
-                    { key: "todas", label: "Todos" },
-                    { key: "pronta", label: "Pronta entrega" },
-                    { key: "encomenda", label: "Sob encomenda" },
-                  ].map((opt) => {
-                    const active = availability === opt.key;
-                    return (
-                      <button
-                        key={opt.key}
-                        onClick={() => setAvailability(opt.key)}
-                        className={`px-3 py-1 rounded-full text-sm whitespace-nowrap ring-1 ring-white/10 ${
-                          active ? "bg-teal-400 text-black font-semibold" : "bg-slate-800/60 hover:bg-white/5"
-                        }`}
-                      >
-                        {opt.label}
-                      </button>
-                    );
-                  })}
-              </div>
+              <div className="mt-4 hidden lg:block space-y-4">
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Tipo</p>
+                  <div className="flex flex-wrap gap-2">
+                    <FilterChip active={type === "todos"} onClick={() => setType("todos")}>Todos os tipos</FilterChip>
+                    <FilterChip active={type === "action"} onClick={() => setType("action")}>Action Figures</FilterChip>
+                    <FilterChip active={type === "rpg"} onClick={() => setType("rpg")}>Miniaturas RPG</FilterChip>
+                  </div>
+                </div>
 
-              <div className="lg:hidden">
-                <label className="block text-xs text-slate-400 mb-1">Tipo</label>
-                <select
-                  className="w-full rounded-lg bg-slate-800/60 ring-1 ring-white/10 px-3 py-2 text-sm outline-none"
-                  value={type}
-                  onChange={(e) => setType(e.target.value)}
-                >
-                  <option value="todos">Todos os tipos</option>
-                  <option value="action">Action Figures</option>
-                  <option value="rpg">Miniaturas RPG</option>
-                </select>
-              </div>
-
-              <div className="hidden lg:flex flex-wrap gap-2">
-                {[
-                    { key: "todos", label: "Todos os tipos" },
-                    { key: "action", label: "Action Figures" },
-                    { key: "rpg", label: "Miniaturas RPG" },
-                  ].map((opt) => {
-                    const active = type === opt.key;
-                    return (
-                      <button
-                        key={opt.key}
-                        onClick={() => setType(opt.key)}
-                        className={`px-3 py-1 rounded-full text-sm whitespace-nowrap ring-1 ring-white/10 ${
-                          active ? "bg-white/10 text-white font-semibold" : "bg-slate-800/60 hover:bg-white/5"
-                        }`}
-                      >
-                        {opt.label}
-                      </button>
-                    );
-                  })}
-              </div>
-
-              <div className="w-full">
-                <input
-                  type="search"
-                  placeholder="Buscar por nome, tag ou descrição…"
-                  className="w-full rounded-lg bg-slate-800/60 ring-1 ring-white/10 px-3 py-2 text-sm placeholder:text-slate-400 outline-none"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                />
+                {tagOptions.length > 1 ? (
+                  <div>
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Tags</p>
+                      {activeFilterCount ? <button type="button" onClick={clearFilters} className="text-xs font-semibold text-slate-300 hover:text-white">Limpar filtros</button> : null}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {tagOptions.map((tag) => (
+                        <FilterChip key={tag} tone="accent" active={selectedTag === tag} onClick={() => setSelectedTag(tag)}>
+                          {tag}
+                        </FilterChip>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
               </div>
             </div>
 
-            {/* Tags (secundário) */}
-            {tagOptions.length > 1 && (
-              <div className="mt-4">
-                <div className="lg:hidden">
-                  <label className="block text-xs text-slate-400 mb-1">Tag</label>
-                  <select
-                    className="w-full rounded-lg bg-slate-800/60 ring-1 ring-white/10 px-3 py-2 text-sm outline-none"
-                    value={selectedTag}
-                    onChange={(e) => setSelectedTag(e.target.value)}
-                  >
-                    {tagOptions.map((tag) => (
-                      <option key={tag} value={tag}>
-                        {tag}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="hidden lg:flex flex-wrap gap-2">
-                  {tagOptions.map((tag) => {
-                    const active = selectedTag === tag;
-                    return (
-                      <button
-                        key={tag}
-                        onClick={() => setSelectedTag(tag)}
-                        className={`px-3 py-1 rounded-full text-sm whitespace-nowrap ring-1 ring-white/10 ${
-                          active ? "bg-amber-400 text-black font-semibold" : "bg-slate-800/60 hover:bg-white/5"
-                        }`}
-                      >
-                        {tag}
-                      </button>
-                    );
-                  })}
-                </div>
+            <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <div className="rounded-2xl p-4 ring-1 ring-white/10 bg-white/5">
+                <p className="font-bold">Como funciona</p>
+                <ul className="mt-2 text-sm text-slate-300 space-y-1">
+                  <li>• Você compra pelo site (ou fecha no WhatsApp).</li>
+                  <li>• Produção e acabamento no estúdio.</li>
+                  <li>• Envio com rastreio para todo o Brasil.</li>
+                </ul>
               </div>
-            )}
+              <div className="rounded-2xl p-4 ring-1 ring-white/10 bg-white/5">
+                <p className="font-bold">Prazos</p>
+                <p className="mt-2 text-sm text-slate-300">O prazo varia conforme fila de produção, complexidade e pintura. Em geral:</p>
+                <p className="mt-2 text-sm font-semibold text-slate-200">15–30 dias úteis</p>
+              </div>
+              <div className="rounded-2xl p-4 ring-1 ring-white/10 bg-white/5">
+                <p className="font-bold">Dúvidas?</p>
+                <p className="mt-2 text-sm text-slate-300">Fale com a gente no WhatsApp e enviamos detalhes, fotos e prazos atualizados.</p>
+              </div>
+            </div>
 
-            <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {loading &&
-                Array.from({ length: 12 }).map((_, idx) => (
-                  <div
-                    key={idx}
-                    className="w-full max-w-[320px] rounded-2xl overflow-hidden ring-1 ring-white/10 bg-slate-900/60"
-                  >
-                    <div className="aspect-[4/5] bg-slate-800/60 animate-pulse" />
-                    <div className="p-4">
-                      <div className="h-4 bg-slate-800/60 rounded animate-pulse" />
-                      <div className="mt-3 h-9 bg-slate-800/60 rounded animate-pulse" />
-                      <div className="mt-4 grid grid-cols-2 gap-2">
-                        <div className="h-10 bg-slate-800/60 rounded animate-pulse" />
-                        <div className="h-10 bg-slate-800/60 rounded animate-pulse" />
+            {filtersOpen ? (
+              <div className="lg:hidden fixed inset-0 z-[120]">
+                <button type="button" className="absolute inset-0 bg-black/70 backdrop-blur-[2px]" onClick={() => setFiltersOpen(false)} aria-label="Fechar filtros" />
+                <div className="absolute inset-x-0 bottom-0 rounded-t-[30px] border border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,.98),rgba(2,6,23,.98))] p-4 shadow-2xl shadow-black/40">
+                  <div className="mx-auto mb-4 h-1.5 w-14 rounded-full bg-white/15" />
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-base font-bold text-slate-100">Filtros do catálogo</p>
+                      <p className="text-xs text-slate-400">Refine a vitrine sem ocupar espaço da tela.</p>
+                    </div>
+                    <button type="button" onClick={() => setFiltersOpen(false)} className="rounded-xl p-2 ring-1 ring-white/10 hover:bg-white/5" aria-label="Fechar">
+                      <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current" strokeWidth="2">
+                        <path d="M6 6l12 12M18 6 6 18" strokeLinecap="round" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  <div className="mt-5 space-y-5 pb-2">
+                    <div>
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Tipo</p>
+                      <div className="flex flex-wrap gap-2">
+                        <FilterChip active={type === "todos"} onClick={() => setType("todos")}>Todos os tipos</FilterChip>
+                        <FilterChip active={type === "action"} onClick={() => setType("action")}>Action Figures</FilterChip>
+                        <FilterChip active={type === "rpg"} onClick={() => setType("rpg")}>Miniaturas RPG</FilterChip>
                       </div>
                     </div>
+
+                    {tagOptions.length > 1 ? (
+                      <div>
+                        <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Tag</p>
+                        <div className="flex flex-wrap gap-2 max-h-52 overflow-y-auto pr-1">
+                          {tagOptions.map((tag) => (
+                            <FilterChip key={tag} tone="accent" active={selectedTag === tag} onClick={() => setSelectedTag(tag)}>
+                              {tag}
+                            </FilterChip>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
-                ))}
 
-              {!loading &&
-                filtered.map((p) => (
-                  <ProductCard
-                    key={p.id}
-                    p={p}
-                    addToCart={addToCart}
-                    buyNow={buyNow}
-                    openGallery={openGallery}
-                    onRequireLogin={onRequireLogin}
-                  />
-                ))}
+                  <div className="mt-6 grid grid-cols-2 gap-3">
+                    <button type="button" onClick={clearFilters} className="rounded-2xl px-4 py-3 font-semibold ring-1 ring-white/10 hover:bg-white/5">Limpar</button>
+                    <button type="button" onClick={() => setFiltersOpen(false)} className="rounded-2xl bg-indigo-400 px-4 py-3 font-semibold text-black ring-1 ring-indigo-300/40 hover:bg-indigo-300">Ver resultados</button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
 
-              {!loading && filtered.length === 0 && (
-                <div className="col-span-full text-center text-slate-400 text-sm">Nenhum item encontrado.</div>
-              )}
+            <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {loading && Array.from({ length: 12 }).map((_, idx) => (
+                <div key={idx} className="w-full max-w-[320px] rounded-2xl overflow-hidden ring-1 ring-white/10 bg-slate-900/60">
+                  <div className="aspect-[4/5] bg-slate-800/60 animate-pulse" />
+                  <div className="p-4">
+                    <div className="h-4 bg-slate-800/60 rounded animate-pulse" />
+                    <div className="mt-3 h-9 bg-slate-800/60 rounded animate-pulse" />
+                    <div className="mt-4 grid grid-cols-2 gap-2">
+                      <div className="h-10 bg-slate-800/60 rounded animate-pulse" />
+                      <div className="h-10 bg-slate-800/60 rounded animate-pulse" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {!loading && filtered.map((p) => (
+                <ProductCard key={p.id} p={p} addToCart={addToCart} buyNow={buyNow} openGallery={openGallery} onRequireLogin={onRequireLogin} />
+              ))}
+
+              {!loading && filtered.length === 0 && <div className="col-span-full text-center text-slate-400 text-sm">Nenhum item encontrado.</div>}
             </div>
           </>
         )}
