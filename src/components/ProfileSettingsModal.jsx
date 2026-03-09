@@ -110,6 +110,8 @@ const [stateUF2, setStateUF2] = React.useState("");
   const [newPassword, setNewPassword] = React.useState("");
   const [newPassword2, setNewPassword2] = React.useState("");
   const [pwdBusy, setPwdBusy] = React.useState(false);
+  const [deleteBusy, setDeleteBusy] = React.useState(false);
+  const [deleteAccountModal, setDeleteAccountModal] = React.useState({ open: false, password: "", confirm: false });
   const [settingsSection, setSettingsSection] = React.useState("security");
 
   // Favoritos
@@ -555,6 +557,39 @@ setZip2(data?.address2_zip || "");
     }
   }
 
+  async function deleteAccount() {
+    if (!user || !jwt) return;
+    setError("");
+    setOk("");
+
+    const password = String(deleteAccountModal?.password || '').trim();
+    const confirmDelete = !!deleteAccountModal?.confirm;
+
+    if (!password) return setError('Digite sua senha atual para confirmar.');
+    if (!confirmDelete) return setError('Marque a confirmação para excluir a conta.');
+
+    try {
+      setDeleteBusy(true);
+      const resp = await fetch('/api/delete-account', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}) },
+        body: JSON.stringify({ password, confirm: true }),
+      });
+      const json = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(json?.error || 'Não foi possível excluir sua conta.');
+
+      setDeleteAccountModal({ open: false, password: '', confirm: false });
+      setOk('Conta excluída com sucesso. Encerrando sua sessão…');
+      try { await onSignOut?.(); } catch {}
+      try { maybeClose(); } catch {}
+      try { go('/'); } catch {}
+    } catch (e) {
+      setError(e?.message || 'Não foi possível excluir sua conta.');
+    } finally {
+      setDeleteBusy(false);
+    }
+  }
+
   async function submitReview() {
     if (!user || !reviewModal?.order?.id) return;
     setError('');
@@ -814,6 +849,27 @@ setZip2(data?.address2_zip || "");
                       <button onClick={savePassword} disabled={pwdBusy} className={`rounded-xl px-4 py-2 font-semibold ring-1 ring-white/10 ${pwdBusy ? "bg-slate-700/50 text-slate-300" : "bg-indigo-400 hover:bg-indigo-300 text-black"}`}>{pwdBusy ? "Atualizando…" : "Trocar senha"}</button>
                       <button onClick={async()=>{ try { setError(""); setOk(""); await resetPassword({ email: String(user.email || "") }); setOk("Enviamos um link de recuperação para seu e-mail ✅"); } catch (e) { setError(e?.message || "Não foi possível enviar o link."); } }} className="rounded-xl px-4 py-2 ring-1 ring-white/10 hover:bg-white/5">Enviar link por e-mail</button>
                     </div>
+
+                    <div className="mt-5 rounded-2xl border border-rose-400/20 bg-rose-500/8 p-4">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-rose-100">Zona de perigo</p>
+                          <p className="mt-1 text-xs leading-5 text-rose-100/80">Solicite a exclusão permanente da sua conta. Você perderá o acesso ao login, cupons, favoritos e preferências salvas.</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setError('');
+                            setOk('');
+                            setDeleteAccountModal({ open: true, password: '', confirm: false });
+                          }}
+                          className="inline-flex items-center justify-center gap-2 rounded-xl border border-rose-400/30 bg-rose-500/15 px-4 py-2 text-sm font-semibold text-rose-100 transition hover:bg-rose-500/20"
+                        >
+                          <span className="material-icons text-[18px]">delete_forever</span>
+                          <span>Solicitar exclusão da conta</span>
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 )}
 
@@ -1004,6 +1060,70 @@ setZip2(data?.address2_zip || "");
       </div>
   );
 
+  const deleteAccountModalEl = (
+    <Modal
+      open={!!deleteAccountModal.open}
+      onClose={() => !deleteBusy && setDeleteAccountModal({ open: false, password: '', confirm: false })}
+      title="Excluir conta"
+      widthClass="w-[94vw] sm:w-[560px]"
+      maxWidth="max-w-[560px]"
+    >
+      <div className="space-y-4">
+        <div className="rounded-2xl border border-rose-400/20 bg-gradient-to-br from-rose-500/15 via-rose-500/10 to-transparent p-4">
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-rose-500/15 text-rose-200 ring-1 ring-rose-400/30">
+              <span className="material-icons">warning</span>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-rose-100">Esta ação é permanente</p>
+              <p className="mt-1 text-sm leading-6 text-slate-200">Sua conta será excluída definitivamente. Você perderá acesso ao login, favoritos, cupons e preferências salvas. Registros necessários para pedidos e obrigações legais podem continuar armazenados internamente quando exigido.</p>
+            </div>
+          </div>
+        </div>
+
+        <Field label="Digite sua senha para confirmar">
+          <input
+            value={deleteAccountModal.password}
+            onChange={(e) => setDeleteAccountModal((prev) => ({ ...prev, password: e.target.value }))}
+            type="password"
+            autoComplete="current-password"
+            className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-rose-400/60"
+            placeholder="Sua senha atual"
+          />
+        </Field>
+
+        <label className="flex items-start gap-3 rounded-2xl bg-white/5 p-3 ring-1 ring-white/10">
+          <input
+            type="checkbox"
+            checked={!!deleteAccountModal.confirm}
+            onChange={(e) => setDeleteAccountModal((prev) => ({ ...prev, confirm: e.target.checked }))}
+            className="mt-1 h-4 w-4 rounded border-white/20 bg-slate-900"
+          />
+          <span className="text-sm leading-6 text-slate-200">Entendo que essa exclusão é permanente e desejo remover minha conta agora.</span>
+        </label>
+
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button
+            type="button"
+            onClick={() => setDeleteAccountModal({ open: false, password: '', confirm: false })}
+            disabled={deleteBusy}
+            className="rounded-xl px-4 py-3 ring-1 ring-white/10 hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={deleteAccount}
+            disabled={deleteBusy}
+            className="rounded-xl bg-rose-500 px-4 py-3 font-semibold text-white transition hover:bg-rose-400 disabled:cursor-not-allowed disabled:bg-rose-500/60"
+          >
+            {deleteBusy ? 'Excluindo conta…' : 'Excluir conta permanentemente'}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+
   const reviewModalEl = (
     <Modal
       open={!!reviewModal.open}
@@ -1075,6 +1195,7 @@ setZip2(data?.address2_zip || "");
     return (
       <>
         {inner}
+        {deleteAccountModalEl}
         {reviewModalEl}
       </>
     );
@@ -1085,6 +1206,7 @@ setZip2(data?.address2_zip || "");
       <Modal open={open} onClose={onClose} title={activeTab === "settings" ? "Configurações" : "Perfil"}>
         {inner}
       </Modal>
+      {deleteAccountModalEl}
       {reviewModalEl}
     </>
   );
