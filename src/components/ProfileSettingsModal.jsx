@@ -590,6 +590,12 @@ setZip2(data?.address2_zip || "");
     }
   }
 
+
+  const closeDeleteAccountModal = React.useCallback(() => {
+    if (deleteBusy) return;
+    setDeleteAccountModal({ open: false, password: '', confirm: false });
+  }, [deleteBusy]);
+
   async function submitReview() {
     if (!user || !reviewModal?.order?.id) return;
     setError('');
@@ -1063,7 +1069,7 @@ setZip2(data?.address2_zip || "");
   const deleteAccountModalEl = (
     <Modal
       open={!!deleteAccountModal.open}
-      onClose={() => !deleteBusy && setDeleteAccountModal({ open: false, password: '', confirm: false })}
+      onClose={closeDeleteAccountModal}
       title="Excluir conta"
       widthClass="w-[94vw] sm:w-[560px]"
       maxWidth="max-w-[560px]"
@@ -1105,7 +1111,7 @@ setZip2(data?.address2_zip || "");
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button
             type="button"
-            onClick={() => setDeleteAccountModal({ open: false, password: '', confirm: false })}
+            onClick={closeDeleteAccountModal}
             disabled={deleteBusy}
             className="rounded-xl px-4 py-3 ring-1 ring-white/10 hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-60"
           >
