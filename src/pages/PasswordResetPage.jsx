@@ -31,67 +31,20 @@ function Field({ label, children }) {
   );
 }
 
-function hasRecoverySignals() {
-  if (typeof window === "undefined") return false;
-  try {
-    const params = new URLSearchParams(window.location.search || "");
-    const hash = String(window.location.hash || "");
-    return (
-      params.get("type") === "recovery" ||
-      !!params.get("code") ||
-      /type=recovery/i.test(hash) ||
-      /access_token=/i.test(hash) ||
-      /refresh_token=/i.test(hash)
-    );
-  } catch {
-    return false;
-  }
-}
-
 export default function PasswordResetPage({ onGoHome, onGoLogin }) {
-  const { isPasswordRecovery, session, clearPasswordRecovery } = useAuth();
+  const { isPasswordRecovery, clearPasswordRecovery } = useAuth();
   const [newPassword, setNewPassword] = React.useState("");
   const [confirmPassword, setConfirmPassword] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState("");
   const [ok, setOk] = React.useState("");
-  const [ready, setReady] = React.useState(() => isPasswordRecovery || hasRecoverySignals());
-
-  React.useEffect(() => {
-    let active = true;
-    async function prepareRecovery() {
-      const hasSignals = hasRecoverySignals();
-      if (isPasswordRecovery || (session && hasSignals)) {
-        setReady(true);
-        try { window.sessionStorage.setItem("cc_password_recovery", "1"); } catch {}
-        return;
-      }
-      const code = typeof window !== "undefined" ? new URLSearchParams(window.location.search || "").get("code") : "";
-      if (!code || session) {
-        setReady(Boolean(isPasswordRecovery));
-        return;
-      }
-      try {
-        const { error: exchangeErr } = await supabase.auth.exchangeCodeForSession(code);
-        if (exchangeErr) throw exchangeErr;
-        if (!active) return;
-        try { window.sessionStorage.setItem("cc_password_recovery", "1"); } catch {}
-        setReady(true);
-      } catch {
-        if (!active) return;
-        setReady(false);
-      }
-    }
-    prepareRecovery();
-    return () => { active = false; };
-  }, [isPasswordRecovery, session]);
 
   async function submit(e) {
     e?.preventDefault?.();
     setError("");
     setOk("");
 
-    if (!ready) {
+    if (!isPasswordRecovery) {
       setError("Abra a página pelo link enviado ao seu e-mail para redefinir a senha com segurança.");
       return;
     }

@@ -3,34 +3,13 @@ import { supabase } from "../lib/supabaseClient";
 
 const AuthContext = React.createContext(null);
 
-function hasRecoverySignals() {
-  if (typeof window === "undefined") return false;
-  try {
-    const params = new URLSearchParams(window.location.search || "");
-    const hash = String(window.location.hash || "");
-    return (
-      params.get("type") === "recovery" ||
-      !!params.get("code") ||
-      /type=recovery/i.test(hash) ||
-      /access_token=/i.test(hash) ||
-      /refresh_token=/i.test(hash)
-    );
-  } catch {
-    return false;
-  }
-}
-
 export function AuthProvider({ children }) {
   const [session, setSession] = React.useState(null);
   const [user, setUser] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
   const [isPasswordRecovery, setIsPasswordRecovery] = React.useState(() => {
     if (typeof window === "undefined") return false;
-    try {
-      return window.sessionStorage.getItem("cc_password_recovery") === "1" || hasRecoverySignals();
-    } catch {
-      return hasRecoverySignals();
-    }
+    try { return window.sessionStorage.getItem("cc_password_recovery") === "1"; } catch { return false; }
   });
 
   React.useEffect(() => {
@@ -40,10 +19,6 @@ export function AuthProvider({ children }) {
       if (!mounted) return;
       setSession(data.session || null);
       setUser(data.session?.user || null);
-      if (data.session && hasRecoverySignals()) {
-        setIsPasswordRecovery(true);
-        try { window.sessionStorage.setItem("cc_password_recovery", "1"); } catch {}
-      }
       setLoading(false);
     });
 

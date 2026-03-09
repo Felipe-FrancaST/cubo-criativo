@@ -146,11 +146,19 @@ const [stateUF2, setStateUF2] = React.useState("");
     if (!email || !password) throw new Error('Informe sua senha atual.');
     if (!supabaseUrl || !supabaseAnonKey) throw new Error('Configuração de autenticação ausente.');
 
-    const temp = createClient(supabaseUrl, supabaseAnonKey, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
+    const temp = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+        flowType: 'pkce',
+        storageKey: `cc-password-check-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      },
+    });
+
     const { data, error } = await temp.auth.signInWithPassword({ email, password });
     if (error) throw error;
     if (!data?.user || data.user.id !== user?.id) throw new Error('Senha atual incorreta.');
-    try { await temp.auth.signOut(); } catch {}
     return true;
   }
 
@@ -564,7 +572,20 @@ setZip2(data?.address2_zip || "");
     if (currentPassword === newPassword) return setError("Escolha uma nova senha diferente da atual.");
     try {
       setPwdBusy(true);
+      const { data: beforeData } = await supabase.auth.getSession();
+      const originalSession = beforeData?.session || null;
+
       await verifyCurrentPassword(currentPassword);
+
+      const { data: afterCheckData } = await supabase.auth.getSession();
+      if (!afterCheckData?.session && originalSession?.access_token && originalSession?.refresh_token) {
+        const { error: restoreErr } = await supabase.auth.setSession({
+          access_token: originalSession.access_token,
+          refresh_token: originalSession.refresh_token,
+        });
+        if (restoreErr) throw restoreErr;
+      }
+
       const { error: updErr } = await supabase.auth.updateUser({ password: newPassword });
       if (updErr) throw updErr;
       setCurrentPassword("");
