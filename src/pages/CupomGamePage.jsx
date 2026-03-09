@@ -46,6 +46,7 @@ function formatCountdown(ms) {
 
 export default function CupomGamePage({ onGoHome, accessToken, onRequireLogin }) {
   const [status, setStatus] = React.useState({ loading: true, can_play: false, weekly_reward: null, coupon: null, played: false });
+  const [loginGateVisible, setLoginGateVisible] = React.useState(false);
   const [deck, setDeck] = React.useState(() => buildDeck());
   const [flipped, setFlipped] = React.useState([]);
   const [busy] = React.useState(false);
@@ -59,7 +60,6 @@ export default function CupomGamePage({ onGoHome, accessToken, onRequireLogin })
 
   async function loadStatus() {
     if (!accessToken) {
-      onRequireLogin?.('Faça login para jogar e receber cupom.');
       setStatus({ loading: false, can_play: false, weekly_reward: null, coupon: null, played: false, error: null });
       return;
     }
@@ -77,6 +77,12 @@ export default function CupomGamePage({ onGoHome, accessToken, onRequireLogin })
 
   React.useEffect(() => { loadStatus(); }, [accessToken]);
   React.useEffect(() => { const t = window.setInterval(() => setNowMs(Date.now()), 1000); return () => window.clearInterval(t); }, []);
+  React.useEffect(() => {
+    if (accessToken) {
+      setLoginGateVisible(false);
+      setResultMsg('');
+    }
+  }, [accessToken]);
 
   const isVip = Boolean(status?.vip?.isVip);
   const nextReset = isVip ? nextDailyResetUTC(new Date(nowMs)) : nextWeeklyResetUTC(new Date(nowMs));
@@ -138,6 +144,12 @@ export default function CupomGamePage({ onGoHome, accessToken, onRequireLogin })
   }
 
   function onCardClick(idx) {
+    if (!accessToken) {
+      setLoginGateVisible(true);
+      setResultMsg('Entre na sua conta para liberar o jogo e receber seu cupom.');
+      onRequireLogin?.('Faça login para jogar e receber seu cupom.');
+      return;
+    }
     if (!status.can_play || busy || finished) return;
     const card = deck[idx];
     if (!card || card.matched) return;
@@ -223,7 +235,7 @@ export default function CupomGamePage({ onGoHome, accessToken, onRequireLogin })
                   <p className="font-bold text-lg">{errors}/{MAX_ERRORS}</p>
                 </div>
               </div>
-              <div className="flex justify-between gap-3"><span className="text-slate-400">Status</span><span className="text-right">{status.loading ? 'Carregando…' : status.can_play ? 'Pode jogar' : (isVip ? 'Já jogou hoje' : 'Já jogou esta semana')}</span></div>
+              <div className="flex justify-between gap-3"><span className="text-slate-400">Status</span><span className="text-right">{status.loading ? 'Carregando…' : !accessToken ? 'Faça login para jogar' : status.can_play ? 'Pode jogar' : (isVip ? 'Já jogou hoje' : 'Já jogou esta semana')}</span></div>
               <div className="flex justify-between gap-3"><span className="text-slate-400">Próxima rodada</span><span className="text-right font-medium">{countdown}</span></div>
               {resultMsg ? <div className="rounded-xl bg-white/5 ring-1 ring-white/10 px-3 py-2 text-slate-100">{resultMsg}</div> : null}
               {status.error ? <div className="rounded-xl bg-rose-500/10 ring-1 ring-rose-400/20 px-3 py-2 text-rose-200">{status.error}</div> : null}
@@ -231,13 +243,43 @@ export default function CupomGamePage({ onGoHome, accessToken, onRequireLogin })
           </aside>
 
           <div className="order-2 lg:order-1 rounded-2xl p-3 sm:p-5 ring-1 ring-white/10 bg-slate-900/50">
+            {loginGateVisible && !accessToken ? (
+              <div className="mb-4 rounded-2xl border border-amber-300/20 bg-gradient-to-br from-amber-400/12 via-slate-900/85 to-slate-950/95 px-4 py-4 shadow-[0_18px_50px_rgba(0,0,0,0.28)] backdrop-blur-sm">
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-amber-300/12 ring-1 ring-amber-200/20">
+                    <span className="material-icons text-amber-200">lock_open</span>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-white">Faça login para jogar</p>
+                    <p className="mt-1 text-sm leading-6 text-slate-300">Entre na sua conta para desbloquear o jogo da memória e gerar seu cupom automaticamente ao vencer.</p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => onRequireLogin?.('Faça login para jogar e receber seu cupom.')}
+                        className="rounded-xl bg-amber-300 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-amber-200"
+                      >
+                        Entrar agora
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setLoginGateVisible(false)}
+                        className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-200 transition hover:bg-white/10"
+                      >
+                        Agora não
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
             <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 sm:gap-3">
               {deck.map((card, idx) => (
                 <button
                   key={card.id}
                   onClick={() => onCardClick(idx)}
-                  disabled={!status.can_play || busy || finished || card.matched}
-                  className={`aspect-square rounded-xl sm:rounded-2xl text-2xl sm:text-3xl grid place-items-center ring-1 transition active:scale-[0.98] ${reveal(idx) ? 'bg-white/10 ring-white/20' : 'bg-gradient-to-br from-fuchsia-500/15 to-teal-500/15 ring-white/10 hover:bg-white/10'}`}
+                  disabled={(!!accessToken && (!status.can_play || busy || finished || card.matched)) || (!accessToken && loginGateVisible)}
+                  className={`aspect-square rounded-xl sm:rounded-2xl text-2xl sm:text-3xl grid place-items-center ring-1 transition active:scale-[0.98] ${reveal(idx) ? 'bg-white/10 ring-white/20' : 'bg-gradient-to-br from-fuchsia-500/15 to-teal-500/15 ring-white/10 hover:bg-white/10'} ${!accessToken ? 'cursor-pointer' : ''}`}
                   aria-label={reveal(idx) ? `Carta ${card.icon}` : 'Carta fechada'}
                 >
                   <span>{reveal(idx) ? card.icon : '❓'}</span>

@@ -1310,7 +1310,7 @@ React.useEffect(() => {
       return <TermosPage onGoHome={() => navigate("/")} />;
     }
     if (route === "/cupom") {
-      return <CupomGamePage onGoHome={() => navigate("/")} user={user} accessToken={accessToken} />;
+      return <CupomGamePage onGoHome={() => navigate("/")} user={user} accessToken={accessToken} onRequireLogin={requireLogin} />;
     }
     if (route === "/vip") {
       // Rota inteligente: VIPs vão direto pra Área VIP, não-VIPs vão para /planos-vip.
