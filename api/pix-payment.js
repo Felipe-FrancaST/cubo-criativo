@@ -104,7 +104,7 @@ async function applyVipFromOrder(sb, order, payment) {
     const currentUntil = prof?.vip_until ? new Date(prof.vip_until).getTime() : 0;
     const nextUntil = Math.max(currentUntil, end.getTime());
     const vipPlan = await getVipPlanById(sb, planId);
-    await sb.from("profiles").update({ vip_until: new Date(nextUntil).toISOString(), vip_plan: vipPlan?.name || "Cubo Level 1 RPG" }).eq("id", userId);
+    await sb.from("profiles").update({ vip_until: new Date(nextUntil).toISOString(), vip_plan: planId }).eq("id", userId);
 
     // Envio de email de adesão com idempotência separada do email genérico
     try {
