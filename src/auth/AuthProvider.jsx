@@ -10,10 +10,12 @@ function hasRecoverySignals() {
     const hash = String(window.location.hash || "");
     const path = String(window.location.pathname || "");
     const isResetPath = path === "/redefinir-senha";
-    const hasRecoveryType = params.get("type") === "recovery" || /type=recovery/i.test(hash);
+    const type = String(params.get("type") || "").toLowerCase();
+    const tokenHash = String(params.get("token_hash") || "");
+    const hasRecoveryType = type === "recovery" || /type=recovery/i.test(hash);
     const hasRecoveryToken = /access_token=/i.test(hash) || /refresh_token=/i.test(hash);
     const hasResetCode = isResetPath && !!params.get("code");
-    return hasRecoveryType || hasRecoveryToken || hasResetCode;
+    return hasRecoveryType || hasRecoveryToken || !!tokenHash || hasResetCode;
   } catch {
     return false;
   }
@@ -22,13 +24,24 @@ function hasRecoverySignals() {
 
 function userHasPassword(user) {
   if (!user) return false;
+
+  const metadataFlag = user?.user_metadata?.has_password;
+  if (metadataFlag === true) return true;
+  if (metadataFlag === false) return false;
+
   const providers = [];
   const directProvider = String(user?.app_metadata?.provider || '').toLowerCase().trim();
   const appProviders = Array.isArray(user?.app_metadata?.providers) ? user.app_metadata.providers : [];
   const identityProviders = Array.isArray(user?.identities)
     ? user.identities.map((i) => String(i?.provider || '').toLowerCase().trim()).filter(Boolean)
     : [];
-  providers.push(directProvider, ...appProviders.map((p) => String(p || '').toLowerCase().trim()), ...identityProviders);
+
+  providers.push(
+    directProvider,
+    ...appProviders.map((p) => String(p || '').toLowerCase().trim()),
+    ...identityProviders,
+  );
+
   const unique = Array.from(new Set(providers.filter(Boolean)));
   if (unique.includes('email')) return true;
   if (!unique.length) return true;

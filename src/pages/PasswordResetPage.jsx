@@ -31,20 +31,36 @@ function Field({ label, children }) {
   );
 }
 
-function hasRecoverySignals() {
-  if (typeof window === "undefined") return false;
-  try {
-    const params = new URLSearchParams(window.location.search || "");
-    const hash = String(window.location.hash || "");
-    const path = String(window.location.pathname || "");
-    const isResetPath = path === "/redefinir-senha";
-    const hasRecoveryType = params.get("type") === "recovery" || /type=recovery/i.test(hash);
-    const hasRecoveryToken = /access_token=/i.test(hash) || /refresh_token=/i.test(hash);
-    const hasResetCode = isResetPath && !!params.get("code");
-    return hasRecoveryType || hasRecoveryToken || hasResetCode;
-  } catch {
-    return false;
+function getRecoveryContext() {
+  if (typeof window === "undefined") {
+    return {
+      hasSignals: false,
+      type: "",
+      tokenHash: "",
+      code: "",
+      accessToken: "",
+      refreshToken: "",
+    };
   }
+
+  const params = new URLSearchParams(window.location.search || "");
+  const hashParams = new URLSearchParams(String(window.location.hash || "").replace(/^#/, ""));
+  const path = String(window.location.pathname || "");
+  const type = String(params.get("type") || hashParams.get("type") || "").toLowerCase();
+  const tokenHash = String(params.get("token_hash") || "");
+  const code = String(params.get("code") || "");
+  const accessToken = String(hashParams.get("access_token") || "");
+  const refreshToken = String(hashParams.get("refresh_token") || "");
+  const isResetPath = path === "/redefinir-senha";
+
+  const hasSignals = Boolean(
+    type === "recovery" ||
+    tokenHash ||
+    (isResetPath && code) ||
+    (accessToken && refreshToken)
+  );
+
+  return { hasSignals, type, tokenHash, code, accessToken, refreshToken };
 }
 
 export default function PasswordResetPage({ onGoHome, onGoLogin }) {
@@ -54,54 +70,71 @@ export default function PasswordResetPage({ onGoHome, onGoLogin }) {
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState("");
   const [ok, setOk] = React.useState("");
-  const [ready, setReady] = React.useState(() => isPasswordRecovery || hasRecoverySignals());
+  const [ready, setReady] = React.useState(() => isPasswordRecovery || getRecoveryContext().hasSignals);
+
+  const prepareRecoverySession = React.useCallback(async () => {
+    const ctx = getRecoveryContext();
+
+    try {
+      if (ctx.accessToken && ctx.refreshToken) {
+        const { error } = await supabase.auth.setSession({
+          access_token: ctx.accessToken,
+          refresh_token: ctx.refreshToken,
+        });
+        if (error) throw error;
+      } else if (ctx.tokenHash && ctx.type === "recovery") {
+        const { error } = await supabase.auth.verifyOtp({
+          token_hash: ctx.tokenHash,
+          type: "recovery",
+        });
+        if (error) throw error;
+      } else if (ctx.code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(ctx.code);
+        if (error) throw error;
+      }
+
+      const { data } = await supabase.auth.getSession();
+      const hasSession = !!data?.session;
+      if (hasSession) {
+        try { window.sessionStorage.setItem("cc_password_recovery", "1"); } catch {}
+      }
+      return hasSession;
+    } catch {
+      return false;
+    }
+  }, []);
 
   React.useEffect(() => {
-    let active = true;
-    async function prepareRecovery() {
-      const hasSignals = hasRecoverySignals();
-      if (isPasswordRecovery || (session && hasSignals)) {
-        setReady(true);
-        try { window.sessionStorage.setItem("cc_password_recovery", "1"); } catch {}
+    let alive = true;
+
+    async function boot() {
+      const ctx = getRecoveryContext();
+
+      if (!ctx.hasSignals && !isPasswordRecovery && !session) {
+        if (alive) setReady(false);
         return;
       }
-      const code = typeof window !== "undefined" ? new URLSearchParams(window.location.search || "").get("code") : "";
-      if (code && !session) {
-        try {
-          const { error: exchangeErr } = await supabase.auth.exchangeCodeForSession(code);
-          if (exchangeErr) throw exchangeErr;
-          if (!active) return;
-          try { window.sessionStorage.setItem("cc_password_recovery", "1"); } catch {}
-          setReady(true);
-          return;
-        } catch {
-          if (!active) return;
-        }
+
+      const ok = await prepareRecoverySession();
+      if (!alive) return;
+
+      if (ok || isPasswordRecovery || session) {
+        setReady(true);
+        return;
       }
-      try {
-        const { data } = await supabase.auth.getSession();
-        if (!active) return;
-        if (data?.session && hasSignals) {
-          try { window.sessionStorage.setItem("cc_password_recovery", "1"); } catch {}
-          setReady(true);
-          return;
-        }
-      } catch {}
-      setReady(Boolean(isPasswordRecovery));
+
+      setReady(false);
     }
-    prepareRecovery();
-    return () => { active = false; };
-  }, [isPasswordRecovery, session]);
+
+    boot();
+    return () => { alive = false; };
+  }, [isPasswordRecovery, session, prepareRecoverySession]);
 
   async function submit(e) {
     e?.preventDefault?.();
     setError("");
     setOk("");
 
-    if (!ready) {
-      setError("Abra a página pelo link enviado ao seu e-mail para redefinir a senha com segurança.");
-      return;
-    }
     if (!newPassword || newPassword.length < 6) {
       setError("A nova senha deve ter pelo menos 6 caracteres.");
       return;
@@ -113,12 +146,36 @@ export default function PasswordResetPage({ onGoHome, onGoLogin }) {
 
     try {
       setBusy(true);
-      const { error: updErr } = await supabase.auth.updateUser({ password: newPassword });
+
+      let { data } = await supabase.auth.getSession();
+      if (!data?.session) {
+        const recovered = await prepareRecoverySession();
+        if (!recovered) {
+          throw new Error("Abra a página pelo link enviado ao seu e-mail para redefinir a senha com segurança.");
+        }
+        const refreshed = await supabase.auth.getSession();
+        data = refreshed.data;
+      }
+
+      if (!data?.session) {
+        throw new Error("Abra a página pelo link enviado ao seu e-mail para redefinir a senha com segurança.");
+      }
+
+      const { error: updErr } = await supabase.auth.updateUser({
+        password: newPassword,
+        data: { has_password: true },
+      });
       if (updErr) throw updErr;
+
       clearPasswordRecovery?.();
+      setReady(true);
       setNewPassword("");
       setConfirmPassword("");
       setOk("Senha atualizada com sucesso ✅ Agora você já pode entrar normalmente na sua conta.");
+
+      try {
+        window.history.replaceState({}, "", "/redefinir-senha");
+      } catch {}
     } catch (e) {
       setError(e?.message || "Não foi possível redefinir sua senha.");
     } finally {

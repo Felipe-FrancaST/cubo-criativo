@@ -639,7 +639,10 @@ setZip2(data?.address2_zip || "");
           : "Sua sessão expirou. Entre novamente para alterar sua senha.");
       }
 
-      const { error: updErr } = await supabase.auth.updateUser({ password: newPassword });
+      const { error: updErr } = await supabase.auth.updateUser({
+        password: newPassword,
+        data: { has_password: true },
+      });
       if (updErr) throw updErr;
       setCurrentPassword("");
       setNewPassword("");
