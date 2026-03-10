@@ -36,13 +36,12 @@ function hasRecoverySignals() {
   try {
     const params = new URLSearchParams(window.location.search || "");
     const hash = String(window.location.hash || "");
-    return (
-      params.get("type") === "recovery" ||
-      !!params.get("code") ||
-      /type=recovery/i.test(hash) ||
-      /access_token=/i.test(hash) ||
-      /refresh_token=/i.test(hash)
-    );
+    const path = String(window.location.pathname || "");
+    const isResetPath = path === "/redefinir-senha";
+    const hasRecoveryType = params.get("type") === "recovery" || /type=recovery/i.test(hash);
+    const hasRecoveryToken = /access_token=/i.test(hash) || /refresh_token=/i.test(hash);
+    const hasResetCode = isResetPath && !!params.get("code");
+    return hasRecoveryType || hasRecoveryToken || hasResetCode;
   } catch {
     return false;
   }

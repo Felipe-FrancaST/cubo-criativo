@@ -8,13 +8,12 @@ function hasRecoverySignals() {
   try {
     const params = new URLSearchParams(window.location.search || "");
     const hash = String(window.location.hash || "");
-    return (
-      params.get("type") === "recovery" ||
-      !!params.get("code") ||
-      /type=recovery/i.test(hash) ||
-      /access_token=/i.test(hash) ||
-      /refresh_token=/i.test(hash)
-    );
+    const path = String(window.location.pathname || "");
+    const isResetPath = path === "/redefinir-senha";
+    const hasRecoveryType = params.get("type") === "recovery" || /type=recovery/i.test(hash);
+    const hasRecoveryToken = /access_token=/i.test(hash) || /refresh_token=/i.test(hash);
+    const hasResetCode = isResetPath && !!params.get("code");
+    return hasRecoveryType || hasRecoveryToken || hasResetCode;
   } catch {
     return false;
   }
@@ -77,6 +76,16 @@ export function AuthProvider({ children }) {
       if (event === "SIGNED_OUT") {
         setIsPasswordRecovery(false);
         try { window.sessionStorage.removeItem("cc_password_recovery"); } catch {}
+        return;
+      }
+
+      if (event === "SIGNED_IN" || event === "INITIAL_SESSION" || event === "USER_UPDATED" || event === "TOKEN_REFRESHED") {
+        const keepRecovery = hasRecoverySignals();
+        setIsPasswordRecovery(keepRecovery);
+        try {
+          if (keepRecovery) window.sessionStorage.setItem("cc_password_recovery", "1");
+          else window.sessionStorage.removeItem("cc_password_recovery");
+        } catch {}
       }
     });
 
@@ -222,6 +231,8 @@ export function AuthProvider({ children }) {
 
   async function signInWithGoogle() {
     const redirectTo = typeof window !== "undefined" ? window.location.origin : undefined;
+    setIsPasswordRecovery(false);
+    try { if (typeof window !== "undefined") window.sessionStorage.removeItem("cc_password_recovery"); } catch {}
     return supabase.auth.signInWithOAuth({
       provider: "google",
       options: redirectTo ? { redirectTo } : undefined,
