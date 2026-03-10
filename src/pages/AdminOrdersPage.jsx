@@ -50,6 +50,14 @@ const prodStatusBadge = (s) => {
   }
 };
 
+const emailAuditBadge = (status) => {
+  const v = String(status || '').toLowerCase();
+  if (v === 'sent') return { label: 'E-mail enviado', cls: 'bg-emerald-500/15 text-emerald-200 ring-emerald-400/30' };
+  if (v === 'failed') return { label: 'Falha no e-mail', cls: 'bg-red-500/15 text-red-200 ring-red-500/30' };
+  if (v === 'skipped') return { label: 'E-mail pulado', cls: 'bg-amber-500/15 text-amber-200 ring-amber-400/30' };
+  return { label: 'Sem histórico', cls: 'bg-white/5 text-slate-300 ring-white/10' };
+};
+
 const timelineEventMeta = (event) => {
   const type = String(event?.event_type || '').toLowerCase();
   if (type === 'order_created') return { icon: 'receipt_long', cls: 'bg-slate-500/15 text-slate-200 ring-white/10' };
@@ -235,7 +243,7 @@ function DetailRow({ label, value, action }) {
   );
 }
 
-function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTracking, onRequestRefund, onDeleteOrder, toast }) {
+function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTracking, onRequestRefund, onDeleteOrder, onResendEmail, resendBusy, toast }) {
   if (!open) return null;
   const p = order?.profile || null;
   const address = fmtAddress(p);
@@ -292,6 +300,10 @@ function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTrack
               {order?.refund_requested ? (
                 <span className={`${badgeBase} bg-red-500/10 text-red-200 ring-red-500/30`}>Reembolso solicitado</span>
               ) : null}
+              {(() => {
+                const b = emailAuditBadge(order?.last_email_status);
+                return <span className={`${badgeBase} ${b.cls}`}>✉️ {b.label}</span>;
+              })()}
             </div>
 
             <div className="mt-3 grid grid-cols-2 gap-3">
@@ -306,7 +318,7 @@ function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTrack
               </div>
             </div>
 
-            <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
               <button
                 onClick={() => onUpdateStatus?.(order)}
                 className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
@@ -322,6 +334,14 @@ function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTrack
                 Atualizar rastreio
               </button>
               <button
+                onClick={() => onResendEmail?.(order)}
+                disabled={!!resendBusy}
+                className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/5 ring-1 ring-white/10 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                <span className="material-icons text-[16px] align-middle mr-1">forward_to_inbox</span>
+                {resendBusy ? 'Reenviando…' : 'Reenviar e-mail'}
+              </button>
+              <button
                 onClick={() => copyToClipboard(order?.customer_email || '')}
                 className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
               >
@@ -329,6 +349,14 @@ function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTrack
                 Copiar e-mail
               </button>
             </div>
+          </div>
+
+          <div className="mt-4 rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-3">
+            <div className="text-sm font-semibold text-white">Último e-mail</div>
+            <DetailRow label="Tipo" value={order?.last_email_type || '—'} />
+            <DetailRow label="Status" value={emailAuditBadge(order?.last_email_status).label} />
+            <DetailRow label="Enviado em" value={fmtDate(order?.last_email_sent_at)} />
+            <DetailRow label="Erro" value={order?.last_email_error || '—'} />
           </div>
 
           <div className="mt-4 rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-3">
@@ -1044,6 +1072,7 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome, onR
   const [filterType, setFilterType] = React.useState("all");
 
   const [toast, setToast] = React.useState("");
+  const [resendEmailBusyId, setResendEmailBusyId] = React.useState(null);
   const [details, setDetails] = React.useState({ open: false, orderId: null });
   const [actionModal, setActionModal] = React.useState({ open: false, mode: "status", orderId: null });
 
@@ -1352,9 +1381,40 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome, onR
       const data = await resp.json().catch(() => ({}));
       if (!resp.ok) throw new Error(data?.error || "Não foi possível atualizar.");
       showToast("✅ Atualizado!");
-      setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, ...patch } : o)));
+      if (data?.order) {
+        setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, ...patch, ...data.order } : o)));
+      } else {
+        setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, ...patch } : o)));
+      }
     } catch (e) {
       showToast(`⚠️ ${e?.message || "Falha"}`);
+    }
+  }
+
+  async function resendOrderEmail(orderId) {
+    if (!orderId || !accessToken) return;
+    try {
+      setResendEmailBusyId(orderId);
+      const resp = await fetch("/api/admin?action=resend-order-email", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ order_id: orderId }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data?.error || "Não foi possível reenviar o e-mail.");
+      showToast("📨 E-mail reenviado ao cliente!");
+      if (data?.order) {
+        setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, ...data.order } : o)));
+      } else {
+        fetchOrders();
+      }
+    } catch (e) {
+      showToast(`⚠️ ${e?.message || "Falha ao reenviar e-mail."}`);
+    } finally {
+      setResendEmailBusyId(null);
     }
   }
 
@@ -2208,6 +2268,8 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome, onR
         onUpdateTracking={(o) => setActionModal({ open: true, mode: "tracking", orderId: o?.id })}
         onRequestRefund={(o) => updateOrder(o?.id, { refund_requested: true, refund_requested_at: new Date().toISOString() })}
         onDeleteOrder={(o) => deleteOrder(o?.id || o?.order_id)}
+        onResendEmail={(o) => resendOrderEmail(o?.id || o?.order_id)}
+        resendBusy={resendEmailBusyId && String(resendEmailBusyId) === String(activeOrder?.id)}
         toast={toast}
       />
 

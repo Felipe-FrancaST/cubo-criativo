@@ -191,6 +191,16 @@ async function loadOrderEvents(sb, orderIds) {
   return { byOrder, tableAvailable: true, error: null };
 }
 
+async function fetchOrderForAdmin(sb, orderId) {
+  const fullSelect = "id,user_id,order_type,vip_plan_id,status,production_status,shipping_tracking,tracking_code,tracking_url,customer_email,customer_name,created_at,updated_at,payment_provider,total,last_email_type,last_email_status,last_email_sent_at,last_email_error";
+  const legacySelect = "id,user_id,order_type,vip_plan_id,status,production_status,shipping_tracking,tracking_code,tracking_url,customer_email,customer_name,created_at,updated_at,payment_provider,total";
+  let resp = await sb.from('orders').select(fullSelect).eq('id', orderId).maybeSingle();
+  if (resp?.error && /last_email_|column/i.test(String(resp.error.message || ''))) {
+    resp = await sb.from('orders').select(legacySelect).eq('id', orderId).maybeSingle();
+  }
+  return resp;
+}
+
 async function recordOrderEvent(sb, payload) {
   const orderId = String(payload?.order_id || '').trim();
   if (!orderId) return { skipped: true };
@@ -235,6 +245,26 @@ async function sendResendEmail({ to, subject, html }) {
   });
 
   return { ok: r.ok, data: await r.json().catch(() => ({})) };
+}
+
+async function updateOrderEmailAudit(sb, orderId, patch = {}) {
+  if (!orderId || !patch || typeof patch !== 'object') return { skipped: true };
+  const clean = {};
+  for (const [k, v] of Object.entries(patch)) {
+    if (v !== undefined) clean[k] = v;
+  }
+  if (!Object.keys(clean).length) return { skipped: true };
+
+  let resp = await sb.from('orders').update(clean).eq('id', orderId);
+  if (resp?.error && /column/i.test(String(resp.error.message || ''))) {
+    const retry = { ...clean };
+    for (const key of ['last_email_type', 'last_email_status', 'last_email_sent_at', 'last_email_error']) {
+      if (new RegExp(key, 'i').test(String(resp.error.message || ''))) delete retry[key];
+    }
+    if (!Object.keys(retry).length) return { skipped: true, missingColumns: true };
+    resp = await sb.from('orders').update(retry).eq('id', orderId);
+  }
+  return resp?.error ? { ok: false, error: resp.error } : { ok: true };
 }
 
 async function resolveCustomerEmail(sb, order) {
@@ -331,7 +361,14 @@ async function loadOrderEmailContext(sb, order) {
 
 async function notifyStatus({ sb, order, nextStatus, shipping_tracking, production_eta, cancelled_by }) {
   const to = await resolveCustomerEmail(sb, order);
-  if (!to) return;
+  if (!to) {
+    await updateOrderEmailAudit(sb, order?.id, {
+      last_email_type: 'order_status',
+      last_email_status: 'skipped',
+      last_email_error: 'Cliente sem e-mail válido para notificação.',
+    });
+    return { ok: false, skipped: true, reason: 'missing_email' };
+  }
 
   const shortId = String(order.id || "").slice(0, 8);
   const baseUrl = String(process.env.APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "")
@@ -365,7 +402,43 @@ async function notifyStatus({ sb, order, nextStatus, shipping_tracking, producti
     vipSelection: emailContext.vipSelection,
   });
 
-  await sendResendEmail({ to, subject: mail.subject || `Atualização do pedido — ${shortId}`, html: mail.html });
+  const emailType = `order_status:${String(nextStatus || '').toLowerCase() || 'updated'}`;
+  const result = await sendResendEmail({ to, subject: mail.subject || `Atualização do pedido — ${shortId}`, html: mail.html });
+
+  if (result?.ok) {
+    const stamp = new Date().toISOString();
+    await updateOrderEmailAudit(sb, order?.id, {
+      last_email_type: emailType,
+      last_email_status: 'sent',
+      last_email_sent_at: stamp,
+      last_email_error: null,
+    });
+    await recordOrderEvent(sb, {
+      order_id: order?.id,
+      event_type: 'email_sent',
+      title: 'E-mail enviado ao cliente',
+      description: `Template ${emailType} enviado para ${to}.`,
+      actor_label: 'Sistema',
+      metadata: { email_type: emailType, email_to: to, provider: 'resend', resend_id: result?.data?.id || null },
+    });
+    return { ok: true, to, emailType, provider: result?.data || null };
+  }
+
+  const providerMessage = result?.data?.message || result?.data?.error || 'Falha ao enviar e-mail.';
+  await updateOrderEmailAudit(sb, order?.id, {
+    last_email_type: emailType,
+    last_email_status: 'failed',
+    last_email_error: providerMessage,
+  });
+  await recordOrderEvent(sb, {
+    order_id: order?.id,
+    event_type: 'email_failed',
+    title: 'Falha ao enviar e-mail',
+    description: providerMessage,
+    actor_label: 'Sistema',
+    metadata: { email_type: emailType, email_to: to, provider: 'resend' },
+  });
+  return { ok: false, error: providerMessage, to, emailType };
 }
 
 // -----------------------------
@@ -638,33 +711,45 @@ async function handleOrders(req, res) {
 
   const sb = supabaseAdmin();
 
-  // Compatibilidade: alguns bancos ainda não têm refund_requested/refund_requested_at.
-  // Tentamos buscar com as colunas novas; se falhar por coluna inexistente, buscamos sem elas.
+  // Compatibilidade: alguns bancos ainda não têm refund_requested/refund_requested_at
+  // nem as colunas de auditoria de e-mail. Vamos tentando em camadas.
   let orders = null;
   let ordersErr = null;
 
-  const selectWithRefund =
+  const selectFull =
+    "id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,production_status,shipping_tracking,order_type,vip_plan_id,refund_requested,refund_requested_at,last_email_type,last_email_status,last_email_sent_at,last_email_error";
+  const selectNoEmailAudit =
     "id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,production_status,shipping_tracking,order_type,vip_plan_id,refund_requested,refund_requested_at";
   const selectLegacy =
     "id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,production_status,shipping_tracking,order_type,vip_plan_id";
 
-  const attemptOrdersNew = await sb
+  let attemptOrders = await sb
     .from("orders")
-    .select(selectWithRefund)
+    .select(selectFull)
     .order("created_at", { ascending: false })
     .limit(300);
 
-  orders = attemptOrdersNew?.data || null;
-  ordersErr = attemptOrdersNew?.error || null;
+  orders = attemptOrders?.data || null;
+  ordersErr = attemptOrders?.error || null;
+
+  if (ordersErr && /last_email_|column/i.test(String(ordersErr.message || ""))) {
+    attemptOrders = await sb
+      .from("orders")
+      .select(selectNoEmailAudit)
+      .order("created_at", { ascending: false })
+      .limit(300);
+    orders = attemptOrders?.data || null;
+    ordersErr = attemptOrders?.error || null;
+  }
 
   if (ordersErr && /refund_requested|refund_requested_at|column/i.test(String(ordersErr.message || ""))) {
-    const attemptOrdersOld = await sb
+    attemptOrders = await sb
       .from("orders")
       .select(selectLegacy)
       .order("created_at", { ascending: false })
       .limit(300);
-    orders = attemptOrdersOld?.data || null;
-    ordersErr = attemptOrdersOld?.error || null;
+    orders = attemptOrders?.data || null;
+    ordersErr = attemptOrders?.error || null;
   }
 
   if (ordersErr) return res.status(500).json({ error: ordersErr.message || "Failed to load orders" });
@@ -821,7 +906,7 @@ async function handleDeleteOrder(req, res) {
   const { error: delErr } = await sb.from("orders").delete().eq("id", orderId);
   if (delErr) return res.status(500).json({ error: delErr.message || "Failed to delete order" });
 
-  return res.status(200).json({ ok: true });
+  return res.status(200).json({ ok: true, order: order || null });
 }
 
 
@@ -1156,13 +1241,7 @@ async function handleUpdateOrder(req, res) {
 
   const sb = supabaseAdmin();
 
-  const { data: currentOrder, error: currentErr } = await sb
-    .from("orders")
-    .select(
-      "id,user_id,order_type,vip_plan_id,status,production_status,shipping_tracking,tracking_code,tracking_url,customer_email,customer_name,created_at,updated_at,payment_provider,total"
-    )
-    .eq("id", order_id)
-    .maybeSingle();
+  const { data: currentOrder, error: currentErr } = await fetchOrderForAdmin(sb, order_id);
 
   if (currentErr) return res.status(500).json({ error: currentErr.message || "Failed to load order" });
   if (!currentOrder) return res.status(404).json({ error: "Pedido não encontrado." });
@@ -1282,11 +1361,7 @@ async function handleUpdateOrder(req, res) {
     }
   }
 
-  const { data: order } = await sb
-    .from("orders")
-    .select("id,user_id,customer_email,customer_name,production_status,shipping_tracking,tracking_code,tracking_url,order_type,vip_plan_id,created_at,updated_at,total,payment_provider")
-    .eq("id", order_id)
-    .maybeSingle();
+  const { data: order } = await fetchOrderForAdmin(sb, order_id);
 
   if (next.production_status) {
     await notifyStatus({
@@ -1302,6 +1377,43 @@ async function handleUpdateOrder(req, res) {
   return res.status(200).json({ ok: true });
 }
 
+async function handleResendOrderEmail(req, res) {
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+
+  const auth = await requireAdmin(req);
+  if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
+
+  const body = await readJsonBody(req);
+  const order_id = String(body.order_id || "").trim();
+  if (!order_id) return res.status(400).json({ error: "Missing order_id" });
+
+  const sb = supabaseAdmin();
+  const { data: order, error } = await fetchOrderForAdmin(sb, order_id);
+
+  if (error) return res.status(500).json({ error: error.message || "Failed to load order" });
+  if (!order) return res.status(404).json({ error: "Pedido não encontrado." });
+
+  const nextStatus = String(body.production_status || order.production_status || 'recebido').trim().toLowerCase();
+  if (!ALLOWED_PROD_STATUS.has(nextStatus)) return res.status(400).json({ error: 'Status inválido para reenvio.' });
+
+  const result = await notifyStatus({
+    sb,
+    order,
+    nextStatus,
+    shipping_tracking: order.shipping_tracking || order.tracking_code || '',
+    production_eta: '',
+    cancelled_by: '',
+  });
+
+  if (!result?.ok) {
+    return res.status(500).json({ error: result?.error || 'Falha ao reenviar e-mail.' });
+  }
+
+  const { data: refreshed } = await fetchOrderForAdmin(sb, order_id);
+
+  return res.status(200).json({ ok: true, order: refreshed || null, email: result });
+}
+
 export default async function handler(req, res) {
   
   if (!rateLimit(req, res, { key: 'api:admin', limit: 60, windowMs: 60000 })) return;
@@ -1310,6 +1422,7 @@ export default async function handler(req, res) {
 
     if (action === "orders") return await handleOrders(req, res);
     if (action === "update-order") return await handleUpdateOrder(req, res);
+    if (action === "resend-order-email") return await handleResendOrderEmail(req, res);
     if (action === "delete-order") return await handleDeleteOrder(req, res);
     if (action === "vip-voting") return await handleVipVoting(req, res);
     if (action === "vip-close-voting") return await handleVipCloseVoting(req, res);
