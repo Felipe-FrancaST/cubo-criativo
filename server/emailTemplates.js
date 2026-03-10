@@ -168,6 +168,45 @@ function renderMetaPills(items) {
     </div>`;
 }
 
+function renderShowcaseGrid(items, { title = '', emptyText = '' } = {}) {
+  const safeItems = (Array.isArray(items) ? items : []).filter(Boolean).slice(0, 8);
+  if (!safeItems.length) {
+    return emptyText
+      ? `<div style="margin-top:14px;color:#94a3b8;font-size:12px;line-height:1.55;">${esc(emptyText)}</div>`
+      : '';
+  }
+
+  const cards = safeItems.map((it) => {
+    const name = esc(it?.name || it?.title || 'Miniatura');
+    const subtitle = esc(it?.subtitle || it?.scale || it?.caption || '');
+    const img = String(it?.img || it?.image_url || '').trim();
+    const media = img
+      ? `<img src="${esc(img)}" alt="${name}" width="120" height="120" style="display:block;width:100%;height:120px;border-radius:12px;object-fit:cover;background:#0b1020;border:1px solid rgba(255,255,255,.08);" />`
+      : `<div style="width:100%;height:120px;border-radius:12px;background:linear-gradient(135deg,rgba(34,197,94,.08),rgba(6,182,212,.08));border:1px solid rgba(255,255,255,.08);"></div>`;
+    return `
+      <td width="50%" valign="top" style="padding:0 6px 12px;">
+        <div style="padding:10px;border-radius:16px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);">
+          ${media}
+          <div style="margin-top:10px;color:#e2e8f0;font-size:13px;font-weight:800;line-height:1.35;">${name}</div>
+          ${subtitle ? `<div style="margin-top:4px;color:#94a3b8;font-size:11px;line-height:1.45;">${subtitle}</div>` : ''}
+        </div>
+      </td>`;
+  });
+
+  let rows = '';
+  for (let i = 0; i < cards.length; i += 2) {
+    const first = cards[i];
+    const second = cards[i + 1] || '<td width="50%" valign="top" style="padding:0 6px 12px;"></td>';
+    rows += `<tr>${first}${second}</tr>`;
+  }
+
+  return `
+    <div style="margin-top:16px;">
+      ${title ? `<div style="font-size:13px;font-weight:800;color:#e2e8f0;margin-bottom:8px;">${esc(title)}</div>` : ''}
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}</table>
+    </div>`;
+}
+
 function renderKeyValueCard(title, pairs) {
   const rows = pairs
     .filter((p) => p && (p.value ?? "") !== "")
@@ -359,6 +398,7 @@ function statusLabelPt(status) {
   const s = String(status || '').toLowerCase();
   return ({
     recebido: 'Recebido',
+    editavel: 'Escolhas abertas',
     em_producao: 'Em produção',
     pronto: 'Pronto',
     enviado: 'Enviado',
@@ -375,6 +415,7 @@ export function renderOrderStatusEmail(payload) {
     customerName,
     nextStatus,
     shippingTracking,
+    trackingUrl,
     productionEta,
     cancelledBy,
     reviewLink,
@@ -384,21 +425,27 @@ export function renderOrderStatusEmail(payload) {
     paymentMethod,
     orderType,
     vipPlanId,
+    items,
+    vipSelection,
   } = payload || {};
 
   const shortId = orderId ? String(orderId).slice(0, 8) : '-';
   const status = String(nextStatus || '').toLowerCase();
   const isVipOrder = String(orderType || '').toLowerCase() === 'vip';
+  const selectedVipItems = Array.isArray(vipSelection?.selected_options) ? vipSelection.selected_options : [];
+  const regularItems = Array.isArray(items) ? items : [];
+  const hasVisualItems = isVipOrder ? selectedVipItems.length > 0 : regularItems.length > 0;
   const titleByStatus = {
-    recebido: 'Pedido recebido',
-    em_producao: 'Sua peça entrou em produção',
-    pronto: 'Sua peça está pronta',
-    enviado: 'Seu pedido foi enviado',
-    entregue: 'Pedido entregue',
+    recebido: isVipOrder ? 'Seu ciclo VIP foi confirmado' : 'Pedido recebido',
+    editavel: 'Seu ciclo VIP está aberto para escolhas',
+    em_producao: isVipOrder ? 'Suas miniaturas VIP entraram em produção' : 'Seu pedido entrou em produção',
+    pronto: isVipOrder ? 'Seu envio VIP está pronto' : 'Seu pedido está pronto',
+    enviado: isVipOrder ? 'Seu envio VIP foi despachado' : 'Seu pedido foi enviado',
+    entregue: isVipOrder ? 'Seu envio VIP foi entregue' : 'Pedido entregue',
     cancelado: 'Pedido cancelado',
     reembolsado: 'Pedido reembolsado',
   };
-  const baseTitle = (isVipOrder && status === 'recebido') ? 'Assinatura VIP confirmada' : (titleByStatus[status] || 'Atualização do pedido');
+  const baseTitle = titleByStatus[status] || 'Atualização do pedido';
   const subject = `${baseTitle} — Pedido ${shortId}`;
 
   let intro = 'Seu pedido teve uma atualização de status.';
@@ -411,38 +458,63 @@ export function renderOrderStatusEmail(payload) {
 
   if (status === 'recebido') {
     if (isVipOrder) {
-      intro = 'Obrigado por adquirir o Cubo Level 1 RPG! Sua assinatura VIP foi ativada com sucesso.';
-      highlight = 'Benefícios ativos: 3 miniaturas 32mm em resina premium por mês + Cubo Game diário. Lembrete: acesse sua Área VIP e escolha suas miniaturas.';
+      intro = 'Seu ciclo VIP foi confirmado e em breve vamos produzir as miniaturas escolhidas para este mês.';
+      highlight = hasVisualItems
+        ? 'Assim que sua seleção estiver liberada para produção, você receberá novas atualizações por aqui.'
+        : 'Seu acesso VIP já está ativo. Vá até a Área VIP para conferir o ciclo e suas escolhas.';
       ctaHref = reviewLink || '';
-      ctaText = 'Acessar Área VIP';
+      ctaText = 'Abrir Área VIP';
     } else {
-      intro = 'Recebemos seu pedido e o pagamento foi confirmado. Em breve iniciaremos a produção da sua peça.';
-      highlight = 'Seu pedido entrou na fila de produção. Você receberá novas atualizações por email conforme o andamento.';
+      intro = 'Recebemos seu pedido e o pagamento foi confirmado. Agora ele entrou na nossa fila de atendimento.';
+      highlight = 'Avisaremos por e-mail quando a produção começar e quando seu envio estiver pronto para postagem.';
     }
     accent = 'rgba(34,197,94,.12)'; accentBorder = 'rgba(34,197,94,.25)'; accentColor = '#bbf7d0';
+  } else if (status === 'editavel') {
+    intro = 'Seu ciclo VIP está aberto para personalização.';
+    highlight = 'Escolha suas miniaturas na Área VIP para que possamos seguir para produção sem atrasos.';
+    ctaHref = reviewLink || '';
+    ctaText = 'Escolher minhas miniaturas';
+    accent = 'rgba(168,85,247,.12)'; accentBorder = 'rgba(168,85,247,.25)'; accentColor = '#ddd6fe';
   } else if (status === 'em_producao') {
-    intro = 'Boas notícias: sua peça já está em produção.';
-    highlight = productionEta ? `Estimativa informada pela loja: ${productionEta}.` : 'A produção já começou. Em breve enviaremos a próxima atualização.';
+    intro = isVipOrder
+      ? 'Suas miniaturas escolhidas já estão em processo de produção no estúdio.'
+      : 'Seu pedido já entrou em produção e estamos trabalhando na sua peça.';
+    highlight = productionEta
+      ? `Estimativa informada pela loja: ${productionEta}.`
+      : (isVipOrder
+        ? 'Assim que finalizarmos a produção, você receberá um novo aviso por e-mail com a próxima etapa.'
+        : 'Em breve enviaremos a próxima atualização com o andamento do pedido.');
   } else if (status === 'pronto') {
-    intro = 'Sua peça foi finalizada e está em preparação para envio.';
-    highlight = 'Assim que for postada, você receberá o código de rastreio por email.';
+    intro = isVipOrder
+      ? 'Suas miniaturas VIP ficaram prontas e estão em preparação final para postagem.'
+      : 'Sua peça ficou pronta e agora está sendo preparada para envio.';
+    highlight = 'Assim que o pedido for postado, você receberá o código de rastreio por e-mail.';
+    accent = 'rgba(245,158,11,.12)'; accentBorder = 'rgba(245,158,11,.25)'; accentColor = '#fde68a';
   } else if (status === 'enviado') {
-    intro = 'Seu pedido foi enviado e já está a caminho.';
-    highlight = shippingTracking ? `Código de rastreio: ${shippingTracking}` : 'O envio foi realizado. Se o rastreio ainda não apareceu, ele pode ser atualizado em breve.';
+    intro = isVipOrder
+      ? 'Seu envio VIP foi despachado e já está a caminho do seu endereço.'
+      : 'Seu pedido foi enviado e já está a caminho do seu endereço.';
+    highlight = shippingTracking
+      ? `Código de rastreio: ${shippingTracking}`
+      : 'O envio foi realizado. Se o rastreio ainda não apareceu, ele pode ser atualizado em breve.';
+    ctaHref = trackingUrl || '';
+    ctaText = trackingUrl ? 'Acompanhar envio' : '';
     accent = 'rgba(168,85,247,.12)'; accentBorder = 'rgba(168,85,247,.25)'; accentColor = '#ddd6fe';
   } else if (status === 'entregue') {
-    intro = isVipOrder ? 'Seu envio VIP foi marcado como entregue. Esperamos que você tenha curtido suas miniaturas 💚' : 'Seu pedido foi marcado como entregue. Esperamos que você tenha curtido sua peça 💚';
+    intro = isVipOrder
+      ? 'Seu envio VIP foi marcado como entregue. Esperamos que você tenha curtido muito as miniaturas 💚'
+      : 'Seu pedido foi marcado como entregue. Esperamos que você tenha curtido sua peça 💚';
     highlight = 'Sua avaliação ajuda muito nossa loja e outros clientes.';
     ctaHref = reviewLink || '';
-    ctaText = isVipOrder ? 'Ir para avaliar meu envio VIP' : 'Ir para avaliar meu pedido';
+    ctaText = isVipOrder ? 'Avaliar meu envio VIP' : 'Avaliar meu pedido';
     accent = 'rgba(34,197,94,.12)'; accentBorder = 'rgba(34,197,94,.25)'; accentColor = '#bbf7d0';
   } else if (status === 'cancelado') {
     intro = cancelledBy === 'customer'
-      ? 'Recebemos sua solicitação de cancelamento. Se houve pagamento, o reembolso será processado conforme a forma de pagamento.'
-      : 'Seu pedido foi cancelado pela loja. Se houve pagamento, o reembolso será processado conforme a forma de pagamento.';
+      ? 'Recebemos sua solicitação de cancelamento. Se houve pagamento, o reembolso seguirá conforme a forma de pagamento.'
+      : 'Seu pedido foi cancelado pela loja. Se houve pagamento, o reembolso seguirá conforme a forma de pagamento.';
     highlight = cancelledBy === 'customer'
       ? 'Se precisar de ajuda para refazer o pedido, conte com a gente.'
-      : 'Se quiser, responda este email para suporte e esclarecimentos.';
+      : 'Se precisar de suporte ou quiser refazer o pedido, estamos à disposição.';
     accent = 'rgba(239,68,68,.12)'; accentBorder = 'rgba(239,68,68,.25)'; accentColor = '#fecaca';
   } else if (status === 'reembolsado') {
     intro = 'Seu pedido foi reembolsado com sucesso.';
@@ -453,36 +525,54 @@ export function renderOrderStatusEmail(payload) {
   const pills = `
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin:0 0 12px;">
       <span style="display:inline-block;padding:6px 10px;border-radius:999px;background:${accent};border:1px solid ${accentBorder};color:${accentColor};font-weight:800;font-size:12px;">${esc(statusLabelPt(status))}</span>
-      ${isVipOrder ? `<span style="display:inline-block;padding:6px 10px;border-radius:999px;background:rgba(168,85,247,.12);border:1px solid rgba(168,85,247,.25);color:#ddd6fe;font-weight:800;font-size:12px;">Clube VIP</span>` : ''}
-      ${vipPlanId ? `<span style="display:inline-block;padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);color:#e2e8f0;font-weight:800;font-size:12px;">${esc(String(vipPlanId).replaceAll('_',' '))}</span>` : ''}
+      ${isVipOrder ? `<span style="display:inline-block;padding:6px 10px;border-radius:999px;background:rgba(168,85,247,.12);border:1px solid rgba(168,85,247,.25);color:#ddd6fe;font-weight:800;font-size:12px;">Clube VIP</span>` : `<span style="display:inline-block;padding:6px 10px;border-radius:999px;background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.25);color:#bbf7d0;font-weight:800;font-size:12px;">Loja</span>`}
+      ${vipPlanId ? `<span style="display:inline-block;padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);color:#e2e8f0;font-weight:800;font-size:12px;">${esc(String(vipPlanId).replaceAll('_', ' '))}</span>` : ''}
       ${paymentMethod ? `<span style="display:inline-block;padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);color:#e2e8f0;font-weight:800;font-size:12px;">${esc(paymentMethod)}</span>` : ''}
       ${Number.isFinite(Number(total)) ? `<span style="display:inline-block;padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);color:#e2e8f0;font-weight:800;font-size:12px;">${esc(fmtBRL(total))}</span>` : ''}
     </div>`;
 
-  const meta = renderKeyValueCard('Resumo do pedido', [
+  const meta = renderKeyValueCard(isVipOrder ? 'Resumo do ciclo' : 'Resumo do pedido', [
     { label: 'Pedido', value: shortId },
     { label: 'Status', value: statusLabelPt(status) },
     { label: 'Estimativa', value: productionEta || '' },
     { label: 'Rastreio', value: shippingTracking || '' },
+    { label: 'Link do rastreio', value: trackingUrl || '' },
   ]);
+
+  const visualBlock = isVipOrder
+    ? renderShowcaseGrid(
+        selectedVipItems.map((it) => ({ name: it?.title || it?.name, image_url: it?.image_url || it?.img, subtitle: 'Miniatura selecionada' })),
+        {
+          title: status === 'em_producao' ? 'Miniaturas que já estão em produção' : 'Miniaturas selecionadas para este ciclo',
+          emptyText: status === 'em_producao' ? 'As miniaturas deste ciclo já estão em produção. Assim que houver novas imagens ou rastreio, avisaremos por aqui.' : '',
+        }
+      )
+    : renderShowcaseGrid(
+        regularItems.map((it) => ({ name: it?.name || it?.product_name, image_url: it?.img || it?.product_image_url, subtitle: it?.scale ? `Escala ${it.scale}` : '' })),
+        {
+          title: status === 'em_producao' ? 'Itens em produção' : 'Itens do seu pedido',
+          emptyText: '',
+        }
+      );
 
   const supportBox = `
     <div style="margin-top:14px;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);color:#cbd5e1;font-size:12px;line-height:1.55;">
       ${whatsapp ? `WhatsApp: <b style="color:#e2e8f0;">${esc(whatsapp)}</b>` : ''}
       ${whatsapp && supportEmail ? '<br/>' : ''}
       ${supportEmail ? `Email: <b style="color:#e2e8f0;">${esc(supportEmail)}</b>` : ''}
-      ${!whatsapp && !supportEmail ? 'Se precisar de ajuda, responda este email.' : ''}
+      ${!whatsapp && !supportEmail ? 'Se precisar de ajuda, responda este e-mail.' : ''}
     </div>`;
 
-  const cta = ctaHref ? `
+  const cta = ctaHref && ctaText ? `
     <div style="margin-top:16px;">
-      <a href="${esc(ctaHref)}" style="display:inline-block;padding:11px 16px;border-radius:12px;background:linear-gradient(135deg,#22c55e,#06b6d4);color:#04110d;text-decoration:none;font-weight:800;">${esc(ctaText || 'Abrir pedido')}</a>
+      <a href="${esc(ctaHref)}" style="display:inline-block;padding:11px 16px;border-radius:12px;background:linear-gradient(135deg,#22c55e,#06b6d4);color:#04110d;text-decoration:none;font-weight:800;">${esc(ctaText)}</a>
     </div>` : '';
 
   const contentHtml = `
     ${pills}
-    <div style="color:#cbd5e1;font-size:13px;line-height:1.6;">Olá <b style="color:#e2e8f0;">${esc(customerName || 'cliente')}</b>!<br/>${esc(intro)}</div>
+    <div style="color:#cbd5e1;font-size:13px;line-height:1.65;">Olá <b style="color:#e2e8f0;">${esc(customerName || 'cliente')}</b>!<br/>${esc(intro)}</div>
     <div style="margin-top:14px;padding:12px 14px;border-radius:14px;background:${accent};border:1px solid ${accentBorder};color:${accentColor};font-size:12px;line-height:1.55;">${esc(highlight)}</div>
+    ${visualBlock}
     ${meta}
     ${cta}
     ${supportBox}
@@ -495,11 +585,10 @@ export function renderOrderStatusEmail(payload) {
       preheader: `Pedido ${shortId} • ${statusLabelPt(status)}`,
       brandName,
       contentHtml,
-      footerNote: 'Mensagem automática de atualização do seu pedido.',
+      footerNote: 'Mensagem automática com atualização do seu pedido.',
     }),
   };
 }
-
 
 
 export function renderVipUpgradeEmail(payload) {

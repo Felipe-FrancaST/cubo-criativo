@@ -102,6 +102,75 @@ async function resolveCustomerEmail(sb, order) {
   return "";
 }
 
+async function loadOrderEmailContext(sb, order) {
+  const out = { items: [], vipSelection: null };
+  if (!order?.id) return out;
+
+  try {
+    const { data: itemsNew } = await sb
+      .from("order_items")
+      .select("order_id,product_name,qty,unit_price_cents,scale,product_image_url")
+      .eq("order_id", order.id);
+
+    if (Array.isArray(itemsNew) && itemsNew.length) {
+      out.items = itemsNew.map((it) => ({
+        name: it.product_name,
+        qty: it.qty,
+        scale: it.scale,
+        img: it.product_image_url || null,
+        unit_price: typeof it.unit_price_cents === 'number' ? it.unit_price_cents / 100 : null,
+      }));
+    } else {
+      const { data: itemsOld } = await sb
+        .from("order_items")
+        .select("order_id,name,qty,unit_price,scale,img")
+        .eq("order_id", order.id);
+      out.items = (itemsOld || []).map((it) => ({
+        name: it.name,
+        qty: it.qty,
+        scale: it.scale,
+        img: it.img || null,
+        unit_price: typeof it.unit_price === 'number' ? it.unit_price : null,
+      }));
+    }
+  } catch (e) {
+    console.error('loadOrderEmailContext items error', e);
+  }
+
+  if (String(order?.order_type || '').toLowerCase() === 'vip' && order?.user_id && order?.created_at) {
+    const cycleKey = String(order.created_at || '').slice(0, 7);
+    if (cycleKey) {
+      try {
+        const [{ data: sel }, { data: opts }] = await Promise.all([
+          sb
+            .from('vip_mini_selections')
+            .select('user_id,cycle_key,selected_option_ids,updated_at')
+            .eq('user_id', order.user_id)
+            .eq('cycle_key', cycleKey)
+            .maybeSingle(),
+          sb.from('vip_mini_options').select('id,title,image_url'),
+        ]);
+        const optById = new Map((opts || []).map((o) => [String(o.id), o]));
+        const selectedIds = Array.isArray(sel?.selected_option_ids) ? sel.selected_option_ids : [];
+        out.vipSelection = sel
+          ? {
+              cycle_key: sel.cycle_key,
+              updated_at: sel.updated_at || null,
+              selected_options: selectedIds
+                .map((id) => optById.get(String(id)))
+                .filter(Boolean)
+                .map((o) => ({ id: o.id, title: o.title, image_url: o.image_url || null })),
+            }
+          : null;
+      } catch (e) {
+        console.error('loadOrderEmailContext vipSelection error', e);
+      }
+    }
+  }
+
+  return out;
+}
+
 async function notifyStatus({ sb, order, nextStatus, shipping_tracking, production_eta, cancelled_by }) {
   const to = await resolveCustomerEmail(sb, order);
   if (!to) return;
@@ -116,19 +185,26 @@ async function notifyStatus({ sb, order, nextStatus, shipping_tracking, producti
   const supportEmail = process.env.SUPPORT_EMAIL || process.env.RESEND_FROM || "";
   const whatsapp = process.env.WHATSAPP_NUMBER || process.env.SUPPORT_WHATSAPP || "";
 
+  const emailContext = await loadOrderEmailContext(sb, order);
+
   const mail = renderOrderStatusEmail({
     brandName,
     orderId: order?.id,
     customerName: order?.customer_name,
     nextStatus,
-    shippingTracking: shipping_tracking || order?.shipping_tracking || "",
+    shippingTracking: shipping_tracking || order?.shipping_tracking || order?.tracking_code || "",
+    trackingUrl: order?.tracking_url || "",
     productionEta: production_eta || order?.production_eta || "",
     cancelledBy: cancelled_by || "",
     reviewLink,
     supportEmail,
     whatsapp,
+    total: order?.total,
+    paymentMethod: order?.payment_provider || '',
     orderType: order?.order_type || "shop",
     vipPlanId: order?.vip_plan_id || "",
+    items: emailContext.items,
+    vipSelection: emailContext.vipSelection,
   });
 
   await sendResendEmail({ to, subject: mail.subject || `Atualização do pedido — ${shortId}`, html: mail.html });
@@ -1007,7 +1083,7 @@ async function handleUpdateOrder(req, res) {
 
   const { data: order } = await sb
     .from("orders")
-    .select("id,customer_email,customer_name,production_status,shipping_tracking,order_type,vip_plan_id")
+    .select("id,user_id,customer_email,customer_name,production_status,shipping_tracking,tracking_code,tracking_url,order_type,vip_plan_id,created_at,total,payment_provider")
     .eq("id", order_id)
     .maybeSingle();
 
