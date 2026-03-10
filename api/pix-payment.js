@@ -135,6 +135,18 @@ async function applyVipFromOrder(sb, order, payment) {
           supportEmail: process.env.SUPPORT_EMAIL || process.env.RESEND_FROM || "",
           whatsapp: process.env.WHATSAPP_NUMBER || process.env.SUPPORT_WHATSAPP || "",
           vipPlanId: planId,
+          planName: vipPlan?.name || vipPlan?.short_name || planId,
+          planDescription: vipPlan?.description || '',
+          monthlyPrice: Number(vipPlan?.price_brl || 0) || Number(emailMeta?.total || order.total) || undefined,
+          miniaturesCount: Number(vipPlan?.miniatures_count || 0) || undefined,
+          bossCount: Number(vipPlan?.boss_count || 0) || undefined,
+          scale: vipPlan?.scale || '',
+          recurrenceLabel: 'Mensal',
+          benefits: [
+            Number(vipPlan?.miniatures_count || 0) ? `${Number(vipPlan.miniatures_count)} miniatura${Number(vipPlan.miniatures_count) > 1 ? 's' : ''}${vipPlan?.scale ? ` em ${vipPlan.scale}` : ''}` : null,
+            Number(vipPlan?.boss_count || 0) ? `${Number(vipPlan.boss_count)} boss incluso${Number(vipPlan.boss_count) > 1 ? 's' : ''}` : 'Escolha mensal de miniaturas pela Área VIP',
+            'Acesso ao Cubo Game e benefícios exclusivos do clube',
+          ].filter(Boolean),
           total: Number(emailMeta?.total || order.total) || undefined,
           paymentMethod: "Pix",
         });

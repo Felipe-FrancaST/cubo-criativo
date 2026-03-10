@@ -1,126 +1,308 @@
-# 🧊 Cubo Criativo – Loja Online
+# Cubo Criativo
 
-Bem-vindo ao **Cubo Criativo**, uma loja virtual focada em:
-- Miniaturas em resina de alta qualidade
-- Pintura artística detalhada
-- Modelagem e impressão 3D sob medida
+Loja online da **Cubo Criativo** para venda de miniaturas, action figures, peças em resina, itens pintados à mão e produtos para colecionadores. O projeto foi desenvolvido com **React + Vite** no frontend, **Supabase** para autenticação e dados, **Mercado Pago** para pagamentos e **Vercel** para deploy e APIs serverless.
 
-Este repositório contém o código-fonte do site oficial, desenvolvido com **React + Vite + TailwindCSS** e hospedado na **Vercel**.
+Este repositório reúne a aplicação pública, rotas serverless, integrações de pagamento e o fluxo de conta do usuário, incluindo login por e-mail e Google, recuperação de senha, exclusão de conta, cupons e área VIP.
 
----
+## Visão geral
 
-## 🚀 Tecnologias Utilizadas
-- [React](https://react.dev/) – UI declarativa e componentizada
-- [Vite](https://vitejs.dev/) – Build tool rápida e moderna
-- [TailwindCSS](https://tailwindcss.com/) – Estilização ágil e responsiva
-- [Vercel](https://vercel.com/) – Deploy contínuo e hospedagem
+O site foi estruturado para separar com clareza os dois principais tipos de oferta:
 
----
+- **Catálogo**: produtos com status `catalogo`, usados como vitrine de peças e encomendas.
+- **Pronta Entrega**: produtos com status `estoque`, exibidos em página própria.
 
-## 📦 Funcionalidades
-✔️ Catálogo organizado por categorias (anime, HQs, filmes, games)  
-✔️ Galeria de imagens com múltiplas perspectivas  
-✔️ Filtros e barra de busca no catálogo  
-✔️ Carrinho de compras dinâmico  
-✔️ Finalização rápida pelo **WhatsApp**  
-✔️ Pagamento por cartão via **Mercado Pago (Checkout Pro)**  
-✔️ Layout moderno e responsivo  
+Além disso, a aplicação inclui:
 
----
+- catálogo com busca e filtros
+- página de produto com SEO e metadados
+- carrinho e checkout
+- pagamento por cartão e Pix com Mercado Pago
+- autenticação com Supabase
+- login com Google
+- redefinição e criação de senha
+- configurações de conta e exclusão permanente
+- promoções, cupons e jogo da memória
+- páginas institucionais, termos e privacidade
+- pré-render de páginas de produto para SEO
 
-## 🖼️ Prévia
-![Preview do Site](public/images/promo.jpg)
+## Stack principal
 
----
+### Frontend
+- **React 18**
+- **Vite 5**
+- **Tailwind CSS 4**
 
-## 🔧 Como Rodar Localmente
-Clone este repositório e instale as dependências:
+### Backend e serviços
+- **Supabase Auth** para autenticação
+- **Supabase Database** para produtos, perfil, pedidos e dados relacionados
+- **Vercel Functions** para APIs serverless
+- **Mercado Pago** para cartão e Pix
+- **Resend** para e-mails transacionais e lembretes
+- **Vercel Analytics**
+
+## Funcionalidades do projeto
+
+### Loja
+- home com destaque de marca e atalhos comerciais
+- catálogo com busca e filtros
+- página separada de pronta entrega
+- promoções
+- página individual de produto
+- carrinho de compras
+- checkout com integração externa
+
+### Conta do usuário
+- cadastro com aceite obrigatório de termos e privacidade
+- login com e-mail/senha
+- login com Google
+- redefinição de senha por e-mail
+- criação de senha para contas sociais
+- troca de senha dentro das configurações
+- edição de dados de perfil
+- exclusão permanente de conta com confirmação por senha
+
+### Operação e venda
+- pedidos e acompanhamento básico
+- pagamentos por cartão via Checkout Pro
+- pagamentos por Pix
+- webhook do Mercado Pago
+- lembrete de Pix pendente por cron
+- cupons e campanhas promocionais
+- área VIP / RPG
+
+### SEO e conteúdo
+- sitemap e robots
+- Open Graph e metadados dinâmicos
+- JSON-LD para produto e listagem
+- pré-render de páginas de produto
+- páginas de termos e privacidade
+
+## Estrutura do projeto
+
+```text
+.
+├── api/                     # Rotas serverless da Vercel
+├── public/                  # Arquivos públicos e páginas estáticas
+├── server/                  # Helpers de backend / integrações
+├── src/
+│   ├── auth/                # Contexto e fluxo de autenticação
+│   ├── components/          # Componentes reutilizáveis
+│   ├── data/                # Configurações e dados auxiliares
+│   ├── lib/                 # Utilitários de frontend
+│   └── pages/               # Páginas da aplicação
+├── scripts/                 # Scripts auxiliares (ex.: prerender)
+├── vercel.json              # Configuração de deploy
+└── README.md
+```
+
+## Rotas principais
+
+### Públicas
+- `/` — Home
+- `/catalogo` — Catálogo
+- `/estoque` — Pronta entrega
+- `/promocoes` — Promoções
+- `/produto/:slug` — Produto
+- `/sobre` — Sobre
+- `/contato` — Contato
+- `/faq` — FAQ
+- `/trocas` — Trocas e devoluções
+- `/terms.html` — Termos de serviço
+- `/privacy.html` — Política de privacidade
+
+### Conta e autenticação
+- `/conta` — Conta do usuário
+- `/configuracoes` — Configurações
+- `/redefinir-senha` — Página segura para definir nova senha via link de e-mail
+
+### Extras
+- `/cupom` — Jogo da memória / cupom
+- `/vip` e rotas relacionadas — Área VIP
+
+## Requisitos
+
+- **Node.js 20.x**
+- **npm**
+- conta no **Supabase**
+- conta no **Mercado Pago**
+- conta no **Vercel**
+- conta no **Resend** se quiser e-mails transacionais
+
+## Instalação local
 
 ```bash
-git clone https://github.com/seu-usuario/cubo-criativo.git
+git clone <seu-repositorio>
 cd cubo-criativo
 npm install
 cp .env.example .env
 npm run dev
 ```
 
----
+O projeto abrirá em ambiente local pelo Vite.
 
-## 💳 Pagamento (Mercado Pago – Checkout Pro)
+## Scripts disponíveis
 
-O botão **“Pagar com cartão”** no carrinho chama a função serverless da Vercel em `api/create-checkout-session.js`, que cria uma **preferência** no Mercado Pago e redireciona o cliente para o Checkout Pro.
+```bash
+npm run dev       # ambiente local
+npm run build     # build de produção + prerender de produtos
+npm run preview   # pré-visualização local do build
+```
 
-### Configurar na Vercel
-Na Vercel (Project → Settings → Environment Variables), adicione:
-- `MP_ACCESS_TOKEN` (produção: `APP_USR-...`)
-- `SITE_URL` (sua URL pública, ex: `https://cubo-criativo.vercel.app`)
+## Variáveis de ambiente
 
-### Como funciona
-- O site redireciona para o **Checkout Pro** do Mercado Pago.
-- Ao aprovar, ele retorna para o seu site com `?payment=success`.
-- O webhook `api/mp-webhook.js` confirma e marca o pedido como **pago** no Supabase.
+Use o arquivo `.env.example` como base.
 
-### ⏰ Lembrete de Pix pendente (Vercel Cron)
+### Mercado Pago
+- `MP_ACCESS_TOKEN`
+- `SITE_URL`
+- `MP_MODE`
 
-Também existe um fluxo de Pix. Se o cliente gerar o Pix e não pagar, você pode enviar um lembrete automático.
+### Resend
+- `RESEND_API_KEY`
+- `RESEND_FROM`
+- `ORDER_EMAIL_TO`
 
-Foi adicionado o endpoint:
-- `GET /api/cron/pix-reminders`
-
-Ele procura pedidos `status = pending` com `payment_provider = mercado_pago` e envia e-mail (Resend) com o link/QR do Pix.
-
-**Configuração:**
-1) Rode o SQL `SUPABASE_PIX_REMINDER.sql` para criar as colunas de controle.
-2) Configure as env vars:
-   - `CRON_SECRET`
-   - `RESEND_API_KEY`
-   - `RESEND_FROM`
-   - `MP_ACCESS_TOKEN`
-3) Configure um Cron Job no Vercel para chamar o endpoint com o header:
-   - `Authorization: Bearer <CRON_SECRET>`
-
----
-
-## 🔐 Login + Banco de Dados (Supabase)
-
-O projeto agora usa **Supabase Auth (email/senha)** e salva pedidos no **Supabase Database**.
-
-### 1) Criar o projeto no Supabase
-1. Crie um projeto.
-2. Em **Project Settings → API**, copie:
-   - **Project URL**
-   - **anon public** key
-   - **service_role** key (mantenha em segredo: só no backend!)
-
-### 2) Criar as tabelas
-No Supabase, abra **SQL Editor** e rode o arquivo `SUPABASE_SCHEMA.sql` (está na raiz do repositório).
-
-### 3) Configurar Auth
-No Supabase, em **Authentication → URL Configuration**:
-1. Adicione sua URL de produção da Vercel em **Site URL**.
-2. Adicione também (se usar) o endereço local: `http://localhost:5173`.
-
-### 4) Variáveis de ambiente
-Configure na Vercel (Project → Settings → Environment Variables) e também no seu `.env` local:
+### Supabase
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
 - `SUPABASE_URL`
 - `SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
 
+## Configuração do Supabase
+
+### 1) Crie o projeto
+No painel do Supabase, crie um novo projeto e copie:
+
+- Project URL
+- anon public key
+- service role key
+
+### 2) Configure autenticação
+Em **Authentication → URL Configuration**, ajuste:
+
+- **Site URL** para sua URL de produção
+- **Redirect URLs** para cobrir pelo menos:
+  - `http://localhost:5173`
+  - `https://seu-dominio.com`
+  - `https://seu-dominio.com/redefinir-senha`
+  - `https://seu-dominio.com/configuracoes` se necessário para outros fluxos
+
+### 3) Login social
+Se o projeto usar Google, configure o provedor em **Authentication → Providers → Google** com as credenciais corretas e os redirects autorizados.
+
+### 4) Banco de dados
+Crie as tabelas e políticas que seu projeto utiliza antes de testar fluxos como pedidos, perfil, favoritos, cupons e avaliações.
+
+> Importante: este README descreve a aplicação, mas a estrutura exata do banco deve seguir o schema SQL adotado no seu projeto.
+
+## Fluxo de produtos
+
+O frontend trata o campo `status` do produto como fonte de verdade para exibição:
+
+- `status = estoque` → produto aparece em **Pronta entrega**
+- `status = catalogo` → produto aparece em **Catálogo**
+
+Outros campos importantes usados no mapeamento do produto incluem:
+
+- `name`
+- `description`
+- `slug`
+- `price_cents`
+- `original_price_cents`
+- `images`
+- `image_url`
+- `stock`
+- `featured`
+- `promo`
+- `category`
+- `tags`
+- `variants`
+- `active`
+
+## Pagamentos
+
+### Cartão
+O pagamento por cartão usa uma function serverless para criar a preferência no Mercado Pago e redirecionar o cliente para o checkout.
+
+Arquivos relevantes:
+- `api/create-checkout-session.js`
+- `api/mp-webhook.js`
+
+### Pix
+O fluxo de Pix é tratado por endpoints específicos e pelo webhook do Mercado Pago.
+
+Arquivos relevantes:
+- `api/create-pix-payment.js`
+- `api/pix-payment.js`
+- `api/mp-webhook.js`
+
+### Lembrete de Pix pendente
+Existe um fluxo para enviar lembrete de pagamento pendente por cron job.
+
+Para usar:
+- configure o endpoint de cron na Vercel
+- proteja com `CRON_SECRET`
+- configure Resend para envio de e-mail
+
+## Recuperação de senha
+
+O fluxo correto do projeto é:
+
+1. usuário clica em **Esqueceu a senha?**
+2. o site envia um e-mail via Supabase
+3. o link leva para `/redefinir-senha`
+4. nessa página o usuário define a nova senha
+5. não é exigida senha atual nesse fluxo
+
+Já na área de configurações:
+
+- se a conta **já possui senha**, a interface pede **senha atual + nova senha**
+- se a conta veio de login social e **ainda não possui senha**, a interface exibe **Criar senha**
+
+## Deploy na Vercel
+
+1. conecte o repositório à Vercel
+2. configure todas as variáveis de ambiente
+3. confirme que `vercel.json` está correto
+4. valide os redirects do Supabase para o domínio final
+5. publique
+
+### Recomendação importante
+Não suba `node_modules` no repositório nem em pacotes de entrega. Sempre gere as dependências no ambiente de build com `npm install`.
+
+## Boas práticas para manutenção
+
+- mantenha `README.md`, `terms.html` e `privacy.html` alinhados com o que o site realmente faz
+- revise redirects do Supabase sempre que mudar domínio ou fluxo de autenticação
+- teste os fluxos de login, Google, redefinição e troca de senha antes de cada deploy importante
+- limpe a pasta `dist` antes de builds de produção, se necessário
+- proteja credenciais sensíveis e nunca exponha `SUPABASE_SERVICE_ROLE_KEY` no frontend
+
+## Problemas comuns
+
+### O link de redefinição de senha não abre a tela correta
+Confira:
+- `redirectTo` configurado no frontend
+- Redirect URLs autorizados no Supabase
+- domínio final correto na Vercel
+
+### Login com Google redireciona de forma errada
+Confira:
+- URLs autorizadas no Google e no Supabase
+- tratamento correto do callback de autenticação
+
+### Mercado Pago não conclui pagamento
+Confira:
+- `MP_ACCESS_TOKEN`
+- `SITE_URL`
+- webhook publicado e acessível
+- permissões da conta do Mercado Pago
+
+## Licença e uso
+
+Este projeto é de uso da **Cubo Criativo**. Adapte este repositório conforme sua operação, integrações e políticas internas.
+
 ---
 
-## ⚡ Pix (Mercado Pago)
-
-O botão **“Pagar com Pix”** chama `api/create-pix-payment.js` e o webhook é `api/mp-webhook.js`.
-
-> Observação importante: se você ver o erro `Unauthorized use of live credentials`, normalmente significa que o token é de produção e sua conta ainda não está habilitada para usar credenciais live (ou o app/credencial não tem permissão). Nesse caso, finalize a ativação da sua conta no Mercado Pago ou use um token de teste/sandbox compatível com Pix.
-
----
-
-## 🏗️ Build
-
-```bash
-npm run build
-npm run preview
-```
+Se você for apresentar este projeto para cliente, parceiro ou desenvolvedor, este README já serve como visão geral técnica e operacional do site. Para produção final, vale complementar com o schema do banco, instruções de deploy do domínio e checklist de integrações.
