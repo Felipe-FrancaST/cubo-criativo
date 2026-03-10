@@ -23,7 +23,7 @@ function FilterChip({ active, children, onClick, tone = "default" }) {
 
 export default function CatalogPage({ items, loading = false, error = "", addToCart, buyNow, openGallery, onRequireLogin }) {
   const [type, setType] = React.useState(() => readParam("tipo", "todos"));
-  const [selectedTag, setSelectedTag] = React.useState("Todos");
+  const [selectedTag, setSelectedTag] = React.useState(() => readParam("tag", "Todos"));
   const [query, setQuery] = React.useState(() => readParam("q", ""));
   const [filtersOpen, setFiltersOpen] = React.useState(false);
 
@@ -31,10 +31,24 @@ export default function CatalogPage({ items, loading = false, error = "", addToC
     const onPop = () => {
       setType(readParam("tipo", "todos"));
       setQuery(readParam("q", ""));
+      setSelectedTag(readParam("tag", "Todos"));
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, []);
+
+
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const params = new URLSearchParams(window.location.search || "");
+      if (type && type !== "todos") params.set("tipo", type); else params.delete("tipo");
+      if (query.trim()) params.set("q", query.trim()); else params.delete("q");
+      if (selectedTag && selectedTag !== "Todos") params.set("tag", selectedTag); else params.delete("tag");
+      const next = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ""}`;
+      window.history.replaceState({}, "", next);
+    } catch {}
+  }, [type, query, selectedTag]);
 
   const tagOptions = React.useMemo(() => {
     const set = new Set();
@@ -149,8 +163,8 @@ export default function CatalogPage({ items, loading = false, error = "", addToC
               </div>
             </div>
 
-            <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <div className="rounded-2xl p-4 ring-1 ring-white/10 bg-white/5">
+            <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-4">
+              <div className="rounded-2xl p-4 ring-1 ring-white/10 bg-white/5 sm:min-h-[152px]">
                 <p className="font-bold">Como funciona</p>
                 <ul className="mt-2 text-sm text-slate-300 space-y-1">
                   <li>• Você compra pelo site (ou fecha no WhatsApp).</li>
@@ -158,12 +172,12 @@ export default function CatalogPage({ items, loading = false, error = "", addToC
                   <li>• Envio com rastreio para todo o Brasil.</li>
                 </ul>
               </div>
-              <div className="rounded-2xl p-4 ring-1 ring-white/10 bg-white/5">
+              <div className="rounded-2xl p-4 ring-1 ring-white/10 bg-white/5 sm:min-h-[152px]">
                 <p className="font-bold">Prazos</p>
                 <p className="mt-2 text-sm text-slate-300">O prazo varia conforme fila de produção, complexidade e pintura. Em geral:</p>
                 <p className="mt-2 text-sm font-semibold text-slate-200">15–30 dias úteis</p>
               </div>
-              <div className="rounded-2xl p-4 ring-1 ring-white/10 bg-white/5">
+              <div className="rounded-2xl p-4 ring-1 ring-white/10 bg-white/5 sm:min-h-[152px]">
                 <p className="font-bold">Dúvidas?</p>
                 <p className="mt-2 text-sm text-slate-300">Fale com a gente no WhatsApp e enviamos detalhes, fotos e prazos atualizados.</p>
               </div>
@@ -172,7 +186,7 @@ export default function CatalogPage({ items, loading = false, error = "", addToC
             {filtersOpen ? (
               <div className="lg:hidden fixed inset-0 z-[120]">
                 <button type="button" className="absolute inset-0 bg-black/70 backdrop-blur-[2px]" onClick={() => setFiltersOpen(false)} aria-label="Fechar filtros" />
-                <div className="absolute inset-x-0 bottom-0 rounded-t-[30px] border border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,.98),rgba(2,6,23,.98))] p-4 shadow-2xl shadow-black/40">
+                <div className="absolute inset-x-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-[30px] border border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,.98),rgba(2,6,23,.98))] p-4 pb-[calc(env(safe-area-inset-bottom,0px)+16px)] shadow-2xl shadow-black/40">
                   <div className="mx-auto mb-4 h-1.5 w-14 rounded-full bg-white/15" />
                   <div className="flex items-center justify-between gap-3">
                     <div>
@@ -218,7 +232,7 @@ export default function CatalogPage({ items, loading = false, error = "", addToC
               </div>
             ) : null}
 
-            <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
               {loading && Array.from({ length: 12 }).map((_, idx) => (
                 <div key={idx} className="w-full max-w-[320px] rounded-2xl overflow-hidden ring-1 ring-white/10 bg-slate-900/60">
                   <div className="aspect-[4/5] bg-slate-800/60 animate-pulse" />

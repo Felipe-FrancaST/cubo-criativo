@@ -40,6 +40,31 @@ function findPlanByProfileValue(plans, profilePlan) {
   }) || null;
 }
 
+function readVipCache(key, fallback = null) {
+  if (typeof window === 'undefined') return fallback;
+  try {
+    const raw = window.sessionStorage.getItem(key);
+    if (!raw) return fallback;
+    return JSON.parse(raw);
+  } catch {
+    return fallback;
+  }
+}
+
+function writeVipCache(key, value) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.setItem(key, JSON.stringify(value));
+  } catch {}
+}
+
+function clearVipCache(key) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.removeItem(key);
+  } catch {}
+}
+
 export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, asPage = false, onGoHome }) {
   const { user, loading: authLoading } = useAuth();
 
@@ -92,6 +117,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
   // Aviso elegante quando o usuário estoura o limite do plano
   const [limitNotice, setLimitNotice] = React.useState(null); // { title, text }
   const limitTimerRef = React.useRef(null);
+  const loadSeqRef = React.useRef(0);
 
   // Votação (tema do próximo mês)
   const [poll, setPoll] = React.useState(null);
@@ -108,6 +134,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
   const [upgradeSuccess, setUpgradeSuccess] = React.useState(false);
 
   const cycle = React.useMemo(() => cycleKeyUTC(), []);
+  const cacheKey = React.useMemo(() => (user?.id ? `vip_area:${user.id}:${cycle}` : ''), [user?.id, cycle]);
   const isVip = vipUntil ? new Date(vipUntil).getTime() > Date.now() : false;
   const st = statusLabel(orderStatus);
   const editable = isVip && (String(orderStatus || "").toLowerCase() === "editavel" || String(orderStatus || "").toLowerCase() === "recebido");
@@ -184,6 +211,38 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
     if (t === 'boss') return selectedCounts.boss < bossLimit;
     return selectedCounts.mini < miniLimit;
   }
+
+
+  React.useEffect(() => {
+    if (!cacheKey) return;
+    const cached = readVipCache(cacheKey, null);
+    if (!cached || typeof cached !== 'object') return;
+    if (cached.vipUntil) setVipUntil(cached.vipUntil);
+    if (cached.vipPlan) setVipPlan(cached.vipPlan);
+    if (cached.orderStatus) setOrderStatus(String(cached.orderStatus).toLowerCase());
+    if (typeof cached.shippingTracking === 'string') setShippingTracking(cached.shippingTracking);
+    if (Array.isArray(cached.savedSelected)) setSavedSelected(cached.savedSelected);
+    if (Array.isArray(cached.selected)) setSelected(cached.selected);
+    if (typeof cached.editing === 'boolean') setEditing(cached.editing);
+    if (typeof cached.tab === 'string') setTab(cached.tab);
+    if (Array.isArray(cached.options) && cached.options.length) setOptions(cached.options);
+  }, [cacheKey]);
+
+  React.useEffect(() => {
+    if (!cacheKey || !user?.id) return;
+    writeVipCache(cacheKey, {
+      vipUntil,
+      vipPlan,
+      orderStatus,
+      shippingTracking,
+      savedSelected,
+      selected,
+      editing,
+      tab,
+      options: Array.isArray(options) ? options.slice(0, 24) : [],
+      updatedAt: Date.now(),
+    });
+  }, [cacheKey, user?.id, vipUntil, vipPlan, orderStatus, shippingTracking, savedSelected, selected, editing, tab, options]);
 
   function showLimitNotice(kind, anchorEl) {
     // kind: 'total' | 'mini' | 'boss'
@@ -269,7 +328,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
     } catch {}
   }
 
-  async function loadOptionsLite() {
+  async function loadOptionsLite(seq = loadSeqRef.current) {
     if (!user) return;
     setOptionsLoading(true);
     const cacheKey = `vip_options_${cycle}`;
@@ -283,6 +342,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
         .eq("active", true)
         .order("sort_order", { ascending: true });
       const items = Array.isArray(opts) ? opts : [];
+      if (seq !== loadSeqRef.current) return;
       setOptions(items);
       if (items.length) writeCache(cacheKey, items);
     } catch {
@@ -292,7 +352,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
     }
   }
 
-  async function loadPollAsync() {
+  async function loadPollAsync(seq = loadSeqRef.current) {
     if (!user) return;
     setPollLoading(true);
     try {
@@ -314,6 +374,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
       }
 
       const p = pollResp?.data;
+      if (seq !== loadSeqRef.current) return;
       setPoll(p || null);
       if (p?.id) {
         const [{ data: opts2 }, { data: mine }, { data: counts }] = await Promise.all([
@@ -392,6 +453,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
         supabase.from("vip_mini_selections").select("selected_option_ids,saved_at").eq("user_id", user.id).eq("cycle_key", cycle).maybeSingle(),
       ]);
 
+      if (seq !== loadSeqRef.current) return;
       const until = prof?.vip_until || null;
       setVipUntil(until);
       setVipPlan(prof?.vip_plan || "");
@@ -401,12 +463,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
         if (until && new Date(String(until)) > new Date()) window.localStorage.setItem('vip_until_cache', String(until));
         else window.localStorage.removeItem('vip_until_cache');
       } catch {}
-      // Os blocos pesados entram depois
-      setOptions([]);
-      setPoll(null);
-      setPollOptions([]);
-      setMyVote(null);
-      setVoteCounts({});
+      // Mantém o que já estava na tela para evitar flicker no mobile durante refresh.
 
       const order = Array.isArray(lastVipOrder) ? lastVipOrder[0] : null;
       setOrderStatus(String(order?.production_status || "editavel").toLowerCase());
@@ -429,8 +486,8 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
       }
 
       // Carrega catálogo + votação em background
-      loadOptionsLite();
-      loadPollAsync();
+      loadOptionsLite(seq);
+      loadPollAsync(seq);
     } catch (e) {
       setError(e?.message || "Não foi possível carregar a Área VIP.");
     } finally {
@@ -442,6 +499,23 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
     if (!isOpen || authLoading || !user?.id) return;
     load();
   }, [isOpen, authLoading, user?.id, cycle]);
+
+  React.useEffect(() => {
+    if (!cacheKey || !editing) return;
+    const draft = readVipCache(`${cacheKey}:draft`, null);
+    if (!draft || !Array.isArray(draft.selected_option_ids)) return;
+    if (savedSelected?.length) return;
+    setSelected(draft.selected_option_ids);
+  }, [cacheKey, editing, savedSelected]);
+
+  React.useEffect(() => {
+    if (!cacheKey) return;
+    if (!editing || !Array.isArray(selected) || !selected.length) {
+      clearVipCache(`${cacheKey}:draft`);
+      return;
+    }
+    writeVipCache(`${cacheKey}:draft`, { selected_option_ids: selected, updatedAt: Date.now() });
+  }, [cacheKey, editing, selected]);
 
   async function refreshVoteCounts(pollId) {
     try {
@@ -612,6 +686,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
       setSavedSelected(selected);
       setSelected([]);
       setEditing(false);
+      clearVipCache(`${cacheKey}:draft`);
       setMsg("Escolhas salvas ✅");
     } catch (e) {
       const raw = String(e?.message || "");
@@ -627,9 +702,9 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
   }
 
   const body = (
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-950 via-slate-950 to-black ring-1 ring-white/10">
+      <div className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-slate-950 via-slate-950 to-black ring-1 ring-white/10 shadow-2xl shadow-black/30">
         <div className="absolute inset-0 opacity-35 pointer-events-none" style={{ backgroundImage: "radial-gradient(circle at 20% 10%, rgba(168,85,247,.35), transparent 45%), radial-gradient(circle at 80% 20%, rgba(34,197,94,.22), transparent 55%), radial-gradient(circle at 50% 90%, rgba(56,189,248,.18), transparent 55%)" }} />
-        <div className="relative p-5 sm:p-7">
+        <div className="relative p-4 sm:p-7 pb-[calc(env(safe-area-inset-bottom,0px)+96px)] sm:pb-7">
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-xs uppercase tracking-wide text-slate-400">Área VIP</p>
@@ -709,7 +784,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
               {/* Tabs (mobile-first): evita tela embolada */}
               <div className="mt-5 sticky top-3 z-20">
                 <div className="rounded-2xl bg-black/35 backdrop-blur-md ring-1 ring-white/10 p-2">
-                  <div className="flex gap-2 overflow-x-auto no-scrollbar">
+                  <div className="sticky top-0 z-20 -mx-1 flex gap-2 overflow-x-auto no-scrollbar bg-slate-950/85 px-1 py-2 backdrop-blur">
                     {[{k:'escolhas',label:'Escolhas',ic:'checklist'},{k:'pedido',label:'Pedido',ic:'local_shipping'},{k:'votacao',label:'Votação',ic:'how_to_vote'},{k:'upgrade',label:'Upgrade',ic:'upgrade'}].map((t) => {
                       const active = tab === t.k;
                       return (
@@ -1025,7 +1100,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                 </div>
 
                 {selectedCards.length ? (
-                  <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                  <div className="mt-4 grid grid-cols-1 min-[420px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                     {selectedCards.map(({ id, opt }) => (
                       <button
                         key={id}
@@ -1082,7 +1157,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                 <div className="mt-4 rounded-2xl bg-white/5 ring-1 ring-white/10 p-4 text-slate-200">Carregando catálogo VIP…</div>
               ) : null}
 
-              <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div className="mt-4 grid grid-cols-1 min-[420px]:grid-cols-2 sm:grid-cols-3 gap-3">
                 {options.map((opt) => {
                   const isSel = displaySelected.includes(opt.id);
                   const kind = (String(opt?.item_type || 'miniature').toLowerCase() === 'boss') ? 'boss' : 'miniature';
@@ -1226,32 +1301,40 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                 </div>
               ) : null}
 
-              <div className="mt-5 flex items-center justify-between gap-3 flex-wrap">
-                <div />
-                {editing ? (
-                  <button
-                    type="button"
-                    disabled={!editable || saving || selectedCounts.mini !== miniLimit || selectedCounts.boss !== bossLimit || selectedCounts.total !== totalLimit}
-                    onClick={saveSelection}
-                    className={`rounded-xl px-4 py-2 font-extrabold ring-1 ring-white/10 ${(!editable || saving || selectedCounts.mini !== miniLimit || selectedCounts.boss !== bossLimit || selectedCounts.total !== totalLimit) ? "bg-slate-700/40 text-slate-300" : "bg-emerald-300 text-black hover:bg-emerald-200"}`}
-                  >
-                    {saving ? "Salvando…" : "Salvar escolhas"}
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    disabled={!editable}
-                    onClick={() => {
-                      if (!editable) return;
-                      setSelected(Array.isArray(savedSelected) ? savedSelected : []);
-                      setEditing(true);
-                      setMsg("");
-                    }}
-                    className={`rounded-xl px-4 py-2 font-extrabold ring-1 ring-white/10 ${!editable ? "bg-slate-700/40 text-slate-300" : "bg-violet-300 text-black hover:bg-violet-200"}`}
-                  >
-                    Editar
-                  </button>
-                )}
+              <div className="sticky bottom-0 z-20 -mx-4 sm:-mx-7 mt-5 border-t border-white/10 bg-slate-950/90 px-4 sm:px-7 py-3 backdrop-blur supports-[backdrop-filter]:bg-slate-950/75">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div className="text-xs text-slate-300">
+                    {editing ? (
+                      <>Selecionadas: <b>{selectedCounts.total}</b>/{totalLimit}</>
+                    ) : (
+                      <>Suas escolhas deste ciclo já estão salvas.</>
+                    )}
+                  </div>
+                  {editing ? (
+                    <button
+                      type="button"
+                      disabled={!editable || saving || selectedCounts.mini !== miniLimit || selectedCounts.boss !== bossLimit || selectedCounts.total !== totalLimit}
+                      onClick={saveSelection}
+                      className={`min-w-[180px] rounded-xl px-4 py-3 font-extrabold ring-1 ring-white/10 ${(!editable || saving || selectedCounts.mini !== miniLimit || selectedCounts.boss !== bossLimit || selectedCounts.total !== totalLimit) ? "bg-slate-700/40 text-slate-300" : "bg-emerald-300 text-black hover:bg-emerald-200"}`}
+                    >
+                      {saving ? "Salvando…" : "Salvar escolhas"}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={!editable}
+                      onClick={() => {
+                        if (!editable) return;
+                        setSelected(Array.isArray(savedSelected) ? savedSelected : []);
+                        setEditing(true);
+                        setMsg("");
+                      }}
+                      className={`min-w-[180px] rounded-xl px-4 py-3 font-extrabold ring-1 ring-white/10 ${!editable ? "bg-slate-700/40 text-slate-300" : "bg-violet-300 text-black hover:bg-violet-200"}`}
+                    >
+                      Editar escolhas
+                    </button>
+                  )}
+                </div>
               </div>
               {msg ? <div className="mt-3 text-sm text-slate-200">{msg}</div> : null}
                 </>
@@ -1264,7 +1347,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
 
   if (asPage) {
     return (
-      <div className="container-cc px-4 sm:px-6 lg:px-8 py-8">
+      <div className="container-cc px-3 sm:px-6 lg:px-8 py-6 sm:py-8">
         {body}
       </div>
     );
