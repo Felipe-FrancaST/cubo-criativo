@@ -500,6 +500,125 @@ export function renderOrderStatusEmail(payload) {
   };
 }
 
+
+
+export function renderVipUpgradeEmail(payload) {
+  const p = payload || {};
+  const brandName = p.brandName || 'Cubo Criativo';
+  const customerName = p.customerName || 'cliente';
+  const orderId = p.orderId || '';
+  const shortId = String(orderId || '').slice(0, 8) || 'UPGRADE';
+  const vipAreaUrl = p.reviewLink || p.vipAreaUrl || '';
+  const supportEmail = p.supportEmail || '';
+  const whatsapp = p.whatsapp || '';
+  const fromPlanName = p.fromPlanName || 'Plano atual';
+  const toPlanName = p.toPlanName || 'Novo plano VIP';
+  const fromPlanDescription = p.fromPlanDescription || '';
+  const toPlanDescription = p.toPlanDescription || '';
+  const amountCharged = Number.isFinite(Number(p.amountCharged)) ? Number(p.amountCharged) : null;
+  const previousPrice = Number.isFinite(Number(p.previousPrice)) ? Number(p.previousPrice) : null;
+  const newPrice = Number.isFinite(Number(p.newPrice)) ? Number(p.newPrice) : null;
+  const miniaturesCount = Number(p.miniaturesCount || 0) || 0;
+  const bossCount = Number(p.bossCount || 0) || 0;
+  const scale = p.scale || '';
+  const paymentMethod = p.paymentMethod || 'Pagamento aprovado';
+  const recurrenceLabel = p.recurrenceLabel || 'Mensal';
+  const upgradeHighlights = Array.isArray(p.upgradeHighlights) && p.upgradeHighlights.length ? p.upgradeHighlights : [
+    `Seu plano agora é o ${toPlanName}`,
+    miniaturesCount ? `Limite atualizado para ${miniaturesCount} miniatura${miniaturesCount > 1 ? 's' : ''}${scale ? ` em ${scale}` : ''}` : null,
+    bossCount ? `Boss inclusos no plano: ${bossCount}` : null,
+    'As novas vantagens já estão liberadas na sua Área VIP',
+  ].filter(Boolean);
+
+  const detailRows = [
+    { label: 'Upgrade realizado', value: `${fromPlanName} → ${toPlanName}` },
+    { label: 'Recorrência', value: recurrenceLabel },
+    ...(amountCharged != null ? [{ label: 'Valor cobrado agora', value: fmtBRL(amountCharged) }] : []),
+    ...(previousPrice != null ? [{ label: 'Plano anterior', value: fmtBRL(previousPrice) }] : []),
+    ...(newPrice != null ? [{ label: 'Novo valor mensal', value: fmtBRL(newPrice) }] : []),
+    ...(miniaturesCount ? [{ label: 'Miniaturas incluídas', value: `${miniaturesCount}` }] : []),
+    ...(bossCount ? [{ label: 'Boss inclusos', value: `${bossCount}` }] : []),
+    ...(scale ? [{ label: 'Escala', value: scale }] : []),
+    { label: 'Pagamento', value: paymentMethod },
+    { label: 'Pedido', value: shortId },
+    { label: 'Status', value: 'Upgrade confirmado' },
+  ];
+
+  const detailsTable = `
+    <table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;border-collapse:separate;border-spacing:0;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:14px;overflow:hidden;">
+      <tbody>
+        ${detailRows.map((row, idx) => `
+          <tr>
+            <td style="padding:10px 12px;border-bottom:${idx === detailRows.length - 1 ? '0' : '1px solid rgba(255,255,255,.08)'};color:#94a3b8;font-size:12px;font-weight:700;width:42%;">${esc(row.label)}</td>
+            <td style="padding:10px 12px;border-bottom:${idx === detailRows.length - 1 ? '0' : '1px solid rgba(255,255,255,.08)'};color:#f8fafc;font-size:13px;font-weight:700;">${esc(row.value)}</td>
+          </tr>`).join('')}
+      </tbody>
+    </table>`;
+
+  const highlightList = `<ul style="margin:10px 0 0 18px;padding:0;color:#e2e8f0;font-size:13px;line-height:1.65;">${upgradeHighlights.map((b)=>`<li style="margin:0 0 4px 0;">${esc(String(b))}</li>`).join('')}</ul>`;
+  const meta = renderMetaPills([
+    { label: 'Upgrade', value: 'Confirmado' },
+    { label: 'Novo plano', value: toPlanName },
+    ...(amountCharged != null ? [{ label: 'Cobrado agora', value: fmtBRL(amountCharged) }] : []),
+  ]);
+
+  const supportBox = `
+    <div style="margin-top:14px;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);color:#cbd5e1;font-size:12px;line-height:1.55;">
+      ${whatsapp ? `WhatsApp: <b style="color:#e2e8f0;">${esc(whatsapp)}</b>` : ''}
+      ${whatsapp && supportEmail ? '<br/>' : ''}
+      ${supportEmail ? `Email: <b style="color:#e2e8f0;">${esc(supportEmail)}</b>` : ''}
+      ${!whatsapp && !supportEmail ? 'Se precisar de ajuda, responda este email.' : ''}
+    </div>`;
+
+  const cta = vipAreaUrl ? `
+    <div style="margin-top:16px;">
+      <a href="${esc(vipAreaUrl)}" style="display:inline-block;padding:11px 16px;border-radius:12px;background:linear-gradient(135deg,#a78bfa,#22d3ee);color:#09090b;text-decoration:none;font-weight:800;">Acessar Área VIP</a>
+    </div>` : '';
+
+  const contentHtml = `
+    <div style="color:#cbd5e1;font-size:13px;line-height:1.65;">
+      Olá <b style="color:#e2e8f0;">${esc(customerName)}</b>!<br/>
+      Seu upgrade foi confirmado com sucesso ✅ Agora você está no plano <b style="color:#f8fafc;">${esc(toPlanName)}</b>.
+    </div>
+    <div style="margin-top:14px;padding:12px 14px;border-radius:14px;background:rgba(34,211,238,.08);border:1px solid rgba(34,211,238,.18);color:#cffafe;font-size:12px;line-height:1.55;">
+      <b>Obrigado por evoluir seu plano com a Cubo Criativo.</b> As novas vantagens do clube já podem ser aproveitadas a partir de agora.
+    </div>
+    ${meta}
+    <div style="margin-top:14px;">
+      <div style="color:#94a3b8;font-size:12px;font-weight:700;margin:0 0 6px 2px;">Detalhes do upgrade</div>
+      ${detailsTable}
+    </div>
+    <div style="margin-top:14px;display:grid;grid-template-columns:1fr;gap:10px;">
+      <div style="padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);color:#cbd5e1;font-size:13px;line-height:1.6;">
+        <div style="color:#94a3b8;font-size:12px;font-weight:700;margin-bottom:4px;">Plano anterior</div>
+        <div style="color:#f8fafc;font-weight:800;">${esc(fromPlanName)}</div>
+        ${fromPlanDescription ? `<div style="margin-top:6px;">${esc(fromPlanDescription)}</div>` : ''}
+      </div>
+      <div style="padding:12px 14px;border-radius:14px;background:rgba(168,85,247,.10);border:1px solid rgba(168,85,247,.25);color:#f5d0fe;font-size:13px;line-height:1.6;">
+        <div style="color:#e9d5ff;font-size:12px;font-weight:700;margin-bottom:4px;">Novo plano ativo</div>
+        <div style="color:#fff7ed;font-weight:800;">${esc(toPlanName)}</div>
+        ${toPlanDescription ? `<div style="margin-top:6px;color:#f5d0fe;">${esc(toPlanDescription)}</div>` : ''}
+      </div>
+    </div>
+    <div style="margin-top:14px;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);">
+      <div style="color:#94a3b8;font-size:12px;font-weight:700;margin-bottom:4px;">O que mudou no seu plano</div>
+      ${highlightList}
+    </div>
+    ${cta}
+    ${supportBox}
+  `;
+
+  return {
+    subject: `Upgrade VIP confirmado — ${toPlanName}`,
+    html: renderLayout({
+      title: 'Upgrade VIP confirmado',
+      preheader: `${fromPlanName} → ${toPlanName} • Pedido ${shortId}`,
+      brandName,
+      contentHtml,
+      footerNote: 'Mensagem automática de confirmação do upgrade da sua assinatura VIP.',
+    }),
+  };
+}
 export function renderVipWelcomeEmail(payload) {
   const p = payload || {};
   const brandName = p.brandName || 'Cubo Criativo';

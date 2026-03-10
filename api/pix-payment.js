@@ -1,4 +1,4 @@
-import { renderVipWelcomeEmail } from "../server/emailTemplates.js";
+import { renderVipWelcomeEmail, renderVipUpgradeEmail } from "../server/emailTemplates.js";
 import { getUserFromAuthHeader, supabaseAdmin } from "../server/supabase.js";
 import { getVipPlanById } from "../server/vipPlans.js";
 import { rateLimit } from '../server/rateLimit.js';
@@ -81,42 +81,43 @@ async function revokeVipFromOrder(sb, order, reason = "payment_failed") {
 
 async function applyVipFromOrder(sb, order, payment) {
   try {
-    if (!order || String(order.order_type || "").toLowerCase() !== "vip") return;
+    const orderTypeNorm = String(order?.order_type || payment?.metadata?.order_type || '').toLowerCase();
+    if (!order || !['vip', 'vip_upgrade'].includes(orderTypeNorm)) return;
     const userId = order.user_id;
     if (!userId) return;
-    const planId = String(order.vip_plan_id || "CUBO_L1_RPG");
+    const planId = String(order.vip_plan_id || payment?.metadata?.vip_plan_id || "CUBO_L1_RPG");
+    const vipPlan = await getVipPlanById(sb, planId);
 
-    const { data: existing } = await sb.from("vip_subscriptions").select("id").eq("order_id", order.id).maybeSingle();
-    const end = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-
-    if (!existing?.id) {
-      await sb.from("vip_subscriptions").insert({
-        user_id: userId,
-        plan_id: planId,
-        order_id: order.id,
-        starts_at: new Date().toISOString(),
-        ends_at: end.toISOString(),
-        status: "active",
-      });
+    if (orderTypeNorm === 'vip') {
+      const { data: existing } = await sb.from("vip_subscriptions").select("id").eq("order_id", order.id).maybeSingle();
+      const end = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      if (!existing?.id) {
+        await sb.from("vip_subscriptions").insert({
+          user_id: userId,
+          plan_id: planId,
+          order_id: order.id,
+          starts_at: new Date().toISOString(),
+          ends_at: end.toISOString(),
+          status: "active",
+        });
+      }
+      const { data: prof } = await sb.from("profiles").select("vip_until").eq("id", userId).maybeSingle();
+      const currentUntil = prof?.vip_until ? new Date(prof.vip_until).getTime() : 0;
+      const nextUntil = Math.max(currentUntil, end.getTime());
+      await sb.from("profiles").update({ vip_until: new Date(nextUntil).toISOString(), vip_plan: planId }).eq("id", userId);
     }
 
-    const { data: prof } = await sb.from("profiles").select("vip_until").eq("id", userId).maybeSingle();
-    const currentUntil = prof?.vip_until ? new Date(prof.vip_until).getTime() : 0;
-    const nextUntil = Math.max(currentUntil, end.getTime());
-    const vipPlan = await getVipPlanById(sb, planId);
-    await sb.from("profiles").update({ vip_until: new Date(nextUntil).toISOString(), vip_plan: planId }).eq("id", userId);
+    if (orderTypeNorm === 'vip_upgrade') {
+      try {
+        await sb.from('vip_subscriptions').update({ plan_id: planId }).eq('user_id', userId).eq('status', 'active');
+      } catch {}
+      await sb.from('profiles').update({ vip_plan: planId }).eq('id', userId);
+    }
 
-    // Envio de email de adesão com idempotência separada do email genérico
     try {
-      let emailMeta = null; let alreadySent = false;
-      const metaResp = await sb.from("orders").select("customer_email,customer_name,total,vip_activation_email_sent_at").eq("id", order.id).maybeSingle();
-      if (metaResp?.error && /vip_activation_email_sent_at/i.test(String(metaResp.error.message||""))) {
-        const fallbackMeta = await sb.from("orders").select("customer_email,customer_name,total").eq("id", order.id).maybeSingle();
-        emailMeta = fallbackMeta?.data || null;
-      } else {
-        emailMeta = metaResp?.data || null;
-        alreadySent = Boolean(metaResp?.data?.vip_activation_email_sent_at);
-      }
+      const metaResp = await sb.from("orders").select("customer_email,customer_name,total,customer_email_sent_at,vip_activation_email_sent_at").eq("id", order.id).maybeSingle();
+      const emailMeta = metaResp?.data || null;
+      const alreadySent = Boolean(emailMeta?.customer_email_sent_at) || (orderTypeNorm === 'vip' && Boolean(emailMeta?.vip_activation_email_sent_at));
       let to = String(emailMeta?.customer_email || order.customer_email || payment?.payer?.email || "").trim();
       if (!isValidEmail(to)) {
         const authEmail = await fetchAuthUserEmail(sb, userId);
@@ -127,39 +128,76 @@ async function applyVipFromOrder(sb, order, payment) {
       }
       if (isValidEmail(to) && !alreadySent) {
         const baseUrl = String(process.env.APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "").trim().replace(/\/$/, "");
-        const mail = renderVipWelcomeEmail({
-          brandName: process.env.BRAND_NAME || "Cubo Criativo",
-          orderId: order.id,
-          customerName: emailMeta?.customer_name || order.customer_name || payment?.payer?.first_name || "cliente",
-          reviewLink: baseUrl ? `${baseUrl}/#/conta` : "",
-          supportEmail: process.env.SUPPORT_EMAIL || process.env.RESEND_FROM || "",
-          whatsapp: process.env.WHATSAPP_NUMBER || process.env.SUPPORT_WHATSAPP || "",
-          vipPlanId: planId,
-          planName: vipPlan?.name || vipPlan?.short_name || planId,
-          planDescription: vipPlan?.description || '',
-          monthlyPrice: Number(vipPlan?.price_brl || 0) || Number(emailMeta?.total || order.total) || undefined,
-          miniaturesCount: Number(vipPlan?.miniatures_count || 0) || undefined,
-          bossCount: Number(vipPlan?.boss_count || 0) || undefined,
-          scale: vipPlan?.scale || '',
-          recurrenceLabel: 'Mensal',
-          benefits: [
-            Number(vipPlan?.miniatures_count || 0) ? `${Number(vipPlan.miniatures_count)} miniatura${Number(vipPlan.miniatures_count) > 1 ? 's' : ''}${vipPlan?.scale ? ` em ${vipPlan.scale}` : ''}` : null,
-            Number(vipPlan?.boss_count || 0) ? `${Number(vipPlan.boss_count)} boss incluso${Number(vipPlan.boss_count) > 1 ? 's' : ''}` : 'Escolha mensal de miniaturas pela Área VIP',
-            'Acesso ao Cubo Game e benefícios exclusivos do clube',
-          ].filter(Boolean),
-          total: Number(emailMeta?.total || order.total) || undefined,
-          paymentMethod: "Pix",
-        });
+        const paymentMethod = String(payment?.payment_method_id || '').toLowerCase() === 'pix' ? 'Pix' : 'Mercado Pago';
+        let mail;
+        if (orderTypeNorm === 'vip_upgrade') {
+          const fromPlanId = String(payment?.metadata?.vip_upgrade_from || '').trim();
+          const fromPlan = fromPlanId ? await getVipPlanById(sb, fromPlanId) : null;
+          const chargedNow = Number(emailMeta?.total || order.total || 0) || undefined;
+          mail = renderVipUpgradeEmail({
+            brandName: process.env.BRAND_NAME || "Cubo Criativo",
+            orderId: order.id,
+            customerName: emailMeta?.customer_name || order.customer_name || payment?.payer?.first_name || "cliente",
+            reviewLink: baseUrl ? `${baseUrl}/#/conta` : "",
+            supportEmail: process.env.SUPPORT_EMAIL || process.env.RESEND_FROM || "",
+            whatsapp: process.env.WHATSAPP_NUMBER || process.env.SUPPORT_WHATSAPP || "",
+            fromPlanName: fromPlan?.name || fromPlan?.short_name || fromPlanId || 'Plano atual',
+            toPlanName: vipPlan?.name || vipPlan?.short_name || planId,
+            fromPlanDescription: fromPlan?.description || '',
+            toPlanDescription: vipPlan?.description || '',
+            amountCharged: chargedNow,
+            previousPrice: Number(fromPlan?.price_brl || 0) || undefined,
+            newPrice: Number(vipPlan?.price_brl || 0) || undefined,
+            miniaturesCount: Number(vipPlan?.miniatures_count || 0) || undefined,
+            bossCount: Number(vipPlan?.boss_count || 0) || undefined,
+            scale: vipPlan?.scale || '',
+            recurrenceLabel: 'Mensal',
+            paymentMethod,
+            upgradeHighlights: [
+              fromPlan?.name && vipPlan?.name ? `Mudança de ${fromPlan.name} para ${vipPlan.name}` : null,
+              Number(vipPlan?.miniatures_count || 0) ? `${Number(vipPlan.miniatures_count)} miniatura${Number(vipPlan.miniatures_count) > 1 ? 's' : ''}${vipPlan?.scale ? ` em ${vipPlan.scale}` : ''} por ciclo` : null,
+              Number(vipPlan?.boss_count || 0) ? `${Number(vipPlan.boss_count)} boss incluso${Number(vipPlan.boss_count) > 1 ? 's' : ''}` : 'Escolhas liberadas pela Área VIP',
+              chargedNow ? `Cobrança atual do upgrade: ${chargedNow.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}` : null,
+            ].filter(Boolean),
+          });
+        } else {
+          mail = renderVipWelcomeEmail({
+            brandName: process.env.BRAND_NAME || "Cubo Criativo",
+            orderId: order.id,
+            customerName: emailMeta?.customer_name || order.customer_name || payment?.payer?.first_name || "cliente",
+            reviewLink: baseUrl ? `${baseUrl}/#/conta` : "",
+            supportEmail: process.env.SUPPORT_EMAIL || process.env.RESEND_FROM || "",
+            whatsapp: process.env.WHATSAPP_NUMBER || process.env.SUPPORT_WHATSAPP || "",
+            vipPlanId: planId,
+            planName: vipPlan?.name || vipPlan?.short_name || planId,
+            planDescription: vipPlan?.description || '',
+            monthlyPrice: Number(vipPlan?.price_brl || 0) || Number(emailMeta?.total || order.total) || undefined,
+            miniaturesCount: Number(vipPlan?.miniatures_count || 0) || undefined,
+            bossCount: Number(vipPlan?.boss_count || 0) || undefined,
+            scale: vipPlan?.scale || '',
+            recurrenceLabel: 'Mensal',
+            benefits: [
+              Number(vipPlan?.miniatures_count || 0) ? `${Number(vipPlan.miniatures_count)} miniatura${Number(vipPlan.miniatures_count) > 1 ? 's' : ''}${vipPlan?.scale ? ` em ${vipPlan.scale}` : ''}` : null,
+              Number(vipPlan?.boss_count || 0) ? `${Number(vipPlan.boss_count)} boss incluso${Number(vipPlan.boss_count) > 1 ? 's' : ''}` : 'Escolha mensal de miniaturas pela Área VIP',
+              'Acesso ao Cubo Game e benefícios exclusivos do clube',
+            ].filter(Boolean),
+            total: Number(emailMeta?.total || order.total) || undefined,
+            paymentMethod,
+          });
+        }
         const sendResp = await sendResendEmail({ to, subject: mail.subject, html: mail.html });
         if (sendResp?.ok) {
-          await sb.from("orders").update({ vip_activation_email_sent_at: new Date().toISOString(), customer_email_sent_at: new Date().toISOString(), customer_email_error: null }).eq("id", order.id);
+          const payload = orderTypeNorm === 'vip'
+            ? { vip_activation_email_sent_at: new Date().toISOString(), customer_email_sent_at: new Date().toISOString(), customer_email_error: null }
+            : { customer_email_sent_at: new Date().toISOString(), customer_email_error: null };
+          await sb.from("orders").update(payload).eq("id", order.id);
         } else {
-          console.error('vip welcome email (pix verify) resend failed', { status: sendResp?.status, to, orderId: order.id });
-          await sb.from("orders").update({ customer_email_error: `vip_activation_resend_${sendResp?.status || 0}` }).eq("id", order.id);
+          console.error(`vip ${orderTypeNorm} email (pix verify) resend failed`, { status: sendResp?.status, to, orderId: order.id });
+          await sb.from("orders").update({ customer_email_error: `${orderTypeNorm}_resend_${sendResp?.status || 0}` }).eq("id", order.id);
         }
       }
     } catch (emailErr) {
-      console.error("vip welcome email (pix verify) error", emailErr);
+      console.error(`vip ${orderTypeNorm} email (pix verify) error`, emailErr);
       try { await sb.from("orders").update({ customer_email_error: String(emailErr?.message || emailErr).slice(0, 500) }).eq("id", order.id); } catch {}
     }
   } catch (e) {

@@ -178,6 +178,8 @@ export default async function handler(req, res) {
     const body = safeBody(req);
     let vipPlanId = String(body.vip_plan_id || '').trim();
     let items = Array.isArray(body.items) ? body.items : [];
+    let vipUpgradeFromPlanId = '';
+    let vipUpgradeToPlanMeta = '';
     const couponCode = String(body.coupon_code || "").trim().toUpperCase();
 
     const modeParam = String(getQueryParam(req, 'mode') || '').trim().toLowerCase();
@@ -219,6 +221,8 @@ export default async function handler(req, res) {
       if (!Number.isFinite(diff) || diff <= 0) return res.status(400).json({ error: 'Este upgrade não está disponível.' });
 
       // Força o checkout para o plano de destino, mas cobrando apenas a diferença
+      vipUpgradeFromPlanId = String(currentPlan?.id || '');
+      vipUpgradeToPlanMeta = String(toPlan.id);
       vipPlanId = String(toPlan.id);
       // sobrescreve itens para evitar cobrar a mensalidade cheia
       items = [{ id: 'VIP_UPGRADE', name: `Upgrade VIP ${vipPlanDisplayName(currentPlan)} → ${vipPlanDisplayName(toPlan)}`, qty: 1, price: diff }];
@@ -357,6 +361,8 @@ export default async function handler(req, res) {
         user_id: user.id,
         order_type: isVipUpgrade ? 'vip_upgrade' : (vipPlanId ? 'vip' : 'shop'),
         vip_plan_id: vipPlanId || null,
+        vip_upgrade_from: vipUpgradeFromPlanId || null,
+        vip_upgrade_to: vipUpgradeToPlanMeta || null,
         coupon_code: couponApplied?.code || null,
         coupon_discount: couponApplied?.discount || 0,
         items_json: JSON.stringify(

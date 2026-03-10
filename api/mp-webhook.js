@@ -1,4 +1,4 @@
-import { renderVipWelcomeEmail } from "../server/emailTemplates.js";
+import { renderVipWelcomeEmail, renderVipUpgradeEmail } from "../server/emailTemplates.js";
 import { getVipPlanById } from "../server/vipPlans.js";
 /**
  * Vercel Serverless Function
@@ -225,6 +225,85 @@ async function sendVipActivationEmail(sb, { order, payment, forceTo } = {}) {
   }
 }
 
+
+async function sendVipUpgradeEmail(sb, { order, payment, forceTo } = {}) {
+  try {
+    if (!sb || !order?.id) return { ok: false, skipped: true, reason: 'missing_order' };
+    const orderTypeNorm = String(order?.order_type || payment?.metadata?.order_type || '').trim().toLowerCase();
+    if (orderTypeNorm !== 'vip_upgrade') return { ok: false, skipped: true, reason: 'not_vip_upgrade' };
+
+    const metaResp = await sb.from('orders').select('customer_email,customer_name,total,customer_email_sent_at').eq('id', order.id).maybeSingle();
+    const emailMeta = metaResp?.data || null;
+    if (emailMeta?.customer_email_sent_at) return { ok: true, skipped: true, reason: 'already_sent' };
+
+    const userId = order?.user_id || payment?.metadata?.user_id || '';
+    let to = String(forceTo || emailMeta?.customer_email || order?.customer_email || payment?.payer?.email || '').trim();
+    if (!isValidEmail(to) && userId) {
+      const authEmail = await fetchAuthUserEmail(userId);
+      if (isValidEmail(authEmail)) {
+        to = authEmail;
+        try { await sb.from('orders').update({ customer_email: authEmail }).eq('id', order.id); } catch {}
+      }
+    }
+    if (!isValidEmail(to)) return { ok: false, skipped: true, reason: 'missing_email' };
+
+    const apiKey = String(process.env.RESEND_API_KEY || '').trim();
+    const from = String(process.env.RESEND_FROM || process.env.SUPPORT_EMAIL || '').trim();
+    if (!apiKey || !from) return { ok: false, skipped: true, reason: 'missing_resend_env' };
+
+    const toPlanId = String(order?.vip_plan_id || payment?.metadata?.vip_upgrade_to || payment?.metadata?.vip_plan_id || '').trim();
+    const fromPlanId = String(payment?.metadata?.vip_upgrade_from || '').trim();
+    const toPlan = await getVipPlanById(sb, toPlanId);
+    let fromPlan = fromPlanId ? await getVipPlanById(sb, fromPlanId) : null;
+    if (!fromPlan && userId) {
+      try {
+        const { data: sub } = await sb.from('vip_subscriptions').select('plan_id').eq('user_id', userId).eq('status', 'active').order('ends_at', { ascending: false }).limit(1).maybeSingle();
+        if (sub?.plan_id && String(sub.plan_id) !== toPlanId) fromPlan = await getVipPlanById(sb, sub.plan_id);
+      } catch {}
+    }
+
+    const baseUrl = String(process.env.APP_URL || process.env.NEXT_PUBLIC_SITE_URL || '').trim().replace(/\/$/, '');
+    const chargedNow = Number(emailMeta?.total || order?.total || 0) || undefined;
+    const mail = renderVipUpgradeEmail({
+      brandName: process.env.BRAND_NAME || 'Cubo Criativo',
+      orderId: order.id,
+      customerName: emailMeta?.customer_name || order?.customer_name || payment?.payer?.first_name || 'cliente',
+      reviewLink: baseUrl ? `${baseUrl}/#/conta` : '',
+      supportEmail: process.env.SUPPORT_EMAIL || process.env.RESEND_FROM || '',
+      whatsapp: process.env.WHATSAPP_NUMBER || process.env.SUPPORT_WHATSAPP || '',
+      fromPlanName: fromPlan?.name || fromPlan?.short_name || fromPlanId || 'Plano atual',
+      toPlanName: toPlan?.name || toPlan?.short_name || toPlanId || 'Novo plano VIP',
+      fromPlanDescription: fromPlan?.description || '',
+      toPlanDescription: toPlan?.description || '',
+      amountCharged: chargedNow,
+      previousPrice: Number(fromPlan?.price_brl || 0) || undefined,
+      newPrice: Number(toPlan?.price_brl || 0) || undefined,
+      miniaturesCount: Number(toPlan?.miniatures_count || 0) || undefined,
+      bossCount: Number(toPlan?.boss_count || 0) || undefined,
+      scale: toPlan?.scale || '',
+      recurrenceLabel: 'Mensal',
+      paymentMethod: String(payment?.payment_method_id || '').toLowerCase() === 'pix' ? 'Pix' : 'Mercado Pago',
+      upgradeHighlights: [
+        fromPlan?.name && toPlan?.name ? `Mudança de ${fromPlan.name} para ${toPlan.name}` : null,
+        Number(toPlan?.miniatures_count || 0) ? `${Number(toPlan.miniatures_count)} miniatura${Number(toPlan.miniatures_count) > 1 ? 's' : ''}${toPlan?.scale ? ` em ${toPlan.scale}` : ''} por ciclo` : null,
+        Number(toPlan?.boss_count || 0) ? `${Number(toPlan.boss_count)} boss incluso${Number(toPlan.boss_count) > 1 ? 's' : ''}` : 'Escolhas liberadas pela Área VIP',
+        chargedNow ? `Cobrança atual do upgrade: ${chargedNow.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}` : null,
+      ].filter(Boolean),
+    });
+
+    const sendResp = await sendResendEmail({ apiKey, from, to: [to], subject: mail.subject, html: mail.html });
+    if (sendResp?.ok) {
+      try { await sb.from('orders').update({ customer_email_sent_at: new Date().toISOString(), customer_email_error: null }).eq('id', order.id); } catch {}
+      return { ...sendResp, to };
+    }
+    try { await sb.from('orders').update({ customer_email_error: `vip_upgrade_resend_${sendResp?.status || 0}:${JSON.stringify(sendResp?.data || {})}`.slice(0, 500) }).eq('id', order.id); } catch {}
+    return { ...sendResp, to };
+  } catch (mailErr) {
+    console.error('sendVipUpgradeEmail error', mailErr);
+    return { ok: false, status: 0, error: mailErr?.message || String(mailErr) };
+  }
+}
+
 async function applyVipFromOrder(sb, { order, payment }) {
   try {
     if (!sb) return;
@@ -266,6 +345,10 @@ async function applyVipFromOrder(sb, { order, payment }) {
 
     if (orderTypeNorm === 'vip') {
       await sendVipActivationEmail(sb, { order, payment });
+    }
+
+    if (orderTypeNorm === 'vip_upgrade') {
+      await sendVipUpgradeEmail(sb, { order, payment });
     }
   } catch (e) {
     console.error('applyVipFromOrder error', e);
@@ -798,9 +881,11 @@ export default async function handler(req, res) {
     // (VIP recebe email de adesão/ativação em applyVipFromOrder)
     if (isVipOrder) {
       try {
-        const vipResp = await sendVipActivationEmail(sb, { order, payment, forceTo: customerEmailRaw });
-        customerResp = vipResp?.ok ? { ok: true, vip: true, to: vipResp?.to } : (vipResp || { ok: false, vip: true, reason: "vip_activation_failed" });
-        customerErr = vipResp?.ok || vipResp?.skipped ? null : (vipResp?.reason || vipResp?.error || `vip_activation_resend_${vipResp?.status || 0}`);
+        const vipResp = orderTypeNorm === 'vip_upgrade'
+          ? await sendVipUpgradeEmail(sb, { order, payment, forceTo: customerEmailRaw })
+          : await sendVipActivationEmail(sb, { order, payment, forceTo: customerEmailRaw });
+        customerResp = vipResp?.ok ? { ok: true, vip: true, to: vipResp?.to } : (vipResp || { ok: false, vip: true, reason: orderTypeNorm === 'vip_upgrade' ? "vip_upgrade_failed" : "vip_activation_failed" });
+        customerErr = vipResp?.ok || vipResp?.skipped ? null : (vipResp?.reason || vipResp?.error || `${orderTypeNorm === 'vip_upgrade' ? 'vip_upgrade' : 'vip_activation'}_resend_${vipResp?.status || 0}`);
       } catch (e) {
         customerResp = { ok: false, vip: true };
         customerErr = e?.message || String(e);
