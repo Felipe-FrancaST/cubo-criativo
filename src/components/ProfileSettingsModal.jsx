@@ -176,12 +176,30 @@ const [stateUF2, setStateUF2] = React.useState("");
     if (!email || !password) throw new Error('Informe sua senha atual.');
     if (!supabaseUrl || !supabaseAnonKey) throw new Error('Configuração de autenticação ausente.');
 
-    const temp = createClient(supabaseUrl, supabaseAnonKey, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
-    const { data, error } = await temp.auth.signInWithPassword({ email, password });
-    if (error) throw error;
-    if (!data?.user || data.user.id !== user?.id) throw new Error('Senha atual incorreta.');
-    try { await temp.auth.signOut(); } catch {}
-    return true;
+    const memoryStorage = {
+      getItem: () => null,
+      setItem: () => {},
+      removeItem: () => {},
+    };
+
+    const temp = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+        storageKey: `cc-password-check-${user?.id || 'anon'}`,
+        storage: memoryStorage,
+      },
+    });
+
+    try {
+      const { data, error } = await temp.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      if (!data?.user || data.user.id !== user?.id) throw new Error('Senha atual incorreta.');
+      return true;
+    } finally {
+      try { await temp.auth.signOut(); } catch {}
+    }
   }
 
   function isValidCpf(raw) {
@@ -596,13 +614,31 @@ setZip2(data?.address2_zip || "");
     }
     try {
       setPwdBusy(true);
+      const sessionBeforeCheck = session?.access_token && session?.refresh_token
+        ? { access_token: session.access_token, refresh_token: session.refresh_token }
+        : null;
+
       if (shouldRequireCurrentPassword) {
         await verifyCurrentPassword(currentPassword);
+        if (sessionBeforeCheck) {
+          const { error: restoreErr } = await supabase.auth.setSession(sessionBeforeCheck);
+          if (restoreErr) throw restoreErr;
+        }
       }
-      const { data: sessData } = await supabase.auth.getSession();
-      if (!sessData?.session && isRecoveryMode) {
-        throw new Error("Abra o link de redefinição enviado ao seu e-mail para criar a nova senha com segurança.");
+
+      let { data: sessData } = await supabase.auth.getSession();
+      if (!sessData?.session && sessionBeforeCheck?.refresh_token) {
+        const { data: restored, error: restoreErr } = await supabase.auth.setSession(sessionBeforeCheck);
+        if (restoreErr) throw restoreErr;
+        sessData = restored;
       }
+
+      if (!sessData?.session) {
+        throw new Error(isRecoveryMode
+          ? "Abra o link de redefinição enviado ao seu e-mail para criar a nova senha com segurança."
+          : "Sua sessão expirou. Entre novamente para alterar sua senha.");
+      }
+
       const { error: updErr } = await supabase.auth.updateUser({ password: newPassword });
       if (updErr) throw updErr;
       setCurrentPassword("");
@@ -612,7 +648,13 @@ setZip2(data?.address2_zip || "");
       clearPasswordRecovery?.();
       setOk(shouldRequireCurrentPassword ? "Senha alterada com sucesso ✅" : "Senha criada com sucesso ✅");
     } catch (e) {
-      setError(e?.message || (shouldRequireCurrentPassword ? "Não foi possível alterar a senha." : "Não foi possível criar a senha."));
+      const raw = String(e?.message || '').toLowerCase();
+      const friendly = raw.includes('auth session missing')
+        ? (isRecoveryMode
+            ? "Abra o link enviado ao seu e-mail para criar a nova senha com segurança."
+            : "Sua sessão expirou. Entre novamente para alterar sua senha.")
+        : (e?.message || (shouldRequireCurrentPassword ? "Não foi possível alterar a senha." : "Não foi possível criar a senha."));
+      setError(friendly);
     } finally {
       setPwdBusy(false);
     }
