@@ -169,11 +169,27 @@ const [stateUF2, setStateUF2] = React.useState("");
     setLocalHasPassword(!!accountHasPassword);
   }, [accountHasPassword, user?.id]);
 
-  async function verifyCurrentPassword(password) {
-    const email = String(user?.email || '').trim();
+  function translatePasswordError(error, fallback) {
+    const raw = String(error?.message || error || '').trim();
+    const normalized = raw.toLowerCase();
+    if (!raw) return fallback;
+    if (/invalid login credentials|senha incorreta|invalid credentials|email not confirmed/.test(normalized)) {
+      return 'Senha atual incorreta.';
+    }
+    if (/auth session missing/.test(normalized)) {
+      return isRecoveryMode
+        ? 'Abra o link enviado ao seu e-mail para criar a nova senha com segurança.'
+        : 'Sua sessão expirou. Entre novamente para alterar sua senha.';
+    }
+    if (/new password should be different|same password/.test(normalized)) {
+      return 'Escolha uma nova senha diferente da atual.';
+    }
+    return raw || fallback;
+  }
+
+  function createTemporaryPasswordClient() {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-    if (!email || !password) throw new Error('Informe sua senha atual.');
     if (!supabaseUrl || !supabaseAnonKey) throw new Error('Configuração de autenticação ausente.');
 
     const memoryStorage = {
@@ -182,7 +198,7 @@ const [stateUF2, setStateUF2] = React.useState("");
       removeItem: () => {},
     };
 
-    const temp = createClient(supabaseUrl, supabaseAnonKey, {
+    return createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
         persistSession: false,
         autoRefreshToken: false,
@@ -191,12 +207,45 @@ const [stateUF2, setStateUF2] = React.useState("");
         storage: memoryStorage,
       },
     });
+  }
+
+  async function verifyCurrentPassword(password) {
+    const email = String(user?.email || '').trim();
+    if (!email || !password) throw new Error('Informe sua senha atual.');
+
+    const temp = createTemporaryPasswordClient();
 
     try {
       const { data, error } = await temp.auth.signInWithPassword({ email, password });
       if (error) throw error;
       if (!data?.user || data.user.id !== user?.id) throw new Error('Senha atual incorreta.');
       return true;
+    } catch (error) {
+      throw new Error(translatePasswordError(error, 'Senha atual incorreta.'));
+    } finally {
+      try { await temp.auth.signOut(); } catch {}
+    }
+  }
+
+  async function updatePasswordUsingCurrentPassword(password, nextPassword) {
+    const email = String(user?.email || '').trim();
+    if (!email || !password) throw new Error('Informe sua senha atual.');
+
+    const temp = createTemporaryPasswordClient();
+
+    try {
+      const { data, error } = await temp.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      if (!data?.user || data.user.id !== user?.id) throw new Error('Senha atual incorreta.');
+
+      const { error: updateError } = await temp.auth.updateUser({
+        password: nextPassword,
+        data: { has_password: true },
+      });
+      if (updateError) throw updateError;
+      return true;
+    } catch (error) {
+      throw new Error(translatePasswordError(error, 'Não foi possível alterar a senha.'));
     } finally {
       try { await temp.auth.signOut(); } catch {}
     }
@@ -619,45 +668,36 @@ setZip2(data?.address2_zip || "");
         : null;
 
       if (shouldRequireCurrentPassword) {
-        await verifyCurrentPassword(currentPassword);
-        if (sessionBeforeCheck) {
-          const { error: restoreErr } = await supabase.auth.setSession(sessionBeforeCheck);
+        await updatePasswordUsingCurrentPassword(currentPassword, newPassword);
+      } else {
+        let { data: sessData } = await supabase.auth.getSession();
+        if (!sessData?.session && sessionBeforeCheck?.refresh_token) {
+          const { data: restored, error: restoreErr } = await supabase.auth.setSession(sessionBeforeCheck);
           if (restoreErr) throw restoreErr;
+          sessData = restored;
         }
+
+        if (!sessData?.session) {
+          throw new Error(isRecoveryMode
+            ? 'Abra o link de redefinição enviado ao seu e-mail para criar a nova senha com segurança.'
+            : 'Sua sessão expirou. Entre novamente para alterar sua senha.');
+        }
+
+        const { error: updErr } = await supabase.auth.updateUser({
+          password: newPassword,
+          data: { has_password: true },
+        });
+        if (updErr) throw updErr;
       }
 
-      let { data: sessData } = await supabase.auth.getSession();
-      if (!sessData?.session && sessionBeforeCheck?.refresh_token) {
-        const { data: restored, error: restoreErr } = await supabase.auth.setSession(sessionBeforeCheck);
-        if (restoreErr) throw restoreErr;
-        sessData = restored;
-      }
-
-      if (!sessData?.session) {
-        throw new Error(isRecoveryMode
-          ? "Abra o link de redefinição enviado ao seu e-mail para criar a nova senha com segurança."
-          : "Sua sessão expirou. Entre novamente para alterar sua senha.");
-      }
-
-      const { error: updErr } = await supabase.auth.updateUser({
-        password: newPassword,
-        data: { has_password: true },
-      });
-      if (updErr) throw updErr;
-      setCurrentPassword("");
-      setNewPassword("");
-      setNewPassword2("");
+      setCurrentPassword('');
+      setNewPassword('');
+      setNewPassword2('');
       setLocalHasPassword(true);
       clearPasswordRecovery?.();
-      setOk(shouldRequireCurrentPassword ? "Senha alterada com sucesso ✅" : "Senha criada com sucesso ✅");
+      setOk(shouldRequireCurrentPassword ? 'Senha alterada com sucesso ✅' : 'Senha criada com sucesso ✅');
     } catch (e) {
-      const raw = String(e?.message || '').toLowerCase();
-      const friendly = raw.includes('auth session missing')
-        ? (isRecoveryMode
-            ? "Abra o link enviado ao seu e-mail para criar a nova senha com segurança."
-            : "Sua sessão expirou. Entre novamente para alterar sua senha.")
-        : (e?.message || (shouldRequireCurrentPassword ? "Não foi possível alterar a senha." : "Não foi possível criar a senha."));
-      setError(friendly);
+      setError(translatePasswordError(e, shouldRequireCurrentPassword ? 'Não foi possível alterar a senha.' : 'Não foi possível criar a senha.'));
     } finally {
       setPwdBusy(false);
     }
