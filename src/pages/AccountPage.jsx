@@ -45,6 +45,7 @@ export default function AccountPage({ onClose, onGoHome }) {
   const [mode, setMode] = React.useState("login"); // login | signup
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
+  const [agreeTerms, setAgreeTerms] = React.useState(false);
   const [fullName, setFullName] = React.useState("");
   const [phone, setPhone] = React.useState("");
   const [cpf, setCpf] = React.useState("");
@@ -79,6 +80,7 @@ export default function AccountPage({ onClose, onGoHome }) {
       if (!neighborhood.trim()) return setError("Informe seu bairro.");
       if (!street.trim()) return setError("Informe sua rua.");
       if (!number.trim()) return setError("Informe o número.");
+      if (!agreeTerms) return setError("Você precisa concordar com os Termos de uso e a Política de Privacidade para criar sua conta.");
     }
 
     try {
@@ -202,7 +204,7 @@ export default function AccountPage({ onClose, onGoHome }) {
               <div className="mt-6 grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  onClick={() => setMode("login")}
+                  onClick={() => { setMode("login"); setAgreeTerms(false); }}
                   className={`rounded-xl px-4 py-2 text-sm ring-1 ring-white/10 ${
                     mode === "login" ? "bg-white/10" : "hover:bg-white/5"
                   }`}
@@ -211,7 +213,7 @@ export default function AccountPage({ onClose, onGoHome }) {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setMode("signup")}
+                  onClick={() => { setMode("signup"); setAgreeTerms(false); }}
                   className={`rounded-xl px-4 py-2 text-sm ring-1 ring-white/10 ${
                     mode === "signup" ? "bg-white/10" : "hover:bg-white/5"
                   }`}
@@ -382,6 +384,23 @@ export default function AccountPage({ onClose, onGoHome }) {
                     placeholder="••••••••"
                   />
                 </Field>
+
+                {mode === "signup" && (
+                  <label className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-slate-200">
+                    <input
+                      type="checkbox"
+                      checked={agreeTerms}
+                      onChange={(e) => setAgreeTerms(e.target.checked)}
+                      className="mt-1 h-4 w-4 rounded border-white/20 bg-slate-900 text-teal-400 focus:ring-teal-400"
+                    />
+                    <span className="leading-6">
+                      Li e concordo com os{' '}
+                      <a href="/termos" target="_blank" rel="noreferrer" className="font-medium text-teal-300 hover:text-teal-200 underline underline-offset-4">Termos de uso</a>{' '}
+                      e com a{' '}
+                      <a href="/politica-de-privacidade" target="_blank" rel="noreferrer" className="font-medium text-teal-300 hover:text-teal-200 underline underline-offset-4">Política de Privacidade</a>.
+                    </span>
+                  </label>
+                )}
 
                 {error && (
                   <p className="container-cc text-sm text-red-300 bg-red-500/10 ring-1 ring-red-500/30 rounded-xl px-4 py-3">

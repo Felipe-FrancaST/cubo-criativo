@@ -84,6 +84,7 @@ export default function AuthModal({ open, onClose, onSuccess }) {
   const [mode, setMode] = React.useState("login"); // login | signup
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
+  const [agreeTerms, setAgreeTerms] = React.useState(false);
 
   // signup/profile
   const [fullName, setFullName] = React.useState("");
@@ -113,6 +114,7 @@ export default function AuthModal({ open, onClose, onSuccess }) {
       setCepBusy(false);
       setBusy(false);
       setPassword("");
+      setAgreeTerms(false);
     }
   }, [open]);
 
@@ -178,6 +180,7 @@ export default function AuthModal({ open, onClose, onSuccess }) {
       if (!neighborhood.trim()) return setError("Informe o bairro.");
       if (!street.trim()) return setError("Informe a rua.");
       if (!number.trim()) return setError("Informe o número.");
+      if (!agreeTerms) return setError("Você precisa concordar com os Termos de uso e a Política de Privacidade para criar sua conta.");
     }
 
     try {
@@ -485,6 +488,23 @@ export default function AuthModal({ open, onClose, onSuccess }) {
               />
             </div>
           </div>
+
+          {mode === "signup" && (
+            <label className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-slate-200">
+              <input
+                type="checkbox"
+                checked={agreeTerms}
+                onChange={(e) => setAgreeTerms(e.target.checked)}
+                className="mt-1 h-4 w-4 rounded border-white/20 bg-slate-900 text-teal-400 focus:ring-teal-400"
+              />
+              <span className="leading-6">
+                Li e concordo com os{' '}
+                <a href="/termos" target="_blank" rel="noreferrer" className="font-medium text-teal-300 hover:text-teal-200 underline underline-offset-4">Termos de uso</a>{' '}
+                e com a{' '}
+                <a href="/politica-de-privacidade" target="_blank" rel="noreferrer" className="font-medium text-teal-300 hover:text-teal-200 underline underline-offset-4">Política de Privacidade</a>.
+              </span>
+            </label>
+          )}
 
           {error ? <FloatingNotice tone="error" message={error} /> : null}
           {info ? <FloatingNotice tone="success" message={info} /> : null}
