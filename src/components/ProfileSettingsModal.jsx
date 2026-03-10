@@ -15,6 +15,26 @@ function Field({ label, children }) {
   );
 }
 
+function FloatingNotice({ tone = "success", message }) {
+  if (!message) return null;
+  const palette = tone === "error"
+    ? "border-rose-400/35 bg-slate-950/95 text-rose-100 shadow-[0_20px_60px_-20px_rgba(244,63,94,0.45)]"
+    : "border-emerald-400/35 bg-slate-950/95 text-emerald-100 shadow-[0_20px_60px_-20px_rgba(52,211,153,0.45)]";
+  const icon = tone === "error" ? "error" : "verified";
+  return (
+    <div className="sticky top-3 z-[70] mb-4 flex justify-center px-1">
+      <div className={`max-w-xl rounded-2xl border px-4 py-3 backdrop-blur-xl ring-1 ring-white/10 ${palette}`.trim()}>
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white/8 ring-1 ring-white/10">
+            <span className="material-icons text-[18px]">{icon}</span>
+          </div>
+          <p className="text-sm font-medium leading-6">{message}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const FALLBACK_VIP_PLANS = [
   { id: "CUBO_L1_RPG", slug: "level-1", name: "Cubo Level 1 — RPG", short_name: "Level 1", miniatures_count: 3, boss_count: 0, items_per_month: 3 },
   { id: "CUBO_L2_RPG", slug: "level-2", name: "Cubo Level 2 — RPG", short_name: "Level 2", miniatures_count: 4, boss_count: 1, items_per_month: 5 },
@@ -27,7 +47,7 @@ function findVipPlanForProfile(plans, profilePlan) {
 }
 
 export default function ProfileSettingsModal({ open, onClose, required = false, onSaved, initialTab = "profile", onSignOut, onNavigate, onRequireLogin, mode = "modal" }) {
-  const { user, session, resetPassword, loading: authLoading, isPasswordRecovery, clearPasswordRecovery } = useAuth();
+  const { user, session, resetPassword, loading: authLoading, isPasswordRecovery, clearPasswordRecovery, accountHasPassword } = useAuth();
 
   // Navegação compatível com o router simples do App.jsx.
   // - Preferimos usar onNavigate (que chama navigate() e atualiza o state da rota).
@@ -67,7 +87,6 @@ export default function ProfileSettingsModal({ open, onClose, required = false, 
     }
   }, [open, user, authLoading, required]);
   const jwt = session?.access_token || "";
-
   const [loading, setLoading] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState("");
@@ -115,6 +134,13 @@ const [stateUF2, setStateUF2] = React.useState("");
   const [deleteBusy, setDeleteBusy] = React.useState(false);
   const [deleteAccountModal, setDeleteAccountModal] = React.useState({ open: false, password: "", confirm: false, error: "" });
   const [settingsSection, setSettingsSection] = React.useState("security");
+  const [localHasPassword, setLocalHasPassword] = React.useState(() => !!accountHasPassword);
+  const isRecoveryMode = !!isPasswordRecovery;
+  const shouldRequireCurrentPassword = !isRecoveryMode && !!localHasPassword;
+  const securityActionLabel = shouldRequireCurrentPassword ? "Trocar senha" : "Criar senha";
+  const securityIntro = shouldRequireCurrentPassword
+    ? "Troque sua senha com segurança. Se preferir, envie um link de recuperação por e-mail."
+    : "Sua conta ainda não tem senha definida. Crie uma senha para também poder entrar com e-mail e senha.";
 
   // Favoritos
   const { favoriteIds, toggleFavorite, reload: reloadFavorites } = useFavorites();
@@ -139,6 +165,10 @@ const [stateUF2, setStateUF2] = React.useState("");
     setDeleteAccountModal((prev) => ({ ...prev, ...(typeof patch === "function" ? patch(prev) : patch) }));
   }, []);
 
+  React.useEffect(() => {
+    setLocalHasPassword(!!accountHasPassword);
+  }, [accountHasPassword, user?.id]);
+
   async function verifyCurrentPassword(password) {
     const email = String(user?.email || '').trim();
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -146,19 +176,11 @@ const [stateUF2, setStateUF2] = React.useState("");
     if (!email || !password) throw new Error('Informe sua senha atual.');
     if (!supabaseUrl || !supabaseAnonKey) throw new Error('Configuração de autenticação ausente.');
 
-    const temp = createClient(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-        detectSessionInUrl: false,
-        flowType: 'pkce',
-        storageKey: `cc-password-check-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      },
-    });
-
+    const temp = createClient(supabaseUrl, supabaseAnonKey, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
     const { data, error } = await temp.auth.signInWithPassword({ email, password });
     if (error) throw error;
     if (!data?.user || data.user.id !== user?.id) throw new Error('Senha atual incorreta.');
+    try { await temp.auth.signOut(); } catch {}
     return true;
   }
 
@@ -566,41 +588,49 @@ setZip2(data?.address2_zip || "");
   async function savePassword() {
     setError("");
     setOk("");
-    if (!currentPassword) return setError("Digite sua senha atual para continuar.");
     if (!newPassword || newPassword.length < 6) return setError("A nova senha deve ter pelo menos 6 caracteres.");
     if (newPassword !== newPassword2) return setError("As senhas não coincidem.");
-    if (currentPassword === newPassword) return setError("Escolha uma nova senha diferente da atual.");
+    if (shouldRequireCurrentPassword) {
+      if (!currentPassword) return setError("Digite sua senha atual para continuar.");
+      if (currentPassword === newPassword) return setError("Escolha uma nova senha diferente da atual.");
+    }
     try {
       setPwdBusy(true);
-      const { data: beforeData } = await supabase.auth.getSession();
-      const originalSession = beforeData?.session || null;
-
-      await verifyCurrentPassword(currentPassword);
-
-      const { data: afterCheckData } = await supabase.auth.getSession();
-      if (!afterCheckData?.session && originalSession?.access_token && originalSession?.refresh_token) {
-        const { error: restoreErr } = await supabase.auth.setSession({
-          access_token: originalSession.access_token,
-          refresh_token: originalSession.refresh_token,
-        });
-        if (restoreErr) throw restoreErr;
+      if (shouldRequireCurrentPassword) {
+        await verifyCurrentPassword(currentPassword);
       }
-
+      const { data: sessData } = await supabase.auth.getSession();
+      if (!sessData?.session && isRecoveryMode) {
+        throw new Error("Abra o link de redefinição enviado ao seu e-mail para criar a nova senha com segurança.");
+      }
       const { error: updErr } = await supabase.auth.updateUser({ password: newPassword });
       if (updErr) throw updErr;
       setCurrentPassword("");
       setNewPassword("");
       setNewPassword2("");
+      setLocalHasPassword(true);
       clearPasswordRecovery?.();
-      setOk("Senha atualizada com sucesso ✅");
+      setOk(shouldRequireCurrentPassword ? "Senha alterada com sucesso ✅" : "Senha criada com sucesso ✅");
     } catch (e) {
-      setError(e?.message || "Não foi possível alterar a senha.");
+      setError(e?.message || (shouldRequireCurrentPassword ? "Não foi possível alterar a senha." : "Não foi possível criar a senha."));
     } finally {
       setPwdBusy(false);
     }
   }
 
+  async function sendPasswordResetLink() {
+    setError("");
+    setOk("");
+    try {
+      await resetPassword({ email: String(user?.email || "") });
+      setOk("Enviamos um e-mail com um link seguro para você definir uma nova senha.");
+    } catch (e) {
+      setError(e?.message || "Não foi possível enviar o link de recuperação.");
+    }
+  }
+
   async function deleteAccount() {
+
     if (!user || !jwt) return;
     setError("");
     setOk("");
@@ -895,8 +925,8 @@ setZip2(data?.address2_zip || "");
                 {settingsSection === 'security' && (
                   <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
                     <p className="text-sm font-semibold text-slate-100">Segurança da conta</p>
-                    <p className="mt-1 text-xs text-slate-400">Troque sua senha com segurança. Se preferir, envie um link de recuperação por e-mail.</p>
-                    {isPasswordRecovery ? (
+                    <p className="mt-1 text-xs text-slate-400">{securityIntro}</p>
+                    {isRecoveryMode ? (
                       <div className="mt-4 rounded-2xl border border-emerald-400/20 bg-gradient-to-br from-emerald-500/15 via-emerald-500/10 to-transparent p-4">
                         <div className="flex items-start gap-3">
                           <div className="mt-0.5 grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-emerald-500/15 text-emerald-200 ring-1 ring-emerald-400/30">
@@ -910,14 +940,18 @@ setZip2(data?.address2_zip || "");
                       </div>
                     ) : null}
                     <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <Field label="Senha atual"><input value={currentPassword} onChange={(e)=>setCurrentPassword(e.target.value)} type="password" autoComplete="current-password" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="Digite sua senha atual" /></Field>
-                      <div className="hidden sm:block" />
-                      <Field label="Nova senha"><input value={newPassword} onChange={(e)=>setNewPassword(e.target.value)} type="password" autoComplete="new-password" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="Mínimo 6 caracteres" /></Field>
-                      <Field label="Confirmar nova senha"><input value={newPassword2} onChange={(e)=>setNewPassword2(e.target.value)} type="password" autoComplete="new-password" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="Repita a senha" /></Field>
+                      {shouldRequireCurrentPassword ? (
+                        <>
+                          <Field label="Senha atual"><input value={currentPassword} onChange={(e)=>setCurrentPassword(e.target.value)} type="password" autoComplete="current-password" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="Digite sua senha atual" /></Field>
+                          <div className="hidden sm:block" />
+                        </>
+                      ) : null}
+                      <Field label={shouldRequireCurrentPassword ? "Nova senha" : "Crie sua senha"}><input value={newPassword} onChange={(e)=>setNewPassword(e.target.value)} type="password" autoComplete="new-password" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="Mínimo 6 caracteres" /></Field>
+                      <Field label={shouldRequireCurrentPassword ? "Confirmar nova senha" : "Confirmar senha"}><input value={newPassword2} onChange={(e)=>setNewPassword2(e.target.value)} type="password" autoComplete="new-password" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="Repita a senha" /></Field>
                     </div>
                     <div className="mt-3 flex flex-wrap gap-2">
-                      <button onClick={savePassword} disabled={pwdBusy} className={`rounded-xl px-4 py-2 font-semibold ring-1 ring-white/10 ${pwdBusy ? "bg-slate-700/50 text-slate-300" : "bg-indigo-400 hover:bg-indigo-300 text-black"}`}>{pwdBusy ? "Atualizando…" : "Trocar senha"}</button>
-                      <button onClick={async()=>{ try { setError(""); setOk(""); await resetPassword({ email: String(user.email || "") }); setOk("Enviamos um link de redefinição. Ao clicar no e-mail, você será levado direto para esta tela ✅"); } catch (e) { setError(e?.message || "Não foi possível enviar o link."); } }} className="rounded-xl px-4 py-2 ring-1 ring-white/10 hover:bg-white/5">Enviar link por e-mail</button>
+                      <button onClick={savePassword} disabled={pwdBusy} className={`rounded-xl px-4 py-2 font-semibold ring-1 ring-white/10 ${pwdBusy ? "bg-slate-700/50 text-slate-300" : "bg-indigo-400 hover:bg-indigo-300 text-black"}`}>{pwdBusy ? "Salvando…" : securityActionLabel}</button>
+                      <button onClick={sendPasswordResetLink} className="rounded-xl px-4 py-2 ring-1 ring-white/10 hover:bg-white/5">Esqueceu a senha?</button>
                     </div>
 
                     <div className="mt-5 rounded-2xl border border-rose-400/20 bg-rose-500/8 p-4">
@@ -1114,8 +1148,8 @@ setZip2(data?.address2_zip || "");
               </>
             )}
 
-            {error ? <p className="text-sm text-red-300 bg-red-500/10 ring-1 ring-red-500/30 rounded-xl px-4 py-3">{error}</p> : null}
-            {ok ? <p className="text-sm text-emerald-200 bg-emerald-500/10 ring-1 ring-emerald-500/30 rounded-xl px-4 py-3">{ok}</p> : null}
+            {error ? <FloatingNotice tone="error" message={error} /> : null}
+            {ok ? <FloatingNotice tone="success" message={ok} /> : null}
 
             <div className="flex items-center justify-end gap-2">
               {!required && <button onClick={onClose} className="rounded-xl px-4 py-3 ring-1 ring-white/10 hover:bg-white/5">Fechar</button>}

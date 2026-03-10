@@ -3,13 +3,50 @@ import { supabase } from "../lib/supabaseClient";
 
 const AuthContext = React.createContext(null);
 
+function hasRecoverySignals() {
+  if (typeof window === "undefined") return false;
+  try {
+    const params = new URLSearchParams(window.location.search || "");
+    const hash = String(window.location.hash || "");
+    return (
+      params.get("type") === "recovery" ||
+      !!params.get("code") ||
+      /type=recovery/i.test(hash) ||
+      /access_token=/i.test(hash) ||
+      /refresh_token=/i.test(hash)
+    );
+  } catch {
+    return false;
+  }
+}
+
+
+function userHasPassword(user) {
+  if (!user) return false;
+  const providers = [];
+  const directProvider = String(user?.app_metadata?.provider || '').toLowerCase().trim();
+  const appProviders = Array.isArray(user?.app_metadata?.providers) ? user.app_metadata.providers : [];
+  const identityProviders = Array.isArray(user?.identities)
+    ? user.identities.map((i) => String(i?.provider || '').toLowerCase().trim()).filter(Boolean)
+    : [];
+  providers.push(directProvider, ...appProviders.map((p) => String(p || '').toLowerCase().trim()), ...identityProviders);
+  const unique = Array.from(new Set(providers.filter(Boolean)));
+  if (unique.includes('email')) return true;
+  if (!unique.length) return true;
+  return !(unique.length === 1 && unique[0] === 'google');
+}
+
 export function AuthProvider({ children }) {
   const [session, setSession] = React.useState(null);
   const [user, setUser] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
   const [isPasswordRecovery, setIsPasswordRecovery] = React.useState(() => {
     if (typeof window === "undefined") return false;
-    try { return window.sessionStorage.getItem("cc_password_recovery") === "1"; } catch { return false; }
+    try {
+      return window.sessionStorage.getItem("cc_password_recovery") === "1" || hasRecoverySignals();
+    } catch {
+      return hasRecoverySignals();
+    }
   });
 
   React.useEffect(() => {
@@ -19,6 +56,10 @@ export function AuthProvider({ children }) {
       if (!mounted) return;
       setSession(data.session || null);
       setUser(data.session?.user || null);
+      if (data.session && hasRecoverySignals()) {
+        setIsPasswordRecovery(true);
+        try { window.sessionStorage.setItem("cc_password_recovery", "1"); } catch {}
+      }
       setLoading(false);
     });
 
@@ -187,9 +228,11 @@ export function AuthProvider({ children }) {
     });
   }
 
+  const accountHasPassword = React.useMemo(() => userHasPassword(user), [user]);
+
   const value = React.useMemo(
-    () => ({ session, user, loading, signUp, signIn, signInWithGoogle, resetPassword, signOut, isPasswordRecovery, clearPasswordRecovery }),
-    [session, user, loading, isPasswordRecovery]
+    () => ({ session, user, loading, signUp, signIn, signInWithGoogle, resetPassword, signOut, isPasswordRecovery, clearPasswordRecovery, accountHasPassword }),
+    [session, user, loading, isPasswordRecovery, accountHasPassword]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
