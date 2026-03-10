@@ -35,6 +35,35 @@ function FloatingNotice({ tone = "success", message }) {
   );
 }
 
+
+function PasswordInput({ value, onChange, autoComplete = "current-password", placeholder = "••••••••", className = "", inputClassName = "", buttonClassName = "", ...props }) {
+  const [visible, setVisible] = React.useState(false);
+  const resolvedInputClass = (className || inputClassName || "w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 pr-12 outline-none focus:ring-teal-400/60").trim();
+  const resolvedButtonClass = (buttonClassName || "absolute inset-y-0 right-0 inline-flex w-12 items-center justify-center text-slate-300 transition hover:text-white").trim();
+  return (
+    <div className="relative">
+      <input
+        value={value}
+        onChange={onChange}
+        type={visible ? "text" : "password"}
+        autoComplete={autoComplete}
+        className={resolvedInputClass}
+        placeholder={placeholder}
+        {...props}
+      />
+      <button
+        type="button"
+        onClick={() => setVisible((v) => !v)}
+        aria-label={visible ? "Ocultar senha" : "Mostrar senha"}
+        aria-pressed={visible}
+        className={resolvedButtonClass}
+      >
+        <span className="material-icons text-[20px]">{visible ? "visibility_off" : "visibility"}</span>
+      </button>
+    </div>
+  );
+}
+
 const FALLBACK_VIP_PLANS = [
   { id: "CUBO_L1_RPG", slug: "level-1", name: "Cubo Level 1 — RPG", short_name: "Level 1", miniatures_count: 3, boss_count: 0, items_per_month: 3 },
   { id: "CUBO_L2_RPG", slug: "level-2", name: "Cubo Level 2 — RPG", short_name: "Level 2", miniatures_count: 4, boss_count: 1, items_per_month: 5 },
@@ -1027,12 +1056,12 @@ setZip2(data?.address2_zip || "");
                     <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {shouldRequireCurrentPassword ? (
                         <>
-                          <Field label="Senha atual"><input value={currentPassword} onChange={(e)=>setCurrentPassword(e.target.value)} type="password" autoComplete="current-password" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="Digite sua senha atual" /></Field>
+                          <Field label="Senha atual"><PasswordInput value={currentPassword} onChange={(e)=>setCurrentPassword(e.target.value)} autoComplete="current-password" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 pr-12 outline-none focus:ring-teal-400/60" placeholder="Digite sua senha atual" /></Field>
                           <div className="hidden sm:block" />
                         </>
                       ) : null}
-                      <Field label={shouldRequireCurrentPassword ? "Nova senha" : "Crie sua senha"}><input value={newPassword} onChange={(e)=>setNewPassword(e.target.value)} type="password" autoComplete="new-password" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="Mínimo 6 caracteres" /></Field>
-                      <Field label={shouldRequireCurrentPassword ? "Confirmar nova senha" : "Confirmar senha"}><input value={newPassword2} onChange={(e)=>setNewPassword2(e.target.value)} type="password" autoComplete="new-password" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="Repita a senha" /></Field>
+                      <Field label={shouldRequireCurrentPassword ? "Nova senha" : "Crie sua senha"}><PasswordInput value={newPassword} onChange={(e)=>setNewPassword(e.target.value)} autoComplete="new-password" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 pr-12 outline-none focus:ring-teal-400/60" placeholder="Mínimo 6 caracteres" /></Field>
+                      <Field label={shouldRequireCurrentPassword ? "Confirmar nova senha" : "Confirmar senha"}><PasswordInput value={newPassword2} onChange={(e)=>setNewPassword2(e.target.value)} autoComplete="new-password" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 pr-12 outline-none focus:ring-teal-400/60" placeholder="Repita a senha" /></Field>
                     </div>
                     <div className="mt-3 flex flex-wrap gap-2">
                       <button onClick={savePassword} disabled={pwdBusy} className={`rounded-xl px-4 py-2 font-semibold ring-1 ring-white/10 ${pwdBusy ? "bg-slate-700/50 text-slate-300" : "bg-indigo-400 hover:bg-indigo-300 text-black"}`}>{pwdBusy ? "Salvando…" : securityActionLabel}</button>
@@ -1271,12 +1300,12 @@ setZip2(data?.address2_zip || "");
         </div>
 
         <Field label="Digite sua senha para confirmar">
-          <input
+<PasswordInput
             value={deleteAccountModal.password}
             onChange={(e) => updateDeleteAccountModal({ password: e.target.value, error: "" })}
-            type="password"
             autoComplete="current-password"
-            className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-rose-400/60"
+            className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 pr-12 outline-none focus:ring-rose-400/60"
+            buttonClassName="absolute inset-y-0 right-0 inline-flex w-12 items-center justify-center text-rose-100/80 transition hover:text-rose-50"
             placeholder="Sua senha atual"
           />
         </Field>

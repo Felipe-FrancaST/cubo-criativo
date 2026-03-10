@@ -63,6 +63,35 @@ function getRecoveryContext() {
   return { hasSignals, type, tokenHash, code, accessToken, refreshToken };
 }
 
+
+function PasswordInput({ value, onChange, autoComplete = "new-password", placeholder = "••••••••", className = "", inputClassName = "", buttonClassName = "", ...props }) {
+  const [visible, setVisible] = React.useState(false);
+  const resolvedInputClass = (className || inputClassName || "w-full rounded-2xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 pr-12 outline-none focus:ring-teal-400/60").trim();
+  const resolvedButtonClass = (buttonClassName || "absolute inset-y-0 right-0 inline-flex w-12 items-center justify-center text-slate-300 transition hover:text-white").trim();
+  return (
+    <div className="relative">
+      <input
+        value={value}
+        onChange={onChange}
+        type={visible ? "text" : "password"}
+        autoComplete={autoComplete}
+        className={resolvedInputClass}
+        placeholder={placeholder}
+        {...props}
+      />
+      <button
+        type="button"
+        onClick={() => setVisible((v) => !v)}
+        aria-label={visible ? "Ocultar senha" : "Mostrar senha"}
+        aria-pressed={visible}
+        className={resolvedButtonClass}
+      >
+        <span className="material-icons text-[20px]">{visible ? "visibility_off" : "visibility"}</span>
+      </button>
+    </div>
+  );
+}
+
 export default function PasswordResetPage({ onGoHome, onGoLogin }) {
   const { isPasswordRecovery, session, clearPasswordRecovery } = useAuth();
   const [newPassword, setNewPassword] = React.useState("");
@@ -203,10 +232,10 @@ export default function PasswordResetPage({ onGoHome, onGoLogin }) {
 
             <form onSubmit={submit} className="mt-6 space-y-4">
               <Field label="Nova senha">
-                <input value={newPassword} onChange={(e) => setNewPassword(e.target.value)} type="password" autoComplete="new-password" className="w-full rounded-2xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="Mínimo 6 caracteres" />
+                <PasswordInput value={newPassword} onChange={(e) => setNewPassword(e.target.value)} autoComplete="new-password" className="w-full rounded-2xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 pr-12 outline-none focus:ring-teal-400/60" placeholder="Mínimo 6 caracteres" />
               </Field>
               <Field label="Confirmar nova senha">
-                <input value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} type="password" autoComplete="new-password" className="w-full rounded-2xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="Repita a nova senha" />
+                <PasswordInput value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} autoComplete="new-password" className="w-full rounded-2xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 pr-12 outline-none focus:ring-teal-400/60" placeholder="Repita a nova senha" />
               </Field>
 
               <div className="flex flex-col gap-3 sm:flex-row">

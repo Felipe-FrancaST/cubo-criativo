@@ -10,6 +10,35 @@ function Field({ label, children }) {
   );
 }
 
+
+function PasswordInput({ value, onChange, autoComplete = "current-password", placeholder = "••••••••", className = "", inputClassName = "", buttonClassName = "", ...props }) {
+  const [visible, setVisible] = React.useState(false);
+  const resolvedInputClass = (className || inputClassName || "w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 pr-12 outline-none focus:ring-teal-400/60").trim();
+  const resolvedButtonClass = (buttonClassName || "absolute inset-y-0 right-0 inline-flex w-12 items-center justify-center text-slate-300 transition hover:text-white").trim();
+  return (
+    <div className="relative">
+      <input
+        value={value}
+        onChange={onChange}
+        type={visible ? "text" : "password"}
+        autoComplete={autoComplete}
+        className={resolvedInputClass}
+        placeholder={placeholder}
+        {...props}
+      />
+      <button
+        type="button"
+        onClick={() => setVisible((v) => !v)}
+        aria-label={visible ? "Ocultar senha" : "Mostrar senha"}
+        aria-pressed={visible}
+        className={resolvedButtonClass}
+      >
+        <span className="material-icons text-[20px]">{visible ? "visibility_off" : "visibility"}</span>
+      </button>
+    </div>
+  );
+}
+
 export default function AccountPage({ onClose, onGoHome }) {
   const { user, signIn, signUp, signOut, resetPassword } = useAuth();
 
@@ -345,12 +374,11 @@ export default function AccountPage({ onClose, onGoHome }) {
                 </Field>
 
                 <Field label="Senha">
-                  <input
+                  <PasswordInput
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    type="password"
                     autoComplete={mode === "login" ? "current-password" : "new-password"}
-                    className="container-cc w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                    className="container-cc w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 pr-12 outline-none focus:ring-teal-400/60"
                     placeholder="••••••••"
                   />
                 </Field>
