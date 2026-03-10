@@ -10,6 +10,25 @@ function cycleKeyUTC() {
   return `${y}-${m}`;
 }
 
+function cycleDeadlineLabel(cycleKey) {
+  try {
+    const [year, month] = String(cycleKey || '').split('-').map(Number);
+    if (!year || !month) return 'fim do mês';
+    const end = new Date(Date.UTC(year, month, 0, 23, 59, 59));
+    return end.toLocaleDateString('pt-BR');
+  } catch {
+    return 'fim do mês';
+  }
+}
+
+function vipBlockMessage(status) {
+  const v = String(status || '').toLowerCase();
+  if (v === 'em_producao') return { title: 'Aguardando produção', text: 'Suas escolhas deste ciclo já foram fechadas e estão em processo de produção.' };
+  if (v === 'enviado') return { title: 'Pedido enviado', text: 'Seu pedido deste ciclo já foi enviado. As escolhas ficam bloqueadas até a abertura do próximo ciclo.' };
+  if (v === 'entregue') return { title: 'Ciclo encerrado', text: 'Este ciclo já foi concluído. Aguarde a abertura do próximo para fazer novas escolhas.' };
+  return null;
+}
+
 function statusLabel(s) {
   const v = String(s || "editavel").toLowerCase();
   if (v === "editavel" || v === "recebido") return { label: "Editável", cls: "bg-emerald-500/10 ring-emerald-400/25 text-emerald-200" };
@@ -138,6 +157,8 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
   const isVip = vipUntil ? new Date(vipUntil).getTime() > Date.now() : false;
   const st = statusLabel(orderStatus);
   const editable = isVip && (String(orderStatus || "").toLowerCase() === "editavel" || String(orderStatus || "").toLowerCase() === "recebido");
+  const cycleDeadline = React.useMemo(() => cycleDeadlineLabel(cycle), [cycle]);
+  const blockNotice = React.useMemo(() => vipBlockMessage(orderStatus), [orderStatus]);
 
   // IDs que serão exibidos como selecionados na UI:
   // - editando: usa selected
@@ -806,18 +827,34 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
 
               {/* Resumo do ciclo (compacto no mobile) */}
               <div className="mt-4 rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="text-xs uppercase tracking-wide text-slate-400">Seu nível</div>
-                    <div className="mt-1 text-lg sm:text-xl font-extrabold text-violet-100">{selectedPlan?.short_name || selectedPlan?.name || 'VIP'}</div>
-                    <div className="mt-1 text-xs text-slate-300">{miniLimit} miniatura(s){bossLimit ? ` + ${bossLimit} boss(es)` : ''} • total {totalLimit}</div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="rounded-2xl bg-black/20 ring-1 ring-white/10 p-4">
+                    <div className="text-xs uppercase tracking-wide text-slate-400">Ciclo atual</div>
+                    <div className="mt-1 text-lg sm:text-xl font-extrabold text-violet-100">{cycle}</div>
+                    <div className="mt-1 text-xs text-slate-300">Seu plano: {selectedPlan?.short_name || selectedPlan?.name || 'VIP'}</div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-xs uppercase tracking-wide text-slate-400">Progresso</div>
-                    <div className="mt-1 text-sm text-slate-200"><b>{selectedCounts.total}</b>/{totalLimit}</div>
-                    <div className="mt-1 text-[11px] text-slate-400">Mini {selectedCounts.mini}/{miniLimit}{bossLimit ? ` • Boss ${selectedCounts.boss}/${bossLimit}` : ''}</div>
+                  <div className="rounded-2xl bg-black/20 ring-1 ring-white/10 p-4">
+                    <div className="text-xs uppercase tracking-wide text-slate-400">Prazo de escolha</div>
+                    <div className="mt-1 text-lg sm:text-xl font-extrabold text-slate-100">{cycleDeadline}</div>
+                    <div className="mt-1 text-xs text-slate-300">As escolhas ficam disponíveis enquanto o pedido estiver editável.</div>
+                  </div>
+                  <div className="rounded-2xl bg-black/20 ring-1 ring-white/10 p-4">
+                    <div className="text-xs uppercase tracking-wide text-slate-400">Status do ciclo</div>
+                    <div className="mt-1 text-lg sm:text-xl font-extrabold text-slate-100">{st.label}</div>
+                    <div className="mt-1 text-xs text-slate-300">Faltam <b>{Math.max(0, totalLimit - selectedCounts.total)}</b> miniatura(s)/item(ns) para completar este ciclo.</div>
                   </div>
                 </div>
+                {!editable && blockNotice ? (
+                  <div className="mt-3 rounded-2xl bg-amber-500/10 ring-1 ring-amber-400/25 p-4">
+                    <div className="flex items-start gap-3">
+                      <span className="material-icons text-amber-200">lock_clock</span>
+                      <div>
+                        <div className="text-sm font-extrabold text-amber-100">{blockNotice.title}</div>
+                        <div className="mt-1 text-sm text-slate-200/90">{blockNotice.text}</div>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
               </div>
 
               {/* Guia rápido (melhora entendimento no mobile) */}

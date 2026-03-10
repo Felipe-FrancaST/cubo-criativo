@@ -1,5 +1,95 @@
 import React from "react";
 import { useAuth } from "../auth/AuthProvider.jsx";
+import { supabase } from "../lib/supabaseClient";
+import { brand } from "../data/config";
+
+
+function fmtBRL(v) {
+  const n = Number(v || 0);
+  return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function prodUI(status) {
+  const v = String(status || 'recebido').toLowerCase();
+  if (v === 'recebido' || v === 'editavel') return { label: 'Recebido', cls: 'bg-emerald-500/10 text-emerald-200 ring-emerald-400/25' };
+  if (v === 'em_producao') return { label: 'Em produção', cls: 'bg-indigo-500/10 text-indigo-200 ring-indigo-400/25' };
+  if (v === 'pronto') return { label: 'Pronto', cls: 'bg-sky-500/10 text-sky-200 ring-sky-400/25' };
+  if (v === 'enviado') return { label: 'Enviado', cls: 'bg-amber-500/10 text-amber-100 ring-amber-400/25' };
+  if (v === 'entregue') return { label: 'Entregue', cls: 'bg-teal-500/10 text-teal-100 ring-teal-400/25' };
+  if (v === 'cancelado') return { label: 'Cancelado', cls: 'bg-rose-500/10 text-rose-200 ring-rose-400/25' };
+  return { label: v.replaceAll('_', ' '), cls: 'bg-white/5 text-slate-200 ring-white/10' };
+}
+
+function trackUrl(code) {
+  const c = String(code || '').trim();
+  return c ? `https://rastreamento.correios.com.br/app/index.php?objetos=${encodeURIComponent(c)}` : '#';
+}
+
+function emailEventLabel(type, status) {
+  const t = String(type || '').toLowerCase();
+  const s = String(status || '').toLowerCase();
+  if (t.startsWith('order_status:')) {
+    const stage = t.split(':')[1] || 'atualizado';
+    return `E-mail enviado: ${stage.replaceAll('_', ' ')}`;
+  }
+  if (t.includes('vip') && t.includes('upgrade')) return 'E-mail de upgrade VIP';
+  if (t.includes('vip')) return 'E-mail VIP';
+  if (t) return `E-mail ${t}`;
+  return s === 'sent' ? 'E-mail enviado' : 'Histórico atualizado';
+}
+
+function synthesizeTimeline(order) {
+  const events = [];
+  if (order?.created_at) {
+    events.push({
+      id: `${order.id}:created`,
+      happened_at: order.created_at,
+      event_type: 'order.created',
+      title: 'Pedido criado',
+      description: order?.order_type === 'vip' ? 'Seu ciclo VIP foi registrado.' : 'Recebemos seu pedido com sucesso.',
+    });
+  }
+  if (order?.production_status) {
+    events.push({
+      id: `${order.id}:status:${order.production_status}`,
+      happened_at: order.updated_at || order.created_at,
+      event_type: 'order.status',
+      title: `Status atual: ${prodUI(order.production_status).label}`,
+      description: order.shipping_tracking ? `Rastreio disponível: ${order.shipping_tracking}` : 'Acompanhe as próximas atualizações por aqui.',
+    });
+  }
+  if (order?.last_email_sent_at) {
+    events.push({
+      id: `${order.id}:email:${order.last_email_sent_at}`,
+      happened_at: order.last_email_sent_at,
+      event_type: 'email.sent',
+      title: emailEventLabel(order.last_email_type, order.last_email_status),
+      description: order.last_email_status === 'sent' ? 'Notificação enviada para o seu e-mail.' : (order.last_email_error || 'Houve uma tentativa de envio.'),
+    });
+  }
+  return events.sort((a, b) => new Date(b.happened_at || 0) - new Date(a.happened_at || 0));
+}
+
+function QuickAction({ href, onClick, icon, title, text, external = false }) {
+  const Comp = href ? 'a' : 'button';
+  const props = href
+    ? { href, ...(external ? { target: '_blank', rel: 'noreferrer' } : {}) }
+    : { type: 'button', onClick };
+  return (
+    <Comp
+      {...props}
+      className="rounded-2xl bg-white/5 ring-1 ring-white/10 px-4 py-4 text-left hover:bg-white/[0.08] transition"
+    >
+      <div className="flex items-start gap-3">
+        <span className="material-icons text-teal-300">{icon}</span>
+        <div>
+          <div className="font-semibold text-slate-100">{title}</div>
+          <div className="mt-1 text-sm text-slate-400">{text}</div>
+        </div>
+      </div>
+    </Comp>
+  );
+}
 
 function Field({ label, children }) {
   return (
@@ -61,6 +151,62 @@ export default function AccountPage({ onClose, onGoHome }) {
 
   const [error, setError] = React.useState("");
   const [info, setInfo] = React.useState("");
+  const [dashboardLoading, setDashboardLoading] = React.useState(false);
+  const [dashboardError, setDashboardError] = React.useState("");
+  const [dashboard, setDashboard] = React.useState({ orders: [], events: [], vip: null });
+
+  const fetchDashboard = React.useCallback(async () => {
+    if (!user?.id) return;
+    setDashboardLoading(true);
+    setDashboardError("");
+    try {
+      const [ordersResp, profileResp] = await Promise.all([
+        supabase
+          .from("orders")
+          .select("id,status,total,payment_provider,provider_payment_id,created_at,updated_at,production_status,shipping_tracking,order_type,last_email_type,last_email_status,last_email_sent_at,last_email_error")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(8),
+        supabase.from("profiles").select("vip_until,vip_plan").eq("id", user.id).maybeSingle(),
+      ]);
+
+      if (ordersResp.error) throw ordersResp.error;
+      const orders = Array.isArray(ordersResp.data) ? ordersResp.data : [];
+      const visibleOrders = orders.filter((o) => !['vip_upgrade', 'vip-upgrade', 'upgrade_vip', 'upgrade'].includes(String(o.order_type || '').toLowerCase()));
+      let timeline = [];
+      try {
+        const ids = visibleOrders.map((o) => o.id).slice(0, 8);
+        if (ids.length) {
+          const evResp = await supabase
+            .from('order_events')
+            .select('id,order_id,event_type,title,description,happened_at')
+            .in('order_id', ids)
+            .order('happened_at', { ascending: false })
+            .limit(12);
+          if (!evResp.error) {
+            timeline = Array.isArray(evResp.data) ? evResp.data : [];
+          }
+        }
+      } catch {}
+      if (!timeline.length) {
+        timeline = visibleOrders.flatMap((o) => synthesizeTimeline(o)).sort((a, b) => new Date(b.happened_at || 0) - new Date(a.happened_at || 0)).slice(0, 10);
+      }
+      setDashboard({
+        orders: visibleOrders,
+        events: timeline,
+        vip: profileResp?.data || null,
+      });
+    } catch (e) {
+      setDashboardError(e?.message || 'Não foi possível carregar os dados da sua conta.');
+    } finally {
+      setDashboardLoading(false);
+    }
+  }, [user?.id]);
+
+  React.useEffect(() => {
+    if (!user?.id) return;
+    fetchDashboard();
+  }, [user?.id, fetchDashboard]);
 
   async function handleSubmit(e) {
     e?.preventDefault?.();
@@ -175,28 +321,135 @@ export default function AccountPage({ onClose, onGoHome }) {
           </div>
 
           {user ? (
-            <div className="mt-6">
+            <div className="mt-6 space-y-4">
               <div className="rounded-2xl p-4 ring-1 ring-white/10 bg-white/5">
-                <p className="text-sm text-slate-300">Logado como</p>
-                <p className="mt-1 font-mono text-sm text-slate-100 break-all">{user.email}</p>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm text-slate-300">Logado como</p>
+                    <p className="mt-1 font-mono text-sm text-slate-100 break-all">{user.email}</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={fetchDashboard}
+                      className="rounded-xl px-3 py-2 text-sm ring-1 ring-white/10 hover:bg-white/5"
+                    >
+                      Atualizar painel
+                    </button>
+                    <button
+                      onClick={() => signOut()}
+                      className="rounded-xl px-3 py-2 text-sm ring-1 ring-white/10 hover:bg-white/5"
+                    >
+                      Sair
+                    </button>
+                    <button
+                      onClick={() => {
+                        onGoHome?.();
+                        onClose?.();
+                      }}
+                      className="rounded-xl px-3 py-2 text-sm font-semibold bg-teal-400 text-black ring-4 ring-teal-400/20"
+                    >
+                      Voltar para a loja
+                    </button>
+                  </div>
+                </div>
               </div>
 
-              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <button
-                  onClick={() => signOut()}
-                  className="container-cc rounded-xl px-4 py-3 font-semibold ring-1 ring-white/10 hover:bg-white/5"
-                >
-                  Sair
-                </button>
-                <button
-                  onClick={() => {
-                    onGoHome?.();
-                    onClose?.();
-                  }}
-                  className="container-cc rounded-xl px-4 py-3 font-semibold bg-teal-400 text-black ring-4 ring-teal-400/20"
-                >
-                  Voltar para a loja
-                </button>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                {[
+                  ['Últimos pedidos', dashboard.orders.length],
+                  ['Em produção', dashboard.orders.filter((o) => String(o.production_status || '').toLowerCase() === 'em_producao').length],
+                  ['Com rastreio', dashboard.orders.filter((o) => !!o.shipping_tracking).length],
+                  ['VIP', dashboard.vip?.vip_until && new Date(dashboard.vip.vip_until).getTime() > Date.now() ? 'Ativo' : '—'],
+                ].map(([label, value]) => (
+                  <div key={label} className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
+                    <div className="text-xs uppercase tracking-wide text-slate-400">{label}</div>
+                    <div className="mt-2 text-2xl font-extrabold text-slate-100">{value}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-[1.15fr_.85fr] gap-4">
+                <div className="space-y-4">
+                  <div className="rounded-2xl bg-gradient-to-br from-white/5 to-white/[0.02] ring-1 ring-white/10 p-5">
+                    <div className="flex items-start justify-between gap-3 flex-wrap">
+                      <div>
+                        <div className="text-xs uppercase tracking-wide text-slate-400">Últimos pedidos</div>
+                        <div className="mt-1 text-lg font-extrabold text-slate-100">Status atual e rastreio</div>
+                      </div>
+                    </div>
+                    {dashboardLoading ? (
+                      <div className="mt-4 text-sm text-slate-300">Carregando painel…</div>
+                    ) : dashboardError ? (
+                      <div className="mt-4 rounded-xl bg-rose-500/10 ring-1 ring-rose-400/20 px-3 py-2 text-sm text-rose-200">{dashboardError}</div>
+                    ) : dashboard.orders.length === 0 ? (
+                      <div className="mt-4 rounded-xl bg-black/20 ring-1 ring-white/10 px-4 py-4 text-sm text-slate-300">Você ainda não tem pedidos registrados.</div>
+                    ) : (
+                      <div className="mt-4 space-y-3">
+                        {dashboard.orders.slice(0, 5).map((order) => {
+                          const status = prodUI(order.production_status);
+                          return (
+                            <div key={order.id} className="rounded-2xl bg-black/20 ring-1 ring-white/10 p-4">
+                              <div className="flex items-start justify-between gap-3 flex-wrap">
+                                <div>
+                                  <div className="text-xs text-slate-400">{new Date(order.created_at).toLocaleString('pt-BR')}</div>
+                                  <div className="mt-2 flex flex-wrap gap-2">
+                                    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs ring-1 ${status.cls}`}>{status.label}</span>
+                                    {order.order_type === 'vip' ? <span className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs ring-1 ring-violet-400/20 bg-violet-500/10 text-violet-100">VIP</span> : null}
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <div className="text-xs text-slate-400">Valor</div>
+                                  <div className="text-base font-extrabold text-slate-100">{fmtBRL(order.total)}</div>
+                                </div>
+                              </div>
+                              <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-slate-300">
+                                {order.shipping_tracking ? (
+                                  <>
+                                    <span className="rounded-full bg-white/5 px-3 py-1 ring-1 ring-white/10">Rastreio: <b>{order.shipping_tracking}</b></span>
+                                    <a href={trackUrl(order.shipping_tracking)} target="_blank" rel="noreferrer" className="rounded-full bg-emerald-400 px-3 py-1 font-semibold text-black hover:bg-emerald-300">Rastrear</a>
+                                  </>
+                                ) : (
+                                  <span className="text-slate-400">Sem rastreio disponível no momento.</span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="rounded-2xl bg-gradient-to-br from-violet-500/10 to-sky-500/10 ring-1 ring-white/10 p-5">
+                    <div className="text-xs uppercase tracking-wide text-slate-300">Atalhos rápidos</div>
+                    <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <QuickAction href={`https://wa.me/${brand.whatsapp}`} external icon="support_agent" title="Suporte no WhatsApp" text="Fale com a Cubo sobre pedido, prazo, rastreio ou dúvidas." />
+                      <QuickAction href="/vip" icon="workspace_premium" title="Área VIP" text="Abra sua área VIP para acompanhar ciclo, escolhas e upgrades." />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-5">
+                    <div className="text-xs uppercase tracking-wide text-slate-400">Histórico recente</div>
+                    <div className="mt-1 text-lg font-extrabold text-slate-100">Atualizações de pedido e e-mails</div>
+                    <div className="mt-4 space-y-3">
+                      {(dashboard.events || []).slice(0, 8).map((event) => (
+                        <div key={event.id || `${event.event_type}-${event.happened_at}`} className="rounded-2xl bg-black/20 ring-1 ring-white/10 p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <div className="text-sm font-semibold text-slate-100">{event.title || 'Atualização'}</div>
+                              <div className="mt-1 text-sm text-slate-400">{event.description || 'Seu pedido teve uma nova atualização.'}</div>
+                            </div>
+                            <div className="text-[11px] text-slate-500 whitespace-nowrap">{event.happened_at ? new Date(event.happened_at).toLocaleString('pt-BR') : '—'}</div>
+                          </div>
+                        </div>
+                      ))}
+                      {!dashboardLoading && !(dashboard.events || []).length ? (
+                        <div className="rounded-xl bg-black/20 ring-1 ring-white/10 px-4 py-4 text-sm text-slate-300">As próximas atualizações do seu pedido vão aparecer aqui.</div>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           ) : (
