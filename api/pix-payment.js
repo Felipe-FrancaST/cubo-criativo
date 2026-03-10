@@ -152,11 +152,15 @@ async function applyVipFromOrder(sb, order, payment) {
         });
         const sendResp = await sendResendEmail({ to, subject: mail.subject, html: mail.html });
         if (sendResp?.ok) {
-          await sb.from("orders").update({ vip_activation_email_sent_at: new Date().toISOString() }).eq("id", order.id);
+          await sb.from("orders").update({ vip_activation_email_sent_at: new Date().toISOString(), customer_email_sent_at: new Date().toISOString(), customer_email_error: null }).eq("id", order.id);
+        } else {
+          console.error('vip welcome email (pix verify) resend failed', { status: sendResp?.status, to, orderId: order.id });
+          await sb.from("orders").update({ customer_email_error: `vip_activation_resend_${sendResp?.status || 0}` }).eq("id", order.id);
         }
       }
     } catch (emailErr) {
       console.error("vip welcome email (pix verify) error", emailErr);
+      try { await sb.from("orders").update({ customer_email_error: String(emailErr?.message || emailErr).slice(0, 500) }).eq("id", order.id); } catch {}
     }
   } catch (e) {
     console.error("pix-payment applyVipFromOrder error", e);

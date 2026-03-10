@@ -153,7 +153,7 @@ async function revokeVipFromOrder(sb, { order, payment, reason = "payment_failed
   } catch (e) { console.error('revokeVipFromOrder error', e); }
 }
 
-async function sendVipActivationEmail(sb, { order, payment }) {
+async function sendVipActivationEmail(sb, { order, payment, forceTo } = {}) {
   try {
     if (!sb || !order?.id) return { ok: false, skipped: true, reason: 'missing_order' };
     const orderTypeNorm = String(order?.order_type || payment?.metadata?.order_type || '').trim().toLowerCase();
@@ -172,7 +172,7 @@ async function sendVipActivationEmail(sb, { order, payment }) {
     if (alreadySent) return { ok: true, skipped: true, reason: 'already_sent' };
 
     const userId = order?.user_id || payment?.metadata?.user_id || '';
-    let to = String(emailMeta?.customer_email || order?.customer_email || payment?.payer?.email || '').trim();
+    let to = String(forceTo || emailMeta?.customer_email || order?.customer_email || payment?.payer?.email || '').trim();
     if (!isValidEmail(to) && userId) {
       const authEmail = await fetchAuthUserEmail(userId);
       if (isValidEmail(authEmail)) {
@@ -185,8 +185,8 @@ async function sendVipActivationEmail(sb, { order, payment }) {
     const from = String(process.env.RESEND_FROM || '').trim();
     const baseUrl = String(process.env.APP_URL || process.env.NEXT_PUBLIC_SITE_URL || '').trim().replace(/\/$/, '');
     const planId = String(order?.vip_plan_id || payment?.metadata?.vip_plan_id || 'CUBO_L1_RPG').trim();
-    if (!isValidEmail(to)) return { ok: false, skipped: true, reason: 'invalid_customer_email' };
-    if (!apiKey || !from) return { ok: false, skipped: true, reason: 'missing_resend_env' };
+    if (!isValidEmail(to)) return { ok: false, skipped: true, reason: 'invalid_customer_email', to };
+    if (!apiKey || !from) return { ok: false, skipped: true, reason: 'missing_resend_env', to };
 
     const vipPlan = await getVipPlanById(sb, planId);
     const mail = renderVipWelcomeEmail({
@@ -214,11 +214,11 @@ async function sendVipActivationEmail(sb, { order, payment }) {
     });
     const sendResp = await sendResendEmail({ apiKey, from, to: [to], subject: mail.subject, html: mail.html });
     if (sendResp?.ok) {
-      try { await sb.from('orders').update({ vip_activation_email_sent_at: new Date().toISOString(), customer_email_error: null }).eq('id', order.id); } catch {}
-    } else {
-      try { await sb.from('orders').update({ customer_email_error: `vip_activation_resend_${sendResp?.status || 0}` }).eq('id', order.id); } catch {}
+      try { await sb.from('orders').update({ vip_activation_email_sent_at: new Date().toISOString(), customer_email_sent_at: new Date().toISOString(), customer_email_error: null }).eq('id', order.id); } catch {}
+      return { ...sendResp, to };
     }
-    return sendResp;
+    try { await sb.from('orders').update({ customer_email_error: `vip_activation_resend_${sendResp?.status || 0}:${JSON.stringify(sendResp?.data || {})}`.slice(0, 500) }).eq('id', order.id); } catch {}
+    return { ...sendResp, to };
   } catch (mailErr) {
     console.error('sendVipActivationEmail error', mailErr);
     return { ok: false, status: 0, error: mailErr?.message || String(mailErr) };
@@ -798,9 +798,9 @@ export default async function handler(req, res) {
     // (VIP recebe email de adesão/ativação em applyVipFromOrder)
     if (isVipOrder) {
       try {
-        const vipResp = await sendVipActivationEmail(sb, { order, payment });
-        customerResp = vipResp?.ok ? { ok: true, vip: true } : (vipResp || { ok: true, skipped: true, reason: "vip_activation_email_sent_separately" });
-        customerErr = vipResp?.ok || vipResp?.skipped ? null : (vipResp?.error || `vip_activation_resend_${vipResp?.status || 0}`);
+        const vipResp = await sendVipActivationEmail(sb, { order, payment, forceTo: customerEmailRaw });
+        customerResp = vipResp?.ok ? { ok: true, vip: true, to: vipResp?.to } : (vipResp || { ok: false, vip: true, reason: "vip_activation_failed" });
+        customerErr = vipResp?.ok || vipResp?.skipped ? null : (vipResp?.reason || vipResp?.error || `vip_activation_resend_${vipResp?.status || 0}`);
       } catch (e) {
         customerResp = { ok: false, vip: true };
         customerErr = e?.message || String(e);
@@ -823,7 +823,7 @@ export default async function handler(req, res) {
           .from("orders")
           .update({
             owner_email_sent_at: ownerResp.ok ? new Date().toISOString() : null,
-            customer_email_sent_at: customerResp.ok && customerEmailOk && !isVipOrder ? new Date().toISOString() : null,
+            customer_email_sent_at: customerResp.ok ? new Date().toISOString() : null,
             customer_email_error: customerErr,
             owner_email_error: ownerErr,
           })
@@ -834,12 +834,12 @@ export default async function handler(req, res) {
     }
 
     // Se falhou algum email, não marca idempotência no MP
-    if (!ownerResp.ok || (customerEmailOk && !customerResp.ok)) {
+    if (!ownerResp.ok || !customerResp.ok) {
       return res.status(200).json({
         ok: true,
         email: "error",
         owner: ownerResp.ok ? "sent" : ownerResp.data,
-        customer: isVipOrder ? "skipped_vip_activation_email" : (customerEmailOk ? (customerResp.ok ? "sent" : customerResp.data) : "skipped_invalid_email"),
+        customer: isVipOrder ? (customerResp.ok ? 'sent_vip' : (customerResp.reason || customerResp.error || customerResp.data || 'vip_error')) : (customerEmailOk ? (customerResp.ok ? 'sent' : customerResp.data) : 'skipped_invalid_email'),
       });
     }
 
@@ -860,7 +860,7 @@ export default async function handler(req, res) {
 
     return res
       .status(200)
-      .json({ ok: true, email: "sent", owner: "sent", customer: isVipOrder ? "skipped_vip_activation_email" : (customerEmailOk ? "sent" : "skipped_invalid_email") });
+      .json({ ok: true, email: 'sent', owner: 'sent', customer: isVipOrder ? 'sent_vip' : (customerEmailOk ? 'sent' : 'skipped_invalid_email') });
   } catch (err) {
     console.error("mp-webhook error:", err);
     // Sempre 200 pra não gerar retry infinito
