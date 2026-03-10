@@ -145,6 +145,29 @@ function renderItemsTable(items) {
   `;
 }
 
+
+function renderMetaPills(items) {
+  const rows = (Array.isArray(items) ? items : [])
+    .filter((it) => it && (it.label || it.value))
+    .map((it) => {
+      const label = esc(it.label || '');
+      const value = esc(it.value || '');
+      return `
+        <span style="display:inline-flex;align-items:center;gap:6px;padding:7px 10px;border-radius:999px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.10);margin:0 8px 8px 0;">
+          ${label ? `<span style="color:#94a3b8;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">${label}</span>` : ''}
+          ${value ? `<span style="color:#e2e8f0;font-size:12px;font-weight:800;">${value}</span>` : ''}
+        </span>`;
+    })
+    .join('');
+
+  if (!rows) return '';
+
+  return `
+    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:0;margin:14px 0 0;">
+      ${rows}
+    </div>`;
+}
+
 function renderKeyValueCard(title, pairs) {
   const rows = pairs
     .filter((p) => p && (p.value ?? "") !== "")

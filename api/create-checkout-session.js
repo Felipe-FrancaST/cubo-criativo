@@ -321,7 +321,7 @@ export default async function handler(req, res) {
     }
 
     const orderItems = effectiveItems
-      .filter((it) => (Number(it.qty) || 0) > 0 && (Number(it.price) || 0) > 0)
+      .filter((it) => (!vipPlanId || String(it.id || '').trim()) && (Number(it.qty) || 0) > 0 && (Number(it.price) || 0) > 0)
       .map((it) => ({
         order_id: orderId,
         product_id: String(it.id || ""),

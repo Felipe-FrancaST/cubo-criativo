@@ -386,7 +386,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "Não foi possível criar o pedido." });
     }
 
-    const cleaned = (vipPlanId ? [{ name: `${vipPlanDisplayName(vipPlan)} (mensalidade)`, qty: 1, price: Number(vipPlan?.price_brl || 0), scale: vipPlan?.scale || '32mm', img: '' }] : items)
+    const cleaned = (vipPlanId ? [{ name: `${vipPlanDisplayName(vipPlan)} (mensalidade)`, qty: 1, price: Number(vipPlan?.price_brl || 0), scale: vipPlan?.scale || '32mm', img: '', is_vip_membership: true }] : items)
       .filter((it) => (Number(it.qty) || 0) > 0 && (Number(it.price) || 0) > 0)
       .map((it) => {
         const name = String(it.name || it.nome || "Item").trim();
@@ -406,9 +406,11 @@ export default async function handler(req, res) {
         };
       });
 
-    if (cleaned.length) {
+    const orderItemsForInsert = cleaned.filter((it) => it.product_id || !vipPlanId);
+
+    if (orderItemsForInsert.length) {
       // Preferência: schema novo (snapshot em cents)
-      const payloadNew = cleaned.map((it) => ({
+      const payloadNew = orderItemsForInsert.map((it) => ({
         order_id: orderId,
         product_id: it.product_id,
         product_name: it.name,
@@ -421,7 +423,7 @@ export default async function handler(req, res) {
       const attemptNew = await sb.from("order_items").insert(payloadNew);
       if (attemptNew?.error) {
         // Fallback: schema antigo
-        const payloadOld = cleaned.map((it) => ({
+        const payloadOld = orderItemsForInsert.map((it) => ({
           order_id: orderId,
           product_id: it.product_id,
           name: it.name,
