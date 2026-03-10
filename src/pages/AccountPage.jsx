@@ -1,7 +1,7 @@
 import React from "react";
 import { useAuth } from "../auth/AuthProvider.jsx";
 import { supabase } from "../lib/supabaseClient";
-import { brand } from "../data/config";
+import brand from "../data/config";
 
 
 function fmtBRL(v) {
