@@ -62,6 +62,164 @@ const ALLOWED_PROD_STATUS = new Set([
   "reembolsado",
 ]);
 
+
+function safeJson(value) {
+  try {
+    return JSON.stringify(value || {});
+  } catch {
+    return '{}';
+  }
+}
+
+function formatProdStatusPt(status) {
+  const s = String(status || '').toLowerCase();
+  return ({
+    editavel: 'Editável',
+    recebido: 'Recebido',
+    em_producao: 'Em produção',
+    pronto: 'Pronto',
+    enviado: 'Enviado',
+    entregue: 'Entregue',
+    cancelado: 'Cancelado',
+    reembolsado: 'Reembolsado',
+  })[s] || (s || 'Atualizado');
+}
+
+function synthesizeOrderTimeline(order) {
+  if (!order) return [];
+  const events = [];
+  const createdAt = order.created_at || null;
+  if (createdAt) {
+    events.push({
+      id: `seed-created-${order.id}`,
+      order_id: order.id,
+      event_type: 'order_created',
+      title: 'Pedido criado',
+      description: 'Pedido registrado no sistema.',
+      actor_label: 'Sistema',
+      created_at: createdAt,
+      metadata: { status: order.status || null, production_status: order.production_status || null },
+      synthetic: true,
+    });
+  }
+  if (String(order.status || '').toLowerCase() === 'paid') {
+    events.push({
+      id: `seed-paid-${order.id}`,
+      order_id: order.id,
+      event_type: 'payment_confirmed',
+      title: 'Pagamento confirmado',
+      description: 'Pagamento aprovado para este pedido.',
+      actor_label: 'Sistema',
+      created_at: order.paid_at || order.updated_at || createdAt,
+      metadata: { payment_provider: order.payment_provider || null },
+      synthetic: true,
+    });
+  }
+  if (order.production_status && !['recebido','editavel'].includes(String(order.production_status).toLowerCase())) {
+    events.push({
+      id: `seed-prod-${order.id}-${order.production_status}`,
+      order_id: order.id,
+      event_type: 'production_status',
+      title: `Status: ${formatProdStatusPt(order.production_status)}`,
+      description: 'Último status de produção salvo no pedido.',
+      actor_label: 'Sistema',
+      created_at: order.updated_at || createdAt,
+      metadata: { production_status: order.production_status },
+      synthetic: true,
+    });
+  }
+  if (order.shipping_tracking || order.tracking_code) {
+    const tracking = order.shipping_tracking || order.tracking_code;
+    events.push({
+      id: `seed-track-${order.id}`,
+      order_id: order.id,
+      event_type: 'tracking_updated',
+      title: 'Rastreio disponível',
+      description: `Código informado: ${tracking}`,
+      actor_label: 'Sistema',
+      created_at: order.updated_at || createdAt,
+      metadata: { tracking_code: tracking, tracking_url: order.tracking_url || null },
+      synthetic: true,
+    });
+  }
+  return events.filter(Boolean).sort((a,b)=> new Date(b.created_at||0) - new Date(a.created_at||0));
+}
+
+async function loadOrderEvents(sb, orderIds) {
+  if (!orderIds?.length) return { byOrder: new Map(), tableAvailable: false };
+  let resp = await sb
+    .from('order_events')
+    .select('id,order_id,event_type,title,description,actor_label,metadata,created_at')
+    .in('order_id', orderIds)
+    .order('created_at', { ascending: false });
+
+  if (resp?.error) {
+    const msg = String(resp.error.message || '');
+    if (/relation|does not exist|not exist/i.test(msg)) {
+      return { byOrder: new Map(), tableAvailable: false };
+    }
+    if (/actor_label|metadata|column/i.test(msg)) {
+      resp = await sb
+        .from('order_events')
+        .select('id,order_id,event_type,title,description,created_at')
+        .in('order_id', orderIds)
+        .order('created_at', { ascending: false });
+      if (resp?.error) {
+        return { byOrder: new Map(), tableAvailable: true, error: resp.error };
+      }
+    } else {
+      return { byOrder: new Map(), tableAvailable: true, error: resp.error };
+    }
+  }
+
+  const byOrder = new Map();
+  (resp?.data || []).forEach((row) => {
+    const key = String(row.order_id);
+    if (!byOrder.has(key)) byOrder.set(key, []);
+    byOrder.get(key).push({
+      id: row.id,
+      order_id: row.order_id,
+      event_type: row.event_type || '',
+      title: row.title || 'Atualização',
+      description: row.description || '',
+      actor_label: row.actor_label || 'Sistema',
+      metadata: row.metadata && typeof row.metadata === 'object' ? row.metadata : {},
+      created_at: row.created_at || null,
+    });
+  });
+
+  return { byOrder, tableAvailable: true, error: null };
+}
+
+async function recordOrderEvent(sb, payload) {
+  const orderId = String(payload?.order_id || '').trim();
+  if (!orderId) return { skipped: true };
+
+  const row = {
+    order_id: orderId,
+    event_type: String(payload?.event_type || 'order_updated').trim(),
+    title: String(payload?.title || 'Atualização do pedido').trim(),
+    description: String(payload?.description || '').trim() || null,
+    actor_label: String(payload?.actor_label || 'Admin').trim(),
+    metadata: payload?.metadata || {},
+  };
+
+  let resp = await sb.from('order_events').insert(row);
+  if (resp?.error) {
+    const msg = String(resp.error.message || '');
+    if (/relation|does not exist|not exist/i.test(msg)) return { skipped: true, missingTable: true };
+    if (/actor_label|metadata|column/i.test(msg)) {
+      const fallback = { ...row };
+      delete fallback.actor_label;
+      delete fallback.metadata;
+      resp = await sb.from('order_events').insert(fallback);
+      if (!resp?.error) return { ok: true, fallback: true };
+    }
+  }
+
+  return resp?.error ? { ok: false, error: resp.error } : { ok: true };
+}
+
 async function sendResendEmail({ to, subject, html }) {
   const apiKey = String(process.env.RESEND_API_KEY || "").trim();
   const from = String(process.env.RESEND_FROM || "").trim();
@@ -620,17 +778,24 @@ async function handleOrders(req, res) {
     });
   }
 
-  const merged = list.map((o) => ({
-    ...o,
-    profile: o.user_id ? profileById.get(o.user_id) || null : null,
-    order_items: itemsByOrder.get(o.id) || [],
-    vip_selection:
-      String(o.order_type || "").toLowerCase() === "vip" && o.user_id
-        ? vipSelByUserCycle.get(`${o.user_id}:${String(o.created_at || "").slice(0, 7)}`) || null
-        : null,
-  }));
+  const orderEventsResp = await loadOrderEvents(sb, orderIds);
+  const merged = list.map((o) => {
+    const dbEvents = orderEventsResp.byOrder.get(String(o.id)) || [];
+    const timeline = dbEvents.length ? dbEvents : synthesizeOrderTimeline(o);
+    return {
+      ...o,
+      profile: o.user_id ? profileById.get(o.user_id) || null : null,
+      order_items: itemsByOrder.get(o.id) || [],
+      vip_selection:
+        String(o.order_type || "").toLowerCase() === "vip" && o.user_id
+          ? vipSelByUserCycle.get(`${o.user_id}:${String(o.created_at || "").slice(0, 7)}`) || null
+          : null,
+      timeline,
+      timeline_source: dbEvents.length ? 'order_events' : 'synthetic',
+    };
+  });
 
-  return res.status(200).json({ orders: merged });
+  return res.status(200).json({ orders: merged, timeline_enabled: !!orderEventsResp.tableAvailable });
 }
 
 
@@ -994,7 +1159,7 @@ async function handleUpdateOrder(req, res) {
   const { data: currentOrder, error: currentErr } = await sb
     .from("orders")
     .select(
-      "id,user_id,order_type,vip_plan_id,status,production_status,shipping_tracking,customer_email,customer_name"
+      "id,user_id,order_type,vip_plan_id,status,production_status,shipping_tracking,tracking_code,tracking_url,customer_email,customer_name,created_at,updated_at,payment_provider,total"
     )
     .eq("id", order_id)
     .maybeSingle();
@@ -1059,6 +1224,42 @@ async function handleUpdateOrder(req, res) {
   }
   if (updateResp?.error) return res.status(500).json({ error: updateResp.error.message || "Update failed" });
 
+  const timelineWrites = [];
+  if (Object.prototype.hasOwnProperty.call(next, 'production_status') && String(next.production_status || '').toLowerCase() !== String(currentOrder.production_status || '').toLowerCase()) {
+    timelineWrites.push(recordOrderEvent(sb, {
+      order_id,
+      event_type: 'production_status',
+      title: `Status alterado para ${formatProdStatusPt(next.production_status)}`,
+      description: production_eta ? `Estimativa informada: ${production_eta}` : `Novo status de produção salvo pelo admin.`,
+      actor_label: 'Admin',
+      metadata: {
+        from_status: currentOrder.production_status || null,
+        to_status: next.production_status,
+        production_eta: production_eta || null,
+        cancelled_by: cancelled_by || null,
+      },
+    }));
+  }
+  const nextTracking = next.shipping_tracking ?? next.tracking_code;
+  const prevTracking = currentOrder.shipping_tracking || currentOrder.tracking_code || '';
+  if (typeof nextTracking === 'string' && nextTracking !== prevTracking) {
+    timelineWrites.push(recordOrderEvent(sb, {
+      order_id,
+      event_type: 'tracking_updated',
+      title: nextTracking ? 'Rastreio atualizado' : 'Rastreio removido',
+      description: nextTracking ? `Código informado: ${nextTracking}` : 'O código de rastreio foi removido pelo admin.',
+      actor_label: 'Admin',
+      metadata: {
+        from_tracking: prevTracking || null,
+        to_tracking: nextTracking || null,
+        tracking_url: next.tracking_url || currentOrder.tracking_url || null,
+      },
+    }));
+  }
+  if (timelineWrites.length) {
+    await Promise.allSettled(timelineWrites);
+  }
+
   if (
     ["cancelado", "reembolsado"].includes(String(next.production_status || "").toLowerCase()) &&
     String(currentOrder?.order_type || "").toLowerCase() === "vip" &&
@@ -1083,7 +1284,7 @@ async function handleUpdateOrder(req, res) {
 
   const { data: order } = await sb
     .from("orders")
-    .select("id,user_id,customer_email,customer_name,production_status,shipping_tracking,tracking_code,tracking_url,order_type,vip_plan_id,created_at,total,payment_provider")
+    .select("id,user_id,customer_email,customer_name,production_status,shipping_tracking,tracking_code,tracking_url,order_type,vip_plan_id,created_at,updated_at,total,payment_provider")
     .eq("id", order_id)
     .maybeSingle();
 

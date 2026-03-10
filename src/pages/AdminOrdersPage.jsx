@@ -50,6 +50,53 @@ const prodStatusBadge = (s) => {
   }
 };
 
+const timelineEventMeta = (event) => {
+  const type = String(event?.event_type || '').toLowerCase();
+  if (type === 'order_created') return { icon: 'receipt_long', cls: 'bg-slate-500/15 text-slate-200 ring-white/10' };
+  if (type === 'payment_confirmed') return { icon: 'payments', cls: 'bg-emerald-500/15 text-emerald-200 ring-emerald-400/30' };
+  if (type === 'production_status') return { icon: 'precision_manufacturing', cls: 'bg-indigo-500/15 text-indigo-200 ring-indigo-400/30' };
+  if (type === 'tracking_updated') return { icon: 'local_shipping', cls: 'bg-amber-500/15 text-amber-200 ring-amber-400/30' };
+  return { icon: 'history', cls: 'bg-white/5 text-slate-200 ring-white/10' };
+};
+
+function TimelineList({ events, compact = false }) {
+  const list = Array.isArray(events) ? events : [];
+  if (!list.length) {
+    return <div className="text-sm text-slate-500">Nenhum evento salvo ainda.</div>;
+  }
+  return (
+    <div className="space-y-3">
+      {list.map((event, idx) => {
+        const meta = timelineEventMeta(event);
+        return (
+          <div key={event?.id || `${event?.event_type || 'event'}-${idx}`} className="flex gap-3">
+            <div className="flex flex-col items-center">
+              <div className={`mt-0.5 inline-flex h-9 w-9 items-center justify-center rounded-full ring-1 ${meta.cls}`}>
+                <span className="material-icons text-[18px]">{meta.icon}</span>
+              </div>
+              {idx < list.length - 1 ? <div className="mt-2 h-full w-px bg-white/10" /> : null}
+            </div>
+            <div className="min-w-0 flex-1 pb-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="text-sm font-semibold text-white">{event?.title || 'Atualização'}</div>
+                {event?.synthetic ? (
+                  <span className="rounded-full bg-white/[0.04] px-2 py-0.5 text-[10px] uppercase tracking-wide text-slate-400 ring-1 ring-white/10">
+                    resumo
+                  </span>
+                ) : null}
+              </div>
+              {event?.description ? <div className="mt-1 text-sm text-slate-300">{event.description}</div> : null}
+              <div className={`mt-1 ${compact ? 'text-[11px]' : 'text-xs'} text-slate-500`}>
+                {fmtDate(event?.created_at)}{event?.actor_label ? ` • ${event.actor_label}` : ''}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function copyToClipboard(text) {
   try {
     navigator.clipboard.writeText(String(text || ""));
@@ -258,6 +305,30 @@ function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTrack
                 <div className="text-xs text-slate-500 break-words">{order?.provider_payment_id || ""}</div>
               </div>
             </div>
+
+            <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <button
+                onClick={() => onUpdateStatus?.(order)}
+                className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+              >
+                <span className="material-icons text-[16px] align-middle mr-1">sync_alt</span>
+                Alterar status
+              </button>
+              <button
+                onClick={() => onUpdateTracking?.(order)}
+                className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+              >
+                <span className="material-icons text-[16px] align-middle mr-1">local_shipping</span>
+                Atualizar rastreio
+              </button>
+              <button
+                onClick={() => copyToClipboard(order?.customer_email || '')}
+                className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+              >
+                <span className="material-icons text-[16px] align-middle mr-1">content_copy</span>
+                Copiar e-mail
+              </button>
+            </div>
           </div>
 
           <div className="mt-4 rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-3">
@@ -425,6 +496,25 @@ function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTrack
                 Excluir pedido
               </button>
 
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-3">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <div className="text-sm font-semibold text-white">Timeline do pedido</div>
+                <div className="text-xs text-slate-500">
+                  {order?.timeline_source === 'order_events'
+                    ? 'Histórico persistido a cada alteração feita no admin.'
+                    : 'Resumo automático com base no estado atual do pedido.'}
+                </div>
+              </div>
+              <span className="rounded-full bg-white/[0.04] px-2 py-1 text-[11px] text-slate-300 ring-1 ring-white/10">
+                {(order?.timeline || []).length} evento{(order?.timeline || []).length === 1 ? '' : 's'}
+              </span>
+            </div>
+            <div className="mt-3">
+              <TimelineList events={order?.timeline || []} />
             </div>
           </div>
         </div>
@@ -1507,6 +1597,8 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome, onR
                                 {shortId(o.id)}
                               </button>
                               <div className="text-[11px] text-slate-500">{fmtDate(o.created_at)}</div>
+                              {o.timeline?.[0]?.title ? <div className="text-[11px] text-slate-500">{o.timeline[0].title}</div> : null}
+                              {o.timeline?.[0]?.title ? <div className="text-[11px] text-slate-500">{o.timeline[0].title}</div> : null}
                             </td>
                             <td className="py-2 pr-3 min-w-[220px]">
                               <div className="text-slate-100">{o.customer_name || o.profile?.full_name || "—"}</div>
@@ -1624,11 +1716,20 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome, onR
                     </select>
                   </label>
 
-                  <div className="md:col-span-3 flex items-end gap-2">
+                  <div className="md:col-span-3 flex flex-wrap items-end gap-2">
                     <div className="text-xs text-slate-500">
                       Exibindo <span className="text-slate-200">{filteredOrders.length}</span> de{" "}
                       <span className="text-slate-200">{orders.length}</span>
                     </div>
+                    <span className="rounded-full bg-white/[0.04] px-2 py-1 text-[11px] text-slate-300 ring-1 ring-white/10">
+                      Pagos: {filteredOrders.filter((o) => String(o.status || '').toLowerCase() === 'paid').length}
+                    </span>
+                    <span className="rounded-full bg-white/[0.04] px-2 py-1 text-[11px] text-slate-300 ring-1 ring-white/10">
+                      Em produção: {filteredOrders.filter((o) => String(o.production_status || '').toLowerCase() === 'em_producao').length}
+                    </span>
+                    <span className="rounded-full bg-white/[0.04] px-2 py-1 text-[11px] text-slate-300 ring-1 ring-white/10">
+                      Enviados: {filteredOrders.filter((o) => String(o.production_status || '').toLowerCase() === 'enviado').length}
+                    </span>
                   </div>
 
                   <div className="flex items-end justify-end">

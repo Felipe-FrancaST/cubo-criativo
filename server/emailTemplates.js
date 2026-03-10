@@ -40,6 +40,24 @@ function fmtBRL(n) {
   return x.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
+
+function withBrandSubject(brandName, subject) {
+  const brand = String(brandName || 'Cubo Criativo').trim();
+  const core = String(subject || '').trim();
+  if (!core) return brand;
+  return `${brand} • ${core}`;
+}
+
+function renderEmailSummaryBanner({ eyebrow = 'Atualização', title = '', description = '' } = {}) {
+  if (!title && !description) return '';
+  return `
+    <div style="margin:0 0 14px;padding:14px 16px;border-radius:16px;background:linear-gradient(135deg,rgba(34,197,94,.10),rgba(6,182,212,.10));border:1px solid rgba(103,232,249,.18);">
+      ${eyebrow ? `<div style="font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#67e8f9;">${esc(eyebrow)}</div>` : ''}
+      ${title ? `<div style="margin-top:4px;color:#f8fafc;font-size:18px;font-weight:800;line-height:1.35;">${esc(title)}</div>` : ''}
+      ${description ? `<div style="margin-top:6px;color:#cbd5e1;font-size:13px;line-height:1.65;">${esc(description)}</div>` : ''}
+    </div>`;
+}
+
 function renderLayout({ title, preheader, brandName, contentHtml, footerNote }) {
   const safeTitle = esc(title);
   const safeBrand = esc(brandName || "Cubo Criativo");
@@ -291,7 +309,7 @@ export function renderOwnerOrderEmail(payload) {
     </div>
   `;
 
-  const subject = `Novo pedido confirmado — ${orderId ? String(orderId).slice(0, 8) : "pedido"} — ${fmtBRL(total)}`;
+  const subject = withBrandSubject(brandName, `Novo pedido confirmado — ${orderId ? String(orderId).slice(0, 8) : "pedido"} — ${fmtBRL(total)}`);
 
   return {
     subject,
@@ -365,7 +383,7 @@ export function renderCustomerOrderEmail(payload) {
     ${help}
   `;
 
-  const subject = `Seu pedido foi confirmado — ${brandName || "Cubo Criativo"}`;
+  const subject = withBrandSubject(brandName, "Seu pedido foi confirmado");
 
   return {
     subject,
@@ -446,7 +464,7 @@ export function renderOrderStatusEmail(payload) {
     reembolsado: 'Pedido reembolsado',
   };
   const baseTitle = titleByStatus[status] || 'Atualização do pedido';
-  const subject = `${baseTitle} — Pedido ${shortId}`;
+  const subject = withBrandSubject(brandName, `${baseTitle} — Pedido ${shortId}`);
 
   let intro = 'Seu pedido teve uma atualização de status.';
   let highlight = '';
@@ -573,6 +591,7 @@ export function renderOrderStatusEmail(payload) {
     </div>` : '';
 
   const contentHtml = `
+    ${renderEmailSummaryBanner({ eyebrow: isVipOrder ? 'Clube VIP' : 'Pedido', title: baseTitle, description: intro })}
     ${pills}
     <div style="color:#cbd5e1;font-size:13px;line-height:1.65;">Olá <b style="color:#e2e8f0;">${esc(customerName || 'cliente')}</b>!<br/>${esc(intro)}</div>
     <div style="margin-top:14px;padding:12px 14px;border-radius:14px;background:${accent};border:1px solid ${accentBorder};color:${accentColor};font-size:12px;line-height:1.55;">${esc(highlight)}</div>
@@ -669,6 +688,7 @@ export function renderVipUpgradeEmail(payload) {
     </div>` : '';
 
   const contentHtml = `
+    ${renderEmailSummaryBanner({ eyebrow: 'Clube VIP', title: 'Upgrade confirmado', description: `Seu plano agora é ${toPlanName}.` })}
     <div style="color:#cbd5e1;font-size:13px;line-height:1.65;">
       Olá <b style="color:#e2e8f0;">${esc(customerName)}</b>!<br/>
       Seu upgrade foi confirmado com sucesso ✅ Agora você está no plano <b style="color:#f8fafc;">${esc(toPlanName)}</b>.
@@ -702,7 +722,7 @@ export function renderVipUpgradeEmail(payload) {
   `;
 
   return {
-    subject: `Upgrade VIP confirmado — ${toPlanName}`,
+    subject: withBrandSubject(brandName, `Upgrade VIP confirmado — ${toPlanName}`),
     html: renderLayout({
       title: 'Upgrade VIP confirmado',
       preheader: `${fromPlanName} → ${toPlanName} • Pedido ${shortId}`,
@@ -781,6 +801,7 @@ export function renderVipWelcomeEmail(payload) {
     </div>` : '';
 
   const contentHtml = `
+    ${renderEmailSummaryBanner({ eyebrow: 'Clube VIP', title: 'Assinatura VIP ativada', description: `Plano confirmado: ${planName}.` })}
     <div style="color:#cbd5e1;font-size:13px;line-height:1.65;">
       Olá <b style="color:#e2e8f0;">${esc(customerName)}</b>!<br/>
       Obrigado por assinar o <b style="color:#f8fafc;">${esc(planName)}</b>. Sua assinatura VIP foi ativada com sucesso ✅
@@ -806,7 +827,7 @@ export function renderVipWelcomeEmail(payload) {
   `;
 
   return {
-    subject: `Assinatura VIP confirmada — ${planName}`,
+    subject: withBrandSubject(brandName, `Assinatura VIP confirmada — ${planName}`),
     html: renderLayout({
       title: 'Assinatura VIP ativada',
       preheader: `Plano ${planName} • Pedido ${shortId}`,
