@@ -539,21 +539,25 @@ export function renderOrderStatusEmail(payload) {
     { label: 'Link do rastreio', value: trackingUrl || '' },
   ]);
 
-  const visualBlock = isVipOrder
-    ? renderShowcaseGrid(
-        selectedVipItems.map((it) => ({ name: it?.title || it?.name, image_url: it?.image_url || it?.img, subtitle: 'Miniatura selecionada' })),
-        {
-          title: status === 'em_producao' ? 'Miniaturas que já estão em produção' : 'Miniaturas selecionadas para este ciclo',
-          emptyText: status === 'em_producao' ? 'As miniaturas deste ciclo já estão em produção. Assim que houver novas imagens ou rastreio, avisaremos por aqui.' : '',
-        }
-      )
-    : renderShowcaseGrid(
-        regularItems.map((it) => ({ name: it?.name || it?.product_name, image_url: it?.img || it?.product_image_url, subtitle: it?.scale ? `Escala ${it.scale}` : '' })),
-        {
-          title: status === 'em_producao' ? 'Itens em produção' : 'Itens do seu pedido',
-          emptyText: '',
-        }
-      );
+  const shouldShowItemImages = status === 'recebido' || status === 'em_producao';
+
+  const visualBlock = !shouldShowItemImages
+    ? ''
+    : isVipOrder
+      ? renderShowcaseGrid(
+          selectedVipItems.map((it) => ({ name: it?.title || it?.name, image_url: it?.image_url || it?.img, subtitle: 'Miniatura selecionada' })),
+          {
+            title: status === 'em_producao' ? 'Miniaturas que já estão em produção' : 'Miniaturas selecionadas para este ciclo',
+            emptyText: status === 'em_producao' ? 'As miniaturas deste ciclo já estão em produção. Assim que houver novas imagens ou rastreio, avisaremos por aqui.' : '',
+          }
+        )
+      : renderShowcaseGrid(
+          regularItems.map((it) => ({ name: it?.name || it?.product_name, image_url: it?.img || it?.product_image_url, subtitle: it?.scale ? `Escala ${it.scale}` : '' })),
+          {
+            title: status === 'em_producao' ? 'Itens em produção' : 'Itens do seu pedido',
+            emptyText: '',
+          }
+        );
 
   const supportBox = `
     <div style="margin-top:14px;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);color:#cbd5e1;font-size:12px;line-height:1.55;">

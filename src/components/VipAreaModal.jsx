@@ -439,8 +439,9 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
   }
 
   React.useEffect(() => {
-    if (open) load();
-  }, [open]);
+    if (!isOpen || authLoading || !user?.id) return;
+    load();
+  }, [isOpen, authLoading, user?.id, cycle]);
 
   async function refreshVoteCounts(pollId) {
     try {
