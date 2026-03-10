@@ -395,9 +395,9 @@ export default function AccountPage({ onClose, onGoHome }) {
                     />
                     <span className="leading-6">
                       Li e concordo com os{' '}
-                      <a href="/termos" target="_blank" rel="noreferrer" className="font-medium text-teal-300 hover:text-teal-200 underline underline-offset-4">Termos de uso</a>{' '}
+                      <a href="/terms.html" target="_blank" rel="noreferrer" className="font-medium text-teal-300 hover:text-teal-200 underline underline-offset-4">Termos de uso</a>{' '}
                       e com a{' '}
-                      <a href="/politica-de-privacidade" target="_blank" rel="noreferrer" className="font-medium text-teal-300 hover:text-teal-200 underline underline-offset-4">Política de Privacidade</a>.
+                      <a href="/privacy.html" target="_blank" rel="noreferrer" className="font-medium text-teal-300 hover:text-teal-200 underline underline-offset-4">Política de Privacidade</a>.
                     </span>
                   </label>
                 )}
