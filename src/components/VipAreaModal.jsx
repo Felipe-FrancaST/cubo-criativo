@@ -425,6 +425,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
 
   async function load() {
     if (!user) return;
+    const seq = ++loadSeqRef.current;
     setLoading(true);
     setError("");
     setMsg("");
