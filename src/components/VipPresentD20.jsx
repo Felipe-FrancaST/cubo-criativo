@@ -477,9 +477,14 @@ export default function VipPresentD20() {
                 </Canvas>
               </div>
 
-              <div className="vip-present-pill absolute bottom-[12%] left-1/2 z-10 -translate-x-1/2 rounded-[28px] border border-white/10 bg-slate-950/50 px-4 py-3 text-center ring-1 ring-white/10">
+              <div
+                className={`vip-present-pill absolute bottom-[12%] left-1/2 z-10 -translate-x-1/2 rounded-[28px] border border-white/10 bg-slate-950/50 px-4 py-3 text-center ring-1 ring-white/10 transition-all duration-500 ${
+                  rolling ? "pointer-events-none translate-y-4 scale-95 opacity-0" : "translate-y-0 scale-100 opacity-100"
+                }`}
+                aria-hidden={rolling}
+              >
                 <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400">Resultado</div>
-                <div className={`mt-1 text-5xl font-black leading-none ${flash ? "text-amber-200" : "text-white"}`}>{rolling ? displayValue : result}</div>
+                <div className={`mt-1 text-5xl font-black leading-none ${flash ? "text-amber-200" : "text-white"}`}>{result}</div>
                 <div className="mt-2 inline-flex items-center justify-center rounded-full border border-white/10 bg-black/35 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.34em] text-slate-300">
                   d20
                 </div>
