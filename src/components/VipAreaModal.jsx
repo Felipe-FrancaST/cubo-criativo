@@ -2,6 +2,7 @@ import React from "react";
 import Modal from "./Modal.jsx";
 import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../auth/AuthProvider.jsx";
+import VipPresentD20 from "./VipPresentD20.jsx";
 
 function cycleKeyUTC() {
   const d = new Date();
@@ -131,7 +132,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
   const [pollLoading, setPollLoading] = React.useState(false);
 
   // Navegação (melhor experiência no mobile)
-  const [tab, setTab] = React.useState('escolhas'); // 'escolhas' | 'pedido' | 'votacao' | 'upgrade'
+  const [tab, setTab] = React.useState('escolhas'); // 'escolhas' | 'pedido' | 'votacao' | 'upgrade' | 'presente'
 
   // Aviso elegante quando o usuário estoura o limite do plano
   const [limitNotice, setLimitNotice] = React.useState(null); // { title, text }
@@ -807,7 +808,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
               <div className="mt-5 sticky top-3 z-20">
                 <div className="rounded-2xl bg-black/35 backdrop-blur-md ring-1 ring-white/10 p-2">
                   <div className="sticky top-0 z-20 -mx-1 flex gap-2 overflow-x-auto no-scrollbar bg-slate-950/85 px-1 py-2 backdrop-blur">
-                    {[{k:'escolhas',label:'Escolhas',ic:'checklist'},{k:'pedido',label:'Pedido',ic:'local_shipping'},{k:'votacao',label:'Votação',ic:'how_to_vote'},{k:'upgrade',label:'Upgrade',ic:'upgrade'}].map((t) => {
+                    {[{k:'escolhas',label:'Escolhas',ic:'checklist'},{k:'pedido',label:'Pedido',ic:'local_shipping'},{k:'votacao',label:'Votação',ic:'how_to_vote'},{k:'upgrade',label:'Upgrade',ic:'upgrade'},{k:'presente',label:'Presente',ic:'redeem'}].map((t) => {
                       const active = tab === t.k;
                       return (
                         <button
@@ -908,6 +909,12 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                       Quando seu pedido for enviado, o <b>código de rastreio</b> vai aparecer aqui.
                     </div>
                   )}
+                </div>
+              ) : null}
+
+              {tab === 'presente' ? (
+                <div className="mt-5">
+                  <VipPresentD20 />
                 </div>
               ) : null}
 
