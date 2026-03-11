@@ -33,7 +33,7 @@ import VipRpgPage from "./pages/VipRpgPage.jsx";
 import VipRedirectPage from "./pages/VipRedirectPage.jsx";
 import VipAreaPage from "./pages/VipAreaPage.jsx";
 import PasswordResetPage from "./pages/PasswordResetPage.jsx";
-import { isAdminEmail } from "./lib/admin.js";
+import { fetchAdminStatus } from "./lib/admin.js";
 import { applySeo, setJsonLd, clearJsonLd } from "./lib/seo.js";
 import { trackEvent } from "./lib/analytics.js";
 
@@ -351,11 +351,37 @@ function getRouteFromLocation() {
 export default function App() {
   const { user, session, signOut, isPasswordRecovery, needsGoogleTermsAcceptance } = useAuth();
   const accessToken = session?.access_token || "";
-  const isAdmin = isAdminEmail(user?.email || "");
-  console.log("APP ADMIN DEBUG", {
-  email: user?.email,
-  isAdmin,
-});
+  const [isAdmin, setIsAdmin] = React.useState(false);
+  const [isAdminLoading, setIsAdminLoading] = React.useState(false);
+
+  React.useEffect(() => {
+    let alive = true;
+
+    if (!accessToken) {
+      setIsAdmin(false);
+      setIsAdminLoading(false);
+      return () => {
+        alive = false;
+      };
+    }
+
+    setIsAdminLoading(true);
+
+    (async () => {
+      try {
+        const result = await fetchAdminStatus(accessToken);
+        if (alive) setIsAdmin(Boolean(result?.isAdmin));
+      } catch {
+        if (alive) setIsAdmin(false);
+      } finally {
+        if (alive) setIsAdminLoading(false);
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [accessToken]);
 
   // VIP (best-effort) via cache local para evitar flashes no menu.
 // IMPORTANTE: o cache pode ficar "stale" se um pagamento falhar/cancelar.
@@ -1250,7 +1276,7 @@ React.useEffect(() => {
       );
     }
     if (route === "/admin") {
-      return <AdminOrdersPage user={user} accessToken={accessToken} onNavigateHome={() => navigate("/")} onRequireLogin={requireLogin} />;
+      return <AdminOrdersPage user={user} accessToken={accessToken} isAdmin={isAdmin} isAdminLoading={isAdminLoading} onNavigateHome={() => navigate("/")} onRequireLogin={requireLogin} />;
     }
     if (route === "/promocoes") {
       return (
@@ -1640,7 +1666,10 @@ React.useEffect(() => {
           setOrdersOpen(false);
           setCartOpen(false);
           // feedback leve
-          showOnce("Pedido finalizado. Obrigado!");
+          setToastMsg("Pedido finalizado. Obrigado!");
+          setToastOpen(true);
+          clearTimeout(toastT.current);
+          toastT.current = setTimeout(() => setToastOpen(false), 2400);
         }}
       />
 

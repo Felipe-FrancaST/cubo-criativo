@@ -1,5 +1,4 @@
 import React from "react";
-import { isAdminEmail } from "../lib/admin.js";
 import { useAuth } from "../auth/AuthProvider.jsx";
 
 const fmtBRL = (n) =>
@@ -1057,9 +1056,8 @@ function StartVotingModal({ state, imageLibrary, imageLibraryLoading, imageLibra
   );
 }
 
-export default function AdminOrdersPage({ user, accessToken, onNavigateHome, onRequireLogin }) {
+export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoading = false, onNavigateHome, onRequireLogin }) {
   const { loading: authLoading } = useAuth();
-  const isAdmin = isAdminEmail(user?.email || "");
   const [section, setSection] = React.useState("dashboard");
 
   const [orders, setOrders] = React.useState([]);
@@ -1483,6 +1481,17 @@ export default function AdminOrdersPage({ user, accessToken, onNavigateHome, onR
 
   const activeOrder = React.useMemo(() => (orders || []).find((o) => o.id === details.orderId) || null, [orders, details.orderId]);
   const activeActionOrder = React.useMemo(() => (orders || []).find((o) => o.id === actionModal.orderId) || null, [orders, actionModal.orderId]);
+
+  if (authLoading || isAdminLoading) {
+    return (
+      <div className="max-w-3xl mx-auto px-4 py-10">
+        <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-6">
+          <div className="text-white text-xl font-semibold">Validando acesso…</div>
+          <div className="mt-1 text-slate-400">Aguarde enquanto confirmamos suas permissões de administrador.</div>
+        </div>
+      </div>
+    );
+  }
 
   if (!isAdmin) {
     return (

@@ -1,25 +1,20 @@
-export function parseAdminEmails(raw) {
-  const s = String(raw || "").trim();
-  if (!s) return [];
-  return s
-    .split(/[;,\n]/g)
-    .map((x) => String(x || "").trim().toLowerCase())
-    .filter(Boolean);
-}
+export async function fetchAdminStatus(accessToken) {
+  const token = String(accessToken || "").trim();
+  if (!token) return { isAdmin: false };
 
-export function isAdminEmail(email) {
-  const envRaw = import.meta?.env?.VITE_ADMIN_EMAILS || import.meta?.env?.VITE_ADMIN_EMAIL;
-  const list = parseAdminEmails(envRaw);
-  const e = String(email || "").trim().toLowerCase();
-
-  console.log("LIB ADMIN DEBUG", {
-    envRaw,
-    list,
-    email,
-    normalizedEmail: e,
-    match: !!e && list.includes(e),
+  const resp = await fetch("/api/admin-status", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
   });
 
-  if (!e) return false;
-  return list.includes(e);
+  const data = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const err = new Error(data?.error || "Não foi possível validar acesso de admin.");
+    err.status = resp.status;
+    throw err;
+  }
+
+  return { isAdmin: Boolean(data?.isAdmin) };
 }
