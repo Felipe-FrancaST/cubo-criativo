@@ -346,7 +346,7 @@ export default function AuthModal({ open, onClose, onSuccess }) {
             </div>
           </>
         ) : (
-
+          <>
         <div className="flex items-center justify-between gap-3">
           <div>
             <h3 className="font-extrabold text-xl">{mode === "login" ? "Entrar" : "Criar conta"}</h3>
@@ -616,6 +616,7 @@ export default function AuthModal({ open, onClose, onSuccess }) {
             )}
           </div>
         </form>
+          </>
         )}
       </div>
     </Modal>
