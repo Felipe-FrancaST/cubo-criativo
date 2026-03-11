@@ -595,15 +595,7 @@ export default function VipPresentD20({ accessToken = "", user = null, isVip = f
                 </div>
               </div>
 
-              <div className="w-full flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="rounded-2xl bg-black/30 px-4 py-3 ring-1 ring-white/10">
-                  <div className="text-[11px] uppercase tracking-[0.24em] text-slate-400">Última definição</div>
-                  <div className="mt-1 flex items-end gap-2">
-                    <span className="text-3xl font-black text-white">{currentValue}</span>
-                    {rollData ? <span className="pb-1 text-xs text-slate-400">às {new Date(settledAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span> : null}
-                  </div>
-                </div>
-
+              <div className="w-full flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-center">
                 <button
                   type="button"
                   onClick={handleRoll}
@@ -618,16 +610,6 @@ export default function VipPresentD20({ accessToken = "", user = null, isVip = f
           </div>
 
           <div className="w-full lg:w-[380px] shrink-0 space-y-4">
-            <div className="rounded-[26px] bg-white/5 p-5 ring-1 ring-white/10">
-              <div className="text-xs uppercase tracking-[0.24em] text-slate-400">Como funciona</div>
-              <div className="mt-3 space-y-3 text-sm leading-6 text-slate-300">
-                <p><b>1.</b> Você tem <b>uma rolagem por ciclo mensal VIP</b>.</p>
-                <p><b>2.</b> O número do d20 define automaticamente seu presente.</p>
-                <p><b>3.</b> Se cair cupom, ele é gerado e salvo na sua conta para uso no carrinho.</p>
-                <p><b>4.</b> Se cair <b>20</b>, você libera uma miniatura personalizada exclusiva e pode solicitar o prêmio aqui mesmo.</p>
-              </div>
-            </div>
-
             <div className={`rounded-[26px] p-5 ring-1 ${isJackpot ? 'bg-gradient-to-br from-amber-400/20 via-yellow-300/10 to-transparent ring-amber-300/30' : 'bg-gradient-to-br from-slate-950 via-slate-900 to-black ring-white/10'}`}>
               <div className="flex items-start justify-between gap-3">
                 <div>

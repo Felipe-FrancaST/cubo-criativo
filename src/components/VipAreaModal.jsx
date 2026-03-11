@@ -44,6 +44,39 @@ function fmtBRLFromCents(cents) {
   if (!isFinite(n)) return '—';
   return (n / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
+
+function tabHelpContent(tab, ctx = {}) {
+  const total = Number(ctx?.totalLimit || 0) || 0;
+  const editable = !!ctx?.editable;
+  const planName = ctx?.planName || 'VIP';
+  const deadline = ctx?.deadline || 'fim do mês';
+
+  const map = {
+    escolhas: {
+      title: 'Como funciona — Escolhas',
+      body: `Selecione exatamente ${total} item(ns) do seu plano ${planName}. Quando completar o limite, o botão para salvar aparece. Você pode alterar tudo enquanto o ciclo estiver editável. Prazo atual: ${deadline}.`,
+    },
+    pedido: {
+      title: 'Como funciona — Pedido',
+      body: editable
+        ? 'Aqui você acompanha o status do seu ciclo VIP. Enquanto o pedido estiver editável, ainda dá para revisar escolhas. Quando avançar para produção ou envio, esta aba vira o painel de acompanhamento.'
+        : 'Aqui você acompanha o status do seu ciclo VIP, produção e envio. Quando houver rastreio disponível, ele aparece nesta aba para consulta e cópia.',
+    },
+    votacao: {
+      title: 'Como funciona — Votação',
+      body: 'Nesta aba você vota no tema futuro do clube. Cada assinante VIP pode registrar um voto por ciclo aberto. Quando a votação encerrar, o resultado fica consolidado pelo sistema.',
+    },
+    upgrade: {
+      title: 'Como funciona — Upgrade',
+      body: 'Se quiser subir de nível, faça o upgrade aqui. O sistema mostra o próximo plano disponível e libera mais benefícios conforme a regra do clube.',
+    },
+    presente: {
+      title: 'Como funciona — Presente',
+      body: 'Você tem uma rolagem do d20 por ciclo mensal. O número define automaticamente o prêmio do mês. Se cair cupom, ele é salvo na sua conta. Se cair 20, você libera a miniatura personalizada exclusiva e pode solicitar o prêmio aqui mesmo.',
+    },
+  };
+  return map[tab] || map.escolhas;
+}
 // Planos VIP vêm do Supabase (tabela vip_plans). Sem valores fixos no código.
 const FALLBACK_VIP_PLANS = [];
 
@@ -134,6 +167,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
 
   // Navegação (melhor experiência no mobile)
   const [tab, setTab] = React.useState('escolhas'); // 'escolhas' | 'pedido' | 'votacao' | 'upgrade' | 'presente'
+  const [helpOpen, setHelpOpen] = React.useState(false);
 
   // Aviso elegante quando o usuário estoura o limite do plano
   const [limitNotice, setLimitNotice] = React.useState(null); // { title, text }
@@ -827,52 +861,39 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                 </div>
               </div>
 
-              {/* Resumo do ciclo (compacto no mobile) */}
-              <div className="mt-4 rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="rounded-2xl bg-black/20 ring-1 ring-white/10 p-4">
-                    <div className="text-xs uppercase tracking-wide text-slate-400">Ciclo atual</div>
-                    <div className="mt-1 text-lg sm:text-xl font-extrabold text-violet-100">{cycle}</div>
-                    <div className="mt-1 text-xs text-slate-300">Seu plano: {selectedPlan?.short_name || selectedPlan?.name || 'VIP'}</div>
-                  </div>
-                  <div className="rounded-2xl bg-black/20 ring-1 ring-white/10 p-4">
-                    <div className="text-xs uppercase tracking-wide text-slate-400">Prazo de escolha</div>
-                    <div className="mt-1 text-lg sm:text-xl font-extrabold text-slate-100">{cycleDeadline}</div>
-                    <div className="mt-1 text-xs text-slate-300">As escolhas ficam disponíveis enquanto o pedido estiver editável.</div>
-                  </div>
-                  <div className="rounded-2xl bg-black/20 ring-1 ring-white/10 p-4">
-                    <div className="text-xs uppercase tracking-wide text-slate-400">Status do ciclo</div>
-                    <div className="mt-1 text-lg sm:text-xl font-extrabold text-slate-100">{st.label}</div>
-                    <div className="mt-1 text-xs text-slate-300">Faltam <b>{Math.max(0, totalLimit - selectedCounts.total)}</b> miniatura(s)/item(ns) para completar este ciclo.</div>
-                  </div>
-                </div>
-                {!editable && blockNotice ? (
-                  <div className="mt-3 rounded-2xl bg-amber-500/10 ring-1 ring-amber-400/25 p-4">
-                    <div className="flex items-start gap-3">
-                      <span className="material-icons text-amber-200">lock_clock</span>
-                      <div>
-                        <div className="text-sm font-extrabold text-amber-100">{blockNotice.title}</div>
-                        <div className="mt-1 text-sm text-slate-200/90">{blockNotice.text}</div>
-                      </div>
+              <div className="mt-4 rounded-[24px] bg-white/5 ring-1 ring-white/10 p-3 sm:p-4">
+                <div className="flex items-start gap-3 justify-between">
+                  <div className="min-w-0">
+                    <div className="text-[11px] uppercase tracking-[0.28em] text-slate-500">Área VIP</div>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <span className="inline-flex items-center rounded-full bg-white/5 px-3 py-1 text-xs font-semibold text-slate-200 ring-1 ring-white/10">Ciclo {cycle}</span>
+                      <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ring-1 ${st.cls}`}>{st.label}</span>
+                      <span className="inline-flex items-center rounded-full bg-white/5 px-3 py-1 text-xs font-semibold text-slate-200 ring-1 ring-white/10">Plano {planName}</span>
                     </div>
+                    {!editable && blockNotice ? (
+                      <div className="mt-3 rounded-2xl bg-amber-500/10 ring-1 ring-amber-400/25 px-4 py-3 text-sm text-amber-100">
+                        <div className="font-extrabold">{blockNotice.title}</div>
+                        <div className="mt-1 text-amber-50/90">{blockNotice.text}</div>
+                      </div>
+                    ) : null}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setHelpOpen((v) => !v)}
+                    aria-expanded={helpOpen}
+                    aria-label="Como funciona esta aba"
+                    className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white/5 text-amber-200 ring-1 ring-white/10 hover:bg-white/10"
+                  >
+                    <span className="material-icons">tips_and_updates</span>
+                  </button>
+                </div>
+
+                {helpOpen ? (
+                  <div className="mt-3 rounded-[20px] bg-gradient-to-br from-amber-300/10 via-sky-300/5 to-transparent p-4 ring-1 ring-white/10">
+                    <div className="text-xs font-extrabold uppercase tracking-[0.24em] text-slate-300">{help.title}</div>
+                    <p className="mt-2 text-sm leading-6 text-slate-200/90">{help.body}</p>
                   </div>
                 ) : null}
-              </div>
-
-              {/* Guia rápido (melhora entendimento no mobile) */}
-              <div className="mt-4 rounded-2xl bg-gradient-to-br from-sky-500/10 to-emerald-500/5 ring-1 ring-white/10 p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="text-xs uppercase tracking-wide text-slate-300">Como funciona</div>
-                    <div className="mt-1 text-sm text-slate-200/90">Em 3 passos, sem complicação:</div>
-                    <ol className="mt-2 space-y-1 text-xs text-slate-300">
-                      <li><b>1.</b> Vá em <b>Escolhas</b> e selecione exatamente <b>{totalLimit}</b> item(ns).</li>
-                      <li><b>2.</b> Clique em <b>Salvar escolhas</b> (aparece ao completar o limite).</li>
-                      <li><b>3.</b> Acompanhe em <b>Pedido</b> quando entrar em produção / envio.</li>
-                    </ol>
-                  </div>
-                  <span className="material-icons text-sky-200">tips_and_updates</span>
-                </div>
               </div>
 
               {/* Conteúdo por aba */}
