@@ -759,6 +759,8 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
     }
   }
 
+  const planName = selectedPlan?.short_name || selectedPlan?.name || vipPlan || 'VIP';
+
   const body = (
       <div className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-slate-950 via-slate-950 to-black ring-1 ring-white/10 shadow-2xl shadow-black/30">
         <div className="absolute inset-0 opacity-35 pointer-events-none" style={{ backgroundImage: "radial-gradient(circle at 20% 10%, rgba(168,85,247,.35), transparent 45%), radial-gradient(circle at 80% 20%, rgba(34,197,94,.22), transparent 55%), radial-gradient(circle at 50% 90%, rgba(56,189,248,.18), transparent 55%)" }} />
