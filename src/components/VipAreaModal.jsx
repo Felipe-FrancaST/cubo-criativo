@@ -588,7 +588,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
         onClose?.();
         return;
       }
-      const res = await fetch('/api/create-vip-upgrade-pix-payment', {
+      const res = await fetch('/api/create-pix-payment?mode=vip_upgrade', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` },
         body: JSON.stringify({ to_plan_id: nextPlan.id }),

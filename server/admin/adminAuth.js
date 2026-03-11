@@ -18,11 +18,11 @@ export async function requireAdmin(req) {
   if (!user) return { ok: false, status: 401, error: "Unauthorized" };
   const email = String(user.email || "").trim().toLowerCase();
   const admins = getAdminEmails();
-  // Friendly fallback for single-owner installs: if env vars are missing in production,
-  // still allow the primary owner to access admin endpoints.
-  const fallbackAdmins = ["francafelipe448@gmail.com"];
-  const allowed = admins.length ? admins : fallbackAdmins;
-  if (!email || !allowed.includes(email)) {
+  if (!admins.length) {
+    console.error("ADMIN_EMAILS/ADMIN_EMAIL is not configured.");
+    return { ok: false, status: 503, error: "Admin não configurado." };
+  }
+  if (!email || !admins.includes(email)) {
     return { ok: false, status: 403, error: "Forbidden" };
   }
   return { ok: true, user };

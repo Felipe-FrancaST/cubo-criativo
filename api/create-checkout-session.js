@@ -17,6 +17,7 @@ import crypto from "crypto";
 import { getUserFromAuthHeader, supabaseAdmin } from "../server/supabase.js";
 import { calcCouponDiscount } from "../server/couponGame.js";
 import { getVipPlanById, listVipPlans, vipPlanDisplayName } from "../server/vipPlans.js";
+import { buildMercadoPagoItems, buildOrderItemsForInsert, buildVipOrderItems, buildVipUpgradeOrderItems, resolveStoreItems, serializeResolvedItems } from "../server/orderPricing.js";
 import { rateLimit } from '../server/rateLimit.js';
 
 export const config = { runtime: "nodejs" };
@@ -69,11 +70,6 @@ function findPlanByProfileValue(plans, profilePlan) {
   }) || null;
 }
 
-
-function sanitizeItemName(name) {
-  const s = String(name || "Item").trim();
-  return s.length > 120 ? s.slice(0, 117) + "..." : s;
-}
 
 async function mpCreatePreference({ accessToken, body }) {
   const resp = await fetch("https://api.mercadopago.com/checkout/preferences", {
@@ -238,31 +234,28 @@ export default async function handler(req, res) {
       vipPlan = await getVipPlanById(sb, vipPlanId);
       if (!vipPlan) return res.status(400).json({ error: 'Plano VIP inválido.' });
     }
-    const effectiveItems = isVipUpgrade
-      ? items
-      : vipPlanId
-        ? [{ id: vipPlan.id, name: `${vipPlanDisplayName(vipPlan)} (mensalidade)`, qty: 1, price: Number(vipPlan.price_brl || 0), scale: vipPlan.scale || '32mm', img: '' }]
-        : items;
-
-    // Total no servidor
-    let total = 0;
-    const cleanItems = [];
-    for (const it of effectiveItems) {
-      const qty = Number(it.qty) || 0;
-      const unit = Number(it.price) || 0;
-      if (qty <= 0 || unit <= 0) continue;
-      total += qty * unit;
-
-      cleanItems.push({
-        id: String(it.id || ""),
-        title: sanitizeItemName(`${it.name || it.nome || "Item"}${it.scale ? ` (${it.scale})` : ""}`),
-        quantity: qty,
-        unit_price: Number(unit.toFixed(2)),
-        currency_id: "BRL",
-        picture_url: it.img ? String(it.img) : undefined,
-      });
+    let resolvedOrderItems = [];
+    if (isVipUpgrade) {
+      const plans = await listVipPlans(sb);
+      const ordered = [...(plans || [])].sort((a, b) => (Number(a?.sort_order) || 0) - (Number(b?.sort_order) || 0));
+      const currentPlan = ordered.find((p) => String(p?.id) === vipUpgradeFromPlanId) || ordered[0];
+      const toPlan = ordered.find((p) => String(p?.id) === vipUpgradeToPlanMeta);
+      const fromPrice = Number(currentPlan?.price_brl || 0);
+      const toPrice = Number(toPlan?.price_brl || 0);
+      const diff = Number((toPrice - fromPrice).toFixed(2));
+      resolvedOrderItems = buildVipUpgradeOrderItems({ currentPlan, toPlan, diff });
+    } else if (vipPlanId) {
+      resolvedOrderItems = buildVipOrderItems(vipPlan);
+    } else {
+      const resolved = await resolveStoreItems(sb, items);
+      if (!resolved.ok) {
+        return res.status(resolved.status || 400).json({ error: resolved.error, code: resolved.code || null });
+      }
+      resolvedOrderItems = resolved.items;
     }
 
+    const cleanItems = buildMercadoPagoItems(resolvedOrderItems);
+    const total = Number(resolvedOrderItems.reduce((sum, item) => sum + ((Number(item.unit_price) || 0) * (Number(item.qty) || 0)), 0).toFixed(2));
     if (!(total > 0) || cleanItems.length === 0) {
       return res.status(400).json({ error: "Total/itens inválidos" });
     }
@@ -324,17 +317,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "Não foi possível criar o pedido." });
     }
 
-    const orderItems = effectiveItems
-      .filter((it) => (!vipPlanId || String(it.id || '').trim()) && (Number(it.qty) || 0) > 0 && (Number(it.price) || 0) > 0)
-      .map((it) => ({
-        order_id: orderId,
-        product_id: String(it.id || ""),
-        name: String(it.name || it.nome || "Item").trim(),
-        scale: String(it.scale || it.escala || "").trim(),
-        qty: Number(it.qty) || 1,
-        unit_price: Number(Number(it.price).toFixed(2)),
-        img: String(it.img || ""),
-      }));
+    const orderItems = buildOrderItemsForInsert(orderId, resolvedOrderItems);
 
     if (orderItems.length) {
       const { error: itemsErr } = await sb.from("order_items").insert(orderItems);
@@ -365,14 +348,7 @@ export default async function handler(req, res) {
         vip_upgrade_to: vipUpgradeToPlanMeta || null,
         coupon_code: couponApplied?.code || null,
         coupon_discount: couponApplied?.discount || 0,
-        items_json: JSON.stringify(
-          effectiveItems.map((i) => ({
-            name: i.name || i.nome,
-            qty: i.qty,
-            price: i.price,
-            scale: i.scale || i.escala,
-          }))
-        ),
+        items_json: serializeResolvedItems(resolvedOrderItems),
       },
     };
 

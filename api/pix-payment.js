@@ -1,6 +1,7 @@
 import { renderVipWelcomeEmail, renderVipUpgradeEmail } from "../server/emailTemplates.js";
 import { getUserFromAuthHeader, supabaseAdmin } from "../server/supabase.js";
 import { getVipPlanById } from "../server/vipPlans.js";
+import { applyStockDeductionWithClaim } from "../server/inventory.js";
 import { rateLimit } from '../server/rateLimit.js';
 
 export const config = { runtime: "nodejs" };
@@ -208,30 +209,10 @@ async function applyVipFromOrder(sb, order, payment) {
 
 async function applyStockDeductionIfNeeded(sb, order) {
   try {
-    if (!order?.id) return;
-    if (String(order.order_type || '').toLowerCase() === 'vip') return;
-    const current = await sb.from('orders').select('stock_deducted_at,status').eq('id', order.id).maybeSingle();
-    if (current?.data?.stock_deducted_at) return;
-    let items = [];
-    const qNew = await sb.from('order_items').select('product_id,qty').eq('order_id', order.id);
-    if (qNew?.error) {
-      const qOld = await sb.from('order_items').select('product_id,qty').eq('order_id', order.id);
-      items = qOld?.data || [];
-    } else items = qNew.data || [];
-    const byPid = new Map();
-    for (const it of items) {
-      const pid = String(it?.product_id || '').trim(); if (!pid) continue;
-      byPid.set(pid, (byPid.get(pid)||0) + (Number(it?.qty)||0));
-    }
-    for (const [pid, qty] of byPid) {
-      if (qty <= 0) continue;
-      const { data: prod } = await sb.from('products').select('stock').eq('id', pid).maybeSingle();
-      if (!prod || prod.stock === null || prod.stock === undefined) continue;
-      const next = Math.max(0, (Number(prod.stock)||0) - qty);
-      await sb.from('products').update({ stock: next }).eq('id', pid);
-    }
-    await sb.from('orders').update({ stock_deducted_at: new Date().toISOString() }).eq('id', order.id).is('stock_deducted_at', null);
-  } catch (e) { console.error('applyStockDeductionIfNeeded error', e); }
+    await applyStockDeductionWithClaim(sb, order);
+  } catch (e) {
+    console.error('applyStockDeductionIfNeeded error', e);
+  }
 }
 
 async function loadUserAndOrder(req, res, purposeText) {

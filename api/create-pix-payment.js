@@ -16,6 +16,7 @@ import crypto from "crypto";
 import { getUserFromAuthHeader, supabaseAdmin } from "../server/supabase.js";
 import { calcCouponDiscount } from "../server/couponGame.js";
 import { getVipPlanById, listVipPlans, vipPlanDisplayName } from "../server/vipPlans.js";
+import { buildOrderItemsForInsert, buildVipOrderItems, buildVipUpgradeOrderItems, resolveStoreItems, serializeResolvedItems } from "../server/orderPricing.js";
 import { rateLimit } from '../server/rateLimit.js';
 
 export const config = { runtime: "nodejs" };
@@ -215,6 +216,13 @@ export default async function handler(req, res) {
         return res.status(500).json({ error: 'Não foi possível criar o pedido de upgrade.' });
       }
 
+      const upgradeItems = buildVipUpgradeOrderItems({ currentPlan, toPlan, diff });
+      const upgradeOrderItems = buildOrderItemsForInsert(orderId, upgradeItems);
+      if (upgradeOrderItems.length) {
+        const { error: itemsErr } = await sb.from('order_items').insert(upgradeOrderItems);
+        if (itemsErr) console.error('upgrade order_items insert error', itemsErr);
+      }
+
       const idempotencyKey = crypto.randomUUID();
       const paymentResp = await mpFetch(token, 'https://api.mercadopago.com/v1/payments', {
         method: 'POST',
@@ -232,6 +240,7 @@ export default async function handler(req, res) {
             vip_plan_id: toPlan.id,
             vip_upgrade_from: currentPlan?.id || null,
             vip_upgrade_to: toPlan.id,
+            items_json: serializeResolvedItems(upgradeItems),
           },
           notification_url: `${origin}/api/mp-webhook`,
         }),
@@ -279,29 +288,26 @@ export default async function handler(req, res) {
 
     const vipPlanId = String(body.vip_plan_id || '').trim();
     const items = Array.isArray(body.items) ? body.items : [];
-    let subtotal = 0;
-    for (const it of items) {
-      const qty = Number(it?.qty) || 0;
-      const price = Number(it?.price) || 0;
-      if (qty > 0 && price > 0) subtotal += qty * price;
-    }
-    subtotal = Number(subtotal.toFixed(2));
-
-    // Assinatura VIP pode vir sem itens no body; o servidor força o valor do plano.
-    if (!vipPlanId) {
-      if (!Number.isFinite(subtotal) || subtotal <= 0) {
-        return res.status(400).json({ error: "Não foi possível calcular o valor do pedido. Atualize o carrinho e tente novamente." });
-      }
-    }
-    // 1) Cria pedido no Supabase
     const sb = supabaseAdmin();
 
     // Assinatura VIP: não aceita cupom e força o preço do plano (configurável)
     let vipPlan = null;
+    let resolvedOrderItems = [];
     if (vipPlanId) {
       vipPlan = await getVipPlanById(sb, vipPlanId);
       if (!vipPlan) return res.status(400).json({ error: 'Plano VIP inválido.' });
-      subtotal = Number(Number(vipPlan.price_brl || 0).toFixed(2));
+      resolvedOrderItems = buildVipOrderItems(vipPlan);
+    } else {
+      const resolved = await resolveStoreItems(sb, items);
+      if (!resolved.ok) {
+        return res.status(resolved.status || 400).json({ error: resolved.error, code: resolved.code || null });
+      }
+      resolvedOrderItems = resolved.items;
+    }
+
+    let subtotal = Number(resolvedOrderItems.reduce((sum, item) => sum + ((Number(item.unit_price) || 0) * (Number(item.qty) || 0)), 0).toFixed(2));
+    if (!Number.isFinite(subtotal) || subtotal <= 0) {
+      return res.status(400).json({ error: "Não foi possível calcular o valor do pedido. Atualize o carrinho e tente novamente." });
     }
 
     let finalAmount = subtotal;
@@ -386,25 +392,15 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "Não foi possível criar o pedido." });
     }
 
-    const cleaned = (vipPlanId ? [{ name: `${vipPlanDisplayName(vipPlan)} (mensalidade)`, qty: 1, price: Number(vipPlan?.price_brl || 0), scale: vipPlan?.scale || '32mm', img: '', is_vip_membership: true }] : items)
-      .filter((it) => (Number(it.qty) || 0) > 0 && (Number(it.price) || 0) > 0)
-      .map((it) => {
-        const name = String(it.name || it.nome || "Item").trim();
-        const qty = Number(it.qty) || 1;
-        const scale = String(it.scale || it.escala || "").trim();
-        const img = String(it.img || it.image_url || "").trim();
-        const priceBRL = Number(Number(it.price).toFixed(2));
-        const priceCents = Math.round(priceBRL * 100);
-        return {
-          product_id: String(it.id || it.product_id || "").trim() || null,
-          name,
-          qty,
-          scale: scale || null,
-          img: img || null,
-          unit_price_brl: priceBRL,
-          unit_price_cents: priceCents,
-        };
-      });
+    const cleaned = resolvedOrderItems.map((it) => ({
+      product_id: String(it.product_id || '').trim() || null,
+      name: String(it.name || 'Item').trim(),
+      qty: Number(it.qty) || 1,
+      scale: String(it.scale || '').trim() || null,
+      img: String(it.img || '').trim() || null,
+      unit_price_brl: Number(Number(it.unit_price || 0).toFixed(2)),
+      unit_price_cents: Math.round((Number(it.unit_price || 0) || 0) * 100),
+    }));
 
     const orderItemsForInsert = cleaned.filter((it) => it.product_id || !vipPlanId);
 
@@ -459,7 +455,7 @@ export default async function handler(req, res) {
           vip_plan_id: vipPlanId || null,
           coupon_code: couponApplied?.code || null,
           coupon_discount: couponApplied?.discount || 0,
-          items_json: JSON.stringify(items).slice(0, 4500),
+          items_json: serializeResolvedItems(resolvedOrderItems),
         },
         notification_url: `${origin}/api/mp-webhook`,
       }),
