@@ -195,7 +195,7 @@ function DiceScene({ rolling, result, flash }) {
       spinState.current = {
         active: true,
         startedAt: performance.now(),
-        duration: 2.65,
+        duration: 2.55,
         from: currentQuat,
         to: targetQuat,
         spins: new THREE.Vector3(
@@ -206,13 +206,14 @@ function DiceScene({ rolling, result, flash }) {
       };
     } else {
       spinState.current = {
-        active: true,
+        active: false,
         startedAt: performance.now(),
-        duration: 0.95,
-        from: currentQuat,
-        to: targetQuat,
+        duration: 0,
+        from: targetQuat.clone(),
+        to: targetQuat.clone(),
         spins: new THREE.Vector3(0, 0, 0),
       };
+      shellRef.current.quaternion.copy(targetQuat);
     }
   }, [rolling, result]);
 
@@ -247,7 +248,7 @@ function DiceScene({ rolling, result, flash }) {
       const face = FACE_LOOKUP.get(result) || FACE_LOOKUP.get(20);
       if (face) {
         const targetQuat = new THREE.Quaternion().setFromUnitVectors(face.normal.clone().normalize(), CAMERA_FACE_VECTOR);
-        shell.quaternion.slerp(targetQuat, 0.08);
+        shell.quaternion.copy(targetQuat);
       }
     }
 
@@ -335,15 +336,18 @@ export default function VipPresentD20() {
   const [displayValue, setDisplayValue] = React.useState(20);
   const [result, setResult] = React.useState(20);
   const [flash, setFlash] = React.useState(false);
+  const [showResult, setShowResult] = React.useState(true);
   const [burstKey, setBurstKey] = React.useState(0);
   const [settledAt, setSettledAt] = React.useState(Date.now());
   const intervalRef = React.useRef(null);
   const endRef = React.useRef(null);
+  const revealRef = React.useRef(null);
 
   React.useEffect(() => {
     return () => {
       if (intervalRef.current) window.clearInterval(intervalRef.current);
       if (endRef.current) window.clearTimeout(endRef.current);
+      if (revealRef.current) window.clearTimeout(revealRef.current);
     };
   }, []);
 
@@ -355,10 +359,12 @@ export default function VipPresentD20() {
 
     setRolling(true);
     setFlash(false);
+    setShowResult(false);
     setBurstKey((v) => v + 1);
 
     if (intervalRef.current) window.clearInterval(intervalRef.current);
     if (endRef.current) window.clearTimeout(endRef.current);
+    if (revealRef.current) window.clearTimeout(revealRef.current);
 
     const startedAt = performance.now();
     intervalRef.current = window.setInterval(() => {
@@ -384,6 +390,7 @@ export default function VipPresentD20() {
       setRolling(false);
       setFlash(true);
       setSettledAt(Date.now());
+      revealRef.current = window.setTimeout(() => setShowResult(true), 2000);
       window.setTimeout(() => setFlash(false), 650);
     }, 2550);
   }
@@ -479,9 +486,9 @@ export default function VipPresentD20() {
 
               <div
                 className={`vip-present-pill absolute bottom-[12%] left-1/2 z-10 -translate-x-1/2 rounded-[28px] border border-white/10 bg-slate-950/50 px-4 py-3 text-center ring-1 ring-white/10 transition-all duration-500 ${
-                  rolling ? "pointer-events-none translate-y-4 scale-95 opacity-0" : "translate-y-0 scale-100 opacity-100"
+                  rolling || !showResult ? "pointer-events-none translate-y-4 scale-95 opacity-0" : "translate-y-0 scale-100 opacity-100"
                 }`}
-                aria-hidden={rolling}
+                aria-hidden={rolling || !showResult}
               >
                 <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400">Resultado</div>
                 <div className={`mt-1 text-5xl font-black leading-none ${flash ? "text-amber-200" : "text-white"}`}>{result}</div>
