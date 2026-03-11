@@ -351,6 +351,7 @@ function getRouteFromLocation() {
 export default function App() {
   const { user, session, signOut, isPasswordRecovery, needsGoogleTermsAcceptance } = useAuth();
   const accessToken = session?.access_token || "";
+  const isAdmin = isAdminEmail(user?.email || "");
   console.log("APP ADMIN DEBUG", {
   email: user?.email,
   isAdmin,
