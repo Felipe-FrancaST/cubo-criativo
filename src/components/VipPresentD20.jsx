@@ -168,7 +168,7 @@ function FaceNumbers() {
   );
 }
 
-function DiceScene({ rolling, result, flash }) {
+function DiceScene({ rolling, faceValue, flash }) {
   const groupRef = React.useRef(null);
   const shellRef = React.useRef(null);
   const innerRef = React.useRef(null);
@@ -186,7 +186,7 @@ function DiceScene({ rolling, result, flash }) {
   React.useEffect(() => {
     if (!shellRef.current) return;
     const currentQuat = shellRef.current.quaternion.clone();
-    const face = FACE_LOOKUP.get(result) || FACE_LOOKUP.get(20);
+    const face = FACE_LOOKUP.get(faceValue) || FACE_LOOKUP.get(20);
     const targetQuat = face
       ? new THREE.Quaternion().setFromUnitVectors(face.normal.clone().normalize(), CAMERA_FACE_VECTOR)
       : new THREE.Quaternion();
@@ -215,7 +215,7 @@ function DiceScene({ rolling, result, flash }) {
       };
       shellRef.current.quaternion.copy(targetQuat);
     }
-  }, [rolling, result]);
+  }, [rolling, faceValue]);
 
   useFrame((state, delta) => {
     const group = groupRef.current;
@@ -245,7 +245,7 @@ function DiceScene({ rolling, result, flash }) {
       shell.quaternion.copy(baseQuat.multiply(spinQuat));
       if (t >= 1) spin.active = false;
     } else if (!rolling) {
-      const face = FACE_LOOKUP.get(result) || FACE_LOOKUP.get(20);
+      const face = FACE_LOOKUP.get(faceValue) || FACE_LOOKUP.get(20);
       if (face) {
         const targetQuat = new THREE.Quaternion().setFromUnitVectors(face.normal.clone().normalize(), CAMERA_FACE_VECTOR);
         shell.quaternion.copy(targetQuat);
@@ -333,8 +333,8 @@ function DiceScene({ rolling, result, flash }) {
 
 export default function VipPresentD20() {
   const [rolling, setRolling] = React.useState(false);
-  const [displayValue, setDisplayValue] = React.useState(20);
   const [result, setResult] = React.useState(20);
+  const [targetValue, setTargetValue] = React.useState(20);
   const [flash, setFlash] = React.useState(false);
   const [showResult, setShowResult] = React.useState(true);
   const [burstKey, setBurstKey] = React.useState(0);
@@ -366,26 +366,17 @@ export default function VipPresentD20() {
     if (endRef.current) window.clearTimeout(endRef.current);
     if (revealRef.current) window.clearTimeout(revealRef.current);
 
+    setTargetValue(next);
+
     const startedAt = performance.now();
     intervalRef.current = window.setInterval(() => {
       const elapsed = performance.now() - startedAt;
-      const slowZone = elapsed > 1750;
-      const randomFace = Math.floor(Math.random() * 20) + 1;
-      if (slowZone && Math.random() > 0.42) {
-        setDisplayValue((prev) => {
-          const drift = prev < next ? 1 : prev > next ? -1 : 0;
-          return drift === 0 ? next : Math.min(20, Math.max(1, prev + drift));
-        });
-      } else {
-        setDisplayValue(randomFace);
-      }
       if (elapsed > 1500 && Math.random() > 0.78) setFlash((v) => !v);
     }, 74);
 
     endRef.current = window.setTimeout(() => {
       if (intervalRef.current) window.clearInterval(intervalRef.current);
       intervalRef.current = null;
-      setDisplayValue(next);
       setResult(next);
       setRolling(false);
       setFlash(true);
@@ -480,7 +471,7 @@ export default function VipPresentD20() {
 
               <div className="vip-present-stage-canvas relative h-[330px] w-full max-w-[520px]">
                 <Canvas dpr={[1, 1.8]} camera={{ position: [0, 0.2, 5.4], fov: 34 }}>
-                  <DiceScene rolling={rolling} result={result} flash={flash} />
+                  <DiceScene rolling={rolling} faceValue={rolling ? targetValue : result} flash={flash} />
                 </Canvas>
               </div>
 
