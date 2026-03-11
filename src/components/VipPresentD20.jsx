@@ -25,29 +25,12 @@ const FACE_STORIES = {
   20: { title: "Crítico natural", text: "O presente veio dourado. Tem dias em que o d20 decide te tratar como lenda.", aura: "from-amber-400/35 via-yellow-200/20 to-transparent" },
 };
 
-const FACE_EULERS = {
-  1: [0.68, -0.4, 0.12],
-  2: [1.04, 0.52, -0.16],
-  3: [0.44, 1.02, 0.2],
-  4: [-0.32, 1.28, -0.24],
-  5: [0.92, 1.88, 0.1],
-  6: [0.24, 2.46, -0.12],
-  7: [-0.42, 2.98, 0.18],
-  8: [1.08, 3.56, -0.22],
-  9: [0.38, 3.98, 0.08],
-  10: [-0.28, 4.44, -0.16],
-  11: [0.84, 4.96, 0.22],
-  12: [0.2, 5.48, -0.1],
-  13: [-0.36, 5.92, 0.16],
-  14: [1.02, 0.24, -0.18],
-  15: [0.54, 1.62, 0.26],
-  16: [-0.46, 2.24, -0.22],
-  17: [0.88, 3.28, 0.18],
-  18: [0.28, 4.66, -0.2],
-  19: [-0.18, 5.62, 0.12],
-  20: [0.06, 0.02, 0],
-};
-
+const DIE_RADIUS = 1.56;
+const FACE_TEXTURE_SIZE = 256;
+const CAMERA_FACE_VECTOR = new THREE.Vector3(0, 0, 1);
+const FACE_BASE_GEOMETRY = new THREE.IcosahedronGeometry(DIE_RADIUS, 0).toNonIndexed();
+const FACE_DATA = buildFaceData(FACE_BASE_GEOMETRY);
+const FACE_LOOKUP = new Map(FACE_DATA.map((face) => [face.number, face]));
 const SPARKS = Array.from({ length: 24 }, (_, i) => ({
   id: i,
   left: 8 + ((i * 11) % 84),
@@ -56,12 +39,133 @@ const SPARKS = Array.from({ length: 24 }, (_, i) => ({
   size: 4 + (i % 5) * 2,
 }));
 
+function buildFaceData(geometry) {
+  const position = geometry.attributes.position;
+  const faces = [];
+
+  for (let i = 0; i < position.count; i += 3) {
+    const a = new THREE.Vector3().fromBufferAttribute(position, i);
+    const b = new THREE.Vector3().fromBufferAttribute(position, i + 1);
+    const c = new THREE.Vector3().fromBufferAttribute(position, i + 2);
+
+    const center = a.clone().add(b).add(c).multiplyScalar(1 / 3);
+    const normal = new THREE.Vector3().subVectors(b, a).cross(new THREE.Vector3().subVectors(c, a)).normalize();
+    if (normal.dot(center) < 0) normal.multiplyScalar(-1);
+
+    const tangent = b.clone().sub(a).normalize();
+    const bitangent = new THREE.Vector3().crossVectors(normal, tangent).normalize();
+    const quaternion = new THREE.Quaternion().setFromRotationMatrix(
+      new THREE.Matrix4().makeBasis(tangent, bitangent, normal),
+    );
+
+    faces.push({
+      number: 0,
+      center,
+      normal,
+      tangent,
+      bitangent,
+      quaternion,
+    });
+  }
+
+  faces.sort((fa, fb) => {
+    if (Math.abs(fb.center.y - fa.center.y) > 0.08) return fb.center.y - fa.center.y;
+    if (Math.abs(fb.center.z - fa.center.z) > 0.08) return fb.center.z - fa.center.z;
+    return fa.center.x - fb.center.x;
+  });
+
+  return faces.map((face, index) => ({ ...face, number: index + 1 }));
+}
+
+function createFaceTexture(value) {
+  const canvas = document.createElement("canvas");
+  canvas.width = FACE_TEXTURE_SIZE;
+  canvas.height = FACE_TEXTURE_SIZE;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+
+  const cx = FACE_TEXTURE_SIZE / 2;
+  const cy = FACE_TEXTURE_SIZE / 2;
+  const gradient = ctx.createRadialGradient(cx, cy - 24, 24, cx, cy, 108);
+  gradient.addColorStop(0, value === 20 ? "rgba(253, 224, 71, .95)" : "rgba(255,255,255,.94)");
+  gradient.addColorStop(1, value >= 18 ? "rgba(34,211,238,.08)" : "rgba(59,130,246,.05)");
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = gradient;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 94, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = value === 20 ? "rgba(253, 224, 71, .5)" : "rgba(255,255,255,.18)";
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 94, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.shadowColor = value === 20 ? "rgba(251,191,36,.6)" : "rgba(255,255,255,.42)";
+  ctx.shadowBlur = 18;
+  ctx.fillStyle = value === 20 ? "#fff8db" : "#ffffff";
+  ctx.font = `900 ${value >= 10 ? 116 : 134}px Inter, Arial, sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(String(value), cx, cy + 10);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.needsUpdate = true;
+  texture.anisotropy = 8;
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
 function easeOutCubic(t) {
   return 1 - Math.pow(1 - t, 3);
 }
 
 function storyFor(value) {
   return FACE_STORIES[value] || FACE_STORIES[10];
+}
+
+function FaceNumbers() {
+  const textures = React.useMemo(() => {
+    if (typeof document === "undefined") return [];
+    return FACE_DATA.map((face) => ({
+      number: face.number,
+      texture: createFaceTexture(face.number),
+    }));
+  }, []);
+
+  React.useEffect(() => {
+    return () => {
+      textures.forEach((entry) => entry.texture?.dispose?.());
+    };
+  }, [textures]);
+
+  return (
+    <group>
+      {FACE_DATA.map((face, index) => {
+        const texture = textures[index]?.texture;
+        if (!texture) return null;
+        const pos = face.center.clone().add(face.normal.clone().multiplyScalar(0.03));
+        return (
+          <mesh
+            key={face.number}
+            position={pos.toArray()}
+            quaternion={face.quaternion}
+            scale={[0.64, 0.64, 1]}
+          >
+            <planeGeometry args={[1, 1]} />
+            <meshBasicMaterial
+              map={texture}
+              transparent
+              depthWrite={false}
+              alphaTest={0.05}
+              side={THREE.DoubleSide}
+            />
+          </mesh>
+        );
+      })}
+    </group>
+  );
 }
 
 function DiceScene({ rolling, result, flash }) {
@@ -73,25 +177,27 @@ function DiceScene({ rolling, result, flash }) {
     active: false,
     startedAt: 0,
     duration: 0,
-    from: new THREE.Euler(0.06, 0.02, 0),
-    to: new THREE.Euler(0.06, 0.02, 0),
+    from: new THREE.Quaternion(),
+    to: new THREE.Quaternion(),
     spins: new THREE.Vector3(0, 0, 0),
   });
   const idleTime = React.useRef(0);
 
   React.useEffect(() => {
     if (!shellRef.current) return;
-    const base = shellRef.current.rotation.clone();
-    const targetArr = FACE_EULERS[result] || FACE_EULERS[20];
-    const target = new THREE.Euler(targetArr[0], targetArr[1], targetArr[2]);
+    const currentQuat = shellRef.current.quaternion.clone();
+    const face = FACE_LOOKUP.get(result) || FACE_LOOKUP.get(20);
+    const targetQuat = face
+      ? new THREE.Quaternion().setFromUnitVectors(face.normal.clone().normalize(), CAMERA_FACE_VECTOR)
+      : new THREE.Quaternion();
 
     if (rolling) {
       spinState.current = {
         active: true,
         startedAt: performance.now(),
-        duration: 2.55,
-        from: base,
-        to: target,
+        duration: 2.65,
+        from: currentQuat,
+        to: targetQuat,
         spins: new THREE.Vector3(
           THREE.MathUtils.randInt(3, 5) * Math.PI * 2,
           THREE.MathUtils.randInt(4, 7) * Math.PI * 2,
@@ -103,8 +209,8 @@ function DiceScene({ rolling, result, flash }) {
         active: true,
         startedAt: performance.now(),
         duration: 0.95,
-        from: base,
-        to: target,
+        from: currentQuat,
+        to: targetQuat,
         spins: new THREE.Vector3(0, 0, 0),
       };
     }
@@ -127,15 +233,22 @@ function DiceScene({ rolling, result, flash }) {
       const elapsed = (performance.now() - spin.startedAt) / 1000;
       const t = Math.min(elapsed / spin.duration, 1);
       const e = easeOutCubic(t);
-      shell.rotation.x = spin.from.x + spin.spins.x * (1 - e) + (spin.to.x - spin.from.x) * e;
-      shell.rotation.y = spin.from.y + spin.spins.y * (1 - e) + (spin.to.y - spin.from.y) * e;
-      shell.rotation.z = spin.from.z + spin.spins.z * (1 - e) + (spin.to.z - spin.from.z) * e;
+      const spinEuler = new THREE.Euler(
+        spin.spins.x * (1 - e),
+        spin.spins.y * (1 - e),
+        spin.spins.z * (1 - e),
+        "XYZ",
+      );
+      const spinQuat = new THREE.Quaternion().setFromEuler(spinEuler);
+      const baseQuat = spin.from.clone().slerp(spin.to, e);
+      shell.quaternion.copy(baseQuat.multiply(spinQuat));
       if (t >= 1) spin.active = false;
     } else if (!rolling) {
-      const targetArr = FACE_EULERS[result] || FACE_EULERS[20];
-      shell.rotation.x = THREE.MathUtils.lerp(shell.rotation.x, targetArr[0], 0.08);
-      shell.rotation.y = THREE.MathUtils.lerp(shell.rotation.y, targetArr[1] + Math.sin(idleTime.current * 0.55) * 0.04, 0.08);
-      shell.rotation.z = THREE.MathUtils.lerp(shell.rotation.z, targetArr[2], 0.08);
+      const face = FACE_LOOKUP.get(result) || FACE_LOOKUP.get(20);
+      if (face) {
+        const targetQuat = new THREE.Quaternion().setFromUnitVectors(face.normal.clone().normalize(), CAMERA_FACE_VECTOR);
+        shell.quaternion.slerp(targetQuat, 0.08);
+      }
     }
 
     const flare = rolling ? 1.15 : flash ? 1.08 : 1;
@@ -156,8 +269,7 @@ function DiceScene({ rolling, result, flash }) {
 
       <group ref={groupRef} position={[0, 0.1, 0]}>
         <group ref={shellRef}>
-          <mesh>
-            <icosahedronGeometry args={[1.56, 0]} />
+          <mesh geometry={FACE_BASE_GEOMETRY}>
             <meshPhysicalMaterial
               color="#66d9ff"
               metalness={0.22}
@@ -175,8 +287,7 @@ function DiceScene({ rolling, result, flash }) {
             />
           </mesh>
 
-          <mesh ref={innerRef} scale={0.88}>
-            <icosahedronGeometry args={[1.56, 0]} />
+          <mesh ref={innerRef} scale={0.88} geometry={FACE_BASE_GEOMETRY}>
             <meshStandardMaterial
               color="#081225"
               emissive="#38bdf8"
@@ -188,8 +299,10 @@ function DiceScene({ rolling, result, flash }) {
             />
           </mesh>
 
+          <FaceNumbers />
+
           <lineSegments>
-            <edgesGeometry args={[new THREE.IcosahedronGeometry(1.565, 0), 1]} />
+            <edgesGeometry args={[new THREE.IcosahedronGeometry(DIE_RADIUS + 0.005, 0), 1]} />
             <lineBasicMaterial color="#e2e8f0" transparent opacity={0.56} />
           </lineSegments>
 
@@ -328,11 +441,11 @@ export default function VipPresentD20() {
               <div>
                 <div className="text-xs uppercase tracking-[0.24em] text-slate-400">Presente VIP</div>
                 <h3 className="mt-2 text-2xl font-extrabold text-slate-100">Rolar d20 premium</h3>
-                <p className="mt-2 max-w-md text-sm text-slate-300">Troquei a peça antiga por uma cena 3D com icosaedro real, brilho de vidro e rotação mais próxima de um dado de mesa.</p>
+                <p className="mt-2 max-w-md text-sm text-slate-300">Agora o d20 realmente mostra os números nas faces, com volume, brilho e parada coerente com o resultado final.</p>
               </div>
               <div className="hidden sm:inline-flex items-center gap-2 rounded-full bg-white/6 px-3 py-1.5 text-xs font-semibold text-slate-200 ring-1 ring-white/10">
                 <span className="material-icons text-[16px] text-cyan-200">deployed_code</span>
-                Visual 3D
+                Faces numeradas
               </div>
             </div>
 
@@ -428,9 +541,9 @@ export default function VipPresentD20() {
               <span className="material-icons text-[18px] text-cyan-200">redeem</span>
               <div className="font-bold">Aba Presente</div>
             </div>
-            <p className="mt-3 text-sm leading-6 text-slate-300">Agora o presente usa uma cena 3D real em vez de um SVG achatado. O botão continua funcional e você pode rolar quantas vezes quiser dentro da área VIP.</p>
+            <p className="mt-3 text-sm leading-6 text-slate-300">Agora o presente usa um d20 3D com faces numeradas de verdade. A rotação termina mostrando o número da rolagem na própria face do dado.</p>
             <div className="mt-4 rounded-2xl bg-black/30 p-4 text-xs leading-5 text-slate-400 ring-1 ring-white/10">
-              A rolagem continua determinística no front para fins visuais, mas o dado ficou bem mais próximo de um d20 de verdade: volume, arestas, vidro, luz e rotação tridimensional.
+              Mantive a rolagem bonita e leve para navegador, mas o visual ficou muito mais próximo de um d20 real: números nas faces, arestas, brilho e parada coerente com o valor sorteado.
             </div>
           </div>
         </div>
