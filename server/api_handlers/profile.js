@@ -10,8 +10,8 @@
  * - SUPABASE_ANON_KEY
  * - SUPABASE_SERVICE_ROLE_KEY
  */
-import { getUserFromAuthHeader, supabaseAdmin } from "../server/supabase.js";
-import { rateLimit } from '../server/rateLimit.js';
+import { getUserFromAuthHeader, supabaseAdmin } from "../supabase.js";
+import { rateLimit } from '../rateLimit.js';
 
 export const config = { runtime: "nodejs" };
 

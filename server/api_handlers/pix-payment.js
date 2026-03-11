@@ -1,8 +1,8 @@
-import { renderVipWelcomeEmail, renderVipUpgradeEmail } from "../server/emailTemplates.js";
-import { getUserFromAuthHeader, supabaseAdmin } from "../server/supabase.js";
-import { getVipPlanById } from "../server/vipPlans.js";
-import { applyStockDeductionWithClaim } from "../server/inventory.js";
-import { rateLimit } from '../server/rateLimit.js';
+import { renderVipWelcomeEmail, renderVipUpgradeEmail } from "../emailTemplates.js";
+import { getUserFromAuthHeader, supabaseAdmin } from "../supabase.js";
+import { getVipPlanById } from "../vipPlans.js";
+import { applyStockDeductionWithClaim } from "../inventory.js";
+import { rateLimit } from '../rateLimit.js';
 
 export const config = { runtime: "nodejs" };
 

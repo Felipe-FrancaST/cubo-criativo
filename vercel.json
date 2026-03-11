@@ -1,44 +1,34 @@
 {
   "rewrites": [
-    {
-      "source": "/p/(.*)",
-      "destination": "/p/$1/index.html"
-    },
-    {
-      "source": "/api/admin/orders",
-      "destination": "/api/admin?action=orders"
-    },
-    {
-      "source": "/api/admin/update-order",
-      "destination": "/api/admin?action=update-order"
-    },
-    {
-      "source": "/api/admin/vip-voting",
-      "destination": "/api/admin?action=vip-voting"
-    },
-    {
-      "source": "/api/admin/vip-close-voting",
-      "destination": "/api/admin?action=vip-close-voting"
-    },
-    {
-      "source": "/api/create-vip-upgrade-pix-payment",
-      "destination": "/api/create-pix-payment?mode=vip_upgrade"
-    },
-    {
-      "source": "/api/(.*)",
-      "destination": "/api/$1"
-    },
-    {
-      "source": "/privacy.html",
-      "destination": "/privacy.html"
-    },
-    {
-      "source": "/terms.html",
-      "destination": "/terms.html"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
+    { "source": "/p/(.*)", "destination": "/p/$1/index.html" },
+
+    { "source": "/api/admin/orders", "destination": "/api/admin?action=orders" },
+    { "source": "/api/admin/update-order", "destination": "/api/admin?action=update-order" },
+    { "source": "/api/admin/vip-voting", "destination": "/api/admin?action=vip-voting" },
+    { "source": "/api/admin/vip-close-voting", "destination": "/api/admin?action=vip-close-voting" },
+    { "source": "/api/admin/vip-start-voting", "destination": "/api/admin?action=vip-start-voting" },
+    { "source": "/api/admin/vip-voting-image-library", "destination": "/api/admin?action=vip-voting-image-library" },
+    { "source": "/api/admin/vip-delete-voting", "destination": "/api/admin?action=vip-delete-voting" },
+    { "source": "/api/admin/resend-order-email", "destination": "/api/admin?action=resend-order-email" },
+    { "source": "/api/admin/delete-order", "destination": "/api/admin?action=delete-order" },
+    { "source": "/api/admin/game-coupon", "destination": "/api/admin?action=game-coupon" },
+    { "source": "/api/admin/save-game-coupon", "destination": "/api/admin?action=save-game-coupon" },
+    { "source": "/api/admin/game-coupon-metrics", "destination": "/api/admin?action=game-coupon-metrics" },
+
+    { "source": "/api/admin-status", "destination": "/api/core?action=admin-status" },
+    { "source": "/api/cancel-order", "destination": "/api/core?action=cancel-order" },
+    { "source": "/api/coupons", "destination": "/api/core?action=coupons" },
+    { "source": "/api/create-checkout-session", "destination": "/api/core?action=create-checkout-session" },
+    { "source": "/api/create-pix-payment", "destination": "/api/core?action=create-pix-payment" },
+    { "source": "/api/create-vip-upgrade-pix-payment", "destination": "/api/core?action=create-pix-payment&mode=vip_upgrade" },
+    { "source": "/api/delete-account", "destination": "/api/core?action=delete-account" },
+    { "source": "/api/pix-payment", "destination": "/api/core?action=pix-payment" },
+    { "source": "/api/profile", "destination": "/api/core?action=profile" },
+    { "source": "/api/vip-plans", "destination": "/api/core?action=vip-plans" },
+    { "source": "/api/vip-present", "destination": "/api/core?action=vip-present" },
+
+    { "source": "/privacy.html", "destination": "/privacy.html" },
+    { "source": "/terms.html", "destination": "/terms.html" },
+    { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

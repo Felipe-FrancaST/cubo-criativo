@@ -1,6 +1,6 @@
-import { getUserFromAuthHeader, supabaseAdmin } from '../server/supabase.js';
-import { getGamePeriodInfo, makeCouponCode, calcCouponDiscount } from '../server/couponGame.js';
-import { rateLimit } from '../server/rateLimit.js';
+import { getUserFromAuthHeader, supabaseAdmin } from '../supabase.js';
+import { getGamePeriodInfo, makeCouponCode, calcCouponDiscount } from '../couponGame.js';
+import { rateLimit } from '../rateLimit.js';
 
 async function readJsonBody(req) {
   if (req.body && typeof req.body === 'object') return req.body;

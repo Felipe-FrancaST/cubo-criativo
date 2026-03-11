@@ -1,4 +1,4 @@
-import { getAdminAuth } from "../server/admin/adminAuth.js";
+import { getAdminAuth } from "../admin/adminAuth.js";
 
 export const config = { runtime: "nodejs" };
 

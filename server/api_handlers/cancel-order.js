@@ -1,7 +1,7 @@
 // api/cancel-order.js
-import { getUserFromAuthHeader, supabaseAdmin } from "../server/supabase.js";
-import { renderOrderStatusEmail } from "../server/emailTemplates.js";
-import { rateLimit } from '../server/rateLimit.js';
+import { getUserFromAuthHeader, supabaseAdmin } from "../supabase.js";
+import { renderOrderStatusEmail } from "../emailTemplates.js";
+import { rateLimit } from '../rateLimit.js';
 
 async function sendResendEmail({to,subject,html}){
   const apiKey=String(process.env.RESEND_API_KEY||"" ).trim(); const from=String(process.env.RESEND_FROM||"" ).trim();
