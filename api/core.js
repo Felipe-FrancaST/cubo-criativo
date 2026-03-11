@@ -26,7 +26,7 @@ const ACTIONS = {
 
 export default async function handler(req, res) {
   try {
-    const action = String(req.query?.action || '').trim().toLowerCase();
+    const action = String(req.query?.api_action || req.query?.action || '').trim().toLowerCase();
     const fn = ACTIONS[action];
     if (!fn) return res.status(404).json({ error: 'Unknown API action' });
     return await fn(req, res);
