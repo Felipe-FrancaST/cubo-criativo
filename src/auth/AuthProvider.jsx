@@ -48,6 +48,32 @@ function userHasPassword(user) {
   return !(unique.length === 1 && unique[0] === 'google');
 }
 
+function isGoogleOnlyUser(user) {
+  if (!user) return false;
+  const providers = [];
+  const directProvider = String(user?.app_metadata?.provider || '').toLowerCase().trim();
+  const appProviders = Array.isArray(user?.app_metadata?.providers) ? user.app_metadata.providers : [];
+  const identityProviders = Array.isArray(user?.identities)
+    ? user.identities.map((i) => String(i?.provider || '').toLowerCase().trim()).filter(Boolean)
+    : [];
+  providers.push(
+    directProvider,
+    ...appProviders.map((p) => String(p || '').toLowerCase().trim()),
+    ...identityProviders,
+  );
+  const unique = Array.from(new Set(providers.filter(Boolean)));
+  return unique.length === 1 && unique[0] === 'google';
+}
+
+function hasAcceptedLegalTerms(user) {
+  return !!(
+    user?.user_metadata?.accepted_terms === true ||
+    user?.user_metadata?.accepted_privacy === true ||
+    user?.user_metadata?.terms_accepted_at ||
+    user?.user_metadata?.privacy_accepted_at
+  );
+}
+
 export function AuthProvider({ children }) {
   const [session, setSession] = React.useState(null);
   const [user, setUser] = React.useState(null);
@@ -60,11 +86,54 @@ export function AuthProvider({ children }) {
       return hasRecoverySignals();
     }
   });
+  const [needsGoogleTermsAcceptance, setNeedsGoogleTermsAcceptance] = React.useState(false);
+
+  const evaluateGoogleTermsGate = React.useCallback(async (nextUser) => {
+    if (!nextUser || !isGoogleOnlyUser(nextUser) || hasAcceptedLegalTerms(nextUser)) {
+      setNeedsGoogleTermsAcceptance(false);
+      return;
+    }
+    try {
+      const { data, error } = await supabase.from("profiles").select("id").eq("id", nextUser.id).maybeSingle();
+      if (!error && data?.id) {
+        setNeedsGoogleTermsAcceptance(false);
+        return;
+      }
+    } catch {}
+    setNeedsGoogleTermsAcceptance(true);
+  }, []);
+
+  async function completeGoogleTermsConsent() {
+    if (!user?.id) return { error: new Error("Usuário não autenticado.") };
+    const now = new Date().toISOString();
+    try {
+      const fullName = String(user?.user_metadata?.full_name || user?.user_metadata?.name || user?.identities?.[0]?.identity_data?.full_name || "").trim();
+      const { error: updErr } = await supabase.auth.updateUser({
+        data: {
+          ...user.user_metadata,
+          accepted_terms: true,
+          accepted_privacy: true,
+          terms_accepted_at: now,
+          privacy_accepted_at: now,
+        },
+      });
+      if (updErr) return { error: updErr };
+      const profilePayload = { id: user.id };
+      if (fullName) profilePayload.full_name = fullName;
+      try {
+        await supabase.from("profiles").upsert(profilePayload, { onConflict: "id" });
+      } catch {}
+      setNeedsGoogleTermsAcceptance(false);
+      return { error: null };
+    } catch (error) {
+      return { error };
+    }
+  }
 
   React.useEffect(() => {
     let mounted = true;
 
-    supabase.auth.getSession().then(({ data }) => {
+    supabase.auth.getSession().then(async ({ data }) => {
       if (!mounted) return;
       setSession(data.session || null);
       setUser(data.session?.user || null);
@@ -72,6 +141,7 @@ export function AuthProvider({ children }) {
         setIsPasswordRecovery(true);
         try { window.sessionStorage.setItem("cc_password_recovery", "1"); } catch {}
       }
+      await evaluateGoogleTermsGate(data.session?.user || null);
       setLoading(false);
     });
 
@@ -79,6 +149,7 @@ export function AuthProvider({ children }) {
       setSession(nextSession || null);
       setUser(nextSession?.user || null);
       setLoading(false);
+      evaluateGoogleTermsGate(nextSession?.user || null);
 
       if (event === "PASSWORD_RECOVERY") {
         setIsPasswordRecovery(true);
@@ -88,6 +159,7 @@ export function AuthProvider({ children }) {
 
       if (event === "SIGNED_OUT") {
         setIsPasswordRecovery(false);
+        setNeedsGoogleTermsAcceptance(false);
         try { window.sessionStorage.removeItem("cc_password_recovery"); } catch {}
         return;
       }
@@ -106,7 +178,7 @@ export function AuthProvider({ children }) {
       mounted = false;
       sub?.subscription?.unsubscribe?.();
     };
-  }, []);
+  }, [evaluateGoogleTermsGate]);
 
   async function saveProfile(userId, profile, jwt) {
     if (!userId || !profile) return { error: null };
@@ -255,8 +327,8 @@ export function AuthProvider({ children }) {
   const accountHasPassword = React.useMemo(() => userHasPassword(user), [user]);
 
   const value = React.useMemo(
-    () => ({ session, user, loading, signUp, signIn, signInWithGoogle, resetPassword, signOut, isPasswordRecovery, clearPasswordRecovery, accountHasPassword }),
-    [session, user, loading, isPasswordRecovery, accountHasPassword]
+    () => ({ session, user, loading, signUp, signIn, signInWithGoogle, resetPassword, signOut, isPasswordRecovery, clearPasswordRecovery, accountHasPassword, needsGoogleTermsAcceptance, completeGoogleTermsConsent }),
+    [session, user, loading, isPasswordRecovery, accountHasPassword, needsGoogleTermsAcceptance]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

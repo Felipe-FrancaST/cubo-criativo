@@ -349,7 +349,7 @@ function getRouteFromLocation() {
    APP
    ======================================================================== */
 export default function App() {
-  const { user, session, signOut, isPasswordRecovery } = useAuth();
+  const { user, session, signOut, isPasswordRecovery, needsGoogleTermsAcceptance } = useAuth();
   const accessToken = session?.access_token || "";
   const isAdmin = isAdminEmail(user?.email || "");
 
@@ -519,6 +519,11 @@ React.useEffect(() => {
     if (route === "/redefinir-senha") return;
     navigate("/redefinir-senha");
   }, [isPasswordRecovery, route]);
+
+  React.useEffect(() => {
+    if (!needsGoogleTermsAcceptance) return;
+    setAuthOpen(true);
+  }, [needsGoogleTermsAcceptance]);
 
   const [authOpen, setAuthOpen] = React.useState(false);
   const [ordersOpen, setOrdersOpen] = React.useState(false);

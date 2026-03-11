@@ -62,7 +62,7 @@ function PasswordInput({ value, onChange, autoComplete = "current-password", pla
 }
 
 export default function AuthModal({ open, onClose, onSuccess }) {
-  const { signIn, signUp, signInWithGoogle, resetPassword } = useAuth();
+  const { signIn, signUp, signInWithGoogle, resetPassword, signOut, needsGoogleTermsAcceptance, completeGoogleTermsConsent } = useAuth();
 
   function isValidCpf(raw) {
     const cpf = onlyDigits(raw);
@@ -85,6 +85,7 @@ export default function AuthModal({ open, onClose, onSuccess }) {
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [agreeTerms, setAgreeTerms] = React.useState(false);
+  const [googleAgreeTerms, setGoogleAgreeTerms] = React.useState(false);
 
   // signup/profile
   const [fullName, setFullName] = React.useState("");
@@ -115,6 +116,7 @@ export default function AuthModal({ open, onClose, onSuccess }) {
       setBusy(false);
       setPassword("");
       setAgreeTerms(false);
+      setGoogleAgreeTerms(false);
     }
   }, [open]);
 
@@ -262,9 +264,89 @@ export default function AuthModal({ open, onClose, onSuccess }) {
     }
   }
 
+
+  async function acceptGoogleTerms() {
+    setError("");
+    setInfo("");
+    if (!googleAgreeTerms) {
+      setError("Para concluir seu primeiro acesso com Google, você precisa concordar com os Termos de uso e a Política de Privacidade.");
+      return;
+    }
+    try {
+      setBusy(true);
+      const { error: err } = await completeGoogleTermsConsent();
+      if (err) throw err;
+      setInfo("Conta Google concluída com sucesso. Seja bem-vindo à Cubo Criativo.");
+      onSuccess?.();
+      onClose?.();
+    } catch (e) {
+      setError(e?.message || "Não foi possível concluir seu cadastro com Google.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <Modal open={open} onClose={onClose}>
       <div className="w-full max-w-md">
+        {needsGoogleTermsAcceptance ? (
+          <>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="font-extrabold text-xl">Concluir cadastro com Google</h3>
+                <p className="mt-1 text-xs text-slate-400">
+                  É o seu primeiro acesso com Google. Para finalizar a criação da conta, confirme sua concordância com nossos termos.
+                </p>
+              </div>
+              <button
+                onClick={signOut}
+                className="rounded-xl px-3 py-2 text-xs ring-1 ring-white/15 hover:bg-white/5"
+                aria-label="Sair"
+              >
+                Sair
+              </button>
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-teal-400/20 bg-teal-500/10 px-4 py-4 text-sm text-slate-200 ring-1 ring-white/10">
+              <div className="flex items-start gap-3">
+                <span className="material-icons text-teal-300">verified_user</span>
+                <div>
+                  <p className="font-semibold text-slate-100">Conta nova detectada</p>
+                  <p className="mt-1 text-slate-300">
+                    Se você já tinha uma conta criada antes, entre com seu e-mail e senha normalmente. Para seu primeiro acesso com Google, precisamos do aceite abaixo.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <label className="mt-4 flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-4 text-sm text-slate-300 ring-1 ring-white/10">
+              <input
+                type="checkbox"
+                checked={googleAgreeTerms}
+                onChange={(e) => setGoogleAgreeTerms(e.target.checked)}
+                className="mt-1 h-4 w-4 rounded border-white/20 bg-slate-900 text-teal-400 focus:ring-teal-400"
+              />
+              <span className="leading-6">
+                Li e concordo com os{' '}
+                <a href="/terms.html" target="_blank" rel="noreferrer" className="font-medium text-teal-300 hover:text-teal-200 underline underline-offset-4">Termos de uso</a>{' '}
+                e com a{' '}
+                <a href="/privacy.html" target="_blank" rel="noreferrer" className="font-medium text-teal-300 hover:text-teal-200 underline underline-offset-4">Política de Privacidade</a>.
+              </span>
+            </label>
+
+            <div className="mt-4 flex gap-3">
+              <button
+                type="button"
+                onClick={acceptGoogleTerms}
+                disabled={busy}
+                className={`flex-1 rounded-xl px-4 py-3 font-semibold ring-1 ring-white/10 transition ${busy ? 'bg-slate-700/50 text-slate-300 cursor-not-allowed' : 'bg-teal-500/90 text-slate-950 hover:bg-teal-400'}`}
+              >
+                {busy ? 'Concluindo...' : 'Concluir cadastro com Google'}
+              </button>
+            </div>
+          </>
+        ) : (
+
         <div className="flex items-center justify-between gap-3">
           <div>
             <h3 className="font-extrabold text-xl">{mode === "login" ? "Entrar" : "Criar conta"}</h3>
@@ -534,6 +616,7 @@ export default function AuthModal({ open, onClose, onSuccess }) {
             )}
           </div>
         </form>
+        )}
       </div>
     </Modal>
   );
