@@ -471,6 +471,34 @@ function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTrack
                 )}
               </div>
             ) : null}
+
+            {order?.vip_present_roll ? (
+              <div className="mt-3 rounded-2xl bg-violet-500/10 ring-1 ring-violet-300/20 p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-xs text-violet-200/80 uppercase tracking-wide">Presente VIP</div>
+                    <div className="mt-1 text-sm font-extrabold text-white">Resultado {order.vip_present_roll.roll_value}</div>
+                    <div className="mt-1 text-xs text-slate-200">{order.vip_present_roll.reward_label}</div>
+                  </div>
+                  <div className="rounded-xl px-3 py-2 text-sm font-black ring-1 ring-white/10 bg-black/30 text-violet-100">d20 {order.vip_present_roll.roll_value}</div>
+                </div>
+
+                {order.vip_present_roll.coupon?.code ? (
+                  <div className="mt-3 rounded-xl bg-black/25 ring-1 ring-white/10 p-3">
+                    <div className="text-[11px] uppercase tracking-wide text-slate-400">Cupom gerado</div>
+                    <div className="mt-1 text-sm font-bold text-slate-100">{order.vip_present_roll.coupon.code}</div>
+                    <div className="mt-1 text-xs text-slate-300">{order.vip_present_roll.coupon.label}</div>
+                  </div>
+                ) : null}
+
+                {order.vip_present_roll.roll_value === 20 ? (
+                  <div className="mt-3 rounded-xl bg-amber-400/10 ring-1 ring-amber-300/20 p-3 text-xs text-amber-50">
+                    Solicitação do prêmio: <b>{order.vip_present_roll.claim_status || 'available'}</b>
+                    {order.vip_present_roll.claimed_at ? ` • ${new Date(order.vip_present_roll.claimed_at).toLocaleString('pt-BR')}` : ''}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
           </div>
 
           <div className="mt-4 rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-3">

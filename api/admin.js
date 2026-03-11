@@ -864,25 +864,87 @@ async function handleOrders(req, res) {
   }
 
   const orderEventsResp = await loadOrderEvents(sb, orderIds);
+  const vipPresentResp = await loadVipPresentRolls(sb, vipOrders);
   const merged = list.map((o) => {
     const dbEvents = orderEventsResp.byOrder.get(String(o.id)) || [];
     const timeline = dbEvents.length ? dbEvents : synthesizeOrderTimeline(o);
+    const cycleKey = String(o.created_at || "").slice(0, 7);
     return {
       ...o,
       profile: o.user_id ? profileById.get(o.user_id) || null : null,
       order_items: itemsByOrder.get(o.id) || [],
       vip_selection:
         String(o.order_type || "").toLowerCase() === "vip" && o.user_id
-          ? vipSelByUserCycle.get(`${o.user_id}:${String(o.created_at || "").slice(0, 7)}`) || null
+          ? vipSelByUserCycle.get(`${o.user_id}:${cycleKey}`) || null
+          : null,
+      vip_present_roll:
+        String(o.order_type || "").toLowerCase() === "vip" && o.user_id
+          ? vipPresentResp.byKey.get(`${o.user_id}:${cycleKey}`) || null
           : null,
       timeline,
       timeline_source: dbEvents.length ? 'order_events' : 'synthetic',
     };
   });
 
-  return res.status(200).json({ orders: merged, timeline_enabled: !!orderEventsResp.tableAvailable });
+  return res.status(200).json({ orders: merged, timeline_enabled: !!orderEventsResp.tableAvailable, vip_present_enabled: !!vipPresentResp.tableAvailable });
 }
 
+
+
+async function loadVipPresentRolls(sb, vipOrders) {
+  if (!Array.isArray(vipOrders) || !vipOrders.length) return { byKey: new Map(), tableAvailable: false };
+
+  const userIds = Array.from(new Set(vipOrders.map((o) => String(o?.user_id || '')).filter(Boolean)));
+  const cycles = Array.from(new Set(vipOrders.map((o) => String(o?.created_at || '').slice(0, 7)).filter(Boolean)));
+  if (!userIds.length || !cycles.length) return { byKey: new Map(), tableAvailable: false };
+
+  let resp = await sb
+    .from('vip_present_rolls')
+    .select('id,user_id,cycle_key,roll_value,reward_kind,reward_label,coupon_code,claim_status,claimed_at,created_at')
+    .in('user_id', userIds)
+    .in('cycle_key', cycles);
+
+  if (resp?.error) {
+    const msg = String(resp.error.message || '');
+    if (/relation|does not exist|not exist/i.test(msg)) return { byKey: new Map(), tableAvailable: false };
+    return { byKey: new Map(), tableAvailable: true, error: resp.error };
+  }
+
+  const couponCodes = Array.from(new Set((resp?.data || []).map((row) => String(row?.coupon_code || '').trim().toUpperCase()).filter(Boolean)));
+  let couponByCode = new Map();
+  if (couponCodes.length) {
+    const couponResp = await sb
+      .from('coupons')
+      .select('code,label,discount_type,discount_value,min_order_value,expires_at,active,used_count,max_uses')
+      .in('code', couponCodes);
+    if (!couponResp?.error) {
+      couponByCode = new Map((couponResp.data || []).map((row) => [String(row.code || '').trim().toUpperCase(), row]));
+    }
+  }
+
+  const byKey = new Map();
+  (resp?.data || []).forEach((row) => {
+    const key = `${row.user_id}:${row.cycle_key}`;
+    const couponCode = String(row?.coupon_code || '').trim().toUpperCase();
+    const coupon = couponCode ? couponByCode.get(couponCode) || null : null;
+    byKey.set(key, {
+      ...row,
+      coupon: coupon ? {
+        code: coupon.code,
+        label: coupon.label,
+        discount_type: coupon.discount_type,
+        discount_value: coupon.discount_value,
+        min_order_value: coupon.min_order_value,
+        expires_at: coupon.expires_at,
+        active: coupon.active,
+        used_count: coupon.used_count,
+        max_uses: coupon.max_uses,
+      } : null,
+    });
+  });
+
+  return { byKey, tableAvailable: true, error: null };
+}
 
 async function handleDeleteOrder(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });

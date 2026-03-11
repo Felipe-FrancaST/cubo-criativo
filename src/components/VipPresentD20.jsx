@@ -331,59 +331,152 @@ function DiceScene({ rolling, faceValue, flash }) {
   );
 }
 
-export default function VipPresentD20() {
+export default function VipPresentD20({ accessToken = "", user = null, isVip = false, cycleKey = "" }) {
+  const [loading, setLoading] = React.useState(true);
   const [rolling, setRolling] = React.useState(false);
-  const [result, setResult] = React.useState(20);
-  const [targetValue, setTargetValue] = React.useState(20);
+  const [result, setResult] = React.useState(1);
+  const [targetValue, setTargetValue] = React.useState(1);
   const [flash, setFlash] = React.useState(false);
-  const [showResult, setShowResult] = React.useState(true);
+  const [showResult, setShowResult] = React.useState(false);
   const [burstKey, setBurstKey] = React.useState(0);
   const [settledAt, setSettledAt] = React.useState(Date.now());
+  const [status, setStatus] = React.useState(null);
+  const [error, setError] = React.useState("");
+  const [claimMessage, setClaimMessage] = React.useState("");
+  const [claiming, setClaiming] = React.useState(false);
+  const [copyOk, setCopyOk] = React.useState(false);
   const intervalRef = React.useRef(null);
   const endRef = React.useRef(null);
   const revealRef = React.useRef(null);
+  const flashTimeoutRef = React.useRef(null);
+  const copyRef = React.useRef(null);
+
+  const loadStatus = React.useCallback(async () => {
+    if (!accessToken || !user?.id) {
+      setLoading(false);
+      setStatus(null);
+      return;
+    }
+    setLoading(true);
+    setError("");
+    try {
+      const resp = await fetch('/api/vip-present?action=status', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data?.error || 'Não foi possível carregar o presente VIP.');
+      setStatus(data || null);
+      if (data?.roll?.roll_value) {
+        setResult(Number(data.roll.roll_value));
+        setTargetValue(Number(data.roll.roll_value));
+        setShowResult(true);
+        setSettledAt(data?.roll?.created_at ? new Date(data.roll.created_at).getTime() : Date.now());
+      } else {
+        setShowResult(false);
+      }
+    } catch (err) {
+      setError(err?.message || 'Não foi possível carregar o presente VIP.');
+    } finally {
+      setLoading(false);
+    }
+  }, [accessToken, user?.id]);
 
   React.useEffect(() => {
-    return () => {
-      if (intervalRef.current) window.clearInterval(intervalRef.current);
-      if (endRef.current) window.clearTimeout(endRef.current);
-      if (revealRef.current) window.clearTimeout(revealRef.current);
-    };
-  }, []);
+    loadStatus();
+  }, [loadStatus]);
 
-  const currentStory = storyFor(result);
-
-  function rollDice() {
-    if (rolling) return;
-    const next = Math.floor(Math.random() * 20) + 1;
-
-    setRolling(true);
-    setFlash(false);
-    setShowResult(false);
-    setBurstKey((v) => v + 1);
-
+  React.useEffect(() => () => {
     if (intervalRef.current) window.clearInterval(intervalRef.current);
     if (endRef.current) window.clearTimeout(endRef.current);
     if (revealRef.current) window.clearTimeout(revealRef.current);
+    if (flashTimeoutRef.current) window.clearTimeout(flashTimeoutRef.current);
+    if (copyRef.current) window.clearTimeout(copyRef.current);
+  }, []);
 
-    setTargetValue(next);
+  const rollData = status?.roll || null;
+  const currentValue = rollData?.roll_value ? Number(rollData.roll_value) : result;
+  const isJackpot = Boolean(rollData && currentValue === 20);
+  const currentStory = storyFor(currentValue);
+  const canRoll = Boolean(status?.can_roll && !rolling && !loading && !error && isVip);
 
-    const startedAt = performance.now();
-    intervalRef.current = window.setInterval(() => {
-      const elapsed = performance.now() - startedAt;
-      if (elapsed > 1500 && Math.random() > 0.78) setFlash((v) => !v);
-    }, 74);
+  async function handleRoll() {
+    if (!canRoll) return;
+    setError("");
+    setClaimMessage("");
+    setCopyOk(false);
+    if (intervalRef.current) window.clearInterval(intervalRef.current);
+    if (endRef.current) window.clearTimeout(endRef.current);
+    if (revealRef.current) window.clearTimeout(revealRef.current);
+    if (flashTimeoutRef.current) window.clearTimeout(flashTimeoutRef.current);
 
-    endRef.current = window.setTimeout(() => {
-      if (intervalRef.current) window.clearInterval(intervalRef.current);
-      intervalRef.current = null;
-      setResult(next);
-      setRolling(false);
-      setFlash(true);
-      setSettledAt(Date.now());
-      revealRef.current = window.setTimeout(() => setShowResult(true), 2000);
-      window.setTimeout(() => setFlash(false), 650);
-    }, 2550);
+    try {
+      const resp = await fetch('/api/vip-present?action=roll', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data?.error || 'Não foi possível registrar a rolagem.');
+
+      const roll = data?.roll || null;
+      const finalValue = Number(roll?.roll_value || 1);
+      setRolling(true);
+      setFlash(false);
+      setShowResult(false);
+      setBurstKey((v) => v + 1);
+      setTargetValue(finalValue);
+
+      const startedAt = performance.now();
+      intervalRef.current = window.setInterval(() => {
+        const elapsed = performance.now() - startedAt;
+        if (elapsed > 1500 && Math.random() > 0.78) setFlash((v) => !v);
+      }, 74);
+
+      endRef.current = window.setTimeout(() => {
+        if (intervalRef.current) window.clearInterval(intervalRef.current);
+        intervalRef.current = null;
+        setStatus((prev) => ({ ...(prev || {}), can_roll: false, roll }));
+        setResult(finalValue);
+        setRolling(false);
+        setFlash(true);
+        setSettledAt(Date.now());
+        revealRef.current = window.setTimeout(() => setShowResult(true), 2000);
+        flashTimeoutRef.current = window.setTimeout(() => setFlash(false), 650);
+      }, 2550);
+    } catch (err) {
+      setError(err?.message || 'Não foi possível registrar a rolagem.');
+    }
+  }
+
+  async function handleClaimPrize() {
+    if (!accessToken || claiming || currentValue !== 20) return;
+    setClaiming(true);
+    setError("");
+    try {
+      const resp = await fetch('/api/vip-present?action=claim', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cycle_key: status?.cycle_key || cycleKey || '' }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data?.error || 'Não foi possível solicitar o prêmio.');
+      setClaimMessage(data?.message || 'Entraremos em contato com você, aguarde.');
+      setStatus((prev) => prev ? { ...prev, roll: { ...(prev.roll || {}), claim_status: 'requested', claimed_at: new Date().toISOString() } } : prev);
+    } catch (err) {
+      setError(err?.message || 'Não foi possível solicitar o prêmio.');
+    } finally {
+      setClaiming(false);
+    }
+  }
+
+  async function copyCoupon() {
+    const code = String(rollData?.coupon?.code || rollData?.coupon_code || '').trim();
+    if (!code) return;
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopyOk(true);
+      if (copyRef.current) window.clearTimeout(copyRef.current);
+      copyRef.current = window.setTimeout(() => setCopyOk(false), 1600);
+    } catch {}
   }
 
   return (
@@ -428,125 +521,157 @@ export default function VipPresentD20() {
         }
       `}</style>
 
-      <div className="flex flex-col gap-5 lg:flex-row lg:items-stretch">
-        <div className="relative flex-1 rounded-[30px] overflow-hidden bg-[linear-gradient(180deg,rgba(2,6,23,.96),rgba(2,6,23,.8))] ring-1 ring-white/10 min-h-[460px]">
-          <div className={`absolute inset-x-0 top-0 h-56 bg-gradient-to-b ${currentStory.aura} pointer-events-none`} />
-          <div className="vip-present-grid absolute inset-0 opacity-65 pointer-events-none" />
-          <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,.06),transparent_28%,transparent_72%,rgba(255,255,255,.03))] pointer-events-none" />
-
-          <div className="relative h-full flex flex-col items-center justify-between px-4 py-5 sm:px-6 sm:py-6">
-            <div className="w-full flex items-start justify-between gap-3">
-              <div>
-                <div className="text-xs uppercase tracking-[0.24em] text-slate-400">Presente VIP</div>
-                <h3 className="mt-2 text-2xl font-extrabold text-slate-100">Rolar d20 premium</h3>
-                <p className="mt-2 max-w-md text-sm text-slate-300">Agora o d20 realmente mostra os números nas faces, com volume, brilho e parada coerente com o resultado final.</p>
-              </div>
-              <div className="hidden sm:inline-flex items-center gap-2 rounded-full bg-white/6 px-3 py-1.5 text-xs font-semibold text-slate-200 ring-1 ring-white/10">
-                <span className="material-icons text-[16px] text-cyan-200">deployed_code</span>
-                Faces numeradas
-              </div>
-            </div>
-
-            <div className="relative w-full flex-1 min-h-[300px] grid place-items-center">
-              <div className="absolute inset-0 pointer-events-none overflow-hidden">
-                {SPARKS.map((spark, index) => (
-                  <span
-                    key={`${burstKey}-${spark.id}`}
-                    className={`absolute bottom-[24%] rounded-full bg-gradient-to-b from-white via-cyan-200 to-transparent ${rolling || flash ? "vip-present-burst" : "opacity-0"}`}
-                    style={{
-                      left: `${spark.left}%`,
-                      width: `${spark.size}px`,
-                      height: `${spark.size * 2.4}px`,
-                      animationDelay: `${spark.delay}s`,
-                      animationDuration: `${spark.duration}s`,
-                      ["--dx"]: `${(index % 2 === 0 ? -1 : 1) * (26 + (index % 5) * 18)}px`,
-                      ["--dy"]: `${-120 - (index % 4) * 34}px`,
-                      filter: "blur(.28px)",
-                    }}
-                  />
-                ))}
-                <span className={`${rolling || flash ? "vip-present-ring" : "opacity-0"} absolute left-1/2 top-[58%] h-44 w-44 rounded-full border border-cyan-300/40`} />
-                <span className={`${rolling || flash ? "vip-present-ring" : "opacity-0"} absolute left-1/2 top-[58%] h-60 w-60 rounded-full border border-fuchsia-300/26`} style={{ animationDelay: ".12s" }} />
-              </div>
-
-              <div className="vip-present-stage-canvas relative h-[330px] w-full max-w-[520px]">
-                <Canvas dpr={[1, 1.8]} camera={{ position: [0, 0.2, 5.4], fov: 34 }}>
-                  <DiceScene rolling={rolling} faceValue={rolling ? targetValue : result} flash={flash} />
-                </Canvas>
-              </div>
-
-              <div
-                className={`vip-present-pill absolute bottom-[12%] left-1/2 z-10 -translate-x-1/2 rounded-[28px] border border-white/10 bg-slate-950/50 px-4 py-3 text-center ring-1 ring-white/10 transition-all duration-500 ${
-                  rolling || !showResult ? "pointer-events-none translate-y-4 scale-95 opacity-0" : "translate-y-0 scale-100 opacity-100"
-                }`}
-                aria-hidden={rolling || !showResult}
-              >
-                <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400">Resultado</div>
-                <div className={`mt-1 text-5xl font-black leading-none ${flash ? "text-amber-200" : "text-white"}`}>{result}</div>
-                <div className="mt-2 inline-flex items-center justify-center rounded-full border border-white/10 bg-black/35 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.34em] text-slate-300">
-                  d20
-                </div>
-              </div>
-            </div>
-
-            <div className="w-full flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="rounded-2xl bg-black/30 px-4 py-3 ring-1 ring-white/10">
-                <div className="text-[11px] uppercase tracking-[0.24em] text-slate-400">Última rolagem</div>
-                <div className="mt-1 flex items-end gap-2">
-                  <span className="text-3xl font-black text-white">{result}</span>
-                  <span className="pb-1 text-xs text-slate-400">às {new Date(settledAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={rollDice}
-                disabled={rolling}
-                className={`group inline-flex items-center justify-center gap-3 rounded-2xl px-5 py-4 font-extrabold ring-1 ring-white/10 transition ${rolling ? "bg-slate-700/60 text-slate-300" : "bg-gradient-to-r from-cyan-300 via-sky-200 to-fuchsia-200 text-slate-950 hover:scale-[1.02] hover:shadow-[0_12px_40px_rgba(56,189,248,.22)]"}`}
-              >
-                <span className="material-icons text-[20px]">casino</span>
-                {rolling ? "Rolando..." : "Rolar d20"}
-                <span className="material-icons text-[18px] transition group-hover:translate-x-0.5">arrow_forward</span>
-              </button>
-            </div>
+      <div className="rounded-[26px] bg-gradient-to-br from-slate-950 via-slate-900 to-black p-5 ring-1 ring-white/10">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className="text-xs uppercase tracking-[0.28em] text-slate-400">Presente VIP</div>
+            <h3 className="mt-2 text-2xl font-extrabold text-slate-100">Uma rolagem por ciclo mensal</h3>
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">
+              Todo mês o assinante VIP ganha uma única rolagem do d20. O número define o presente do ciclo: se cair cupom, ele é criado automaticamente e salvo na sua conta; se cair 20, você libera uma <b>miniatura personalizada exclusiva 🎁</b> e pode solicitar o prêmio aqui mesmo.
+            </p>
+          </div>
+          <div className="rounded-2xl bg-white/6 px-4 py-3 ring-1 ring-white/10 text-right">
+            <div className="text-[11px] uppercase tracking-[0.24em] text-slate-400">Ciclo</div>
+            <div className="mt-1 text-lg font-black text-white">{status?.cycle_key || cycleKey || '—'}</div>
+            <div className="mt-1 text-xs text-slate-400">{rollData ? 'Rolagem já usada neste mês' : 'Uma chance disponível neste mês'}</div>
           </div>
         </div>
 
-        <div className="w-full lg:w-[360px] shrink-0 space-y-4">
-          <div className="rounded-[26px] bg-gradient-to-br from-slate-950 via-slate-900 to-black p-5 ring-1 ring-white/10">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <div className="text-xs uppercase tracking-[0.24em] text-slate-400">Resultado</div>
-                <div className="mt-2 text-2xl font-extrabold text-slate-100">{currentStory.title}</div>
-              </div>
-              <div className={`grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br ${result >= 18 ? "from-amber-300 to-orange-300 text-black" : result >= 12 ? "from-violet-300 to-cyan-300 text-black" : "from-slate-800 to-slate-700 text-white"} ring-1 ring-white/10 text-xl font-black`}>
-                {result}
-              </div>
-            </div>
-            <p className="mt-4 text-sm leading-6 text-slate-300">{currentStory.text}</p>
-            <div className="mt-4 rounded-2xl bg-white/5 p-4 ring-1 ring-white/10">
-              <div className="text-[11px] uppercase tracking-[0.24em] text-slate-400">Leitura rápida</div>
-              <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
-                <div className="rounded-xl bg-black/25 p-3 ring-1 ring-white/8">
-                  <div className="text-slate-400">Faixa</div>
-                  <div className="mt-1 font-extrabold text-slate-100">{result <= 5 ? "Baixa" : result <= 14 ? "Média" : "Alta"}</div>
+        {error ? <div className="mt-4 rounded-2xl bg-rose-500/10 ring-1 ring-rose-400/20 px-4 py-3 text-sm text-rose-100">{error}</div> : null}
+        {!isVip ? <div className="mt-4 rounded-2xl bg-amber-500/10 ring-1 ring-amber-400/20 px-4 py-3 text-sm text-amber-50">Esta rolagem fica disponível apenas para assinantes VIP com plano ativo.</div> : null}
+
+        <div className="mt-5 flex flex-col gap-5 lg:flex-row lg:items-stretch">
+          <div className="relative flex-1 rounded-[30px] overflow-hidden bg-[linear-gradient(180deg,rgba(2,6,23,.96),rgba(2,6,23,.8))] ring-1 ring-white/10 min-h-[460px]">
+            <div className={`absolute inset-x-0 top-0 h-56 bg-gradient-to-b ${currentStory.aura} pointer-events-none`} />
+            <div className="vip-present-grid absolute inset-0 opacity-65 pointer-events-none" />
+            <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,.06),transparent_28%,transparent_72%,rgba(255,255,255,.03))] pointer-events-none" />
+
+            <div className="relative h-full flex flex-col items-center justify-between px-4 py-5 sm:px-6 sm:py-6">
+              <div className="w-full flex items-start justify-between gap-3">
+                <div className="rounded-2xl bg-black/25 px-4 py-3 ring-1 ring-white/10">
+                  <div className="text-[11px] uppercase tracking-[0.24em] text-slate-400">Status da rodada</div>
+                  <div className="mt-2 text-sm font-semibold text-slate-100">{loading ? 'Carregando presente...' : rolling ? 'Rolando o d20...' : rollData ? 'Resultado definido para este ciclo' : 'Pronto para rolar'}</div>
                 </div>
-                <div className="rounded-xl bg-black/25 p-3 ring-1 ring-white/8">
-                  <div className="text-slate-400">Clima</div>
-                  <div className="mt-1 font-extrabold text-slate-100">{result === 20 ? "Lendário" : result >= 15 ? "Excelente" : result >= 10 ? "Promissor" : "Instável"}</div>
+                <div className="hidden sm:inline-flex items-center gap-2 rounded-full bg-white/6 px-3 py-1.5 text-xs font-semibold text-slate-200 ring-1 ring-white/10">
+                  <span className="material-icons text-[16px] text-cyan-200">redeem</span>
+                  Presente mensal VIP
                 </div>
+              </div>
+
+              <div className="relative w-full flex-1 min-h-[300px] grid place-items-center">
+                <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                  {SPARKS.map((spark, index) => (
+                    <span
+                      key={`${burstKey}-${spark.id}`}
+                      className={`absolute bottom-[24%] rounded-full bg-gradient-to-b from-white via-cyan-200 to-transparent ${rolling || flash ? 'vip-present-burst' : 'opacity-0'}`}
+                      style={{
+                        left: `${spark.left}%`,
+                        width: `${spark.size}px`,
+                        height: `${spark.size * 2.4}px`,
+                        animationDelay: `${spark.delay}s`,
+                        animationDuration: `${spark.duration}s`,
+                        ['--dx']: `${(index % 2 === 0 ? -1 : 1) * (26 + (index % 5) * 18)}px`,
+                        ['--dy']: `${-120 - (index % 4) * 34}px`,
+                        filter: 'blur(.28px)',
+                      }}
+                    />
+                  ))}
+                  <span className={`${rolling || flash ? 'vip-present-ring' : 'opacity-0'} absolute left-1/2 top-[58%] h-44 w-44 rounded-full border border-cyan-300/40`} />
+                  <span className={`${rolling || flash ? 'vip-present-ring' : 'opacity-0'} absolute left-1/2 top-[58%] h-60 w-60 rounded-full border border-fuchsia-300/26`} style={{ animationDelay: '.12s' }} />
+                </div>
+
+                <div className="vip-present-stage-canvas relative h-[330px] w-full max-w-[520px]">
+                  <Canvas dpr={[1, 1.8]} camera={{ position: [0, 0.2, 5.4], fov: 34 }}>
+                    <DiceScene rolling={rolling} faceValue={rolling ? targetValue : currentValue} flash={flash} />
+                  </Canvas>
+                </div>
+
+                <div
+                  className={`vip-present-pill absolute bottom-[12%] left-1/2 z-10 -translate-x-1/2 rounded-[28px] border border-white/10 bg-slate-950/50 px-4 py-3 text-center ring-1 ring-white/10 transition-all duration-500 ${rolling || !showResult ? 'pointer-events-none translate-y-4 scale-95 opacity-0' : 'translate-y-0 scale-100 opacity-100'}`}
+                  aria-hidden={rolling || !showResult}
+                >
+                  <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400">Resultado</div>
+                  <div className={`mt-1 text-5xl font-black leading-none ${flash ? 'text-amber-200' : 'text-white'}`}>{currentValue}</div>
+                </div>
+              </div>
+
+              <div className="w-full flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="rounded-2xl bg-black/30 px-4 py-3 ring-1 ring-white/10">
+                  <div className="text-[11px] uppercase tracking-[0.24em] text-slate-400">Última definição</div>
+                  <div className="mt-1 flex items-end gap-2">
+                    <span className="text-3xl font-black text-white">{currentValue}</span>
+                    {rollData ? <span className="pb-1 text-xs text-slate-400">às {new Date(settledAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span> : null}
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleRoll}
+                  disabled={!canRoll}
+                  className={`group inline-flex items-center justify-center gap-3 rounded-2xl px-5 py-4 font-extrabold ring-1 ring-white/10 transition ${canRoll ? 'bg-gradient-to-r from-cyan-300 via-sky-200 to-fuchsia-200 text-slate-950 hover:scale-[1.02] hover:shadow-[0_12px_40px_rgba(56,189,248,.22)]' : 'bg-slate-700/60 text-slate-300 cursor-not-allowed'}`}
+                >
+                  <span className="material-icons text-[20px]">casino</span>
+                  {loading ? 'Carregando...' : rolling ? 'Rolando...' : rollData ? 'Rolagem usada neste mês' : 'Rolar meu presente'}
+                </button>
               </div>
             </div>
           </div>
 
-          <div className="rounded-[26px] bg-white/5 p-5 ring-1 ring-white/10">
-            <div className="flex items-center gap-2 text-slate-200">
-              <span className="material-icons text-[18px] text-cyan-200">redeem</span>
-              <div className="font-bold">Aba Presente</div>
+          <div className="w-full lg:w-[380px] shrink-0 space-y-4">
+            <div className="rounded-[26px] bg-white/5 p-5 ring-1 ring-white/10">
+              <div className="text-xs uppercase tracking-[0.24em] text-slate-400">Como funciona</div>
+              <div className="mt-3 space-y-3 text-sm leading-6 text-slate-300">
+                <p><b>1.</b> Você tem <b>uma rolagem por ciclo mensal VIP</b>.</p>
+                <p><b>2.</b> O número do d20 define automaticamente seu presente.</p>
+                <p><b>3.</b> Se cair cupom, ele é gerado e salvo na sua conta para uso no carrinho.</p>
+                <p><b>4.</b> Se cair <b>20</b>, você libera uma miniatura personalizada exclusiva e pode solicitar o prêmio aqui mesmo.</p>
+              </div>
             </div>
-            <p className="mt-3 text-sm leading-6 text-slate-300">Agora o presente usa um d20 3D com faces numeradas de verdade. A rotação termina mostrando o número da rolagem na própria face do dado.</p>
-            <div className="mt-4 rounded-2xl bg-black/30 p-4 text-xs leading-5 text-slate-400 ring-1 ring-white/10">
-              Mantive a rolagem bonita e leve para navegador, mas o visual ficou muito mais próximo de um d20 real: números nas faces, arestas, brilho e parada coerente com o valor sorteado.
+
+            <div className={`rounded-[26px] p-5 ring-1 ${isJackpot ? 'bg-gradient-to-br from-amber-400/20 via-yellow-300/10 to-transparent ring-amber-300/30' : 'bg-gradient-to-br from-slate-950 via-slate-900 to-black ring-white/10'}`}>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-xs uppercase tracking-[0.24em] text-slate-400">Resultado do ciclo</div>
+                  <div className="mt-2 text-2xl font-extrabold text-slate-100">{rollData ? rollData.reward_title : 'Seu presente ainda não foi rolado'}</div>
+                </div>
+                <div className={`grid h-14 w-14 place-items-center rounded-2xl ring-1 ring-white/10 text-xl font-black ${isJackpot ? 'bg-gradient-to-br from-amber-300 to-yellow-200 text-black' : currentValue >= 12 ? 'bg-gradient-to-br from-violet-300 to-cyan-300 text-black' : 'bg-gradient-to-br from-slate-800 to-slate-700 text-white'}`}>
+                  {currentValue}
+                </div>
+              </div>
+
+              <div className="mt-4 rounded-2xl bg-black/25 p-4 ring-1 ring-white/10">
+                <div className="text-sm font-bold text-slate-100">{rollData ? rollData.reward_label : 'Faça a rolagem para descobrir seu presente.'}</div>
+                <p className="mt-2 text-sm leading-6 text-slate-300">{rollData ? rollData.reward_message : 'O sistema registra a rolagem do mês, guarda o resultado e libera automaticamente o benefício correspondente.'}</p>
+              </div>
+
+              {rollData?.coupon?.code ? (
+                <div className="mt-4 rounded-2xl bg-emerald-500/10 p-4 ring-1 ring-emerald-300/20">
+                  <div className="text-[11px] uppercase tracking-[0.24em] text-emerald-200/80">Cupom salvo na sua conta</div>
+                  <div className="mt-2 text-xl font-black text-emerald-50">{rollData.coupon.code}</div>
+                  <div className="mt-1 text-sm text-emerald-100/90">{rollData.coupon.label}</div>
+                  <div className="mt-1 text-xs text-emerald-100/70">Validade: {rollData.coupon.expires_at ? new Date(rollData.coupon.expires_at).toLocaleDateString('pt-BR') : '—'}</div>
+                  <button type="button" onClick={copyCoupon} className="mt-3 rounded-xl bg-emerald-200 px-4 py-3 text-sm font-extrabold text-black hover:bg-emerald-100">{copyOk ? 'Cupom copiado' : 'Copiar cupom'}</button>
+                </div>
+              ) : null}
+
+              {isJackpot && rollData ? (
+                <div className="mt-4 rounded-2xl bg-amber-400/10 p-4 ring-1 ring-amber-300/20">
+                  <div className="text-sm font-extrabold text-amber-50">Parabéns, você tirou 20!</div>
+                  <p className="mt-2 text-sm leading-6 text-amber-50/90">Você liberou uma miniatura personalizada exclusiva 🎁.</p>
+                  {String(rollData.claim_status || '').toLowerCase() === 'requested' ? (
+                    <div className="mt-3 rounded-xl bg-black/25 px-4 py-3 text-sm text-amber-50">{claimMessage || 'Entraremos em contato com você, aguarde.'}</div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleClaimPrize}
+                      disabled={claiming}
+                      className="mt-3 rounded-xl bg-amber-300 px-4 py-3 text-sm font-extrabold text-black hover:bg-amber-200 disabled:opacity-60"
+                    >
+                      {claiming ? 'Enviando...' : 'Solicitar meu prêmio'}
+                    </button>
+                  )}
+                </div>
+              ) : null}
             </div>
           </div>
         </div>

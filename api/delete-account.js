@@ -62,6 +62,7 @@ export default async function handler(req, res) {
       sb.from('coupon_redemptions').delete().eq('user_id', user.id),
       sb.from('customer_reviews').delete().eq('user_id', user.id),
       sb.from('coupon_game_sessions').delete().eq('user_id', user.id),
+      sb.from('vip_present_rolls').delete().eq('user_id', user.id),
       sb.from('vip_mini_selections').delete().eq('user_id', user.id),
       sb.from('vip_theme_votes').delete().eq('user_id', user.id),
     ];

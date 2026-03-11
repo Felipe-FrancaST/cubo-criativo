@@ -86,7 +86,8 @@ function clearVipCache(key) {
 }
 
 export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, asPage = false, onGoHome }) {
-  const { user, loading: authLoading } = useAuth();
+  const { user, session, loading: authLoading } = useAuth();
+  const accessToken = session?.access_token || "";
 
   const isOpen = asPage ? true : open;
 
@@ -914,7 +915,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
 
               {tab === 'presente' ? (
                 <div className="mt-5">
-                  <VipPresentD20 />
+                  <VipPresentD20 accessToken={accessToken} user={user} isVip={isVip} cycleKey={cycle} />
                 </div>
               ) : null}
 
