@@ -352,6 +352,10 @@ export default function App() {
   const { user, session, signOut, isPasswordRecovery, needsGoogleTermsAcceptance } = useAuth();
   const accessToken = session?.access_token || "";
   const isAdmin = isAdminEmail(user?.email || "");
+  console.log("ADMIN APP DEBUG", {
+  email: user?.email,
+  isAdmin,
+});
 
   // VIP (best-effort) via cache local para evitar flashes no menu.
 // IMPORTANTE: o cache pode ficar "stale" se um pagamento falhar/cancelar.
