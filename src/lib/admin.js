@@ -1,16 +1,24 @@
-export function parseAdminEmails(raw) {
-  const s = String(raw || "").trim();
-  if (!s) return [];
-  return s
-    .split(/[;,\n]/g)
-    .map((x) => String(x || "").trim().toLowerCase())
-    .filter(Boolean);
-}
-
 export function isAdminEmail(email) {
-  const envRaw = import.meta?.env?.VITE_ADMIN_EMAILS || import.meta?.env?.VITE_ADMIN_EMAIL;
-  const list = parseAdminEmails(envRaw);
-  const e = String(email || "").trim().toLowerCase();
-  if (!e) return false;
-  return list.includes(e);
+  const raw =
+    import.meta.env.VITE_ADMIN_EMAILS ||
+    import.meta.env.VITE_ADMIN_EMAIL ||
+    "";
+
+  const admins = raw
+    .split(/[\n,;]+/)
+    .map((v) => v.trim().toLowerCase())
+    .filter(Boolean);
+
+  const normalizedEmail = (email || "").trim().toLowerCase();
+  const match = admins.includes(normalizedEmail);
+
+  console.log("ADMIN DEBUG", {
+    email,
+    normalizedEmail,
+    raw,
+    admins,
+    match,
+  });
+
+  return match;
 }
