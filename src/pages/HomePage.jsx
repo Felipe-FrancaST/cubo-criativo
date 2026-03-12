@@ -4,16 +4,8 @@ import ProductCard from "../components/ProductCard.jsx";
 import { supabase } from "../lib/supabaseClient";
 
 const FALLBACK_BANNER = {
-  eyebrow: "Loja Geek",
-  title: "Action figures, miniaturas e peças épicas para sua coleção",
-  description:
-    "Destaques em resina, pintura premium e promoções para quem curte RPG, fantasia e cultura geek.",
   image_url: "/images/banner-geek-home.svg",
   mobile_image_url: "",
-  cta_primary_label: "Explorar catálogo",
-  cta_secondary_label: "Ver promoções",
-  badge_text: "Destaque da semana",
-  overlay_strength: 72,
 };
 
 function resolveBannerImage(banner, isMobile) {
@@ -70,9 +62,7 @@ export default function HomePage({
         const now = new Date().toISOString();
         const { data, error } = await supabase
           .from("home_banners")
-          .select(
-            "id,eyebrow,title,description,image_url,mobile_image_url,cta_primary_label,cta_secondary_label,badge_text,overlay_strength"
-          )
+.select("id,image_url,mobile_image_url")
           .eq("is_active", true)
           .or(`starts_at.is.null,starts_at.lte.${now}`)
           .or(`ends_at.is.null,ends_at.gte.${now}`)
@@ -88,9 +78,6 @@ export default function HomePage({
           setBanner({
             ...FALLBACK_BANNER,
             ...data,
-            overlay_strength: Number.isFinite(Number(data?.overlay_strength))
-              ? Math.max(0, Math.min(95, Number(data.overlay_strength)))
-              : FALLBACK_BANNER.overlay_strength,
           });
         } else {
           setBanner(FALLBACK_BANNER);
@@ -136,69 +123,23 @@ export default function HomePage({
   }, []);
 
   const bannerImage = resolveBannerImage(banner, isMobileBanner);
-  const overlayOpacity = Math.max(0.45, Number(banner?.overlay_strength || 72) / 100);
 
   return (
     <main className="flex-1">
       {/* BANNER GEEK */}
       <section className="container-cc px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6">
-        <div className="relative overflow-hidden rounded-[28px] ring-1 ring-white/10 bg-slate-950 shadow-2xl">
-          <div className="absolute inset-0">
+        <div className="relative overflow-hidden rounded-[24px] sm:rounded-[28px] ring-1 ring-white/10 bg-slate-950 shadow-2xl">
+          <div className="relative aspect-[16/9] w-full sm:aspect-[16/7] lg:aspect-[16/6]">
             <img
               src={bannerImage}
-              alt={banner?.title || "Banner da loja Cubo Criativo"}
-              className="h-full w-full object-cover"
+              alt="Banner da loja Cubo Criativo"
+              className="absolute inset-0 h-full w-full object-cover"
               loading="eager"
             />
+            {bannerLoading ? (
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-cyan-400/10 via-cyan-300/80 to-fuchsia-400/10" />
+            ) : null}
           </div>
-          <div
-            className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/80 to-slate-950/30 sm:to-transparent"
-            style={{ opacity: overlayOpacity }}
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/25 to-transparent" />
-
-          <div className="relative min-h-[220px] sm:min-h-[280px] lg:min-h-[340px] px-5 py-6 sm:px-8 sm:py-8 lg:px-10 lg:py-10 flex items-end">
-            <div className="max-w-[560px]">
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="inline-flex items-center gap-2 rounded-full bg-black/40 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.22em] text-cyan-200 ring-1 ring-cyan-300/20 backdrop-blur">
-                  <span className="h-2 w-2 rounded-full bg-fuchsia-400" />
-                  {banner?.eyebrow || FALLBACK_BANNER.eyebrow}
-                </p>
-                {banner?.badge_text ? (
-                  <span className="inline-flex items-center rounded-full bg-fuchsia-500/20 px-3 py-1 text-[11px] font-semibold text-fuchsia-100 ring-1 ring-fuchsia-300/20 backdrop-blur">
-                    {banner.badge_text}
-                  </span>
-                ) : null}
-              </div>
-
-              <h2 className="mt-3 text-2xl font-black leading-tight text-white sm:text-4xl lg:text-5xl">
-                {banner?.title || FALLBACK_BANNER.title}
-              </h2>
-
-              <p className="mt-3 max-w-[46ch] text-sm leading-6 text-slate-200 sm:text-base">
-                {banner?.description || FALLBACK_BANNER.description}
-              </p>
-
-              <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-                <button
-                  onClick={onGoCatalogo}
-                  className="rounded-xl bg-cyan-400 px-5 py-3 text-sm font-extrabold text-slate-950 shadow-lg shadow-cyan-500/20 ring-4 ring-cyan-400/20"
-                >
-                  {banner?.cta_primary_label || FALLBACK_BANNER.cta_primary_label}
-                </button>
-                <button
-                  onClick={onGoPromocoes}
-                  className="rounded-xl border border-white/15 bg-black/25 px-5 py-3 text-sm font-semibold text-white backdrop-blur hover:bg-white/10"
-                >
-                  {banner?.cta_secondary_label || FALLBACK_BANNER.cta_secondary_label}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {bannerLoading ? (
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-cyan-400/10 via-cyan-300/80 to-fuchsia-400/10" />
-          ) : null}
         </div>
       </section>
 
