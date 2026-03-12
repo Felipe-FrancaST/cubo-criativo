@@ -154,28 +154,19 @@ export default function VipRpgPage({
   }, [pendingStart, selectedPlanId]);
 
   React.useEffect(() => {
-    if (!pix?.order_id || !accessToken) return undefined;
-
+    if (!pix?.order_id || !accessToken) return;
     let stopped = false;
-    let timer = null;
-    let inFlight = false;
-
-    const tick = async () => {
-      if (stopped || inFlight) return;
-      inFlight = true;
-      try {
-        const done = await verifyVipPix(pix.order_id);
-        if (done || stopped) return;
-      } finally {
-        inFlight = false;
-        if (!stopped) timer = window.setTimeout(tick, 5000);
+    const t = setInterval(async () => {
+      if (stopped) return;
+      const done = await verifyVipPix(pix.order_id);
+      if (done) {
+        stopped = true;
+        clearInterval(t);
       }
-    };
-
-    timer = window.setTimeout(tick, 5000);
+    }, 5000);
     return () => {
       stopped = true;
-      if (timer) window.clearTimeout(timer);
+      clearInterval(t);
     };
   }, [pix?.order_id, accessToken]);
 

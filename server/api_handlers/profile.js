@@ -82,8 +82,9 @@ export default async function handler(req, res) {
       for (const [k, v] of Object.entries(incoming || {})) {
         if (!ALLOWED.has(k)) continue;
         const val = typeof v === "string" ? v.trim() : v;
-        if (val === undefined) continue;
-        payload[k] = val === "" ? null : val;
+        // Permite null para limpar campos (ex: segundo endereço)
+        if (val === "" || val === undefined) continue;
+        payload[k] = val;
       }
 
       const { error } = await sb.from("profiles").upsert(payload, { onConflict: "id" });

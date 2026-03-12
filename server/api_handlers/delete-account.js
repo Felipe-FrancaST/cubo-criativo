@@ -45,25 +45,17 @@ export default async function handler(req, res) {
     const confirm = body?.confirm === true;
 
     if (!confirm) return res.status(400).json({ error: 'Confirme a exclusão da conta.' });
+    if (!password) return res.status(400).json({ error: 'Informe sua senha atual.' });
     if (!user?.email) return res.status(400).json({ error: 'Não foi possível identificar o e-mail da conta.' });
 
-    const providers = Array.isArray(user?.app_metadata?.providers) ? user.app_metadata.providers : [];
-    const needsPassword = !providers.length || providers.includes('email');
-
-    if (needsPassword) {
-      if (!password) return res.status(400).json({ error: 'Informe sua senha atual.' });
-      const verifiedUser = await verifyPassword(String(user.email), password);
-      if (!verifiedUser || verifiedUser.id !== user.id) {
-        return res.status(403).json({ error: 'Senha incorreta.' });
-      }
+    const verifiedUser = await verifyPassword(String(user.email), password);
+    if (!verifiedUser || verifiedUser.id !== user.id) {
+      return res.status(403).json({ error: 'Senha incorreta.' });
     }
 
     const sb = supabaseAdmin();
 
-    const { error: delErr } = await sb.auth.admin.deleteUser(user.id, true);
-    if (delErr) return res.status(500).json({ error: delErr.message || 'Não foi possível excluir a conta.' });
-
-    // Limpeza best-effort de dados acoplados ao usuário após exclusão no Auth.
+    // Limpeza best-effort de dados acoplados ao usuário.
     const cleanupOps = [
       sb.from('profiles').delete().eq('id', user.id),
       sb.from('favorite_products').delete().eq('user_id', user.id),
@@ -83,6 +75,9 @@ export default async function handler(req, res) {
         console.warn('delete-account cleanup rejected:', r.reason);
       }
     });
+
+    const { error: delErr } = await sb.auth.admin.deleteUser(user.id, true);
+    if (delErr) return res.status(500).json({ error: delErr.message || 'Não foi possível excluir a conta.' });
 
     return res.status(200).json({ ok: true });
   } catch (e) {

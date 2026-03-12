@@ -12,10 +12,12 @@ function assertReady() {
     console.error("[prerender] dist/ não encontrado. Rode 'vite build' antes.");
     process.exit(1);
   }
-}
-
-function hasSupabaseEnv() {
-  return Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    console.error(
+      "[prerender] Variáveis faltando: VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY (use .env ou variáveis no deploy)."
+    );
+    process.exit(1);
+  }
 }
 
 function slugifySafe(s) {
@@ -196,12 +198,8 @@ async function main() {
   assertReady();
   const baseHtml = fs.readFileSync(path.join(DIST, "index.html"), "utf8");
 
-  const origin = String(process.env.SITE_ORIGIN || process.env.VITE_SITE_ORIGIN || "https://www.cubocriativo3d.com.br").replace(/\/$/, "");
-  const products = hasSupabaseEnv() ? await fetchProducts() : [];
-
-  if (!hasSupabaseEnv()) {
-    console.warn("[prerender] VITE_SUPABASE_URL/VITE_SUPABASE_ANON_KEY ausentes. Pulando páginas de produto dinâmicas.");
-  }
+  const origin = "https://www.cubocriativo3d.com.br";
+  const products = await fetchProducts();
 
   const productPages = [];
   let rendered = 0;
