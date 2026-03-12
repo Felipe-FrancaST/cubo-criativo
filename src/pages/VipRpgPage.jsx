@@ -15,6 +15,10 @@ function fmtBRL(v) {
   return `R$ ${n.toFixed(2).replace('.', ',')}`;
 }
 
+function pluralize(count, singular, plural = `${singular}s`) {
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+
 export default function VipRpgPage({
   user,
   accessToken,
@@ -73,6 +77,33 @@ export default function VipRpgPage({
 
   const visiblePlans = (Array.isArray(plans) ? plans : []).filter((p) => p?.id);
   const selectedPlan = visiblePlans.find((p) => p.id === selectedPlanId) || visiblePlans[0] || null;
+  const selectedMiniaturesCount = Math.max(0, Number(selectedPlan?.miniatures_count || 0) || 0);
+  const selectedBossCount = Math.max(0, Number(selectedPlan?.boss_count || 0) || 0);
+  const selectedItemsPerMonth = Math.max(
+    0,
+    Number(selectedPlan?.items_per_month ?? (selectedMiniaturesCount + selectedBossCount)) || (selectedMiniaturesCount + selectedBossCount)
+  );
+  const selectedReceiveItems = React.useMemo(() => {
+    if (!selectedPlan) return [];
+    const items = [];
+
+    if (selectedMiniaturesCount > 0) {
+      items.push(`${pluralize(selectedMiniaturesCount, 'miniatura')} mensal${selectedMiniaturesCount > 1 ? 'eis' : ''} em resina premium`);
+    }
+
+    if (selectedBossCount > 0) {
+      items.push(`${pluralize(selectedBossCount, 'boss', 'bosses')} exclusivo${selectedBossCount > 1 ? 's' : ''} por mês`);
+    }
+
+    if (selectedItemsPerMonth > 0) {
+      items.push(`Escolha de até ${pluralize(selectedItemsPerMonth, 'item')} por ciclo na Área VIP`);
+    } else {
+      items.push('Escolha na Área VIP');
+    }
+
+    items.push('Cubo Game e benefícios VIP');
+    return items;
+  }, [selectedPlan, selectedMiniaturesCount, selectedBossCount, selectedItemsPerMonth]);
 
   function pixStatusPtLabel(v) {
     const st = String(v || '').toLowerCase();
@@ -401,9 +432,12 @@ export default function VipRpgPage({
                 <div className="rounded-2xl bg-white/4 ring-1 ring-white/10 p-5">
                   <p className="text-sm font-extrabold">O que você recebe</p>
                   <ul className="mt-3 space-y-2 text-sm text-slate-200">
-                    <li className="flex gap-2"><span className="text-emerald-300">✓</span> <span>Miniaturas mensais (resina premium)</span></li>
-                    <li className="flex gap-2"><span className="text-emerald-300">✓</span> <span>Escolha na Área VIP</span></li>
-                    <li className="flex gap-2"><span className="text-emerald-300">✓</span> <span>Cubo Game e benefícios VIP</span></li>
+                    {selectedReceiveItems.map((item) => (
+                      <li key={item} className="flex gap-2">
+                        <span className="text-emerald-300">✓</span>
+                        <span>{item}</span>
+                      </li>
+                    ))}
                   </ul>
                 </div>
 
