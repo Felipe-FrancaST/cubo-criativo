@@ -522,18 +522,10 @@ export default function VipPresentD20({ accessToken = "", user = null, isVip = f
       `}</style>
 
       <div className="rounded-[26px] bg-gradient-to-br from-slate-950 via-slate-900 to-black p-5 ring-1 ring-white/10">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <div className="text-xs uppercase tracking-[0.28em] text-slate-400">Presente VIP</div>
-            <h3 className="mt-2 text-2xl font-extrabold text-slate-100">Uma rolagem por ciclo mensal</h3>
-            <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">
-              Todo mês o assinante VIP ganha uma única rolagem do d20. O número define o presente do ciclo: se cair cupom, ele é criado automaticamente e salvo na sua conta; se cair 20, você libera uma <b>miniatura personalizada exclusiva 🎁</b> e pode solicitar o prêmio aqui mesmo.
-            </p>
-          </div>
-          <div className="rounded-2xl bg-white/6 px-4 py-3 ring-1 ring-white/10 text-right">
-            <div className="text-[11px] uppercase tracking-[0.24em] text-slate-400">Ciclo</div>
-            <div className="mt-1 text-lg font-black text-white">{status?.cycle_key || cycleKey || '—'}</div>
-            <div className="mt-1 text-xs text-slate-400">{rollData ? 'Rolagem já usada neste mês' : 'Uma chance disponível neste mês'}</div>
+        <div className="flex items-center justify-between gap-3">
+          <div className="text-xs uppercase tracking-[0.28em] text-slate-400">Presente VIP</div>
+          <div className="rounded-full bg-white/6 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-300 ring-1 ring-white/10">
+            Ciclo {status?.cycle_key || cycleKey || '—'}
           </div>
         </div>
 
@@ -541,7 +533,7 @@ export default function VipPresentD20({ accessToken = "", user = null, isVip = f
         {!isVip ? <div className="mt-4 rounded-2xl bg-amber-500/10 ring-1 ring-amber-400/20 px-4 py-3 text-sm text-amber-50">Esta rolagem fica disponível apenas para assinantes VIP com plano ativo.</div> : null}
 
         <div className="mt-5 flex flex-col gap-5 lg:flex-row lg:items-stretch">
-          <div className="relative flex-1 rounded-[30px] overflow-hidden bg-[linear-gradient(180deg,rgba(2,6,23,.96),rgba(2,6,23,.8))] ring-1 ring-white/10 min-h-[460px]">
+          <div className="relative flex-1 rounded-[30px] overflow-hidden bg-[linear-gradient(180deg,rgba(2,6,23,.96),rgba(2,6,23,.8))] ring-1 ring-white/10 min-h-[340px] sm:min-h-[420px] lg:min-h-[460px]">
             <div className={`absolute inset-x-0 top-0 h-56 bg-gradient-to-b ${currentStory.aura} pointer-events-none`} />
             <div className="vip-present-grid absolute inset-0 opacity-65 pointer-events-none" />
             <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,.06),transparent_28%,transparent_72%,rgba(255,255,255,.03))] pointer-events-none" />
@@ -558,7 +550,7 @@ export default function VipPresentD20({ accessToken = "", user = null, isVip = f
                 </div>
               </div>
 
-              <div className="relative w-full flex-1 min-h-[300px] grid place-items-center">
+              <div className="relative w-full flex-1 min-h-[200px] sm:min-h-[260px] lg:min-h-[300px] grid place-items-center">
                 <div className="absolute inset-0 pointer-events-none overflow-hidden">
                   {SPARKS.map((spark, index) => (
                     <span
@@ -580,14 +572,14 @@ export default function VipPresentD20({ accessToken = "", user = null, isVip = f
                   <span className={`${rolling || flash ? 'vip-present-ring' : 'opacity-0'} absolute left-1/2 top-[58%] h-60 w-60 rounded-full border border-fuchsia-300/26`} style={{ animationDelay: '.12s' }} />
                 </div>
 
-                <div className="vip-present-stage-canvas relative h-[330px] w-full max-w-[520px]">
+                <div className="vip-present-stage-canvas relative h-[220px] sm:h-[290px] lg:h-[330px] w-full max-w-[260px] sm:max-w-[420px] lg:max-w-[520px]">
                   <Canvas dpr={[1, 1.8]} camera={{ position: [0, 0.2, 5.4], fov: 34 }}>
                     <DiceScene rolling={rolling} faceValue={rolling ? targetValue : currentValue} flash={flash} />
                   </Canvas>
                 </div>
 
                 <div
-                  className={`vip-present-pill absolute bottom-[12%] left-1/2 z-10 -translate-x-1/2 rounded-[28px] border border-white/10 bg-slate-950/50 px-4 py-3 text-center ring-1 ring-white/10 transition-all duration-500 ${rolling || !showResult ? 'pointer-events-none translate-y-4 scale-95 opacity-0' : 'translate-y-0 scale-100 opacity-100'}`}
+                  className={`vip-present-pill absolute bottom-[10%] sm:bottom-[12%] left-1/2 z-10 -translate-x-1/2 rounded-[28px] border border-white/10 bg-slate-950/50 px-4 py-3 text-center ring-1 ring-white/10 transition-all duration-500 ${rolling || !showResult ? 'pointer-events-none translate-y-4 scale-95 opacity-0' : 'translate-y-0 scale-100 opacity-100'}`}
                   aria-hidden={rolling || !showResult}
                 >
                   <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400">Resultado</div>
