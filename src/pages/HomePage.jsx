@@ -194,22 +194,22 @@ export default function HomePage({
               <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start">
                 <button
                   onClick={onGoEstoque}
-                  className="rounded-xl px-5 py-3 bg-cyan-400 text-black font-bold ring-4 ring-cyan-400/20 text-center"
+                  className="hero-cta hero-cta-primary"
                 >
-                  Peças em estoque
+                  <span className="hero-cta__label">Peças em estoque</span>
                 </button>
                 <button
                   onClick={onGoCatalogo}
-                  className="rounded-xl px-5 py-3 ring-1 ring-white/20 hover:bg-white/4 text-center"
+                  className="hero-cta hero-cta-secondary"
                 >
-                  Catálogo completo
+                  <span className="hero-cta__label">Catálogo completo</span>
                 </button>
               </div>
               <button
                 onClick={onGoCupom}
-                className="rounded-xl px-5 py-3 ring-1 ring-amber-300/25 bg-cyan-300/10 text-amber-100 hover:bg-amber-200/15 text-center font-semibold"
+                className="hero-cta hero-cta-accent"
               >
-                Ganhe Cupons
+                <span className="hero-cta__label">Ganhe Cupons</span>
               </button>
             </div>
 
