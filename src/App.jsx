@@ -123,25 +123,26 @@ function mapProductRow(row) {
   const promoActive = !!row?.promo;
   const promoPriceCents = toInt(row?.price_cents ?? 0);
   const originalPriceCents = toInt(row?.original_price_cents ?? 0);
+
   const effectiveBasePriceCents = promoActive
     ? (promoPriceCents > 0 ? promoPriceCents : originalPriceCents)
     : (originalPriceCents > 0 ? originalPriceCents : promoPriceCents);
-  const promoRatio = promoActive && promoPriceCents > 0 && originalPriceCents > 0 && promoPriceCents < originalPriceCents
-    ? promoPriceCents / originalPriceCents
-    : null;
+
+  const strikePriceCents = promoActive && originalPriceCents > effectiveBasePriceCents
+    ? originalPriceCents
+    : 0;
 
   const variants = Array.isArray(row?.variants)
     ? row.variants
         .filter(Boolean)
         .map((v) => {
           const fullPriceCents = toInt(v?.price_cents ?? 0);
-          const effectiveVariantPriceCents = promoRatio ? Math.max(0, Math.round(fullPriceCents * promoRatio)) : fullPriceCents;
           return {
             label: String(v?.label ?? ""),
-            // compat: preço em BRL que o front já usa
-            price: centsToBRL(effectiveVariantPriceCents),
-            // novo: mantém centavos para cálculos (promo/variante)
-            priceCents: effectiveVariantPriceCents,
+            // Mantém o preço cheio da variante; o desconto promocional
+            // é aplicado depois em src/lib/pricing.js.
+            price: centsToBRL(fullPriceCents),
+            priceCents: fullPriceCents,
           };
         })
         .filter((v) => v.label)
@@ -161,11 +162,11 @@ function mapProductRow(row) {
     imgs,
     status: row?.status ? String(row.status) : "catalogo",
     featured: !!row?.featured,
-    promo: !!row?.promo,
-    originalPrice: centsToBRL(originalPriceCents),
+    promo: promoActive,
+    originalPrice: centsToBRL(strikePriceCents),
     preco: centsToBRL(effectiveBasePriceCents),
     // novo: mantém centavos para promo/variante
-    originalPriceCents,
+    originalPriceCents: strikePriceCents,
     priceCents: effectiveBasePriceCents,
     currency: row?.currency ? String(row.currency) : "brl",
     // stock:

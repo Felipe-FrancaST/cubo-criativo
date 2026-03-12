@@ -443,20 +443,19 @@ setZip2(data?.address2_zip || "");
         const effectiveBasePriceCents = promoActive
           ? (promoPriceCents > 0 ? promoPriceCents : originalPriceCents)
           : (originalPriceCents > 0 ? originalPriceCents : promoPriceCents);
-        const promoRatio = promoActive && promoPriceCents > 0 && originalPriceCents > 0 && promoPriceCents < originalPriceCents
-          ? promoPriceCents / originalPriceCents
-          : null;
+        const strikePriceCents = promoActive && originalPriceCents > effectiveBasePriceCents
+          ? originalPriceCents
+          : 0;
 
         const variants = Array.isArray(row?.variants)
           ? row.variants
               .filter(Boolean)
               .map((v) => {
                 const fullPriceCents = toInt(v?.price_cents ?? 0);
-                const effectiveVariantPriceCents = promoRatio ? Math.max(0, Math.round(fullPriceCents * promoRatio)) : fullPriceCents;
                 return {
                   label: String(v?.label ?? ''),
-                  price: centsToBRL(effectiveVariantPriceCents),
-                  priceCents: effectiveVariantPriceCents,
+                  price: centsToBRL(fullPriceCents),
+                  priceCents: fullPriceCents,
                 };
               })
               .filter((v) => v.label)
@@ -476,10 +475,10 @@ setZip2(data?.address2_zip || "");
           imgs: allImgs,
           status: row?.status ? String(row.status) : 'catalogo',
           featured: !!row?.featured,
-          promo: !!row?.promo,
-          originalPrice: centsToBRL(originalPriceCents),
+          promo: promoActive,
+          originalPrice: centsToBRL(strikePriceCents),
           preco: centsToBRL(effectiveBasePriceCents),
-          originalPriceCents,
+          originalPriceCents: strikePriceCents,
           priceCents: effectiveBasePriceCents,
           currency: row?.currency ? String(row.currency) : 'brl',
           stock:
