@@ -499,12 +499,14 @@ export default function CartDrawer({
             onClick={() => (onPayWithCoupon ? onPayWithCoupon(couponInfo) : onPay?.())}
             disabled={paying || !canCheckout}
             className={`w-full text-center rounded-lg px-4 py-3 font-semibold ring-1 ring-white/10 transition \
-              ${paying || !canCheckout
-                ? "bg-slate-700/50 text-slate-300 cursor-not-allowed"
-                : "bg-indigo-500 hover:bg-indigo-400 text-white"}`}
+              ${paying
+                ? "bg-amber-300/20 text-amber-50 cursor-wait ring-amber-200/15"
+                : !canCheckout
+                  ? "bg-slate-700/50 text-slate-300 cursor-not-allowed"
+                  : "bg-indigo-500 hover:bg-indigo-400 text-white"}`}
             title={!canCheckout ? "Defina os preços dos produtos antes de pagar." : ""}
           >
-            {paying ? "Abrindo pagamento…" : "Pagar com cartão"}
+            {paying ? "Aguarde…" : "Pagar com cartão"}
           </button>
 
           {pixNotice && (
@@ -528,12 +530,14 @@ export default function CartDrawer({
             onClick={handlePix}
             disabled={pixLoading || !canCheckout}
             className={`w-full rounded-lg px-4 py-3 font-semibold transition ${
-              pixLoading || !canCheckout
-                ? "bg-slate-700/50 text-slate-300 cursor-not-allowed"
-                : "bg-sky-500 hover:bg-sky-400 text-black"
+              pixLoading
+                ? "bg-amber-300/20 text-amber-50 cursor-wait"
+                : !canCheckout
+                  ? "bg-slate-700/50 text-slate-300 cursor-not-allowed"
+                  : "bg-sky-500 hover:bg-sky-400 text-black"
             }`}
           >
-            {pixLoading ? "Gerando Pix…" : "Pagar com Pix"}
+            {pixLoading ? "Aguarde…" : "Pagar com Pix"}
           </button>
 
           <a

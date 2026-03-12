@@ -36,6 +36,7 @@ import PasswordResetPage from "./pages/PasswordResetPage.jsx";
 import { fetchAdminStatus } from "./lib/admin.js";
 import { applySeo, setJsonLd, clearJsonLd } from "./lib/seo.js";
 import { trackEvent } from "./lib/analytics.js";
+import { consumeScrollRestore, readProductReturnState, queueScrollRestore } from "./lib/navigation.js";
 
 // (Removido) Modo RPG separado: agora as peças RPG vivem dentro do Catálogo.
 
@@ -485,6 +486,14 @@ React.useEffect(() => {
 // (Alguns cliques usam links normais/popstate e o browser manteria o scroll.)
 React.useEffect(() => {
   if (typeof window === "undefined") return;
+
+  const restore = consumeScrollRestore(route);
+  if (restore) {
+    const y = Number(restore.scrollY || 0) || 0;
+    requestAnimationFrame(() => window.scrollTo({ top: y, left: 0, behavior: "auto" }));
+    setTimeout(() => window.scrollTo({ top: y, left: 0, behavior: "auto" }), 50);
+    return;
+  }
 
   // Faz o scroll depois do repaint da nova rota (mais confiável em mobile),
   // e repete em seguida para neutralizar "scroll restoration" em alguns browsers.
@@ -1263,6 +1272,16 @@ React.useEffect(() => {
           loading={productsLoading}
           onBack={() => {
             try {
+              const ret = readProductReturnState();
+              if (ret?.path) {
+                queueScrollRestore(ret.path, ret.scrollY);
+                if (window.history.length > 1) {
+                  window.history.back();
+                  return;
+                }
+                navigate(ret.path);
+                return;
+              }
               if (window.history.length > 1) window.history.back();
               else navigate("/catalogo");
             } catch {
@@ -1409,6 +1428,7 @@ React.useEffect(() => {
         onGoFaq={() => navigate("/faq")}
         onGoPoliticas={() => navigate("/politica-de-privacidade")}
         onGoCupom={() => navigate("/cupom")}
+        onGoVipPlans={() => navigate("/planos-vip")}
         onGoSobEncomenda={() => navigate("/catalogo")}
       
           onRequireLogin={(msg) => requireLogin(msg)}

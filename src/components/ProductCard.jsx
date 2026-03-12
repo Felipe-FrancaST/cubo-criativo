@@ -2,6 +2,7 @@ import React from "react";
 import { fmtBRL, centsToBRL, getVariantPricingCents, percentOffCents } from "../lib/pricing.js";
 import { useFavorites } from "../state/FavoritesProvider.jsx";
 import { useAuth } from "../auth/AuthProvider.jsx";
+import { saveProductReturnState } from "../lib/navigation.js";
 
 /**
  * Props:
@@ -136,6 +137,7 @@ export default function ProductCard({ p, addToCart, buyNow, openGallery, onRequi
           {p?.slug ? (
             <a
               href={`/p/${p.slug}`}
+              onClick={() => saveProductReturnState()}
               className="text-xs font-semibold text-teal-300 hover:text-teal-200 underline underline-offset-4 shrink-0"
               aria-label={`Abrir página de ${p.nome}`}
               title="Abrir página do produto"

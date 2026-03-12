@@ -30,6 +30,7 @@ export default function HomePage({
   onGoFaq,
   onGoPoliticas,
   onGoCupom,
+  onGoVipPlans,
   onRequireLogin,
 }) {
   const [depoimentos, setDepoimentos] = React.useState([]);
@@ -133,8 +134,14 @@ export default function HomePage({
     <main className="flex-1">
       {/* BANNER GEEK */}
       <section className="container-cc px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6">
-        <div className="relative overflow-hidden rounded-[24px] sm:rounded-[28px] ring-1 ring-white/10 bg-slate-950 shadow-2xl">
-          <div className="relative aspect-[16/9] w-full sm:aspect-[16/7] lg:aspect-[16/6] bg-[radial-gradient(circle_at_center,_rgba(196,153,74,0.16),_rgba(22,18,14,0.96)_68%)]">
+        <button
+          type="button"
+          onClick={() => onGoVipPlans?.()}
+          className="block w-full text-left rounded-[24px] sm:rounded-[28px] focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/60"
+          aria-label="Abrir planos VIP"
+        >
+          <div className="relative overflow-hidden rounded-[24px] sm:rounded-[28px] ring-1 ring-white/10 bg-slate-950 shadow-2xl hover:ring-amber-300/30 transition">
+            <div className="relative aspect-[16/9] w-full sm:aspect-[16/7] lg:aspect-[16/6] bg-[radial-gradient(circle_at_center,_rgba(196,153,74,0.16),_rgba(22,18,14,0.96)_68%)]">
             {bannerImage ? (
               <>
                 <img
@@ -156,8 +163,12 @@ export default function HomePage({
             {(bannerLoading || (bannerImage && !bannerImageLoaded)) ? (
               <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-amber-400/10 via-amber-300/80 to-red-400/10" />
             ) : null}
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-end p-3 sm:p-4">
+              <span className="rounded-full bg-black/40 px-3 py-1 text-[11px] sm:text-xs font-semibold tracking-wide text-amber-100 ring-1 ring-white/10 backdrop-blur">Conheça os planos VIP</span>
+            </div>
+            </div>
           </div>
-        </div>
+        </button>
       </section>
 
       {/* HERO / PROMO */}
@@ -175,18 +186,26 @@ export default function HomePage({
             </h1>
 
 
-            <div className="mt-6 flex flex-col sm:flex-row gap-3 max-w-md mx-auto lg:mx-0 justify-center lg:justify-start">
+            <div className="mt-6 flex flex-col gap-3 max-w-md mx-auto lg:mx-0">
+              <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start">
+                <button
+                  onClick={onGoEstoque}
+                  className="rounded-xl px-5 py-3 bg-teal-400 text-black font-bold ring-4 ring-teal-400/20 text-center"
+                >
+                  Peças em estoque
+                </button>
+                <button
+                  onClick={onGoCatalogo}
+                  className="rounded-xl px-5 py-3 ring-1 ring-white/20 hover:bg-white/5 text-center"
+                >
+                  Catálogo completo
+                </button>
+              </div>
               <button
-                onClick={onGoEstoque}
-                className="rounded-xl px-5 py-3 bg-teal-400 text-black font-bold ring-4 ring-teal-400/20 text-center"
+                onClick={onGoCupom}
+                className="rounded-xl px-5 py-3 ring-1 ring-amber-300/25 bg-amber-200/10 text-amber-100 hover:bg-amber-200/15 text-center font-semibold"
               >
-                Peças em estoque
-              </button>
-              <button
-                onClick={onGoCatalogo}
-                className="rounded-xl px-5 py-3 ring-1 ring-white/20 hover:bg-white/5 text-center"
-              >
-                Catálogo completo
+                Ganhe Cupons
               </button>
             </div>
 

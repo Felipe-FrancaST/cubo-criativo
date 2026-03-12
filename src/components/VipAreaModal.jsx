@@ -1009,16 +1009,16 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                       <button
                         disabled={upgradeBusy}
                         onClick={() => { setUpgradePayMethod('card'); setUpgradePayOpen(false); startUpgradeCard(); }}
-                        className="rounded-xl px-4 py-3 font-extrabold bg-teal-400 text-black ring-4 ring-teal-400/20 hover:opacity-95 disabled:opacity-60"
+                        className={`rounded-xl px-4 py-3 font-extrabold ring-4 transition ${upgradeBusy ? "bg-amber-300/20 text-amber-50 ring-amber-200/15 cursor-wait" : "bg-teal-400 text-black ring-teal-400/20 hover:opacity-95"}`}
                       >
-                        Pagar com cartão
+                        {upgradeBusy && upgradePayMethod === 'card' ? 'Aguarde…' : 'Pagar com cartão'}
                       </button>
                       <button
                         disabled={upgradeBusy}
                         onClick={() => { setUpgradePayMethod('pix'); setUpgradePayOpen(false); startUpgradePix(); }}
-                        className="rounded-xl px-4 py-3 font-semibold ring-1 ring-white/15 hover:bg-white/5 disabled:opacity-60"
+                        className={`rounded-xl px-4 py-3 font-semibold ring-1 transition ${upgradeBusy ? "bg-amber-300/20 text-amber-50 ring-amber-200/15 cursor-wait" : "ring-white/15 hover:bg-white/5"}`}
                       >
-                        Pagar com Pix
+                        {upgradeBusy && upgradePayMethod === 'pix' ? 'Aguarde…' : 'Pagar com Pix'}
                       </button>
                     </div>
                   </div>
