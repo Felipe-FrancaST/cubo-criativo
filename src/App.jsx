@@ -1,5 +1,5 @@
 // src/App.jsx
-import React from "react";
+import React, { Suspense } from "react";
 import brand from "./data/config";
 
 // Componentes
@@ -14,29 +14,31 @@ import { useAuth } from "./auth/AuthProvider.jsx";
 import { supabase } from "./lib/supabaseClient";
 
 // Páginas
-import HomePage from "./pages/HomePage.jsx";
-import StockPage from "./pages/StockPage.jsx";
-import CatalogPage from "./pages/CatalogPage.jsx";
-import AccountPage from "./pages/AccountPage.jsx";
-import SettingsPage from "./pages/SettingsPage.jsx";
-import PromocoesPage from "./pages/PromocoesPage.jsx";
-import ProductPage from "./pages/ProductPage.jsx";
-import SobrePage from "./pages/SobrePage.jsx";
-import ContactPage from "./pages/ContactPage.jsx";
-import AdminOrdersPage from "./pages/AdminOrdersPage.jsx";
-import FAQPage from "./pages/FAQPage.jsx";
-import PoliticaPrivacidadePage from "./pages/PoliticaPrivacidadePage.jsx";
-import TrocasPage from "./pages/TrocasPage.jsx";
-import TermosPage from "./pages/TermosPage.jsx";
-import CupomGamePage from "./pages/CupomGamePage.jsx";
-import VipRpgPage from "./pages/VipRpgPage.jsx";
-import VipRedirectPage from "./pages/VipRedirectPage.jsx";
-import VipAreaPage from "./pages/VipAreaPage.jsx";
-import PasswordResetPage from "./pages/PasswordResetPage.jsx";
 import { fetchAdminStatus } from "./lib/admin.js";
 import { applySeo, setJsonLd, clearJsonLd } from "./lib/seo.js";
 import { trackEvent } from "./lib/analytics.js";
 import { consumeScrollRestore, readProductReturnState, queueScrollRestore } from "./lib/navigation.js";
+
+const HomePage = React.lazy(() => import("./pages/HomePage.jsx"));
+const StockPage = React.lazy(() => import("./pages/StockPage.jsx"));
+const CatalogPage = React.lazy(() => import("./pages/CatalogPage.jsx"));
+const AccountPage = React.lazy(() => import("./pages/AccountPage.jsx"));
+const SettingsPage = React.lazy(() => import("./pages/SettingsPage.jsx"));
+const PromocoesPage = React.lazy(() => import("./pages/PromocoesPage.jsx"));
+const ProductPage = React.lazy(() => import("./pages/ProductPage.jsx"));
+const SobrePage = React.lazy(() => import("./pages/SobrePage.jsx"));
+const ContactPage = React.lazy(() => import("./pages/ContactPage.jsx"));
+const AdminOrdersPage = React.lazy(() => import("./pages/AdminOrdersPage.jsx"));
+const FAQPage = React.lazy(() => import("./pages/FAQPage.jsx"));
+const PoliticaPrivacidadePage = React.lazy(() => import("./pages/PoliticaPrivacidadePage.jsx"));
+const TrocasPage = React.lazy(() => import("./pages/TrocasPage.jsx"));
+const TermosPage = React.lazy(() => import("./pages/TermosPage.jsx"));
+const CupomGamePage = React.lazy(() => import("./pages/CupomGamePage.jsx"));
+const VipRpgPage = React.lazy(() => import("./pages/VipRpgPage.jsx"));
+const VipRedirectPage = React.lazy(() => import("./pages/VipRedirectPage.jsx"));
+const VipAreaPage = React.lazy(() => import("./pages/VipAreaPage.jsx"));
+const PasswordResetPage = React.lazy(() => import("./pages/PasswordResetPage.jsx"));
+
 
 // (Removido) Modo RPG separado: agora as peças RPG vivem dentro do Catálogo.
 
@@ -186,6 +188,16 @@ function mapProductRow(row) {
     defaultVariant: row?.default_variant ? String(row.default_variant) : "",
     variants,
   };
+}
+
+function PageFallback() {
+  return (
+    <main className="min-h-[50vh] flex items-center justify-center px-4">
+      <div className="container-cc rounded-2xl p-6 ring-1 ring-white/10 bg-white/5 text-center">
+        <div className="text-sm text-slate-200 font-semibold">Carregando página…</div>
+      </div>
+    </main>
+  );
 }
 
 function Toast({ open, children }) {

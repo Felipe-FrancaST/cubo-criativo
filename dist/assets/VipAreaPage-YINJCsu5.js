@@ -1,0 +1,1 @@
+import{j as a,V as i}from"./index-DPta1m8-.js";function t({onGoHome:e,onGoVip:s,onRequireLogin:r}){return a.jsxs("div",{className:"min-h-[calc(100vh-72px)]",children:[a.jsx(i,{asPage:!0,open:!0,onClose:()=>{},onGoHome:e,onGoVip:s,onRequireLogin:r}),a.jsx("div",{className:"h-10"})]})}export{t as default};
