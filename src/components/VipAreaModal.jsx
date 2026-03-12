@@ -841,10 +841,31 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
           ) : (
             <>
 
-              {/* Tabs (mobile-first): evita tela embolada */}
+              {/* Tabs (mobile-first): select no mobile, pills no desktop */}
               <div className="mt-5 sticky top-3 z-20">
                 <div className="rounded-2xl bg-black/35 backdrop-blur-md ring-1 ring-white/10 p-2">
-                  <div className="sticky top-0 z-20 -mx-1 flex gap-2 overflow-x-auto no-scrollbar bg-slate-950/85 px-1 py-2 backdrop-blur">
+                  <div className="sm:hidden rounded-2xl bg-gradient-to-br from-amber-400/10 via-violet-400/10 to-transparent ring-1 ring-white/10 px-3 py-3">
+                    <label htmlFor="vip-tab-select" className="mb-2 flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-[0.24em] text-slate-400">
+                      <span className="material-icons text-[16px] text-amber-200">menu_open</span>
+                      Navegação VIP
+                    </label>
+                    <div className="relative">
+                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 material-icons text-[18px] text-amber-200">auto_awesome</span>
+                      <select
+                        id="vip-tab-select"
+                        value={tab}
+                        onChange={(e) => setTab(String(e.target.value || 'escolhas'))}
+                        className="w-full appearance-none rounded-2xl border border-white/10 bg-slate-950/90 py-3 pl-11 pr-11 text-sm font-extrabold text-slate-100 outline-none ring-1 ring-white/10 transition focus:border-amber-300/40 focus:ring-amber-300/25"
+                      >
+                        {[{k:'escolhas',label:'Escolhas'},{k:'pedido',label:'Pedido'},{k:'votacao',label:'Votação'},{k:'upgrade',label:'Upgrade'},{k:'presente',label:'Presente'}].map((t) => (
+                          <option key={t.k} value={t.k}>{t.label}</option>
+                        ))}
+                      </select>
+                      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 material-icons text-[20px] text-slate-400">expand_more</span>
+                    </div>
+                  </div>
+
+                  <div className="hidden sm:flex sticky top-0 z-20 -mx-1 gap-2 overflow-x-auto no-scrollbar bg-slate-950/85 px-1 py-2 backdrop-blur">
                     {[{k:'escolhas',label:'Escolhas',ic:'checklist'},{k:'pedido',label:'Pedido',ic:'local_shipping'},{k:'votacao',label:'Votação',ic:'how_to_vote'},{k:'upgrade',label:'Upgrade',ic:'upgrade'},{k:'presente',label:'Presente',ic:'redeem'}].map((t) => {
                       const active = tab === t.k;
                       return (
@@ -1169,34 +1190,75 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                 </div>
 
                 {selectedCards.length ? (
-                  <div className="mt-4 grid grid-cols-1 min-[420px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                    {selectedCards.map(({ id, opt }) => (
-                      <button
-                        key={id}
-                        type="button"
-                        onClick={() => { if (opt) openPreviewLite(opt); }}
-                        className="text-left rounded-2xl bg-black/25 ring-1 ring-white/10 hover:bg-white/5 transition overflow-hidden"
-                        title={opt?.title || 'Escolha'}
-                      >
-                        <div className="aspect-square bg-slate-900/70 p-2">
-                          {opt?.image_url ? (
-                            <img
-                              src={opt.image_url}
-                              alt={opt.title}
-                              className="h-full w-full object-contain rounded-xl ring-1 ring-white/10"
-                              loading="lazy"
-                            />
-                          ) : (
-                            <div className="h-full w-full grid place-items-center text-slate-500 text-xs">Carregando…</div>
-                          )}
-                        </div>
-                        <div className="p-2">
-                          <div className="text-xs font-extrabold text-slate-100 truncate">{opt?.title || '—'}</div>
-                          <div className="mt-1 text-[10px] text-slate-400">Toque para ver detalhes</div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
+                  <>
+                    <div className="mt-4 flex gap-3 overflow-x-auto pb-1 pr-1 sm:hidden no-scrollbar">
+                      {selectedCards.map(({ id, opt }) => {
+                        const isBoss = String(opt?.item_type || '').toLowerCase() === 'boss';
+                        const borderCls = isBoss ? 'ring-amber-300/40 bg-amber-400/10' : 'ring-violet-300/35 bg-violet-400/10';
+                        const badgeCls = isBoss ? 'bg-amber-300/85 text-black' : 'bg-violet-300/85 text-black';
+                        return (
+                          <button
+                            key={id}
+                            type="button"
+                            onClick={() => { if (opt) openPreviewLite(opt); }}
+                            className={`shrink-0 w-[94px] rounded-[22px] ${borderCls} ring-1 p-2 text-left transition hover:-translate-y-0.5`}
+                            title={opt?.title || 'Escolha'}
+                          >
+                            <div className="relative aspect-square overflow-hidden rounded-2xl bg-slate-950/85 p-2">
+                              {opt?.image_url ? (
+                                <img
+                                  src={opt.image_url}
+                                  alt={opt.title}
+                                  className="h-full w-full object-contain"
+                                  loading="lazy"
+                                />
+                              ) : (
+                                <div className="h-full w-full grid place-items-center text-slate-500 text-[10px]">Carregando…</div>
+                              )}
+                              <span className={`absolute left-1.5 top-1.5 rounded-full px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide ${badgeCls}`}>
+                                {isBoss ? 'Boss' : 'Mini'}
+                              </span>
+                            </div>
+                            <div className="mt-2 px-0.5">
+                              <div className="line-clamp-2 min-h-[2.4rem] text-[11px] font-extrabold leading-5 text-slate-100">{opt?.title || '—'}</div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <div className="mt-4 hidden sm:grid grid-cols-1 min-[420px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                      {selectedCards.map(({ id, opt }) => {
+                        const isBoss = String(opt?.item_type || '').toLowerCase() === 'boss';
+                        return (
+                          <button
+                            key={id}
+                            type="button"
+                            onClick={() => { if (opt) openPreviewLite(opt); }}
+                            className={`text-left rounded-2xl transition overflow-hidden ${isBoss ? 'bg-amber-400/10 ring-1 ring-amber-300/25 hover:bg-amber-400/15' : 'bg-black/25 ring-1 ring-violet-300/20 hover:bg-white/5'}`}
+                            title={opt?.title || 'Escolha'}
+                          >
+                            <div className="aspect-square bg-slate-900/70 p-2">
+                              {opt?.image_url ? (
+                                <img
+                                  src={opt.image_url}
+                                  alt={opt.title}
+                                  className="h-full w-full object-contain rounded-xl ring-1 ring-white/10"
+                                  loading="lazy"
+                                />
+                              ) : (
+                                <div className="h-full w-full grid place-items-center text-slate-500 text-xs">Carregando…</div>
+                              )}
+                            </div>
+                            <div className="p-2">
+                              <div className="text-xs font-extrabold text-slate-100 truncate">{opt?.title || '—'}</div>
+                              <div className="mt-1 text-[10px] text-slate-400">Toque para ver detalhes</div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </>
                 ) : (
                   <div className="mt-4 rounded-xl bg-black/20 ring-1 ring-white/10 p-4 text-sm text-slate-300">
                     Você ainda não escolheu nada neste ciclo.
