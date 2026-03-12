@@ -4,8 +4,8 @@ import ProductCard from "../components/ProductCard.jsx";
 import { supabase } from "../lib/supabaseClient";
 
 const FALLBACK_BANNER = {
-  image_url: "",
-  mobile_image_url: "",
+  image_url: "/images/banner_base.jpg",
+  mobile_image_url: "/images/banner_base.jpg",
 };
 
 function resolveBannerImage(banner, isMobile) {
@@ -151,14 +151,12 @@ export default function HomePage({
                 <img
                   src={bannerImage}
                   alt="Banner da loja Cubo Criativo"
-                  className={`absolute inset-0 h-full w-full object-cover transition-all duration-700 ${bannerImageLoaded ? "scale-100 blur-0 opacity-100" : "scale-[1.03] blur-xl opacity-70"}`}
+                  className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${bannerImageLoaded ? "opacity-100" : "opacity-0"}`}
                   loading="eager"
                   onLoad={() => setBannerImageLoaded(true)}
                   onError={() => setBannerImageLoaded(true)}
                 />
-                {!bannerImageLoaded ? (
-                  <div className="pointer-events-none absolute inset-0 bg-black/10 backdrop-blur-[2px]" />
-                ) : null}
+                
               </>
             ) : (
               <div className="absolute inset-0 animate-pulse bg-[radial-gradient(circle_at_center,_rgba(196,153,74,0.18),_rgba(24,18,16,1)_72%)]" />
