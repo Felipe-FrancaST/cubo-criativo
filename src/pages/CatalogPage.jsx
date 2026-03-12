@@ -26,6 +26,7 @@ export default function CatalogPage({ items, loading = false, error = "", addToC
   const [selectedTag, setSelectedTag] = React.useState(() => readParam("tag", "Todos"));
   const [query, setQuery] = React.useState(() => readParam("q", ""));
   const [filtersOpen, setFiltersOpen] = React.useState(false);
+  const [helpOpen, setHelpOpen] = React.useState(false);
 
   React.useEffect(() => {
     const onPop = () => {
@@ -91,6 +92,12 @@ export default function CatalogPage({ items, loading = false, error = "", addToC
     setSelectedTag("Todos");
   }
 
+  const helpContent = [
+    "Você escolhe a peça pelo catálogo e pode finalizar no site ou tirar dúvidas no WhatsApp.",
+    "As peças do catálogo entram em produção no estúdio após a confirmação do pedido.",
+    "O prazo médio é de 15–30 dias úteis, variando conforme acabamento, pintura e fila de produção.",
+  ];
+
   return (
     <main className="flex-1">
       <section className="container-cc px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
@@ -108,7 +115,42 @@ export default function CatalogPage({ items, loading = false, error = "", addToC
           </div>
         ) : (
           <>
-            <div className="mt-6 rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,.9),rgba(2,6,23,.86))] p-3 sm:p-4 shadow-xl shadow-black/20 backdrop-blur-xl">
+            <div className="mt-6 rounded-[24px] border border-white/10 bg-white/[0.045] px-4 py-3 shadow-lg shadow-black/10 backdrop-blur-xl">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-100">Como funciona, prazos e dúvidas?</p>
+                  <p className="text-xs text-slate-400">Toque na lâmpada para ver as orientações do catálogo.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setHelpOpen((v) => !v)}
+                  className={`inline-flex h-11 w-11 items-center justify-center rounded-2xl ring-1 transition ${helpOpen ? "bg-amber-400/15 text-amber-200 ring-amber-300/35" : "bg-white/5 text-slate-100 ring-white/10 hover:bg-white/10"}`}
+                  aria-expanded={helpOpen}
+                  aria-label="Mostrar ajuda do catálogo"
+                >
+                  <svg viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-current" strokeWidth="1.8">
+                    <path d="M9 18h6" strokeLinecap="round" />
+                    <path d="M10 22h4" strokeLinecap="round" />
+                    <path d="M12 2a7 7 0 0 0-4 12.75c.63.44 1 1.15 1 1.92V17h6v-.33c0-.77.37-1.48 1-1.92A7 7 0 0 0 12 2Z" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              </div>
+
+              {helpOpen ? (
+                <div className="mt-3 rounded-2xl bg-slate-950/55 px-4 py-4 ring-1 ring-white/10">
+                  <ul className="space-y-2 text-sm text-slate-300">
+                    {helpContent.map((item) => (
+                      <li key={item} className="flex gap-2">
+                        <span className="mt-[6px] h-1.5 w-1.5 shrink-0 rounded-full bg-amber-300" />
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="mt-4 rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,.9),rgba(2,6,23,.86))] p-3 sm:p-4 shadow-xl shadow-black/20 backdrop-blur-xl">
               <div className="flex items-center gap-2 sm:gap-3">
                 <label className="relative flex-1">
                   <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">
@@ -163,25 +205,6 @@ export default function CatalogPage({ items, loading = false, error = "", addToC
               </div>
             </div>
 
-            <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-4">
-              <div className="rounded-2xl p-4 ring-1 ring-white/10 bg-white/5 sm:min-h-[152px]">
-                <p className="font-bold">Como funciona</p>
-                <ul className="mt-2 text-sm text-slate-300 space-y-1">
-                  <li>• Você compra pelo site (ou fecha no WhatsApp).</li>
-                  <li>• Produção e acabamento no estúdio.</li>
-                  <li>• Envio com rastreio para todo o Brasil.</li>
-                </ul>
-              </div>
-              <div className="rounded-2xl p-4 ring-1 ring-white/10 bg-white/5 sm:min-h-[152px]">
-                <p className="font-bold">Prazos</p>
-                <p className="mt-2 text-sm text-slate-300">O prazo varia conforme fila de produção, complexidade e pintura. Em geral:</p>
-                <p className="mt-2 text-sm font-semibold text-slate-200">15–30 dias úteis</p>
-              </div>
-              <div className="rounded-2xl p-4 ring-1 ring-white/10 bg-white/5 sm:min-h-[152px]">
-                <p className="font-bold">Dúvidas?</p>
-                <p className="mt-2 text-sm text-slate-300">Fale com a gente no WhatsApp e enviamos detalhes, fotos e prazos atualizados.</p>
-              </div>
-            </div>
 
             {filtersOpen ? (
               <div className="lg:hidden fixed inset-0 z-[120]">

@@ -199,16 +199,6 @@ export default function HomePage({
               </div>
             )}
 
-            <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-              <div className="rounded-2xl p-4 ring-1 ring-white/10 bg-white/5">
-                <p className="font-semibold">Envio para todo o Brasil</p>
-                <p className="mt-1 text-slate-300">Embalagem reforçada + rastreio.</p>
-              </div>
-              <div className="rounded-2xl p-4 ring-1 ring-white/10 bg-white/5">
-                <p className="font-semibold">Orçamento rápido</p>
-                <p className="mt-1 text-slate-300">Finalize pelo WhatsApp ou pague no site.</p>
-              </div>
-            </div>
           </div>
 
           <div className="relative" id="promocoes">
