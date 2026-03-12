@@ -38,6 +38,8 @@ export default function HomePage({
   const [banner, setBanner] = React.useState(FALLBACK_BANNER);
   const [bannerLoading, setBannerLoading] = React.useState(true);
   const [bannerImageLoaded, setBannerImageLoaded] = React.useState(false);
+  const [displayBannerImage, setDisplayBannerImage] = React.useState(FALLBACK_BANNER.image_url);
+  const [bannerOverlayVisible, setBannerOverlayVisible] = React.useState(false);
   const [isMobileBanner, setIsMobileBanner] = React.useState(() => {
     if (typeof window === "undefined") return false;
     return window.matchMedia("(max-width: 640px)").matches;
@@ -125,10 +127,48 @@ export default function HomePage({
   }, []);
 
   const bannerImage = resolveBannerImage(banner, isMobileBanner);
+  const fallbackBannerImage = resolveBannerImage(FALLBACK_BANNER, isMobileBanner);
 
   React.useEffect(() => {
+    let alive = true;
+
+    if (!bannerImage || bannerImage === fallbackBannerImage) {
+      setDisplayBannerImage(fallbackBannerImage);
+      setBannerOverlayVisible(false);
+      setBannerImageLoaded(true);
+      return () => {
+        alive = false;
+      };
+    }
+
     setBannerImageLoaded(false);
-  }, [bannerImage]);
+    setBannerOverlayVisible(false);
+
+    const img = new window.Image();
+    img.src = bannerImage;
+    img.onload = () => {
+      if (!alive) return;
+      setDisplayBannerImage(bannerImage);
+      setBannerImageLoaded(true);
+      if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+        window.requestAnimationFrame(() => {
+          if (alive) setBannerOverlayVisible(true);
+        });
+      } else {
+        setBannerOverlayVisible(true);
+      }
+    };
+    img.onerror = () => {
+      if (!alive) return;
+      setDisplayBannerImage(fallbackBannerImage);
+      setBannerOverlayVisible(false);
+      setBannerImageLoaded(true);
+    };
+
+    return () => {
+      alive = false;
+    };
+  }, [bannerImage, fallbackBannerImage]);
 
   return (
     <main className="flex-1">
@@ -149,21 +189,26 @@ export default function HomePage({
             {bannerImage ? (
               <>
                 <img
-                  src={bannerImage}
-                  alt="Banner da loja Cubo Criativo"
-                  className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${bannerImageLoaded ? "opacity-100" : "opacity-0"}`}
+                  src={fallbackBannerImage}
+                  alt="Banner base da loja Cubo Criativo"
+                  className="absolute inset-0 h-full w-full object-cover scale-[1.01] opacity-100 transition-transform duration-700"
                   loading="eager"
-                  onLoad={() => setBannerImageLoaded(true)}
-                  onError={() => setBannerImageLoaded(true)}
                 />
-                
+                {displayBannerImage && displayBannerImage !== fallbackBannerImage ? (
+                  <img
+                    src={displayBannerImage}
+                    alt="Banner da loja Cubo Criativo"
+                    className={`absolute inset-0 h-full w-full object-cover transition-all duration-700 ease-out ${bannerOverlayVisible ? "opacity-100 scale-100" : "opacity-0 scale-[1.015]"}`}
+                    loading="eager"
+                  />
+                ) : null}
               </>
             ) : (
               <div className="absolute inset-0 animate-pulse bg-[radial-gradient(circle_at_center,_rgba(196,153,74,0.18),_rgba(24,18,16,1)_72%)]" />
             )}
 
             {(bannerLoading || (bannerImage && !bannerImageLoaded)) ? (
-              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-amber-400/10 via-amber-300/80 to-red-400/10" />
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-amber-400/10 via-amber-300/80 to-red-400/10 transition-opacity duration-500" />
             ) : null}
             <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-end p-3 sm:p-4">
               <span className="rounded-full bg-[#020b10]/70 px-3 py-1 text-[11px] sm:text-xs font-semibold tracking-wide text-amber-100 ring-1 ring-white/10 backdrop-blur">Conheça os planos VIP</span>
