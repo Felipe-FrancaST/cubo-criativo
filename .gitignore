@@ -11,5 +11,5 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# build artifacts (optional - keep dist committed if you want)
-# dist
+# build artifacts
+dist
