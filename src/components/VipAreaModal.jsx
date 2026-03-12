@@ -201,6 +201,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
   // - travado: usa savedSelected
   const displaySelected = React.useMemo(() => (editing ? selected : savedSelected), [editing, selected, savedSelected]);
   const selectedPlan = React.useMemo(() => findPlanByProfileValue(vipPlans, vipPlan) || (Array.isArray(vipPlans) ? vipPlans[0] : null), [vipPlans, vipPlan]);
+  const planName = React.useMemo(() => selectedPlan?.short_name || selectedPlan?.name || 'VIP', [selectedPlan]);
 
   const nextPlan = React.useMemo(() => {
     const plans = Array.isArray(vipPlans) && vipPlans.length ? vipPlans : FALLBACK_VIP_PLANS;
@@ -212,6 +213,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
   const miniLimit = Math.max(0, Number(selectedPlan?.miniatures_count ?? selectedPlan?.items_per_month ?? 0) || 0);
   const bossLimit = Math.max(0, Number(selectedPlan?.boss_count ?? 0) || 0);
   const totalLimit = Math.max(0, Number(selectedPlan?.items_per_month ?? (miniLimit + bossLimit)) || (miniLimit + bossLimit));
+  const help = React.useMemo(() => tabHelpContent(tab, { totalLimit, editable, planName, deadline: cycleDeadline }), [tab, totalLimit, editable, planName, cycleDeadline]);
 
   const currentPriceCents = React.useMemo(() => {
     if (typeof selectedPlan?.price_cents === 'number') return selectedPlan.price_cents;
@@ -758,8 +760,6 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
       setSaving(false);
     }
   }
-
-  const planName = selectedPlan?.short_name || selectedPlan?.name || vipPlan || 'VIP';
 
   const body = (
       <div className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-slate-950 via-slate-950 to-black ring-1 ring-white/10 shadow-2xl shadow-black/30">
