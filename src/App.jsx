@@ -185,7 +185,7 @@ function Toast({ open, children }) {
         open ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-3 pointer-events-none"
       }`}
     >
-      <div className="container-cc rounded-full bg-emerald-500 text-black font-semibold px-4 py-2 shadow-lg ring-4 ring-emerald-400/30">
+      <div className="container-cc rounded-full bg-gradient-to-r from-amber-300 via-amber-200 to-orange-200 text-[#241208] font-semibold px-4 py-2 shadow-lg ring-4 ring-amber-400/20">
         {children}
       </div>
     </div>
@@ -1417,7 +1417,7 @@ React.useEffect(() => {
   })();
 
   return (
-    <div className="min-h-screen w-full overflow-x-clip flex flex-col bg-gradient-to-b from-slate-900 via-slate-950 to-black text-slate-100">
+    <div className="min-h-screen w-full overflow-x-clip flex flex-col bg-[radial-gradient(circle_at_top,rgba(122,35,65,.14),transparent_24%),linear-gradient(180deg,#120809_0%,#090506_48%,#050304_100%)] text-amber-50">
       <Toast open={toastOpen}>{toastMsg}</Toast>
 
       <SiteHeader
@@ -1470,7 +1470,7 @@ React.useEffect(() => {
       />
 
       {/* TRUST BAR */}
-      <div className="border-b border-white/10 bg-black/20">
+      <div className="border-b border-amber-300/10 bg-[linear-gradient(180deg,rgba(28,14,10,.82),rgba(11,6,5,.68))]">
         <div className="container-cc px-4 sm:px-6 lg:px-8 py-2">
           {/* Mobile: compacto (não ocupa tela) */}
           <div className="md:hidden">

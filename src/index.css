@@ -1,23 +1,24 @@
 /* src/index.css */
 
+@import url("https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;800&family=Cormorant+Garamond:wght@400;500;600;700&display=swap");
 @import "tailwindcss";
 
-/* =========================
-   DESIGN TOKENS / ROOT VARS
-   ========================= */
 :root{
   --container-max: 1200px;
-  --bg: #0f141b;         /* fundo geral neutro, ajuda a destacar a logo */
-  --card: rgba(16,20,27,.72);
-  --ring: rgba(255,255,255,.10);
-  --muted: #94a3b8;      /* slate-400 */
-  --text: #e2e8f0;       /* slate-200 */
-  --brand: #34d399;      /* emerald-400 */
+  --bg: #090506;
+  --bg-soft: #150d0a;
+  --card: rgba(34, 18, 14, .74);
+  --card-strong: rgba(46, 24, 18, .86);
+  --ring: rgba(214, 170, 92, .18);
+  --muted: #c9b28a;
+  --text: #f3e8cf;
+  --brand: #c68a3b;
+  --brand-strong: #e8b35d;
+  --brand-dark: #6d3c18;
+  --accent: #7a2341;
+  --shadow-gold: 0 0 0 1px rgba(232,179,93,.08), 0 24px 60px rgba(0,0,0,.42);
 }
 
-/* ===============
-   BASE / RESETS
-   =============== */
 *,
 *::before,
 *::after { box-sizing: border-box; }
@@ -30,150 +31,168 @@ html {
 body{
   margin: 0;
   color: var(--text);
-  background: var(--bg); /* fallback se o wrapper não carregar */
+  background:
+    radial-gradient(circle at top, rgba(122,35,65,.22), transparent 28%),
+    radial-gradient(circle at 20% 15%, rgba(198,138,59,.16), transparent 18%),
+    radial-gradient(circle at 80% 0%, rgba(109,60,24,.28), transparent 24%),
+    linear-gradient(180deg, #110808 0%, #090506 42%, #050304 100%);
+  font-family: "Cormorant Garamond", Georgia, serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  position: relative;
 }
 
-/* seleção de texto mais elegante */
+body::before{
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: .08;
+  background-image:
+    linear-gradient(rgba(255,255,255,.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px);
+  background-size: 26px 26px;
+  mix-blend-mode: soft-light;
+}
+
+button,
+a,
+input,
+select,
+textarea { font: inherit; }
+
+h1,h2,h3,h4,h5,h6,
+.font-extrabold,
+.font-bold,
+.btn,
+.btn-ghost,
+.chip{
+  font-family: "Cinzel", Georgia, serif;
+  letter-spacing: .02em;
+}
+
+p, span, li, label, input, textarea, select {
+  letter-spacing: .01em;
+}
+
 ::selection{
-  background: color-mix(in oklab, var(--brand) 30%, transparent);
-  color: #0b0f14;
+  background: color-mix(in oklab, var(--brand) 36%, transparent);
+  color: #1b0d05;
 }
 
-/* ============
-   SCROLLBAR
-   ============ */
-/* WebKit */
-*::-webkit-scrollbar{
-  width: 10px;
-  height: 10px;
-}
-*::-webkit-scrollbar-track{
-  background: transparent;
-}
+*::-webkit-scrollbar{ width: 10px; height: 10px; }
+*::-webkit-scrollbar-track{ background: transparent; }
 *::-webkit-scrollbar-thumb{
-  background: linear-gradient(180deg, rgba(255,255,255,.18), rgba(255,255,255,.08));
+  background: linear-gradient(180deg, rgba(232,179,93,.45), rgba(109,60,24,.65));
   border: 2px solid transparent;
   background-clip: padding-box;
   border-radius: 999px;
 }
 *::-webkit-scrollbar-thumb:hover{
-  background: linear-gradient(180deg, rgba(255,255,255,.28), rgba(255,255,255,.14));
+  background: linear-gradient(180deg, rgba(255,209,124,.62), rgba(122,35,65,.55));
 }
+*{ scrollbar-width: thin; scrollbar-color: rgba(232,179,93,.45) transparent; }
 
-/* Firefox */
-*{
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255,255,255,.18) transparent;
-}
-
-/* =====================
-   FOCUS / ACESSIBILIDADE
-   ===================== */
 :focus-visible{
-  outline: 2px solid color-mix(in oklab, var(--brand) 80%, white 10%);
+  outline: 2px solid color-mix(in oklab, var(--brand-strong) 82%, white 8%);
   outline-offset: 2px;
   border-radius: .5rem;
 }
 
-/* =====================
-   UTILS ESTÉTICAS
-   ===================== */
 .glass{
-  background: var(--card);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: linear-gradient(180deg, rgba(40,21,15,.78), rgba(19,10,8,.78));
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--ring);
+  box-shadow: var(--shadow-gold);
 }
 
 .shadow-soft{
   box-shadow:
-    0 1px 1px rgba(0,0,0,.04),
-    0 10px 25px rgba(0,0,0,.25),
-    0 2px 0 rgba(255,255,255,.02) inset;
+    0 1px 1px rgba(0,0,0,.08),
+    0 18px 40px rgba(0,0,0,.34),
+    0 1px 0 rgba(255,227,170,.05) inset;
 }
 
-.ring-soft{
-  border: 1px solid var(--ring);
-}
+.ring-soft{ border: 1px solid var(--ring); }
 
-/* chips para filtros (se quiser usar fora do Tailwind) */
 .chip{
   display:inline-flex; align-items:center; gap:.4rem;
   padding:.35rem .75rem; border-radius:999px; font-size:.85rem;
-  background: rgba(255,255,255,.04); border:1px solid var(--ring);
+  background: linear-gradient(180deg, rgba(255,239,204,.04), rgba(255,255,255,.015));
+  border:1px solid var(--ring);
+  color: var(--text);
   transition: background .2s ease, border-color .2s ease, transform .1s ease;
 }
-.chip:hover{ background: rgba(255,255,255,.07); }
+.chip:hover{ background: rgba(198,138,59,.12); }
 .chip.is-active{
-  background: var(--brand);
-  color:#0b0f14;
-  border-color: color-mix(in oklab, var(--brand) 80%, black 10%);
+  background: linear-gradient(180deg, var(--brand-strong), var(--brand));
+  color:#1b0d05;
+  border-color: color-mix(in oklab, var(--brand) 75%, black 15%);
 }
 
-/* botões “ghost” discretos */
 .btn-ghost{
   display:inline-flex; align-items:center; gap:.5rem;
-  padding:.5rem .75rem; border-radius:.75rem;
+  padding:.5rem .85rem; border-radius:.9rem;
   border:1px solid var(--ring);
-  background: rgba(255,255,255,.03);
-  transition: background .2s ease, transform .05s ease;
+  background: linear-gradient(180deg, rgba(255,244,221,.035), rgba(255,255,255,.015));
+  color: var(--text);
+  transition: background .2s ease, transform .05s ease, border-color .2s ease;
 }
-.btn-ghost:hover{ background: rgba(255,255,255,.06); }
+.btn-ghost:hover{ background: rgba(198,138,59,.12); border-color: rgba(232,179,93,.32); }
 .btn-ghost:active{ transform: translateY(1px); }
 
-/* botões padrão (mini design system) */
 .btn{
   display:inline-flex; align-items:center; justify-content:center; gap:.5rem;
-  padding:.65rem 1rem;
-  border-radius: .9rem;
+  padding:.72rem 1.08rem;
+  border-radius: 1rem;
   font-weight: 800;
   border: 1px solid var(--ring);
-  transition: transform .05s ease, background .2s ease, opacity .2s ease;
+  transition: transform .05s ease, background .2s ease, opacity .2s ease, border-color .2s ease;
 }
 .btn:active{ transform: translateY(1px); }
 .btn:disabled{ opacity: .6; cursor: not-allowed; }
 
 .btn-primary{
-  background: color-mix(in oklab, var(--brand) 95%, white 0%);
-  color: #0b0f14;
-  box-shadow: 0 0 0 6px color-mix(in oklab, var(--brand) 25%, transparent);
-  border-color: color-mix(in oklab, var(--brand) 55%, black 10%);
+  background: linear-gradient(180deg, var(--brand-strong), var(--brand));
+  color: #1b0d05;
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--brand) 18%, transparent), 0 10px 24px rgba(0,0,0,.24);
+  border-color: color-mix(in oklab, var(--brand-dark) 45%, var(--brand-strong) 35%);
 }
-.btn-primary:hover{ opacity: .95; }
+.btn-primary:hover{ opacity: .96; }
 
 .btn-outline{
   background: rgba(255,255,255,.03);
   color: var(--text);
 }
-.btn-outline:hover{ background: rgba(255,255,255,.06); }
+.btn-outline:hover{ background: rgba(198,138,59,.09); }
 
-/* classe para containers centralizados com o mesmo maxWidth do app */
 .container-cc{ max-width: var(--container-max); margin-inline:auto; }
-
-/* imagens: comportamento padrão mais nítido */
 img{ image-rendering: auto; }
-
-/* util: esconde scrollbar em listas horizontais (mobile) */
 .no-scrollbar::-webkit-scrollbar{ display: none; }
 .no-scrollbar{ -ms-overflow-style: none; scrollbar-width: none; }
 
-/* =====================
-   FALLBACKS DE RESPONSIVIDADE
-   (garante comportamento mesmo se alguma classe do build falhar)
-   ===================== */
-.site-logo{ height: 40px; width: auto; object-fit: contain; display: block; }
-@media (max-width: 640px){
-  .site-logo{ height: 32px; }
+/* Global embellishments for existing Tailwind-heavy UI */
+[class*="rounded-2xl"], [class*="rounded-3xl"], [class*="rounded-xl"]{
+  background-clip: padding-box;
 }
 
-/* Evita header "alto" demais em alguns layouts (mobile) */
-@media (max-width: 640px){
-  header .container-cc{ padding-top: .5rem; padding-bottom: .5rem; }
+header, footer {
+  position: relative;
 }
 
-/* reduz motion para quem prefere (combina com seu carrossel) */
-@media (prefers-reduced-motion: reduce){
-  *{ animation: none !important; transition: none !important; }
+header::after, footer::before{
+  content: "";
+  position: absolute;
+  left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(232,179,93,.48), transparent);
+  pointer-events: none;
 }
+header::after{ bottom: 0; }
+footer::before{ top: 0; }
+
+.site-logo{ height: 40px; width: auto; object-fit: contain; display: block; filter: drop-shadow(0 2px 10px rgba(232,179,93,.14)); }
+@media (max-width: 640px){ .site-logo{ height: 32px; } }
+@media (max-width: 640px){ header .container-cc{ padding-top: .5rem; padding-bottom: .5rem; } }
+@media (prefers-reduced-motion: reduce){ *{ animation: none !important; transition: none !important; } }
