@@ -191,14 +191,14 @@ export default function HomePage({
                 <img
                   src={fallbackBannerImage}
                   alt="Banner base da loja Cubo Criativo"
-                  className="absolute inset-0 h-full w-full object-cover scale-[1.01] opacity-100 transition-transform duration-700"
+                  className="absolute inset-0 h-full w-full object-cover scale-100 opacity-100 transition-all duration-[2200ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
                   loading="eager"
                 />
                 {displayBannerImage && displayBannerImage !== fallbackBannerImage ? (
                   <img
                     src={displayBannerImage}
                     alt="Banner da loja Cubo Criativo"
-                    className={`absolute inset-0 h-full w-full object-cover transition-all duration-700 ease-out ${bannerOverlayVisible ? "opacity-100 scale-100" : "opacity-0 scale-[1.015]"}`}
+                    className={`absolute inset-0 h-full w-full object-cover transition-all duration-[2200ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[opacity,transform] ${bannerOverlayVisible ? "opacity-100 scale-100" : "opacity-0 scale-[1.03]"}`}
                     loading="eager"
                   />
                 ) : null}
@@ -208,7 +208,7 @@ export default function HomePage({
             )}
 
             {(bannerLoading || (bannerImage && !bannerImageLoaded)) ? (
-              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-amber-400/10 via-amber-300/80 to-red-400/10 transition-opacity duration-500" />
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-amber-400/10 via-amber-300/80 to-red-400/10 transition-opacity duration-1000" />
             ) : null}
             <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-end p-3 sm:p-4">
               <span className="rounded-full bg-[#020b10]/70 px-3 py-1 text-[11px] sm:text-xs font-semibold tracking-wide text-amber-100 ring-1 ring-white/10 backdrop-blur">Conheça os planos VIP</span>
