@@ -4,7 +4,7 @@ import ProductCard from "../components/ProductCard.jsx";
 import { supabase } from "../lib/supabaseClient";
 
 const FALLBACK_BANNER = {
-  image_url: "/images/banner_base.jpg",
+  image_url: "/images/banner_base_pc.jpg",
   mobile_image_url: "/images/banner_base.jpg",
 };
 
