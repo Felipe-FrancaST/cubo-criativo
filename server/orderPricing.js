@@ -32,14 +32,44 @@ function firstImageForProduct(row) {
   return '';
 }
 
+function getBaseProductPriceCents(row) {
+  const promoActive = !!row?.promo;
+  const promoPrice = toPositiveInt(row?.price_cents);
+  const originalPrice = toPositiveInt(row?.original_price_cents);
+
+  if (promoActive) {
+    if (promoPrice > 0) return promoPrice;
+    if (originalPrice > 0) return originalPrice;
+    return 0;
+  }
+
+  if (originalPrice > 0) return originalPrice;
+  if (promoPrice > 0) return promoPrice;
+  return 0;
+}
+
+function getVariantPromoRatio(row) {
+  const promoPrice = toPositiveInt(row?.price_cents);
+  const originalPrice = toPositiveInt(row?.original_price_cents);
+  if (!!row?.promo && promoPrice > 0 && originalPrice > 0 && promoPrice < originalPrice) {
+    return promoPrice / originalPrice;
+  }
+  return null;
+}
+
 function resolveVariant(row, requestedScale = '') {
+  const promoRatio = getVariantPromoRatio(row);
   const variants = Array.isArray(row?.variants)
     ? row.variants
         .filter(Boolean)
-        .map((variant) => ({
-          label: String(variant?.label || '').trim(),
-          price: toMoneyBRLFromCents(variant?.price_cents),
-        }))
+        .map((variant) => {
+          const fullPriceCents = toPositiveInt(variant?.price_cents);
+          const effectiveCents = promoRatio ? Math.max(0, Math.round(fullPriceCents * promoRatio)) : fullPriceCents;
+          return {
+            label: String(variant?.label || '').trim(),
+            price: toMoneyBRLFromCents(effectiveCents),
+          };
+        })
         .filter((variant) => variant.label && variant.price > 0)
     : [];
 
@@ -60,7 +90,7 @@ function resolveVariant(row, requestedScale = '') {
   const preferred = (defaultNorm && variants.find((variant) => normalizeText(variant.label) === defaultNorm)) || variants[0];
   if (preferred) return { ok: true, scale: preferred.label, price: preferred.price };
 
-  const basePrice = toMoneyBRLFromCents(row?.price_cents);
+  const basePrice = toMoneyBRLFromCents(getBaseProductPriceCents(row));
   if (basePrice > 0) return { ok: true, scale: '', price: basePrice };
 
   return {
@@ -101,7 +131,7 @@ export async function resolveStoreItems(sb, rawItems = []) {
   const productIds = [...new Set(normalizedItems.map((item) => item.product_id))];
   const { data: rows, error } = await sb
     .from('products')
-    .select('id,name,price_cents,stock,active,image_url,images,variants,default_variant')
+    .select('id,name,price_cents,original_price_cents,promo,stock,active,image_url,images,variants,default_variant')
     .in('id', productIds);
 
   if (error) {

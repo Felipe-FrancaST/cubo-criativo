@@ -437,15 +437,26 @@ setZip2(data?.address2_zip || "");
         const centsToBRL = (cents) =>
           typeof cents === 'number' && Number.isFinite(cents) ? Number((cents / 100).toFixed(2)) : 0;
 
+        const promoActive = !!row?.promo;
+        const promoPriceCents = toInt(row?.price_cents ?? 0);
+        const originalPriceCents = toInt(row?.original_price_cents ?? 0);
+        const effectiveBasePriceCents = promoActive
+          ? (promoPriceCents > 0 ? promoPriceCents : originalPriceCents)
+          : (originalPriceCents > 0 ? originalPriceCents : promoPriceCents);
+        const promoRatio = promoActive && promoPriceCents > 0 && originalPriceCents > 0 && promoPriceCents < originalPriceCents
+          ? promoPriceCents / originalPriceCents
+          : null;
+
         const variants = Array.isArray(row?.variants)
           ? row.variants
               .filter(Boolean)
               .map((v) => {
-                const priceCents = toInt(v?.price_cents ?? 0);
+                const fullPriceCents = toInt(v?.price_cents ?? 0);
+                const effectiveVariantPriceCents = promoRatio ? Math.max(0, Math.round(fullPriceCents * promoRatio)) : fullPriceCents;
                 return {
                   label: String(v?.label ?? ''),
-                  price: centsToBRL(priceCents),
-                  priceCents,
+                  price: centsToBRL(effectiveVariantPriceCents),
+                  priceCents: effectiveVariantPriceCents,
                 };
               })
               .filter((v) => v.label)
@@ -466,10 +477,10 @@ setZip2(data?.address2_zip || "");
           status: row?.status ? String(row.status) : 'catalogo',
           featured: !!row?.featured,
           promo: !!row?.promo,
-          originalPrice: centsToBRL(toInt(row?.original_price_cents ?? 0)),
-          preco: centsToBRL(toInt(row?.price_cents ?? 0)),
-          originalPriceCents: toInt(row?.original_price_cents ?? 0),
-          priceCents: toInt(row?.price_cents ?? 0),
+          originalPrice: centsToBRL(originalPriceCents),
+          preco: centsToBRL(effectiveBasePriceCents),
+          originalPriceCents,
+          priceCents: effectiveBasePriceCents,
           currency: row?.currency ? String(row.currency) : 'brl',
           stock:
             row?.stock === null || row?.stock === undefined

@@ -36,7 +36,6 @@ import PasswordResetPage from "./pages/PasswordResetPage.jsx";
 import { fetchAdminStatus } from "./lib/admin.js";
 import { applySeo, setJsonLd, clearJsonLd } from "./lib/seo.js";
 import { trackEvent } from "./lib/analytics.js";
-import { consumeScrollRestore, readProductReturnState, queueScrollRestore } from "./lib/navigation.js";
 
 // (Removido) Modo RPG separado: agora as peças RPG vivem dentro do Catálogo.
 
@@ -121,17 +120,28 @@ function normalizeDescription(v) {
 }
 
 function mapProductRow(row) {
+  const promoActive = !!row?.promo;
+  const promoPriceCents = toInt(row?.price_cents ?? 0);
+  const originalPriceCents = toInt(row?.original_price_cents ?? 0);
+  const effectiveBasePriceCents = promoActive
+    ? (promoPriceCents > 0 ? promoPriceCents : originalPriceCents)
+    : (originalPriceCents > 0 ? originalPriceCents : promoPriceCents);
+  const promoRatio = promoActive && promoPriceCents > 0 && originalPriceCents > 0 && promoPriceCents < originalPriceCents
+    ? promoPriceCents / originalPriceCents
+    : null;
+
   const variants = Array.isArray(row?.variants)
     ? row.variants
         .filter(Boolean)
         .map((v) => {
-          const priceCents = toInt(v?.price_cents ?? 0);
+          const fullPriceCents = toInt(v?.price_cents ?? 0);
+          const effectiveVariantPriceCents = promoRatio ? Math.max(0, Math.round(fullPriceCents * promoRatio)) : fullPriceCents;
           return {
             label: String(v?.label ?? ""),
             // compat: preço em BRL que o front já usa
-            price: centsToBRL(priceCents),
+            price: centsToBRL(effectiveVariantPriceCents),
             // novo: mantém centavos para cálculos (promo/variante)
-            priceCents,
+            priceCents: effectiveVariantPriceCents,
           };
         })
         .filter((v) => v.label)
@@ -152,11 +162,11 @@ function mapProductRow(row) {
     status: row?.status ? String(row.status) : "catalogo",
     featured: !!row?.featured,
     promo: !!row?.promo,
-    originalPrice: centsToBRL(toInt(row?.original_price_cents ?? 0)),
-    preco: centsToBRL(toInt(row?.price_cents ?? 0)),
+    originalPrice: centsToBRL(originalPriceCents),
+    preco: centsToBRL(effectiveBasePriceCents),
     // novo: mantém centavos para promo/variante
-    originalPriceCents: toInt(row?.original_price_cents ?? 0),
-    priceCents: toInt(row?.price_cents ?? 0),
+    originalPriceCents,
+    priceCents: effectiveBasePriceCents,
     currency: row?.currency ? String(row.currency) : "brl",
     // stock:
     // - null/undefined => sem controle de estoque (não bloquear compra)
@@ -486,14 +496,6 @@ React.useEffect(() => {
 // (Alguns cliques usam links normais/popstate e o browser manteria o scroll.)
 React.useEffect(() => {
   if (typeof window === "undefined") return;
-
-  const restore = consumeScrollRestore(route);
-  if (restore) {
-    const y = Number(restore.scrollY || 0) || 0;
-    requestAnimationFrame(() => window.scrollTo({ top: y, left: 0, behavior: "auto" }));
-    setTimeout(() => window.scrollTo({ top: y, left: 0, behavior: "auto" }), 50);
-    return;
-  }
 
   // Faz o scroll depois do repaint da nova rota (mais confiável em mobile),
   // e repete em seguida para neutralizar "scroll restoration" em alguns browsers.
@@ -1272,16 +1274,6 @@ React.useEffect(() => {
           loading={productsLoading}
           onBack={() => {
             try {
-              const ret = readProductReturnState();
-              if (ret?.path) {
-                queueScrollRestore(ret.path, ret.scrollY);
-                if (window.history.length > 1) {
-                  window.history.back();
-                  return;
-                }
-                navigate(ret.path);
-                return;
-              }
               if (window.history.length > 1) window.history.back();
               else navigate("/catalogo");
             } catch {
@@ -1428,7 +1420,6 @@ React.useEffect(() => {
         onGoFaq={() => navigate("/faq")}
         onGoPoliticas={() => navigate("/politica-de-privacidade")}
         onGoCupom={() => navigate("/cupom")}
-        onGoVipPlans={() => navigate("/planos-vip")}
         onGoSobEncomenda={() => navigate("/catalogo")}
       
           onRequireLogin={(msg) => requireLogin(msg)}
