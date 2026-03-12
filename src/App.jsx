@@ -36,6 +36,7 @@ import PasswordResetPage from "./pages/PasswordResetPage.jsx";
 import { fetchAdminStatus } from "./lib/admin.js";
 import { applySeo, setJsonLd, clearJsonLd } from "./lib/seo.js";
 import { trackEvent } from "./lib/analytics.js";
+import { consumeScrollRestore, readProductReturnState, queueScrollRestore } from "./lib/navigation.js";
 
 // (Removido) Modo RPG separado: agora as peças RPG vivem dentro do Catálogo.
 
