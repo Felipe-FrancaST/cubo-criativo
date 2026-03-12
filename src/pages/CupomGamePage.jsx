@@ -57,6 +57,7 @@ export default function CupomGamePage({ onGoHome, accessToken, onRequireLogin })
   const [resultMsg, setResultMsg] = React.useState('');
   const [copyCouponMsg, setCopyCouponMsg] = React.useState('');
   const [nowMs, setNowMs] = React.useState(Date.now());
+  const [helpOpen, setHelpOpen] = React.useState(false);
 
   async function loadStatus() {
     if (!accessToken) {
@@ -69,7 +70,7 @@ export default function CupomGamePage({ onGoHome, accessToken, onRequireLogin })
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || 'Erro ao carregar jogo');
       setStatus({ loading: false, ...data });
-      if (data?.session?.won) setResultMsg('Você já venceu neste período ✅');
+      if (data?.session?.won) setResultMsg('Parabéns, você venceu! Seu cupom já foi gerado neste período.');
     } catch (e) {
       setStatus({ loading: false, can_play: false, weekly_reward: null, coupon: null, played: false, error: String(e?.message || e) });
     }
@@ -133,10 +134,10 @@ export default function CupomGamePage({ onGoHome, accessToken, onRequireLogin })
       if (!res.ok) throw new Error(data?.error || 'Erro ao salvar resultado');
       if (data?.coupon?.code) {
         const extra = data?.coupon?.label?.includes('20%') ? ' 🎉 Cupom especial perfeito!' : '';
-        setResultMsg(`Parabéns! Seu cupom: ${data.coupon.code}${extra}`);
+        setResultMsg(`Parabéns, você venceu! Cupom liberado: ${data.coupon.code}${extra}`);
         trackEvent('memory_game_win', { coupon_code: data.coupon.code, attempts: payload.attempts, errors: payload.errors });
       } else if (data?.already_played) setResultMsg('Você já jogou neste período.');
-      else setResultMsg(payload?.won ? `Vitória registrada. Volte ${isVip ? 'amanhã' : 'na próxima semana'}!` : `Partida registrada. Volte ${isVip ? 'amanhã' : 'na próxima semana'}!`);
+      else setResultMsg(payload?.won ? `Parabéns, você venceu! Recompensa registrada. Volte ${isVip ? 'amanhã' : 'na próxima semana'}!` : `Partida registrada. Volte ${isVip ? 'amanhã' : 'na próxima semana'}!`);
       await loadStatus();
     } catch (e) {
       setResultMsg(String(e?.message || e));
@@ -180,10 +181,40 @@ export default function CupomGamePage({ onGoHome, accessToken, onRequireLogin })
         <div className="flex items-center justify-between gap-3 mb-4">
           <div>
             <h1 className="text-2xl sm:text-3xl font-extrabold">Cubo Game</h1>
-            <p className="text-sm text-slate-400 mt-1">Jogo da memória com cupom geek 🎴</p>
           </div>
-          <button onClick={onGoHome} className="container-cc rounded-xl px-4 py-2 ring-1 ring-white/15 hover:bg-white/5">Voltar</button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setHelpOpen((v) => !v)}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-amber-300/20 bg-amber-300/10 text-amber-200 transition hover:bg-amber-300/15"
+              aria-label="Como funciona o Cubo Game"
+              aria-expanded={helpOpen}
+            >
+              <span className="material-icons text-[20px]">lightbulb</span>
+            </button>
+            <button onClick={onGoHome} className="container-cc rounded-xl px-4 py-2 ring-1 ring-white/15 hover:bg-white/5">Voltar</button>
+          </div>
         </div>
+
+        {helpOpen ? (
+          <div className="mb-4 rounded-2xl border border-amber-300/20 bg-gradient-to-br from-amber-400/10 via-slate-900/92 to-slate-950/95 p-4 shadow-[0_12px_40px_rgba(0,0,0,0.26)]">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-amber-300/12 ring-1 ring-amber-200/20">
+                <span className="material-icons text-amber-200">tips_and_updates</span>
+              </div>
+              <div className="min-w-0">
+                <h2 className="text-sm font-semibold text-white">Como funciona o Cubo Game</h2>
+                <ul className="mt-2 space-y-2 text-sm leading-6 text-slate-300">
+                  <li>• Vire 2 cartas por vez e encontre os pares.</li>
+                  <li>• Você pode errar no máximo <b>{MAX_ERRORS} vezes</b>.</li>
+                  <li>• {isVip ? 'VIP: 1 partida por dia.' : '1 partida por semana por conta.'}</li>
+                  {isVip ? (<li className="text-emerald-200">• Como VIP, você pode jogar todos os dias.</li>) : null}
+                  <li>• Ao vencer, o cupom é gerado automaticamente e fica visível para copiar.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        ) : null}
 
         <div className="grid gap-4 lg:grid-cols-[1.1fr_.9fr]">
           <aside className="order-1 lg:order-2 space-y-4">
@@ -213,17 +244,6 @@ export default function CupomGamePage({ onGoHome, accessToken, onRequireLogin })
               ) : null}
             </div>
 
-            <div className="rounded-2xl p-4 ring-1 ring-white/10 bg-white/5">
-              <h2 className="font-semibold text-slate-100">Como funciona</h2>
-              <ul className="mt-3 space-y-2 text-sm text-slate-300">
-                <li>• Vire 2 cartas por vez e encontre os pares.</li>
-                <li>• Você pode errar no máximo <b>{MAX_ERRORS} vezes</b>.</li>
-                <li>• {isVip ? 'VIP: 1 partida por dia.' : '1 partida por semana por conta.'}</li>
-                {isVip ? (<li className="text-emerald-200">• Agora você é VIP poderá jogar todo dia.</li>) : null}
-                <li>• O cupom gerado aparece aqui em cima e pode ser usado no carrinho.</li>
-              </ul>
-            </div>
-
             <div className="rounded-2xl p-4 ring-1 ring-white/10 bg-white/5 space-y-2 text-sm">
               <div className="grid grid-cols-2 gap-2">
                 <div className="rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2">
@@ -237,7 +257,17 @@ export default function CupomGamePage({ onGoHome, accessToken, onRequireLogin })
               </div>
               <div className="flex justify-between gap-3"><span className="text-slate-400">Status</span><span className="text-right">{status.loading ? 'Carregando…' : !accessToken ? 'Faça login para jogar' : status.can_play ? 'Pode jogar' : (isVip ? 'Já jogou hoje' : 'Já jogou esta semana')}</span></div>
               <div className="flex justify-between gap-3"><span className="text-slate-400">Próxima rodada</span><span className="text-right font-medium">{countdown}</span></div>
-              {resultMsg ? <div className="rounded-xl bg-white/5 ring-1 ring-white/10 px-3 py-2 text-slate-100">{resultMsg}</div> : null}
+              {resultMsg ? (
+                <div className={`rounded-2xl px-4 py-4 text-center shadow-[0_16px_40px_rgba(0,0,0,0.28)] ${/Parabéns, você venceu/i.test(resultMsg) ? 'bg-gradient-to-br from-amber-300/18 via-emerald-400/10 to-slate-950 ring-1 ring-amber-300/30 text-amber-50' : 'bg-white/5 ring-1 ring-white/10 text-slate-100'}`}>
+                  {/Parabéns, você venceu/i.test(resultMsg) ? (
+                    <div className="mb-2 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-300/15 ring-1 ring-amber-200/25 text-amber-200">
+                      <span className="material-icons">emoji_events</span>
+                    </div>
+                  ) : null}
+                  <p className={`text-base font-bold ${/Parabéns, você venceu/i.test(resultMsg) ? 'text-amber-100' : 'text-slate-100'}`}>{/Parabéns, você venceu/i.test(resultMsg) ? 'Parabéns, você venceu!' : 'Status da rodada'}</p>
+                  <p className={`mt-1 text-sm leading-6 ${/Parabéns, você venceu/i.test(resultMsg) ? 'text-amber-50/90' : 'text-slate-200'}`}>{resultMsg}</p>
+                </div>
+              ) : null}
               {status.error ? <div className="rounded-xl bg-rose-500/10 ring-1 ring-rose-400/20 px-3 py-2 text-rose-200">{status.error}</div> : null}
             </div>
           </aside>

@@ -174,9 +174,6 @@ export default function HomePage({
               Action figures e miniaturas de RPG em resina
             </h1>
 
-            <p className="mt-4 text-slate-300 text-base sm:text-lg">
-              Pintura artística e acabamento premium — <span className="text-slate-100">pronta entrega</span> e <span className="text-slate-100">sob encomenda</span>.
-            </p>
 
             <div className="mt-6 flex flex-col sm:flex-row gap-3 max-w-md mx-auto lg:mx-0 justify-center lg:justify-start">
               <button
@@ -193,11 +190,6 @@ export default function HomePage({
               </button>
             </div>
 
-            {onGoCupom && (
-              <div className="mt-4">
-                <button onClick={onGoCupom} className="w-full sm:w-auto rounded-xl px-5 py-3 bg-amber-400 text-black font-bold ring-4 ring-amber-400/20">🎴 Cubo Game</button>
-              </div>
-            )}
 
           </div>
 
