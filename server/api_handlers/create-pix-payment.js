@@ -324,9 +324,9 @@ export default async function handler(req, res) {
     }
 
     finalAmount = Number(Number(finalAmount).toFixed(2));
-    if (!couponCode && Number.isFinite(requestedAmount) && requestedAmount > 0 && Math.abs(Number(requestedAmount.toFixed(2)) - finalAmount) > 0.05) {
-      return res.status(400).json({ error: "O carrinho foi alterado. Revise os valores e tente novamente." });
-    }
+    // O valor final do pedido é sempre recalculado no servidor com base no Supabase.
+    // Não bloqueamos mais o Pix quando o frontend estiver com preço antigo no carrinho,
+    // porque promoções, ajustes de preço e cupons devem sempre respeitar o valor do banco.
     if (!Number.isFinite(finalAmount) || finalAmount <= 0) {
       return res.status(400).json({ error: "O desconto deixou o valor do pedido inválido para Pix." });
     }
