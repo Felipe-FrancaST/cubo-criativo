@@ -201,7 +201,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
   // - travado: usa savedSelected
   const displaySelected = React.useMemo(() => (editing ? selected : savedSelected), [editing, selected, savedSelected]);
   const selectedPlan = React.useMemo(() => findPlanByProfileValue(vipPlans, vipPlan) || (Array.isArray(vipPlans) ? vipPlans[0] : null), [vipPlans, vipPlan]);
-  const planName = React.useMemo(() => selectedPlan?.short_name || selectedPlan?.name || 'VIP', [selectedPlan]);
+  const vipPlanLabel = React.useMemo(() => selectedPlan?.short_name || selectedPlan?.name || 'VIP', [selectedPlan]);
 
   const nextPlan = React.useMemo(() => {
     const plans = Array.isArray(vipPlans) && vipPlans.length ? vipPlans : FALLBACK_VIP_PLANS;
@@ -213,7 +213,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
   const miniLimit = Math.max(0, Number(selectedPlan?.miniatures_count ?? selectedPlan?.items_per_month ?? 0) || 0);
   const bossLimit = Math.max(0, Number(selectedPlan?.boss_count ?? 0) || 0);
   const totalLimit = Math.max(0, Number(selectedPlan?.items_per_month ?? (miniLimit + bossLimit)) || (miniLimit + bossLimit));
-  const help = React.useMemo(() => tabHelpContent(tab, { totalLimit, editable, planName, deadline: cycleDeadline }), [tab, totalLimit, editable, planName, cycleDeadline]);
+  const help = React.useMemo(() => tabHelpContent(tab, { totalLimit, editable, planName: vipPlanLabel, deadline: cycleDeadline }) || { title: 'Como funciona', body: '' }, [tab, totalLimit, editable, vipPlanLabel, cycleDeadline]);
 
   const currentPriceCents = React.useMemo(() => {
     if (typeof selectedPlan?.price_cents === 'number') return selectedPlan.price_cents;
@@ -870,7 +870,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                     <div className="mt-2 flex flex-wrap gap-2">
                       <span className="inline-flex items-center rounded-full bg-white/5 px-3 py-1 text-xs font-semibold text-slate-200 ring-1 ring-white/10">Ciclo {cycle}</span>
                       <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ring-1 ${st.cls}`}>{st.label}</span>
-                      <span className="inline-flex items-center rounded-full bg-white/5 px-3 py-1 text-xs font-semibold text-slate-200 ring-1 ring-white/10">Plano {planName}</span>
+                      <span className="inline-flex items-center rounded-full bg-white/5 px-3 py-1 text-xs font-semibold text-slate-200 ring-1 ring-white/10">Plano {vipPlanLabel}</span>
                     </div>
                     {!editable && blockNotice ? (
                       <div className="mt-3 rounded-2xl bg-amber-500/10 ring-1 ring-amber-400/25 px-4 py-3 text-sm text-amber-100">
