@@ -89,7 +89,7 @@ export default function VipRpgPage({
     const items = [];
 
     if (selectedMiniaturesCount > 0) {
-      items.push(`${pluralize(selectedMiniaturesCount, 'miniatura')} mensal${selectedMiniaturesCount > 1 ? 'ais' : ''} em resina premium`);
+      items.push(`${pluralize(selectedMiniaturesCount, 'miniatura')} ${selectedMiniaturesCount > 1 ? 'mensais' : 'mensal'} em resina premium`);
     }
 
     if (selectedBossCount > 0) {
