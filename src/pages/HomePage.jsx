@@ -134,9 +134,13 @@ export default function HomePage({
     <main className="flex-1">
       {/* BANNER GEEK */}
       <section className="container-cc px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6">
-        <button
-          type="button"
-          onClick={() => onGoVipPlans?.()}
+        <a
+          href="/planos-vip"
+          onClick={(e) => {
+            e.preventDefault();
+            if (typeof onGoVipPlans === "function") onGoVipPlans();
+            else if (typeof window !== "undefined") window.location.href = "/planos-vip";
+          }}
           className="block w-full text-left rounded-[24px] sm:rounded-[28px] focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/60"
           aria-label="Abrir planos VIP"
         >
@@ -168,7 +172,7 @@ export default function HomePage({
             </div>
             </div>
           </div>
-        </button>
+        </a>
       </section>
 
       {/* HERO / PROMO */}
