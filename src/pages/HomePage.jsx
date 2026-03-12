@@ -4,13 +4,13 @@ import ProductCard from "../components/ProductCard.jsx";
 import { supabase } from "../lib/supabaseClient";
 
 const FALLBACK_BANNER = {
-  image_url: "/images/banner-geek-home.svg",
+  image_url: "",
   mobile_image_url: "",
 };
 
 function resolveBannerImage(banner, isMobile) {
   if (isMobile && banner?.mobile_image_url) return banner.mobile_image_url;
-  return banner?.image_url || FALLBACK_BANNER.image_url;
+  return banner?.image_url || "";
 }
 
 export default function HomePage({
@@ -36,6 +36,7 @@ export default function HomePage({
   const [loadingDepoimentos, setLoadingDepoimentos] = React.useState(true);
   const [banner, setBanner] = React.useState(FALLBACK_BANNER);
   const [bannerLoading, setBannerLoading] = React.useState(true);
+  const [bannerImageLoaded, setBannerImageLoaded] = React.useState(false);
   const [isMobileBanner, setIsMobileBanner] = React.useState(() => {
     if (typeof window === "undefined") return false;
     return window.matchMedia("(max-width: 640px)").matches;
@@ -124,20 +125,36 @@ export default function HomePage({
 
   const bannerImage = resolveBannerImage(banner, isMobileBanner);
 
+  React.useEffect(() => {
+    setBannerImageLoaded(false);
+  }, [bannerImage]);
+
   return (
     <main className="flex-1">
       {/* BANNER GEEK */}
       <section className="container-cc px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6">
         <div className="relative overflow-hidden rounded-[24px] sm:rounded-[28px] ring-1 ring-white/10 bg-slate-950 shadow-2xl">
-          <div className="relative aspect-[16/9] w-full sm:aspect-[16/7] lg:aspect-[16/6]">
-            <img
-              src={bannerImage}
-              alt="Banner da loja Cubo Criativo"
-              className="absolute inset-0 h-full w-full object-cover"
-              loading="eager"
-            />
-            {bannerLoading ? (
-              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-cyan-400/10 via-cyan-300/80 to-fuchsia-400/10" />
+          <div className="relative aspect-[16/9] w-full sm:aspect-[16/7] lg:aspect-[16/6] bg-[radial-gradient(circle_at_center,_rgba(196,153,74,0.16),_rgba(22,18,14,0.96)_68%)]">
+            {bannerImage ? (
+              <>
+                <img
+                  src={bannerImage}
+                  alt="Banner da loja Cubo Criativo"
+                  className={`absolute inset-0 h-full w-full object-cover transition-all duration-700 ${bannerImageLoaded ? "scale-100 blur-0 opacity-100" : "scale-[1.03] blur-xl opacity-70"}`}
+                  loading="eager"
+                  onLoad={() => setBannerImageLoaded(true)}
+                  onError={() => setBannerImageLoaded(true)}
+                />
+                {!bannerImageLoaded ? (
+                  <div className="pointer-events-none absolute inset-0 bg-black/10 backdrop-blur-[2px]" />
+                ) : null}
+              </>
+            ) : (
+              <div className="absolute inset-0 animate-pulse bg-[radial-gradient(circle_at_center,_rgba(196,153,74,0.18),_rgba(24,18,16,1)_72%)]" />
+            )}
+
+            {(bannerLoading || (bannerImage && !bannerImageLoaded)) ? (
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-amber-400/10 via-amber-300/80 to-red-400/10" />
             ) : null}
           </div>
         </div>
