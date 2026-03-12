@@ -44,7 +44,7 @@ function CardRPG({ item, onOpenGallery, onAdd }) {
             Imagem não encontrada.
           </div>
         )}
-        <span className="absolute bottom-2 right-2 text-[10px] px-2 py-0.5 rounded-full bg-black/60 ring-1 ring-white/20">
+        <span className="absolute bottom-2 right-2 text-[10px] px-2 py-0.5 rounded-full bg-[#020b10]/72 ring-1 ring-white/20">
           ver fotos
         </span>
       </button>
@@ -70,7 +70,7 @@ function CardRPG({ item, onOpenGallery, onAdd }) {
           </span>
           <button
             onClick={() => onAdd(item)}
-            className="rounded-lg px-3 py-1.5 bg-amber-400 text-black font-semibold ring-4 ring-amber-400/20 hover:bg-amber-300 transition"
+            className="rounded-lg px-3 py-1.5 bg-amber-400 text-black font-semibold ring-4 ring-cyan-400/20 hover:bg-cyan-400 transition"
           >
             Adicionar
           </button>
@@ -206,14 +206,14 @@ export default function RPGPage({ onClose, addToCart, items = [], loading = fals
         <div className="container-cc w-full px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between" style={{ maxWidth: 1200 }}>
           <div>
             <h2 className="text-xl sm:text-2xl font-extrabold">
-              <span className="text-amber-400">{rpgUi.title}</span>{" "}
+              <span className="text-cyan-400">{rpgUi.title}</span>{" "}
               <span className="text-slate-300">/ Modo Imersivo</span>
             </h2>
             <p className="text-xs sm:text-sm text-slate-400">{rpgUi.subtitle}</p>
           </div>
           <button
             onClick={onClose}
-            className="container-cc rounded-full px-4 py-2 ring-1 ring-white/15 hover:bg-white/5 text-sm"
+            className="container-cc rounded-full px-4 py-2 ring-1 ring-white/15 hover:bg-white/4 text-sm"
           >
             {rpgUi.ctaBack}
           </button>
@@ -236,7 +236,7 @@ export default function RPGPage({ onClose, addToCart, items = [], loading = fals
                 className={`relative rounded-full px-4 py-2 text-sm ring-1 ring-white/10 transition ${
                   active
                     ? "bg-amber-400 text-black font-bold"
-                    : "bg-[#0b0f12]/70 hover:bg-white/5"
+                    : "bg-[#0b0f12]/70 hover:bg-white/4"
                 }`}
               >
                 {t.label}

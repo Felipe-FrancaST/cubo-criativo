@@ -25,14 +25,14 @@ export default function SobrePage({ onGoHome }) {
 
             <button
               onClick={onGoHome}
-              className="container-cc rounded-xl px-4 py-2 ring-1 ring-white/15 hover:bg-white/5 text-sm"
+              className="container-cc rounded-xl px-4 py-2 ring-1 ring-white/15 hover:bg-white/4 text-sm"
             >
               <span className="material-icons align-middle text-[18px]">chevron_left</span> Voltar
             </button>
           </div>
 
           <div className="mt-10 grid grid-cols-1 lg:grid-cols-3 gap-5">
-            <div className="lg:col-span-2 rounded-3xl p-6 sm:p-7 bg-white/5 ring-1 ring-white/10 shadow-[0_0_0_1px_rgba(255,255,255,0.04)]">
+            <div className="lg:col-span-2 rounded-3xl p-6 sm:p-7 bg-white/4 ring-1 ring-white/10 shadow-[0_0_0_1px_rgba(255,255,255,0.04)]">
               <h2 className="text-lg font-extrabold">Nossa missão</h2>
               <p className="mt-2 text-slate-300 text-sm leading-relaxed">
                 Criar miniaturas e peças decorativas que chamam atenção de verdade — com opções de escala,
@@ -55,7 +55,7 @@ export default function SobrePage({ onGoHome }) {
               </div>
             </div>
 
-            <div className="rounded-3xl p-6 sm:p-7 bg-white/5 ring-1 ring-white/10 shadow-[0_0_0_1px_rgba(255,255,255,0.04)]">
+            <div className="rounded-3xl p-6 sm:p-7 bg-white/4 ring-1 ring-white/10 shadow-[0_0_0_1px_rgba(255,255,255,0.04)]">
               <h2 className="text-lg font-extrabold">Fundadores</h2>
               <ul className="mt-3 space-y-2 text-sm text-slate-200">
                 <li className="flex items-start gap-2">

@@ -85,7 +85,7 @@ export default function StockPage({ items, loading = false, error = "", addToCar
               <button
                 type="button"
                 onClick={() => setQ("")}
-                className="container-cc shrink-0 rounded-xl px-4 py-3 ring-1 ring-white/15 hover:bg-white/5"
+                className="container-cc shrink-0 rounded-xl px-4 py-3 ring-1 ring-white/15 hover:bg-white/4"
               >
                 Limpar
               </button>
@@ -103,15 +103,15 @@ export default function StockPage({ items, loading = false, error = "", addToCar
               Array.from({ length: 8 }).map((_, idx) => (
                 <div
                   key={idx}
-                  className="w-full max-w-[320px] rounded-2xl overflow-hidden ring-1 ring-white/10 bg-slate-900/60"
+                  className="w-full max-w-[320px] rounded-2xl overflow-hidden ring-1 ring-white/10 bg-[#07161d]/60"
                 >
-                  <div className="aspect-[4/5] bg-slate-800/60 animate-pulse" />
+                  <div className="aspect-[4/5] bg-[#0c2430]/68 animate-pulse" />
                   <div className="p-4">
-                    <div className="h-4 bg-slate-800/60 rounded animate-pulse" />
-                    <div className="mt-3 h-9 bg-slate-800/60 rounded animate-pulse" />
+                    <div className="h-4 bg-[#0c2430]/68 rounded animate-pulse" />
+                    <div className="mt-3 h-9 bg-[#0c2430]/68 rounded animate-pulse" />
                     <div className="mt-4 grid grid-cols-2 gap-2">
-                      <div className="h-10 bg-slate-800/60 rounded animate-pulse" />
-                      <div className="h-10 bg-slate-800/60 rounded animate-pulse" />
+                      <div className="h-10 bg-[#0c2430]/68 rounded animate-pulse" />
+                      <div className="h-10 bg-[#0c2430]/68 rounded animate-pulse" />
                     </div>
                   </div>
                 </div>

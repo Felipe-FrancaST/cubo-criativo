@@ -9,7 +9,7 @@ export default function TrocasPage({ onGoHome }) {
             <h1 className="text-3xl sm:text-4xl font-black tracking-tight">Trocas, devoluções e encomendas</h1>
             <p className="mt-2 text-slate-300 text-sm">Regras gerais para transparência no atendimento.</p>
           </div>
-          <button onClick={onGoHome} className="container-cc rounded-xl px-4 py-2 ring-1 ring-white/15 hover:bg-white/5 text-sm">Voltar</button>
+          <button onClick={onGoHome} className="container-cc rounded-xl px-4 py-2 ring-1 ring-white/15 hover:bg-white/4 text-sm">Voltar</button>
         </div>
         <div className="mt-8 grid gap-4">
           {[
@@ -19,7 +19,7 @@ export default function TrocasPage({ onGoHome }) {
             ['Prazo de produção', 'Peças sob encomenda costumam levar de 3 a 7 dias úteis, podendo variar conforme complexidade e fila.'],
             ['Prazo de envio', 'O envio ocorre após confirmação de pagamento e finalização da produção (quando aplicável).'],
           ].map(([title, text]) => (
-            <div key={title} className="rounded-2xl p-5 bg-white/5 ring-1 ring-white/10">
+            <div key={title} className="rounded-2xl p-5 bg-white/4 ring-1 ring-white/10">
               <h2 className="font-bold text-slate-100">{title}</h2>
               <p className="mt-2 text-sm text-slate-300">{text}</p>
             </div>

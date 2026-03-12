@@ -51,14 +51,14 @@ export default function ProductCard({ p, addToCart, buyNow, openGallery, onRequi
   return (
     <article
       id={p?.id ? `product-${p.id}` : undefined}
-      className="w-full min-w-0 group rounded-2xl overflow-hidden ring-1 ring-white/10 bg-slate-900/60 shadow-[0_12px_30px_-18px_rgba(0,0,0,0.70)] hover:ring-teal-400/30 hover:-translate-y-0.5 hover:shadow-[0_18px_45px_-22px_rgba(0,0,0,0.85)] transition-all"
+      className="w-full min-w-0 group rounded-2xl overflow-hidden ring-1 ring-white/10 bg-[#07161d]/60 shadow-[0_12px_30px_-18px_rgba(0,0,0,0.70)] hover:ring-cyan-400/30 hover:-translate-y-0.5 hover:shadow-[0_18px_45px_-22px_rgba(0,0,0,0.85)] transition-all"
     >
       {/* Imagem -> abre galeria */}
       <div
         role="button"
         tabIndex={0}
         // Suas imagens são 1:1 (1200x1200). Para evitar corte, usamos área 1:1 e object-contain.
-        className="aspect-square min-h-[220px] sm:min-h-[260px] bg-slate-900/40 p-3 sm:p-4 grid place-items-center overflow-hidden w-full relative cursor-pointer focus:outline-none focus:ring-2 focus:ring-teal-400/40"
+        className="aspect-square min-h-[220px] sm:min-h-[260px] bg-[#07161d]/40 p-3 sm:p-4 grid place-items-center overflow-hidden w-full relative cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
         onClick={() => openGallery?.(p)}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
@@ -93,7 +93,7 @@ export default function ProductCard({ p, addToCart, buyNow, openGallery, onRequi
           className={`absolute top-2 left-2 rounded-full px-2.5 py-2 text-sm ring-1 transition ${
             fav
               ? "bg-rose-500/90 text-white ring-rose-200/40"
-              : "bg-black/50 text-white ring-white/20 hover:bg-black/70"
+              : "bg-[#020b10]/65 text-white ring-white/20 hover:bg-black/70"
           }`}
           aria-pressed={fav}
           aria-label={fav ? "Remover dos favoritos" : "Favoritar"}
@@ -117,12 +117,12 @@ export default function ProductCard({ p, addToCart, buyNow, openGallery, onRequi
 {(p?._availabilityLabel || p?._typeLabel) ? (
   <div className="mb-2 flex flex-wrap items-center gap-2">
     {p?._availabilityLabel ? (
-      <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-white/10 ring-1 ring-white/15">
+      <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-white/6 ring-1 ring-white/15">
         {p._availabilityLabel}{p?._leadTimeLabel && !p?._isStock ? ` • ${p._leadTimeLabel}` : ""}
       </span>
     ) : null}
     {p?._typeLabel ? (
-      <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-white/10 ring-1 ring-white/15">
+      <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-white/6 ring-1 ring-white/15">
         {p._typeLabel}
       </span>
     ) : null}
@@ -138,7 +138,7 @@ export default function ProductCard({ p, addToCart, buyNow, openGallery, onRequi
             <a
               href={`/p/${p.slug}`}
               onClick={() => saveProductReturnState()}
-              className="text-xs font-semibold text-teal-300 hover:text-teal-200 underline underline-offset-4 shrink-0"
+              className="text-xs font-semibold text-cyan-300 hover:text-cyan-200 underline underline-offset-4 shrink-0"
               aria-label={`Abrir página de ${p.nome}`}
               title="Abrir página do produto"
             >
@@ -168,7 +168,7 @@ export default function ProductCard({ p, addToCart, buyNow, openGallery, onRequi
           <div className="mt-3">
             <label className="text-xs text-slate-400">Escala / Preço</label>
             <select
-              className="mt-1 w-full rounded-lg bg-slate-800/60 ring-1 ring-white/10 px-3 py-2 text-xs sm:text-sm"
+              className="mt-1 w-full rounded-lg bg-[#0c2430]/68 ring-1 ring-white/10 px-3 py-2 text-xs sm:text-sm"
               value={selIndex}
               onChange={(e) => setSelIndex(Number(e.target.value))}
             >
@@ -187,12 +187,12 @@ export default function ProductCard({ p, addToCart, buyNow, openGallery, onRequi
           <button
             onClick={handleAdd}
             disabled={outOfStock}
-            className={`rounded-lg px-3 py-2 text-sm font-semibold ring-4 ring-teal-400/20 transition ${
+            className={`rounded-lg px-3 py-2 text-sm font-semibold ring-4 ring-cyan-400/20 transition ${
               outOfStock
-                ? "bg-slate-800 text-slate-400 cursor-not-allowed ring-white/10"
+                ? "bg-[#0c2430] text-slate-400 cursor-not-allowed ring-white/10"
                 : addedFlash
                   ? "bg-emerald-400 text-black"
-                  : "bg-teal-400 text-black"
+                  : "bg-cyan-400 text-black"
             }`}
             title="Adicionar ao carrinho"
           >
@@ -202,7 +202,7 @@ export default function ProductCard({ p, addToCart, buyNow, openGallery, onRequi
             onClick={() => buyNow(p, { escala, unitPrice: currentPrice })}
             disabled={outOfStock}
             className={`rounded-lg px-3 py-2 text-sm ring-1 ring-white/15 ${
-              outOfStock ? "bg-slate-800 text-slate-400 cursor-not-allowed" : "hover:bg-white/5"
+              outOfStock ? "bg-[#0c2430] text-slate-400 cursor-not-allowed" : "hover:bg-white/4"
             }`}
             title="Comprar agora"
           >

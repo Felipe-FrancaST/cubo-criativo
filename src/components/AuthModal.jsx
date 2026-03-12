@@ -15,8 +15,8 @@ function Field({ label, children }) {
 function FloatingNotice({ tone = "success", message }) {
   if (!message) return null;
   const palette = tone === "error"
-    ? "border-rose-400/35 bg-slate-950/95 text-rose-100 shadow-[0_20px_60px_-20px_rgba(244,63,94,0.45)]"
-    : "border-emerald-400/35 bg-slate-950/95 text-emerald-100 shadow-[0_20px_60px_-20px_rgba(52,211,153,0.45)]";
+    ? "border-rose-400/35 bg-[#05131a]/95 text-rose-100 shadow-[0_20px_60px_-20px_rgba(244,63,94,0.45)]"
+    : "border-emerald-400/35 bg-[#05131a]/95 text-emerald-100 shadow-[0_20px_60px_-20px_rgba(52,211,153,0.45)]";
   const icon = tone === "error" ? "error" : "verified";
   return (
     <div className="sticky top-3 z-[70] mb-4 flex justify-center px-1">
@@ -35,7 +35,7 @@ function FloatingNotice({ tone = "success", message }) {
 
 function PasswordInput({ value, onChange, autoComplete = "current-password", placeholder = "••••••••", className = "", inputClassName = "", buttonClassName = "", ...props }) {
   const [visible, setVisible] = React.useState(false);
-  const resolvedInputClass = (className || inputClassName || "w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 pr-12 outline-none focus:ring-teal-400/60").trim();
+  const resolvedInputClass = (className || inputClassName || "w-full rounded-xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 pr-12 outline-none focus:ring-cyan-400/60").trim();
   const resolvedButtonClass = (buttonClassName || "absolute inset-y-0 right-0 inline-flex w-12 items-center justify-center text-slate-300 transition hover:text-white").trim();
   return (
     <div className="relative">
@@ -300,7 +300,7 @@ export default function AuthModal({ open, onClose, onSuccess }) {
               </div>
               <button
                 onClick={signOut}
-                className="rounded-xl px-3 py-2 text-xs ring-1 ring-white/15 hover:bg-white/5"
+                className="rounded-xl px-3 py-2 text-xs ring-1 ring-white/15 hover:bg-white/4"
                 aria-label="Sair"
               >
                 Sair
@@ -309,7 +309,7 @@ export default function AuthModal({ open, onClose, onSuccess }) {
 
             <div className="mt-4 rounded-2xl border border-teal-400/20 bg-teal-500/10 px-4 py-4 text-sm text-slate-200 ring-1 ring-white/10">
               <div className="flex items-start gap-3">
-                <span className="material-icons text-teal-300">verified_user</span>
+                <span className="material-icons text-cyan-300">verified_user</span>
                 <div>
                   <p className="font-semibold text-slate-100">Conta nova detectada</p>
                   <p className="mt-1 text-slate-300">
@@ -324,13 +324,13 @@ export default function AuthModal({ open, onClose, onSuccess }) {
                 type="checkbox"
                 checked={googleAgreeTerms}
                 onChange={(e) => setGoogleAgreeTerms(e.target.checked)}
-                className="mt-1 h-4 w-4 rounded border-white/20 bg-slate-900 text-teal-400 focus:ring-teal-400"
+                className="mt-1 h-4 w-4 rounded border-white/20 bg-[#07161d] text-teal-400 focus:ring-teal-400"
               />
               <span className="leading-6">
                 Li e concordo com os{' '}
-                <a href="/terms.html" target="_blank" rel="noreferrer" className="font-medium text-teal-300 hover:text-teal-200 underline underline-offset-4">Termos de uso</a>{' '}
+                <a href="/terms.html" target="_blank" rel="noreferrer" className="font-medium text-cyan-300 hover:text-cyan-200 underline underline-offset-4">Termos de uso</a>{' '}
                 e com a{' '}
-                <a href="/privacy.html" target="_blank" rel="noreferrer" className="font-medium text-teal-300 hover:text-teal-200 underline underline-offset-4">Política de Privacidade</a>.
+                <a href="/privacy.html" target="_blank" rel="noreferrer" className="font-medium text-cyan-300 hover:text-cyan-200 underline underline-offset-4">Política de Privacidade</a>.
               </span>
             </label>
 
@@ -339,7 +339,7 @@ export default function AuthModal({ open, onClose, onSuccess }) {
                 type="button"
                 onClick={acceptGoogleTerms}
                 disabled={busy}
-                className={`flex-1 rounded-xl px-4 py-3 font-semibold ring-1 ring-white/10 transition ${busy ? 'bg-slate-700/50 text-slate-300 cursor-not-allowed' : 'bg-teal-500/90 text-slate-950 hover:bg-teal-400'}`}
+                className={`flex-1 rounded-xl px-4 py-3 font-semibold ring-1 ring-white/10 transition ${busy ? 'bg-[#12303b]/55 text-slate-300 cursor-not-allowed' : 'bg-teal-500/90 text-slate-950 hover:bg-cyan-400'}`}
               >
                 {busy ? 'Concluindo...' : 'Concluir cadastro com Google'}
               </button>
@@ -356,7 +356,7 @@ export default function AuthModal({ open, onClose, onSuccess }) {
           </div>
           <button
             onClick={onClose}
-            className="rounded-xl p-2 ring-1 ring-white/15 hover:bg-white/5"
+            className="rounded-xl p-2 ring-1 ring-white/15 hover:bg-white/4"
             aria-label="Fechar"
           >
             <span className="material-icons">close</span>
@@ -367,14 +367,14 @@ export default function AuthModal({ open, onClose, onSuccess }) {
           <button
             type="button"
             onClick={() => setMode("login")}
-            className={`rounded-xl px-4 py-2 text-sm ring-1 ring-white/10 ${mode === "login" ? "bg-white/10" : "hover:bg-white/5"}`}
+            className={`rounded-xl px-4 py-2 text-sm ring-1 ring-white/10 ${mode === "login" ? "bg-white/6" : "hover:bg-white/4"}`}
           >
             Entrar
           </button>
           <button
             type="button"
             onClick={() => setMode("signup")}
-            className={`rounded-xl px-4 py-2 text-sm ring-1 ring-white/10 ${mode === "signup" ? "bg-white/10" : "hover:bg-white/5"}`}
+            className={`rounded-xl px-4 py-2 text-sm ring-1 ring-white/10 ${mode === "signup" ? "bg-white/6" : "hover:bg-white/4"}`}
           >
             Criar conta
           </button>
@@ -386,7 +386,7 @@ export default function AuthModal({ open, onClose, onSuccess }) {
             onClick={doGoogle}
             disabled={busy}
             className={`w-full rounded-xl px-4 py-3 font-semibold ring-1 ring-white/10 transition flex items-center justify-center gap-2 ${
-              busy ? "bg-slate-700/50 text-slate-300 cursor-not-allowed" : "bg-white/10 hover:bg-white/15 text-slate-100"
+              busy ? "bg-[#12303b]/55 text-slate-300 cursor-not-allowed" : "bg-white/6 hover:bg-white/8 text-slate-100"
             }`}
           >
             <span className="material-icons" style={{ fontSize: 18 }}>
@@ -397,14 +397,14 @@ export default function AuthModal({ open, onClose, onSuccess }) {
         </div>
 
         <div className="mt-3 flex items-center gap-3 text-xs text-slate-400">
-          <div className="h-px flex-1 bg-white/10" />
+          <div className="h-px flex-1 bg-white/6" />
           <span>ou</span>
-          <div className="h-px flex-1 bg-white/10" />
+          <div className="h-px flex-1 bg-white/6" />
         </div>
 
         <form onSubmit={submit} className="mt-4 space-y-3">
           {mode === "signup" && (
-            <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
+            <div className="rounded-2xl bg-white/4 ring-1 ring-white/10 p-4">
               <p className="text-sm font-semibold text-slate-100">Dados para entrega</p>
               {/* (removido) */}
 
@@ -415,7 +415,7 @@ export default function AuthModal({ open, onClose, onSuccess }) {
                     onChange={(e) => setFullName(e.target.value)}
                     type="text"
                     autoComplete="name"
-                    className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                    className="w-full rounded-xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-cyan-400/60"
                     placeholder="Seu nome"
                   />
                 </Field>
@@ -426,7 +426,7 @@ export default function AuthModal({ open, onClose, onSuccess }) {
                     onChange={(e) => setPhone(e.target.value)}
                     type="tel"
                     autoComplete="tel"
-                    className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                    className="w-full rounded-xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-cyan-400/60"
                     placeholder="(11) 99999-9999"
                   />
                 </Field>
@@ -439,7 +439,7 @@ export default function AuthModal({ open, onClose, onSuccess }) {
                       type="text"
                       inputMode="numeric"
                       autoComplete="off"
-                      className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                      className="w-full rounded-xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-cyan-400/60"
                       placeholder="000.000.000-00"
                     />
                   </Field>
@@ -450,7 +450,7 @@ export default function AuthModal({ open, onClose, onSuccess }) {
                       onChange={(e) => setBirthdate(e.target.value)}
                       type="date"
                       autoComplete="bday"
-                      className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                      className="w-full rounded-xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-cyan-400/60"
                     />
                   </Field>
                 </div>
@@ -462,7 +462,7 @@ export default function AuthModal({ open, onClose, onSuccess }) {
                       onChange={(e) => setZip(e.target.value)}
                       type="text"
                       autoComplete="postal-code"
-                      className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                      className="w-full rounded-xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-cyan-400/60"
                       placeholder="00000-000"
                     />
                     <div className="mt-1 text-[11px] text-slate-400">
@@ -476,7 +476,7 @@ export default function AuthModal({ open, onClose, onSuccess }) {
                       onChange={(e) => setStateUF(e.target.value.toUpperCase())}
                       type="text"
                       autoComplete="address-level1"
-                      className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                      className="w-full rounded-xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-cyan-400/60"
                       placeholder="SP"
                       maxLength={2}
                     />
@@ -489,7 +489,7 @@ export default function AuthModal({ open, onClose, onSuccess }) {
                     onChange={(e) => setCity(e.target.value)}
                     type="text"
                     autoComplete="address-level2"
-                    className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                    className="w-full rounded-xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-cyan-400/60"
                     placeholder="Cidade"
                   />
                 </Field>
@@ -500,7 +500,7 @@ export default function AuthModal({ open, onClose, onSuccess }) {
                     onChange={(e) => setNeighborhood(e.target.value)}
                     type="text"
                     autoComplete="address-level3"
-                    className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                    className="w-full rounded-xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-cyan-400/60"
                     placeholder="Bairro"
                   />
                 </Field>
@@ -513,7 +513,7 @@ export default function AuthModal({ open, onClose, onSuccess }) {
                         onChange={(e) => setStreet(e.target.value)}
                         type="text"
                         autoComplete="address-line1"
-                        className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                        className="w-full rounded-xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-cyan-400/60"
                         placeholder="Rua Exemplo"
                       />
                     </Field>
@@ -526,7 +526,7 @@ export default function AuthModal({ open, onClose, onSuccess }) {
                       type="text"
                       inputMode="numeric"
                       autoComplete="address-line2"
-                      className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                      className="w-full rounded-xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-cyan-400/60"
                       placeholder="123"
                     />
                   </Field>
@@ -538,7 +538,7 @@ export default function AuthModal({ open, onClose, onSuccess }) {
                     onChange={(e) => setAddr2(e.target.value)}
                     type="text"
                     autoComplete="address-line2"
-                    className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                    className="w-full rounded-xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-cyan-400/60"
                     placeholder="Apartamento, bloco, etc"
                   />
                 </Field>
@@ -553,7 +553,7 @@ export default function AuthModal({ open, onClose, onSuccess }) {
               onChange={(e) => setEmail(e.target.value)}
               type="email"
               autoComplete="email"
-              className="mt-1 w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+              className="mt-1 w-full rounded-xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-cyan-400/60"
               placeholder="voce@exemplo.com"
             />
           </div>
@@ -565,7 +565,7 @@ export default function AuthModal({ open, onClose, onSuccess }) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete={mode === "login" ? "current-password" : "new-password"}
-                className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 pr-12 outline-none focus:ring-teal-400/60"
+                className="w-full rounded-xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 pr-12 outline-none focus:ring-cyan-400/60"
                 placeholder="••••••••"
               />
             </div>
@@ -577,13 +577,13 @@ export default function AuthModal({ open, onClose, onSuccess }) {
                 type="checkbox"
                 checked={agreeTerms}
                 onChange={(e) => setAgreeTerms(e.target.checked)}
-                className="mt-1 h-4 w-4 rounded border-white/20 bg-slate-900 text-teal-400 focus:ring-teal-400"
+                className="mt-1 h-4 w-4 rounded border-white/20 bg-[#07161d] text-teal-400 focus:ring-teal-400"
               />
               <span className="leading-6">
                 Li e concordo com os{' '}
-                <a href="/terms.html" target="_blank" rel="noreferrer" className="font-medium text-teal-300 hover:text-teal-200 underline underline-offset-4">Termos de uso</a>{' '}
+                <a href="/terms.html" target="_blank" rel="noreferrer" className="font-medium text-cyan-300 hover:text-cyan-200 underline underline-offset-4">Termos de uso</a>{' '}
                 e com a{' '}
-                <a href="/privacy.html" target="_blank" rel="noreferrer" className="font-medium text-teal-300 hover:text-teal-200 underline underline-offset-4">Política de Privacidade</a>.
+                <a href="/privacy.html" target="_blank" rel="noreferrer" className="font-medium text-cyan-300 hover:text-cyan-200 underline underline-offset-4">Política de Privacidade</a>.
               </span>
             </label>
           )}
@@ -594,7 +594,7 @@ export default function AuthModal({ open, onClose, onSuccess }) {
           <button
             disabled={busy}
             className={`w-full rounded-xl px-4 py-3 font-semibold ring-1 ring-white/10 transition ${
-              busy ? "bg-slate-700/50 text-slate-300 cursor-not-allowed" : "bg-emerald-400 hover:bg-emerald-300 text-black"
+              busy ? "bg-[#12303b]/55 text-slate-300 cursor-not-allowed" : "bg-emerald-400 hover:bg-emerald-300 text-black"
             }`}
           >
             {busy ? "Aguarde…" : mode === "login" ? "Entrar" : "Criar conta"}

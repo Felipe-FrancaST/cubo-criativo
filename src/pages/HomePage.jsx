@@ -168,7 +168,7 @@ export default function HomePage({
               <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-amber-400/10 via-amber-300/80 to-red-400/10" />
             ) : null}
             <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-end p-3 sm:p-4">
-              <span className="rounded-full bg-black/40 px-3 py-1 text-[11px] sm:text-xs font-semibold tracking-wide text-amber-100 ring-1 ring-white/10 backdrop-blur">Conheça os planos VIP</span>
+              <span className="rounded-full bg-[#020b10]/70 px-3 py-1 text-[11px] sm:text-xs font-semibold tracking-wide text-amber-100 ring-1 ring-white/10 backdrop-blur">Conheça os planos VIP</span>
             </div>
             </div>
           </div>
@@ -180,7 +180,7 @@ export default function HomePage({
         <div className="absolute inset-0 -z-10 opacity-30 pointer-events-none bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-teal-500/35 via-fuchsia-500/15 to-indigo-500/10" />
         <div className="container-cc grid lg:grid-cols-2 items-center gap-10 px-4 sm:px-6 lg:px-8 py-10 sm:py-16">
           <div className="text-center lg:text-left lg:pr-6">
-            <p className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-white/10 bg-white/5 text-slate-200">
+            <p className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-white/10 bg-white/4 text-slate-200">
               <span className="inline-flex h-2 w-2 rounded-full bg-emerald-400" />
               Loja online • Miniaturas e Action Figures
             </p>
@@ -194,20 +194,20 @@ export default function HomePage({
               <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start">
                 <button
                   onClick={onGoEstoque}
-                  className="rounded-xl px-5 py-3 bg-teal-400 text-black font-bold ring-4 ring-teal-400/20 text-center"
+                  className="rounded-xl px-5 py-3 bg-cyan-400 text-black font-bold ring-4 ring-cyan-400/20 text-center"
                 >
                   Peças em estoque
                 </button>
                 <button
                   onClick={onGoCatalogo}
-                  className="rounded-xl px-5 py-3 ring-1 ring-white/20 hover:bg-white/5 text-center"
+                  className="rounded-xl px-5 py-3 ring-1 ring-white/20 hover:bg-white/4 text-center"
                 >
                   Catálogo completo
                 </button>
               </div>
               <button
                 onClick={onGoCupom}
-                className="rounded-xl px-5 py-3 ring-1 ring-amber-300/25 bg-amber-200/10 text-amber-100 hover:bg-amber-200/15 text-center font-semibold"
+                className="rounded-xl px-5 py-3 ring-1 ring-amber-300/25 bg-cyan-300/10 text-amber-100 hover:bg-amber-200/15 text-center font-semibold"
               >
                 Ganhe Cupons
               </button>
@@ -252,7 +252,7 @@ export default function HomePage({
       <section id="destaques" className="container-cc px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
         <div className="flex items-end justify-between gap-4 mb-4 sm:mb-6">
           <div>
-            <p className="text-teal-300 font-semibold text-sm">Só esta semana</p>
+            <p className="text-cyan-300 font-semibold text-sm">Só esta semana</p>
             <h2 className="text-2xl sm:text-3xl font-black">Destaques da loja</h2>
           </div>
           <button onClick={onGoCatalogo} className="text-sm underline decoration-dotted text-slate-300 hover:text-white">
@@ -263,7 +263,7 @@ export default function HomePage({
         {loadingProducts ? (
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
             {Array.from({ length: 4 }).map((_, idx) => (
-              <div key={idx} className="rounded-2xl p-4 ring-1 ring-white/10 bg-white/5 animate-pulse h-72" />
+              <div key={idx} className="rounded-2xl p-4 ring-1 ring-white/10 bg-white/4 animate-pulse h-72" />
             ))}
           </div>
         ) : productsError ? (
@@ -271,7 +271,7 @@ export default function HomePage({
             {productsError}
           </div>
         ) : featured.length === 0 ? (
-          <div className="rounded-2xl p-5 ring-1 ring-white/10 bg-white/5 text-slate-300">
+          <div className="rounded-2xl p-5 ring-1 ring-white/10 bg-white/4 text-slate-300">
             Nenhum destaque no momento.
           </div>
         ) : (
@@ -291,7 +291,7 @@ export default function HomePage({
       </section>
 
       <section className="container-cc px-4 sm:px-6 lg:px-8 pb-10 sm:pb-14">
-        <div className="rounded-3xl ring-1 ring-white/10 bg-white/5 p-5 sm:p-7">
+        <div className="rounded-3xl ring-1 ring-white/10 bg-white/4 p-5 sm:p-7">
           <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-4 sm:mb-6">
             <div>
               <p className="text-fuchsia-300 font-semibold text-sm">Em estoque</p>
@@ -333,7 +333,7 @@ export default function HomePage({
         </div>
 
         {rpgPreview.length === 0 ? (
-          <div className="rounded-2xl p-5 ring-1 ring-white/10 bg-white/5 text-slate-300">
+          <div className="rounded-2xl p-5 ring-1 ring-white/10 bg-white/4 text-slate-300">
             Ainda estamos preparando os destaques de RPG.
           </div>
         ) : (
@@ -356,7 +356,7 @@ export default function HomePage({
         <div className="rounded-3xl ring-1 ring-white/10 bg-gradient-to-br from-slate-900 via-slate-900 to-black p-5 sm:p-7">
           <div className="flex items-end justify-between gap-4 mb-4 sm:mb-6">
             <div>
-              <p className="text-amber-300 font-semibold text-sm">Quem já comprou</p>
+              <p className="text-cyan-300 font-semibold text-sm">Quem já comprou</p>
               <h2 className="text-2xl sm:text-3xl font-black">Avaliações e comentários</h2>
             </div>
           </div>
@@ -364,11 +364,11 @@ export default function HomePage({
           {loadingDepoimentos ? (
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {Array.from({ length: 3 }).map((_, idx) => (
-                <div key={idx} className="rounded-2xl p-4 ring-1 ring-white/10 bg-white/5 animate-pulse h-40" />
+                <div key={idx} className="rounded-2xl p-4 ring-1 ring-white/10 bg-white/4 animate-pulse h-40" />
               ))}
             </div>
           ) : depoimentos.length === 0 ? (
-            <div className="rounded-2xl p-5 ring-1 ring-white/10 bg-white/5 text-slate-300">
+            <div className="rounded-2xl p-5 ring-1 ring-white/10 bg-white/4 text-slate-300">
               Ainda não há avaliações públicas aprovadas.
             </div>
           ) : (
@@ -379,8 +379,8 @@ export default function HomePage({
                   .join(" • ");
                 const stars = Math.max(1, Math.min(5, Number(d.rating) || 5));
                 return (
-                  <article key={d.id} className="rounded-2xl p-4 ring-1 ring-white/10 bg-white/5">
-                    <div className="flex items-center gap-1 text-amber-300" aria-label={`${stars} estrelas`}>
+                  <article key={d.id} className="rounded-2xl p-4 ring-1 ring-white/10 bg-white/4">
+                    <div className="flex items-center gap-1 text-cyan-300" aria-label={`${stars} estrelas`}>
                       {Array.from({ length: 5 }).map((_, idx) => (
                         <span key={idx}>{idx < stars ? "★" : "☆"}</span>
                       ))}
@@ -411,7 +411,7 @@ export default function HomePage({
               <button onClick={onGoFaq} className="rounded-xl px-5 py-3 bg-white text-black font-bold">
                 Abrir FAQ
               </button>
-              <button onClick={onGoPoliticas} className="rounded-xl px-5 py-3 ring-1 ring-white/20 hover:bg-white/5">
+              <button onClick={onGoPoliticas} className="rounded-xl px-5 py-3 ring-1 ring-white/20 hover:bg-white/4">
                 Ver políticas
               </button>
             </div>

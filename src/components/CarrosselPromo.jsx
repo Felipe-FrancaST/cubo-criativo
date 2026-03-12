@@ -136,7 +136,7 @@ export default function CarrosselPromo({
         </div>
       )}
       {loadingRemote && !Array.isArray(images) && !shouldHoldForRemote && (
-        <div className="absolute z-10 left-3 top-3 rounded-full bg-black/40 ring-1 ring-white/15 px-3 py-1 text-xs text-slate-200">
+        <div className="absolute z-10 left-3 top-3 rounded-full bg-[#020b10]/70 ring-1 ring-white/15 px-3 py-1 text-xs text-slate-200">
           Carregando…
         </div>
       )}

@@ -18,8 +18,8 @@ function Field({ label, children }) {
 function FloatingNotice({ tone = "success", message }) {
   if (!message) return null;
   const palette = tone === "error"
-    ? "border-rose-400/35 bg-slate-950/95 text-rose-100 shadow-[0_20px_60px_-20px_rgba(244,63,94,0.45)]"
-    : "border-emerald-400/35 bg-slate-950/95 text-emerald-100 shadow-[0_20px_60px_-20px_rgba(52,211,153,0.45)]";
+    ? "border-rose-400/35 bg-[#05131a]/95 text-rose-100 shadow-[0_20px_60px_-20px_rgba(244,63,94,0.45)]"
+    : "border-emerald-400/35 bg-[#05131a]/95 text-emerald-100 shadow-[0_20px_60px_-20px_rgba(52,211,153,0.45)]";
   const icon = tone === "error" ? "error" : "verified";
   return (
     <div className="sticky top-3 z-[70] mb-4 flex justify-center px-1">
@@ -38,7 +38,7 @@ function FloatingNotice({ tone = "success", message }) {
 
 function PasswordInput({ value, onChange, autoComplete = "current-password", placeholder = "••••••••", className = "", inputClassName = "", buttonClassName = "", ...props }) {
   const [visible, setVisible] = React.useState(false);
-  const resolvedInputClass = (className || inputClassName || "w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 pr-12 outline-none focus:ring-teal-400/60").trim();
+  const resolvedInputClass = (className || inputClassName || "w-full rounded-xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 pr-12 outline-none focus:ring-cyan-400/60").trim();
   const resolvedButtonClass = (buttonClassName || "absolute inset-y-0 right-0 inline-flex w-12 items-center justify-center text-slate-300 transition hover:text-white").trim();
   return (
     <div className="relative">
@@ -928,7 +928,7 @@ setZip2(data?.address2_zip || "");
   const inner = (
       <div className="w-full max-w-3xl mx-auto">
         {!user ? (
-          <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4 text-slate-200">
+          <div className="rounded-2xl bg-white/4 ring-1 ring-white/10 p-4 text-slate-200">
             <div className="font-semibold">Entre para continuar</div>
             <div className="text-sm text-slate-300 mt-1">Você precisa estar logado para editar seus dados.</div>
             <button type="button" onClick={() => onRequireLogin?.("Faça login para editar seus dados.")} className="mt-3 rounded-xl bg-emerald-500 text-black font-semibold px-4 py-2">Entrar / Criar conta</button>
@@ -937,7 +937,7 @@ setZip2(data?.address2_zip || "");
           <div className="space-y-4">
             <div className="rounded-2xl bg-gradient-to-br from-indigo-500/15 via-fuchsia-500/10 to-teal-400/10 ring-1 ring-white/10 p-4">
               <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                <div className="h-20 w-20 rounded-2xl ring-2 ring-white/15 bg-slate-800 overflow-hidden grid place-items-center">
+                <div className="h-20 w-20 rounded-2xl ring-2 ring-white/15 bg-[#0c2430] overflow-hidden grid place-items-center">
                   {avatarPreview ? <img src={avatarPreview} alt="Foto de perfil" className="h-full w-full object-cover" /> : <span className="material-icons text-4xl text-slate-300">account_circle</span>}
                 </div>
                 <div className="min-w-0 flex-1">
@@ -948,19 +948,19 @@ setZip2(data?.address2_zip || "");
                 </div>
               </div>
               <div className="mt-4 grid grid-cols-2 gap-2 sm:w-fit">
-                <button type="button" onClick={() => setActiveTab("profile")} className={`rounded-xl px-4 py-2 text-sm font-semibold ring-1 transition ${activeTab === "profile" ? "bg-white/15 ring-white/20" : "bg-black/20 ring-white/10 hover:bg-white/5"}`}>Perfil</button>
-                <button type="button" onClick={() => setActiveTab("settings")} className={`rounded-xl px-4 py-2 text-sm font-semibold ring-1 transition ${activeTab === "settings" ? "bg-white/15 ring-white/20" : "bg-black/20 ring-white/10 hover:bg-white/5"}`}>Configurações</button>
+                <button type="button" onClick={() => setActiveTab("profile")} className={`rounded-xl px-4 py-2 text-sm font-semibold ring-1 transition ${activeTab === "profile" ? "bg-white/8 ring-white/20" : "bg-black/20 ring-white/10 hover:bg-white/4"}`}>Perfil</button>
+                <button type="button" onClick={() => setActiveTab("settings")} className={`rounded-xl px-4 py-2 text-sm font-semibold ring-1 transition ${activeTab === "settings" ? "bg-white/8 ring-white/20" : "bg-black/20 ring-white/10 hover:bg-white/4"}`}>Configurações</button>
               </div>
             </div>
 
             {activeTab === "profile" ? (
-              <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
+              <div className="rounded-2xl bg-white/4 ring-1 ring-white/10 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p className="text-sm font-semibold text-slate-100">Perfil</p>
                     <p className="mt-1 text-xs text-slate-400">Atualize seus dados de cadastro, entrega e foto de perfil.</p>
                   </div>
-                  <label className="inline-flex items-center gap-2 rounded-xl px-3 py-2 bg-white/10 ring-1 ring-white/10 hover:bg-white/15 cursor-pointer text-sm">
+                  <label className="inline-flex items-center gap-2 rounded-xl px-3 py-2 bg-white/6 ring-1 ring-white/10 hover:bg-white/8 cursor-pointer text-sm">
                     <span className="material-icons text-base">photo_camera</span>
                     <span>Alterar foto</span>
                     <input type="file" accept="image/*" className="hidden" onChange={handleAvatarFile} />
@@ -968,30 +968,30 @@ setZip2(data?.address2_zip || "");
                 </div>
 
                 <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <Field label="Nome completo"><input value={fullName} onChange={(e)=>setFullName(e.target.value)} type="text" autoComplete="name" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="Seu nome" /></Field>
-                  <Field label="Telefone (WhatsApp)"><input value={phone} onChange={(e)=>setPhone(e.target.value)} type="tel" autoComplete="tel" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="(11) 99999-9999" /></Field>
-                  <Field label="CPF (obrigatório para comprar)"><input value={cpf} onChange={(e)=>setCpf(e.target.value)} type="text" inputMode="numeric" autoComplete="off" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="000.000.000-00" /></Field>
-                  <Field label="Data de nascimento (obrigatório para comprar)"><input value={birthdate} onChange={(e)=>setBirthdate(e.target.value)} type="date" autoComplete="bday" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" /></Field>
+                  <Field label="Nome completo"><input value={fullName} onChange={(e)=>setFullName(e.target.value)} type="text" autoComplete="name" className="w-full rounded-xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-cyan-400/60" placeholder="Seu nome" /></Field>
+                  <Field label="Telefone (WhatsApp)"><input value={phone} onChange={(e)=>setPhone(e.target.value)} type="tel" autoComplete="tel" className="w-full rounded-xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-cyan-400/60" placeholder="(11) 99999-9999" /></Field>
+                  <Field label="CPF (obrigatório para comprar)"><input value={cpf} onChange={(e)=>setCpf(e.target.value)} type="text" inputMode="numeric" autoComplete="off" className="w-full rounded-xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-cyan-400/60" placeholder="000.000.000-00" /></Field>
+                  <Field label="Data de nascimento (obrigatório para comprar)"><input value={birthdate} onChange={(e)=>setBirthdate(e.target.value)} type="date" autoComplete="bday" className="w-full rounded-xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-cyan-400/60" /></Field>
                 </div>
 
                 <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <Field label="CEP">
-                    <input value={zip} onChange={(e)=>setZip(e.target.value)} type="text" autoComplete="postal-code" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="00000-000" />
+                    <input value={zip} onChange={(e)=>setZip(e.target.value)} type="text" autoComplete="postal-code" className="w-full rounded-xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-cyan-400/60" placeholder="00000-000" />
                     <div className="mt-1 text-[11px] text-slate-400">{cepBusy ? "Consultando CEP…" : cepHint || ""}</div>
                   </Field>
-                  <Field label="UF"><input value={stateUF} onChange={(e)=>setStateUF(e.target.value.toUpperCase())} type="text" autoComplete="address-level1" maxLength={2} className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="SP" /></Field>
+                  <Field label="UF"><input value={stateUF} onChange={(e)=>setStateUF(e.target.value.toUpperCase())} type="text" autoComplete="address-level1" maxLength={2} className="w-full rounded-xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-cyan-400/60" placeholder="SP" /></Field>
                 </div>
 
-                <div className="mt-3"><Field label="Cidade"><input value={city} onChange={(e)=>setCity(e.target.value)} type="text" autoComplete="address-level2" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="Cidade" /></Field></div>
-                <div className="mt-3"><Field label="Bairro"><input value={neighborhood} onChange={(e)=>setNeighborhood(e.target.value)} type="text" autoComplete="address-level3" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="Bairro" /></Field></div>
+                <div className="mt-3"><Field label="Cidade"><input value={city} onChange={(e)=>setCity(e.target.value)} type="text" autoComplete="address-level2" className="w-full rounded-xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-cyan-400/60" placeholder="Cidade" /></Field></div>
+                <div className="mt-3"><Field label="Bairro"><input value={neighborhood} onChange={(e)=>setNeighborhood(e.target.value)} type="text" autoComplete="address-level3" className="w-full rounded-xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-cyan-400/60" placeholder="Bairro" /></Field></div>
                 <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="sm:col-span-2"><Field label="Rua"><input value={street} onChange={(e)=>setStreet(e.target.value)} type="text" autoComplete="address-line1" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="Rua Exemplo" /></Field></div>
-                  <Field label="Número"><input value={number} onChange={(e)=>setNumber(e.target.value)} type="text" inputMode="numeric" autoComplete="address-line2" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="123" /></Field>
+                  <div className="sm:col-span-2"><Field label="Rua"><input value={street} onChange={(e)=>setStreet(e.target.value)} type="text" autoComplete="address-line1" className="w-full rounded-xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-cyan-400/60" placeholder="Rua Exemplo" /></Field></div>
+                  <Field label="Número"><input value={number} onChange={(e)=>setNumber(e.target.value)} type="text" inputMode="numeric" autoComplete="address-line2" className="w-full rounded-xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-cyan-400/60" placeholder="123" /></Field>
                 </div>
-                <div className="mt-3"><Field label="Complemento (opcional)"><input value={addr2} onChange={(e)=>setAddr2(e.target.value)} type="text" autoComplete="address-line2" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="Apartamento, bloco, etc" /></Field></div>
+                <div className="mt-3"><Field label="Complemento (opcional)"><input value={addr2} onChange={(e)=>setAddr2(e.target.value)} type="text" autoComplete="address-line2" className="w-full rounded-xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-cyan-400/60" placeholder="Apartamento, bloco, etc" /></Field></div>
 
                 {/* Segundo endereço (opcional) */}
-                <div className="mt-5 rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
+                <div className="mt-5 rounded-2xl bg-white/4 ring-1 ring-white/10 p-4">
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="text-sm font-semibold text-slate-100">Segundo endereço</p>
@@ -1011,18 +1011,18 @@ setZip2(data?.address2_zip || "");
                     <div className="mt-4">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <Field label="CEP">
-                          <input value={zip2} onChange={(e)=>setZip2(e.target.value)} type="text" autoComplete="postal-code" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="00000-000" />
+                          <input value={zip2} onChange={(e)=>setZip2(e.target.value)} type="text" autoComplete="postal-code" className="w-full rounded-xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-cyan-400/60" placeholder="00000-000" />
                         </Field>
-                        <Field label="UF"><input value={stateUF2} onChange={(e)=>setStateUF2(e.target.value.toUpperCase())} type="text" autoComplete="address-level1" maxLength={2} className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="SP" /></Field>
+                        <Field label="UF"><input value={stateUF2} onChange={(e)=>setStateUF2(e.target.value.toUpperCase())} type="text" autoComplete="address-level1" maxLength={2} className="w-full rounded-xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-cyan-400/60" placeholder="SP" /></Field>
                       </div>
 
-                      <div className="mt-3"><Field label="Cidade"><input value={city2} onChange={(e)=>setCity2(e.target.value)} type="text" autoComplete="address-level2" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="Cidade" /></Field></div>
-                      <div className="mt-3"><Field label="Bairro"><input value={neighborhood2} onChange={(e)=>setNeighborhood2(e.target.value)} type="text" autoComplete="address-level3" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="Bairro" /></Field></div>
+                      <div className="mt-3"><Field label="Cidade"><input value={city2} onChange={(e)=>setCity2(e.target.value)} type="text" autoComplete="address-level2" className="w-full rounded-xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-cyan-400/60" placeholder="Cidade" /></Field></div>
+                      <div className="mt-3"><Field label="Bairro"><input value={neighborhood2} onChange={(e)=>setNeighborhood2(e.target.value)} type="text" autoComplete="address-level3" className="w-full rounded-xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-cyan-400/60" placeholder="Bairro" /></Field></div>
                       <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <div className="sm:col-span-2"><Field label="Rua"><input value={street2} onChange={(e)=>setStreet2(e.target.value)} type="text" autoComplete="address-line1" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="Rua Exemplo" /></Field></div>
-                        <Field label="Número"><input value={number2} onChange={(e)=>setNumber2(e.target.value)} type="text" inputMode="numeric" autoComplete="address-line2" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="123" /></Field>
+                        <div className="sm:col-span-2"><Field label="Rua"><input value={street2} onChange={(e)=>setStreet2(e.target.value)} type="text" autoComplete="address-line1" className="w-full rounded-xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-cyan-400/60" placeholder="Rua Exemplo" /></Field></div>
+                        <Field label="Número"><input value={number2} onChange={(e)=>setNumber2(e.target.value)} type="text" inputMode="numeric" autoComplete="address-line2" className="w-full rounded-xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-cyan-400/60" placeholder="123" /></Field>
                       </div>
-                      <div className="mt-3"><Field label="Complemento (opcional)"><input value={addr22} onChange={(e)=>setAddr22(e.target.value)} type="text" autoComplete="address-line2" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60" placeholder="Apartamento, bloco, etc" /></Field></div>
+                      <div className="mt-3"><Field label="Complemento (opcional)"><input value={addr22} onChange={(e)=>setAddr22(e.target.value)} type="text" autoComplete="address-line2" className="w-full rounded-xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-cyan-400/60" placeholder="Apartamento, bloco, etc" /></Field></div>
                     </div>
                   ) : (
                     <p className="mt-3 text-xs text-slate-400">Ative para preencher um segundo endereço e alternar depois no checkout (se você quiser).</p>
@@ -1036,18 +1036,18 @@ setZip2(data?.address2_zip || "");
             ) : (
               <>
                 {/* Navegação das configurações */}
-                <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-3">
+                <div className="rounded-2xl bg-white/4 ring-1 ring-white/10 p-3">
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    <button type="button" onClick={() => setSettingsSection('security')} className={`rounded-xl px-3 py-2 text-sm font-semibold ring-1 transition ${settingsSection === 'security' ? 'bg-indigo-400 text-black ring-indigo-300' : 'ring-white/10 hover:bg-white/5'}`}>Segurança</button>
-                    <button type="button" onClick={() => setSettingsSection('favorites')} className={`rounded-xl px-3 py-2 text-sm font-semibold ring-1 transition ${settingsSection === 'favorites' ? 'bg-indigo-400 text-black ring-indigo-300' : 'ring-white/10 hover:bg-white/5'}`}>Favoritos</button>
-                    <button type="button" onClick={() => setSettingsSection('reviews')} className={`rounded-xl px-3 py-2 text-sm font-semibold ring-1 transition ${settingsSection === 'reviews' ? 'bg-indigo-400 text-black ring-indigo-300' : 'ring-white/10 hover:bg-white/5'}`}>Avaliações</button>
-                    <button type="button" onClick={() => setSettingsSection('coupons')} className={`rounded-xl px-3 py-2 text-sm font-semibold ring-1 transition ${settingsSection === 'coupons' ? 'bg-indigo-400 text-black ring-indigo-300' : 'ring-white/10 hover:bg-white/5'}`}>Cupons</button>
+                    <button type="button" onClick={() => setSettingsSection('security')} className={`rounded-xl px-3 py-2 text-sm font-semibold ring-1 transition ${settingsSection === 'security' ? 'bg-cyan-500 text-black ring-indigo-300' : 'ring-white/10 hover:bg-white/4'}`}>Segurança</button>
+                    <button type="button" onClick={() => setSettingsSection('favorites')} className={`rounded-xl px-3 py-2 text-sm font-semibold ring-1 transition ${settingsSection === 'favorites' ? 'bg-cyan-500 text-black ring-indigo-300' : 'ring-white/10 hover:bg-white/4'}`}>Favoritos</button>
+                    <button type="button" onClick={() => setSettingsSection('reviews')} className={`rounded-xl px-3 py-2 text-sm font-semibold ring-1 transition ${settingsSection === 'reviews' ? 'bg-cyan-500 text-black ring-indigo-300' : 'ring-white/10 hover:bg-white/4'}`}>Avaliações</button>
+                    <button type="button" onClick={() => setSettingsSection('coupons')} className={`rounded-xl px-3 py-2 text-sm font-semibold ring-1 transition ${settingsSection === 'coupons' ? 'bg-cyan-500 text-black ring-indigo-300' : 'ring-white/10 hover:bg-white/4'}`}>Cupons</button>
                   </div>
                 </div>
 
                 {/* Conteúdo */}
                 {settingsSection === 'security' && (
-                  <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
+                  <div className="rounded-2xl bg-white/4 ring-1 ring-white/10 p-4">
                     <p className="text-sm font-semibold text-slate-100">Segurança da conta</p>
                     <p className="mt-1 text-xs text-slate-400">{securityIntro}</p>
                     {isRecoveryMode ? (
@@ -1066,16 +1066,16 @@ setZip2(data?.address2_zip || "");
                     <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {shouldRequireCurrentPassword ? (
                         <>
-                          <Field label="Senha atual"><PasswordInput value={currentPassword} onChange={(e)=>setCurrentPassword(e.target.value)} autoComplete="current-password" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 pr-12 outline-none focus:ring-teal-400/60" placeholder="Digite sua senha atual" /></Field>
+                          <Field label="Senha atual"><PasswordInput value={currentPassword} onChange={(e)=>setCurrentPassword(e.target.value)} autoComplete="current-password" className="w-full rounded-xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 pr-12 outline-none focus:ring-cyan-400/60" placeholder="Digite sua senha atual" /></Field>
                           <div className="hidden sm:block" />
                         </>
                       ) : null}
-                      <Field label={shouldRequireCurrentPassword ? "Nova senha" : "Crie sua senha"}><PasswordInput value={newPassword} onChange={(e)=>setNewPassword(e.target.value)} autoComplete="new-password" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 pr-12 outline-none focus:ring-teal-400/60" placeholder="Mínimo 6 caracteres" /></Field>
-                      <Field label={shouldRequireCurrentPassword ? "Confirmar nova senha" : "Confirmar senha"}><PasswordInput value={newPassword2} onChange={(e)=>setNewPassword2(e.target.value)} autoComplete="new-password" className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 pr-12 outline-none focus:ring-teal-400/60" placeholder="Repita a senha" /></Field>
+                      <Field label={shouldRequireCurrentPassword ? "Nova senha" : "Crie sua senha"}><PasswordInput value={newPassword} onChange={(e)=>setNewPassword(e.target.value)} autoComplete="new-password" className="w-full rounded-xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 pr-12 outline-none focus:ring-cyan-400/60" placeholder="Mínimo 6 caracteres" /></Field>
+                      <Field label={shouldRequireCurrentPassword ? "Confirmar nova senha" : "Confirmar senha"}><PasswordInput value={newPassword2} onChange={(e)=>setNewPassword2(e.target.value)} autoComplete="new-password" className="w-full rounded-xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 pr-12 outline-none focus:ring-cyan-400/60" placeholder="Repita a senha" /></Field>
                     </div>
                     <div className="mt-3 flex flex-wrap gap-2">
-                      <button onClick={savePassword} disabled={pwdBusy} className={`rounded-xl px-4 py-2 font-semibold ring-1 ring-white/10 ${pwdBusy ? "bg-slate-700/50 text-slate-300" : "bg-indigo-400 hover:bg-indigo-300 text-black"}`}>{pwdBusy ? "Salvando…" : securityActionLabel}</button>
-                      <button onClick={sendPasswordResetLink} className="rounded-xl px-4 py-2 ring-1 ring-white/10 hover:bg-white/5">Esqueceu a senha?</button>
+                      <button onClick={savePassword} disabled={pwdBusy} className={`rounded-xl px-4 py-2 font-semibold ring-1 ring-white/10 ${pwdBusy ? "bg-[#12303b]/55 text-slate-300" : "bg-cyan-500 hover:bg-cyan-400 text-black"}`}>{pwdBusy ? "Salvando…" : securityActionLabel}</button>
+                      <button onClick={sendPasswordResetLink} className="rounded-xl px-4 py-2 ring-1 ring-white/10 hover:bg-white/4">Esqueceu a senha?</button>
                     </div>
 
                     <div className="mt-5 rounded-2xl border border-rose-400/20 bg-rose-500/8 p-4">
@@ -1102,13 +1102,13 @@ setZip2(data?.address2_zip || "");
                 )}
 
                 {settingsSection === 'favorites' && (
-                  <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
+                  <div className="rounded-2xl bg-white/4 ring-1 ring-white/10 p-4">
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <p className="text-sm font-semibold text-slate-100">Favoritos</p>
                         <p className="mt-1 text-xs text-slate-400">Salve seus produtos preferidos para encontrar rápido depois.</p>
                       </div>
-                      <button onClick={() => { reloadFavorites(); loadFavoritesProducts(); }} className="rounded-xl px-3 py-2 text-sm ring-1 ring-white/10 hover:bg-white/5">Atualizar</button>
+                      <button onClick={() => { reloadFavorites(); loadFavoritesProducts(); }} className="rounded-xl px-3 py-2 text-sm ring-1 ring-white/10 hover:bg-white/4">Atualizar</button>
                     </div>
 
                     <div className="mt-4">
@@ -1138,7 +1138,7 @@ setZip2(data?.address2_zip || "");
                                       // Em modo modal, fechar é ok.
                                       try { maybeClose(); } catch {}
                                     }}
-                                    className="rounded-xl px-3 py-2 text-xs ring-1 ring-white/10 hover:bg-white/5"
+                                    className="rounded-xl px-3 py-2 text-xs ring-1 ring-white/10 hover:bg-white/4"
                                   >
                                     Ver produto
                                   </button>
@@ -1161,13 +1161,13 @@ setZip2(data?.address2_zip || "");
                 )}
 
                 {settingsSection === 'coupons' && (
-                  <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
+                  <div className="rounded-2xl bg-white/4 ring-1 ring-white/10 p-4">
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <p className="text-sm font-semibold text-slate-100">Cupons</p>
                         <p className="mt-1 text-xs text-slate-400">Aqui ficam seus cupons ativos para usar no carrinho.</p>
                       </div>
-                      <button onClick={() => loadMyCoupons()} className="rounded-xl px-3 py-2 text-sm ring-1 ring-white/10 hover:bg-white/5">Atualizar</button>
+                      <button onClick={() => loadMyCoupons()} className="rounded-xl px-3 py-2 text-sm ring-1 ring-white/10 hover:bg-white/4">Atualizar</button>
                     </div>
                     <div className="mt-4">
                       {couponBusy ? (
@@ -1185,7 +1185,7 @@ setZip2(data?.address2_zip || "");
                                   ) : null}
                                 </div>
                                 <button
-                                  className="rounded-xl px-3 py-2 text-sm bg-teal-400 text-black ring-4 ring-teal-400/20"
+                                  className="rounded-xl px-3 py-2 text-sm bg-cyan-400 text-black ring-4 ring-cyan-400/20"
                                   onClick={async () => {
                                     try { await navigator.clipboard.writeText(String(c.code || '')); setOk('Cupom copiado ✅'); } catch { setOk('Copie o código manualmente.'); }
                                   }}
@@ -1204,13 +1204,13 @@ setZip2(data?.address2_zip || "");
                 )}
 
                 {settingsSection === 'reviews' && (
-                  <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
+                  <div className="rounded-2xl bg-white/4 ring-1 ring-white/10 p-4">
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <p className="text-sm font-semibold text-slate-100">Avaliações</p>
                         <p className="mt-1 text-xs text-slate-400">Veja suas compras entregues e avalie a experiência.</p>
                       </div>
-                      <button onClick={() => loadDeliveredOrdersForReviews()} className="rounded-xl px-3 py-2 text-sm ring-1 ring-white/10 hover:bg-white/5">Atualizar</button>
+                      <button onClick={() => loadDeliveredOrdersForReviews()} className="rounded-xl px-3 py-2 text-sm ring-1 ring-white/10 hover:bg-white/4">Atualizar</button>
                     </div>
 
                     <div className="mt-4 space-y-3">
@@ -1233,13 +1233,13 @@ setZip2(data?.address2_zip || "");
                                   ) : null}
                                   {rev ? (
                                     <div className="mt-2">
-                                      <span className="text-amber-300 text-sm">{stars}</span>
+                                      <span className="text-cyan-300 text-sm">{stars}</span>
                                       <p className="mt-1 text-sm text-slate-200">{rev.comment}</p>
                                     </div>
                                   ) : null}
                                 </div>
                                 <button
-                                  className="rounded-xl px-3 py-2 text-sm bg-indigo-400 text-black ring-4 ring-indigo-400/20"
+                                  className="rounded-xl px-3 py-2 text-sm bg-cyan-500 text-black ring-4 ring-indigo-400/20"
                                   onClick={() => {
                                     setError('');
                                     setOk('');
@@ -1263,7 +1263,7 @@ setZip2(data?.address2_zip || "");
                   </div>
                 )}
 
-                <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
+                <div className="rounded-2xl bg-white/4 ring-1 ring-white/10 p-4">
                   <p className="text-sm font-semibold text-slate-100">Sessão</p>
                   <div className="mt-3">
                     <button onClick={() => onSignOut?.()} className="rounded-xl px-4 py-2 bg-rose-500/15 text-rose-200 ring-1 ring-rose-400/30 hover:bg-rose-500/20">Sair da conta</button>
@@ -1276,9 +1276,9 @@ setZip2(data?.address2_zip || "");
             {ok ? <FloatingNotice tone="success" message={ok} /> : null}
 
             <div className="flex items-center justify-end gap-2">
-              {!required && <button onClick={onClose} className="rounded-xl px-4 py-3 ring-1 ring-white/10 hover:bg-white/5">Fechar</button>}
+              {!required && <button onClick={onClose} className="rounded-xl px-4 py-3 ring-1 ring-white/10 hover:bg-white/4">Fechar</button>}
               {activeTab === "profile" ? (
-                <button onClick={save} disabled={saving || loading} className={`rounded-xl px-4 py-3 font-semibold ring-1 ring-white/10 transition ${saving || loading ? "bg-slate-700/50 text-slate-300 cursor-not-allowed" : "bg-emerald-400 hover:bg-emerald-300 text-black"}`}>
+                <button onClick={save} disabled={saving || loading} className={`rounded-xl px-4 py-3 font-semibold ring-1 ring-white/10 transition ${saving || loading ? "bg-[#12303b]/55 text-slate-300 cursor-not-allowed" : "bg-emerald-400 hover:bg-emerald-300 text-black"}`}>
                   {saving ? "Salvando…" : "Salvar perfil"}
                 </button>
               ) : null}
@@ -1314,7 +1314,7 @@ setZip2(data?.address2_zip || "");
             value={deleteAccountModal.password}
             onChange={(e) => updateDeleteAccountModal({ password: e.target.value, error: "" })}
             autoComplete="current-password"
-            className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 pr-12 outline-none focus:ring-rose-400/60"
+            className="w-full rounded-xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 pr-12 outline-none focus:ring-rose-400/60"
             buttonClassName="absolute inset-y-0 right-0 inline-flex w-12 items-center justify-center text-rose-100/80 transition hover:text-rose-50"
             placeholder="Sua senha atual"
           />
@@ -1323,7 +1323,7 @@ setZip2(data?.address2_zip || "");
         {deleteAccountModal.error ? (
           <div className="rounded-2xl border border-amber-400/20 bg-gradient-to-br from-amber-500/15 via-amber-500/10 to-transparent p-4">
             <div className="flex items-start gap-3">
-              <div className="mt-0.5 grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-amber-500/15 text-amber-200 ring-1 ring-amber-400/30">
+              <div className="mt-0.5 grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-cyan-500/15 text-cyan-200 ring-1 ring-amber-400/30">
                 <span className="material-icons">priority_high</span>
               </div>
               <div>
@@ -1334,12 +1334,12 @@ setZip2(data?.address2_zip || "");
           </div>
         ) : null}
 
-        <label className="flex items-start gap-3 rounded-2xl bg-white/5 p-3 ring-1 ring-white/10">
+        <label className="flex items-start gap-3 rounded-2xl bg-white/4 p-3 ring-1 ring-white/10">
           <input
             type="checkbox"
             checked={!!deleteAccountModal.confirm}
             onChange={(e) => updateDeleteAccountModal({ confirm: e.target.checked, error: "" })}
-            className="mt-1 h-4 w-4 rounded border-white/20 bg-slate-900"
+            className="mt-1 h-4 w-4 rounded border-white/20 bg-[#07161d]"
           />
           <span className="text-sm leading-6 text-slate-200">Entendo que essa exclusão é permanente e desejo remover minha conta agora.</span>
         </label>
@@ -1349,7 +1349,7 @@ setZip2(data?.address2_zip || "");
             type="button"
             onClick={closeDeleteAccountModal}
             disabled={deleteBusy}
-            className="rounded-xl px-4 py-3 ring-1 ring-white/10 hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-xl px-4 py-3 ring-1 ring-white/10 hover:bg-white/4 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Cancelar
           </button>
@@ -1374,7 +1374,7 @@ setZip2(data?.address2_zip || "");
     >
       {reviewModal.open && (
         <div className="space-y-3">
-          <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
+          <div className="rounded-2xl bg-white/4 ring-1 ring-white/10 p-4">
             <p className="text-sm font-semibold text-slate-100">Sua avaliação</p>
             <p className="mt-1 text-xs text-slate-400">Conte como foi sua experiência. Isso ajuda outras pessoas.</p>
 
@@ -1383,7 +1383,7 @@ setZip2(data?.address2_zip || "");
                 <select
                   value={reviewModal.rating}
                   onChange={(e) => setReviewModal((p) => ({ ...p, rating: Number(e.target.value) }))}
-                  className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none"
+                  className="w-full rounded-xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 outline-none"
                 >
                   {[5,4,3,2,1].map((n) => (
                     <option key={n} value={n}>{n}</option>
@@ -1394,7 +1394,7 @@ setZip2(data?.address2_zip || "");
                 <input
                   readOnly
                   value={reviewModal?.order?.created_at ? new Date(reviewModal.order.created_at).toLocaleString('pt-BR') : ''}
-                  className="w-full rounded-xl bg-slate-800/40 ring-1 ring-white/10 px-4 py-3 outline-none text-slate-300"
+                  className="w-full rounded-xl bg-[#0c2430]/52 ring-1 ring-white/10 px-4 py-3 outline-none text-slate-300"
                 />
               </Field>
             </div>
@@ -1405,7 +1405,7 @@ setZip2(data?.address2_zip || "");
                   value={reviewModal.comment}
                   onChange={(e) => setReviewModal((p) => ({ ...p, comment: e.target.value }))}
                   rows={5}
-                  className="w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                  className="w-full rounded-xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-cyan-400/60"
                   placeholder="Ex.: Chegou bem embalado, pintura impecável, envio rápido..."
                 />
               </Field>
@@ -1414,14 +1414,14 @@ setZip2(data?.address2_zip || "");
             <div className="mt-4 flex items-center justify-end gap-2">
               <button
                 onClick={() => setReviewModal({ open: false, order: null, rating: 5, comment: "", busy: false })}
-                className="rounded-xl px-4 py-2 ring-1 ring-white/10 hover:bg-white/5"
+                className="rounded-xl px-4 py-2 ring-1 ring-white/10 hover:bg-white/4"
               >
                 Cancelar
               </button>
               <button
                 onClick={submitReview}
                 disabled={reviewModal.busy}
-                className={`rounded-xl px-4 py-2 font-semibold ring-4 ring-indigo-400/20 ${reviewModal.busy ? 'bg-slate-700/50 text-slate-300' : 'bg-indigo-400 hover:bg-indigo-300 text-black'}`}
+                className={`rounded-xl px-4 py-2 font-semibold ring-4 ring-indigo-400/20 ${reviewModal.busy ? 'bg-[#12303b]/55 text-slate-300' : 'bg-cyan-500 hover:bg-cyan-400 text-black'}`}
               >
                 {reviewModal.busy ? 'Salvando…' : 'Salvar'}
               </button>

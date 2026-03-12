@@ -37,7 +37,7 @@ export default function PromoProductCard({ p, addToCart, buyNow, openGallery }) 
       <button
         type="button"
         // Imagens 1:1 -> evita corte mantendo a imagem inteira.
-        className="aspect-square min-h-[220px] sm:min-h-[260px] bg-slate-900/40 p-3 sm:p-4 grid place-items-center overflow-hidden w-full relative"
+        className="aspect-square min-h-[220px] sm:min-h-[260px] bg-[#07161d]/40 p-3 sm:p-4 grid place-items-center overflow-hidden w-full relative"
         onClick={() => openGallery?.(p)}
         title="Ver mais fotos"
       >
@@ -83,7 +83,7 @@ export default function PromoProductCard({ p, addToCart, buyNow, openGallery }) 
             ) : (
               <div className="text-xs text-slate-400">Oferta especial</div>
             )}
-            <div className="text-xl sm:text-2xl font-black text-amber-300 leading-none">{fmtBRL(currentPrice)}</div>
+            <div className="text-xl sm:text-2xl font-black text-cyan-300 leading-none">{fmtBRL(currentPrice)}</div>
           </div>
           <div className="shrink-0 text-right">
             <div className="text-[11px] text-slate-300">Pagamento rápido</div>
@@ -95,7 +95,7 @@ export default function PromoProductCard({ p, addToCart, buyNow, openGallery }) 
           <div className="mt-4">
             <label className="text-xs text-slate-300 font-semibold">Escolha a escala</label>
             <select
-              className="mt-1 w-full rounded-xl bg-slate-900/60 ring-1 ring-white/10 px-3 py-2 text-xs sm:text-sm"
+              className="mt-1 w-full rounded-xl bg-[#07161d]/60 ring-1 ring-white/10 px-3 py-2 text-xs sm:text-sm"
               value={selIndex}
               onChange={(e) => setSelIndex(Number(e.target.value))}
             >
@@ -116,9 +116,9 @@ export default function PromoProductCard({ p, addToCart, buyNow, openGallery }) 
           <button
             onClick={handleAdd}
             disabled={outOfStock}
-            className={`rounded-xl px-3 py-2 text-sm font-extrabold ring-4 ring-amber-400/20 transition ${
+            className={`rounded-xl px-3 py-2 text-sm font-extrabold ring-4 ring-cyan-400/20 transition ${
               outOfStock
-                ? "bg-slate-900 text-slate-400 cursor-not-allowed ring-white/10"
+                ? "bg-[#07161d] text-slate-400 cursor-not-allowed ring-white/10"
                 : addedFlash
                   ? "bg-emerald-400 text-black"
                   : "bg-amber-400 text-black"
@@ -131,7 +131,7 @@ export default function PromoProductCard({ p, addToCart, buyNow, openGallery }) 
             onClick={() => buyNow(p, { escala, unitPrice: currentPrice })}
             disabled={outOfStock}
             className={`rounded-xl px-3 py-2 text-sm ring-1 ring-white/15 font-semibold ${
-              outOfStock ? "bg-slate-900 text-slate-400 cursor-not-allowed" : "hover:bg-white/5"
+              outOfStock ? "bg-[#07161d] text-slate-400 cursor-not-allowed" : "hover:bg-white/4"
             }`}
             title="Comprar agora"
           >

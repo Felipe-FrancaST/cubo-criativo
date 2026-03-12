@@ -409,8 +409,8 @@ export default function CartDrawer({
 
   return (
     <div className={`fixed inset-0 z-[140] ${open ? "visible" : "invisible"}`} aria-hidden={!open}>
-      <div className={`absolute inset-0 bg-black/50 transition-opacity ${open ? "opacity-100" : "opacity-0"}`} onClick={onClose} />
-      <aside ref={panelRef} role="dialog" aria-modal="true" aria-label="Carrinho" tabIndex={-1} className={`absolute right-0 top-0 h-full w-[92vw] sm:w-[420px] bg-slate-900 shadow-xl ring-1 ring-white/10 transition-transform duration-300 pb-[env(safe-area-inset-bottom)] ${open ? "translate-x-0" : "translate-x-full"}`}>
+      <div className={`absolute inset-0 bg-[#020b10]/65 transition-opacity ${open ? "opacity-100" : "opacity-0"}`} onClick={onClose} />
+      <aside ref={panelRef} role="dialog" aria-modal="true" aria-label="Carrinho" tabIndex={-1} className={`absolute right-0 top-0 h-full w-[92vw] sm:w-[420px] bg-[#07161d] shadow-xl ring-1 ring-white/10 transition-transform duration-300 pb-[env(safe-area-inset-bottom)] ${open ? "translate-x-0" : "translate-x-full"}`}>
         <div className="p-4 flex items-center justify-between border-b border-white/10">
           <h3 className="font-bold">Seu carrinho</h3>
           <button onClick={onClose} className="rounded-lg p-2 ring-1 ring-white/15">
@@ -421,7 +421,7 @@ export default function CartDrawer({
         <div className="p-4 space-y-3 max-h-[60vh] overflow-y-auto">
           {cart.length === 0 && <p className="text-slate-400 text-sm">Seu carrinho está vazio.</p>}
           {cart.map((item) => (
-            <div key={`${item.id}-${item.escala}-${item.unitPrice}`} className="flex gap-3 items-center rounded-lg p-3 ring-1 ring-white/10 bg-slate-800/40">
+            <div key={`${item.id}-${item.escala}-${item.unitPrice}`} className="flex gap-3 items-center rounded-lg p-3 ring-1 ring-white/10 bg-[#0c2430]/52">
               <img src={item.img} alt={item.nome} className="h-16 w-16 object-cover rounded-md" />
               <div className="flex-1">
                 <p className="font-semibold text-sm leading-tight">{item.nome}</p>
@@ -447,14 +447,14 @@ export default function CartDrawer({
             <span className="font-semibold">{hasValidSubtotal ? fmtBRL(Number(subtotal)) : "Definir preços"}</span>
           </div>
 
-          <div className="rounded-xl bg-slate-800/40 ring-1 ring-white/10 p-3 space-y-2">
+          <div className="rounded-xl bg-[#0c2430]/52 ring-1 ring-white/10 p-3 space-y-2">
             <div className="flex items-center justify-between gap-2">
               <label className="text-xs text-slate-300 font-semibold">Cupom</label>
               {couponInfo ? <button onClick={removeCoupon} className="text-xs text-rose-300 hover:text-rose-200">Remover</button> : null}
             </div>
             <div className="flex gap-2">
-              <input value={couponCode} onChange={(e)=>setCouponCode(e.target.value.toUpperCase())} placeholder="CUBO-XXXX" className="flex-1 rounded-lg bg-slate-900/70 ring-1 ring-white/10 px-3 py-2 text-sm" />
-              <button onClick={()=>applyCoupon()} disabled={couponLoading || !canCheckout} className="rounded-lg px-3 py-2 text-sm font-semibold bg-white/10 ring-1 ring-white/15 disabled:opacity-50">{couponLoading ? '...' : 'Aplicar'}</button>
+              <input value={couponCode} onChange={(e)=>setCouponCode(e.target.value.toUpperCase())} placeholder="CUBO-XXXX" className="flex-1 rounded-lg bg-[#07161d]/70 ring-1 ring-white/10 px-3 py-2 text-sm" />
+              <button onClick={()=>applyCoupon()} disabled={couponLoading || !canCheckout} className="rounded-lg px-3 py-2 text-sm font-semibold bg-white/6 ring-1 ring-white/15 disabled:opacity-50">{couponLoading ? '...' : 'Aplicar'}</button>
             </div>
             {couponInfo && canCheckout && (
               <div className="text-xs rounded-lg bg-emerald-500/10 ring-1 ring-emerald-400/20 p-2 text-emerald-200">
@@ -466,21 +466,21 @@ export default function CartDrawer({
               <button
                 type="button"
                 onClick={async () => { const next = !myCouponsOpen; setMyCouponsOpen(next); if (next && myCoupons.length === 0) await loadMyCoupons(); }}
-                className="text-xs rounded-lg px-2 py-1 ring-1 ring-white/10 hover:bg-white/5"
+                className="text-xs rounded-lg px-2 py-1 ring-1 ring-white/10 hover:bg-white/4"
               >
                 {myCouponsOpen ? 'Ocultar meus cupons' : 'Meus cupons'}
               </button>
               {myCouponsOpen ? (
-                <div className="mt-2 rounded-lg bg-slate-900/40 ring-1 ring-white/10 p-2 space-y-2">
+                <div className="mt-2 rounded-lg bg-[#07161d]/40 ring-1 ring-white/10 p-2 space-y-2">
                   {myCouponsBusy ? <div className="text-xs text-slate-400">Carregando cupons…</div> : null}
                   {!myCouponsBusy && myCoupons.length === 0 ? <div className="text-xs text-slate-400">Você não tem cupons disponíveis.</div> : null}
                   {!myCouponsBusy && myCoupons.map((c) => (
-                    <div key={c.code} className="flex items-center justify-between gap-2 text-xs bg-white/5 rounded-lg px-2 py-2">
+                    <div key={c.code} className="flex items-center justify-between gap-2 text-xs bg-white/4 rounded-lg px-2 py-2">
                       <div className="min-w-0">
                         <div className="font-semibold text-slate-100 truncate">{c.code}</div>
                         <div className="text-slate-400 truncate">{c.label || c.code}</div>
                       </div>
-                      <button type="button" onClick={() => { setCouponCode(String(c.code || '').toUpperCase()); applyCoupon(String(c.code || '').toUpperCase()); }} className="shrink-0 rounded-md px-2 py-1 bg-white/10 ring-1 ring-white/10 hover:bg-white/15">Usar</button>
+                      <button type="button" onClick={() => { setCouponCode(String(c.code || '').toUpperCase()); applyCoupon(String(c.code || '').toUpperCase()); }} className="shrink-0 rounded-md px-2 py-1 bg-white/6 ring-1 ring-white/10 hover:bg-white/8">Usar</button>
                     </div>
                   ))}
                 </div>
@@ -500,10 +500,10 @@ export default function CartDrawer({
             disabled={paying || !canCheckout}
             className={`w-full text-center rounded-lg px-4 py-3 font-semibold ring-1 ring-white/10 transition \
               ${paying
-                ? "bg-amber-300/20 text-amber-50 cursor-wait ring-amber-200/15"
+                ? "bg-cyan-400/20 text-cyan-50 cursor-wait ring-cyan-200/15"
                 : !canCheckout
-                  ? "bg-slate-700/50 text-slate-300 cursor-not-allowed"
-                  : "bg-indigo-500 hover:bg-indigo-400 text-white"}`}
+                  ? "bg-[#12303b]/55 text-slate-300 cursor-not-allowed"
+                  : "bg-cyan-600 hover:bg-cyan-500 text-white"}`}
             title={!canCheckout ? "Defina os preços dos produtos antes de pagar." : ""}
           >
             {paying ? "Aguarde…" : "Pagar com cartão"}
@@ -531,10 +531,10 @@ export default function CartDrawer({
             disabled={pixLoading || !canCheckout}
             className={`w-full rounded-lg px-4 py-3 font-semibold transition ${
               pixLoading
-                ? "bg-amber-300/20 text-amber-50 cursor-wait"
+                ? "bg-cyan-400/20 text-cyan-50 cursor-wait"
                 : !canCheckout
-                  ? "bg-slate-700/50 text-slate-300 cursor-not-allowed"
-                  : "bg-sky-500 hover:bg-sky-400 text-black"
+                  ? "bg-[#12303b]/55 text-slate-300 cursor-not-allowed"
+                  : "bg-sky-400 hover:bg-sky-300 text-black"
             }`}
           >
             {pixLoading ? "Aguarde…" : "Pagar com Pix"}
@@ -552,7 +552,7 @@ export default function CartDrawer({
 
         {pixOpen && (
           <div className="absolute inset-0 bg-black/70 flex items-center justify-center p-4">
-            <div className="w-full max-w-sm rounded-xl bg-slate-900 ring-1 ring-white/10 p-4">
+            <div className="w-full max-w-sm rounded-xl bg-[#07161d] ring-1 ring-white/10 p-4">
               <div className="flex items-center justify-between">
                 <h4 className="font-bold">Pague com Pix</h4>
                 <button
@@ -577,7 +577,7 @@ export default function CartDrawer({
               )}
 
               <button
-                className="w-full mt-3 rounded-lg px-4 py-3 bg-white/10 ring-1 ring-white/15 text-white"
+                className="w-full mt-3 rounded-lg px-4 py-3 bg-white/6 ring-1 ring-white/15 text-white"
                 onClick={copyPix}
                 disabled={!pix?.qr_code}
                 title={!pix?.qr_code ? "Código Pix não disponível" : ""}
@@ -608,7 +608,7 @@ export default function CartDrawer({
                   <textarea
                     readOnly
                     value={pix.qr_code}
-                    className="w-full h-24 text-xs rounded-lg bg-slate-800/60 ring-1 ring-white/10 p-2 text-slate-200"
+                    className="w-full h-24 text-xs rounded-lg bg-[#0c2430]/68 ring-1 ring-white/10 p-2 text-slate-200"
                   />
                 </div>
               )}
@@ -618,7 +618,7 @@ export default function CartDrawer({
                   href={pix.ticket_url}
                   target="_blank"
                   rel="noreferrer"
-                  className="block text-center mt-3 rounded-lg px-4 py-3 bg-white/10 ring-1 ring-white/15 text-white"
+                  className="block text-center mt-3 rounded-lg px-4 py-3 bg-white/6 ring-1 ring-white/15 text-white"
                 >
                   Abrir link do Pix
                 </a>
@@ -637,7 +637,7 @@ export default function CartDrawer({
                   className={`w-full rounded-lg px-4 py-3 font-semibold ring-1 transition disabled:opacity-50 ${
                     pixStatus === "paid"
                       ? "bg-emerald-400 text-black ring-emerald-400/30 hover:bg-emerald-300"
-                      : "bg-white/10 text-white ring-white/15 hover:bg-white/15"
+                      : "bg-white/6 text-white ring-white/15 hover:bg-white/8"
                   }`}
                   onClick={() => {
                     if (pixStatus === "paid") {

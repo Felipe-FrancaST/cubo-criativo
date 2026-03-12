@@ -64,13 +64,13 @@ export default function VipRedirectPage({ user, accessToken, onNavigate, onOpenA
   // UI neutra (quase nunca aparece)
   return (
     <main className="min-h-[70vh] flex items-center justify-center">
-      <div className="container-cc rounded-2xl p-6 ring-1 ring-white/10 bg-white/5 text-center">
+      <div className="container-cc rounded-2xl p-6 ring-1 ring-white/10 bg-white/4 text-center">
         <div className="text-sm text-slate-200 font-semibold">
           {checking ? "Carregando…" : "Redirecionando…"}
         </div>
         {!accessToken ? (
           <button
-            className="mt-4 rounded-xl px-4 py-2 bg-white/10 hover:bg-white/15 text-slate-100"
+            className="mt-4 rounded-xl px-4 py-2 bg-white/6 hover:bg-white/8 text-slate-100"
             onClick={() => onOpenAuth?.()}
           >
             Entrar

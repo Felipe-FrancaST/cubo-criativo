@@ -13,9 +13,9 @@ function readParam(name, fallback = "") {
 function FilterChip({ active, children, onClick, tone = "default" }) {
   const activeClass = tone === "accent"
     ? "bg-amber-400 text-black ring-amber-300/40"
-    : "bg-white/10 text-white ring-white/15";
+    : "bg-white/6 text-white ring-white/15";
   return (
-    <button type="button" onClick={onClick} className={`rounded-full px-3 py-2 text-sm font-medium ring-1 transition ${active ? activeClass : "bg-slate-900/60 text-slate-200 ring-white/10 hover:bg-white/5"}`}>
+    <button type="button" onClick={onClick} className={`rounded-full px-3 py-2 text-sm font-medium ring-1 transition ${active ? activeClass : "bg-[#07161d]/60 text-slate-200 ring-white/10 hover:bg-white/4"}`}>
       {children}
     </button>
   );
@@ -124,7 +124,7 @@ export default function CatalogPage({ items, loading = false, error = "", addToC
                 <button
                   type="button"
                   onClick={() => setHelpOpen((v) => !v)}
-                  className={`inline-flex h-11 w-11 items-center justify-center rounded-2xl ring-1 transition ${helpOpen ? "bg-amber-400/15 text-amber-200 ring-amber-300/35" : "bg-white/5 text-slate-100 ring-white/10 hover:bg-white/10"}`}
+                  className={`inline-flex h-11 w-11 items-center justify-center rounded-2xl ring-1 transition ${helpOpen ? "bg-cyan-400/15 text-cyan-200 ring-cyan-300/35" : "bg-white/4 text-slate-100 ring-white/10 hover:bg-white/6"}`}
                   aria-expanded={helpOpen}
                   aria-label="Mostrar ajuda do catálogo"
                 >
@@ -137,11 +137,11 @@ export default function CatalogPage({ items, loading = false, error = "", addToC
               </div>
 
               {helpOpen ? (
-                <div className="mt-3 rounded-2xl bg-slate-950/55 px-4 py-4 ring-1 ring-white/10">
+                <div className="mt-3 rounded-2xl bg-[#041018]/72 px-4 py-4 ring-1 ring-white/10">
                   <ul className="space-y-2 text-sm text-slate-300">
                     {helpContent.map((item) => (
                       <li key={item} className="flex gap-2">
-                        <span className="mt-[6px] h-1.5 w-1.5 shrink-0 rounded-full bg-amber-300" />
+                        <span className="mt-[6px] h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-400" />
                         <span>{item}</span>
                       </li>
                     ))}
@@ -159,9 +159,9 @@ export default function CatalogPage({ items, loading = false, error = "", addToC
                       <path d="m20 20-3.5-3.5" strokeLinecap="round" />
                     </svg>
                   </span>
-                  <input type="search" placeholder="Buscar por nome, tag ou descrição…" className="w-full rounded-2xl bg-slate-950/55 pl-11 pr-11 py-3 text-sm text-slate-100 placeholder:text-slate-500 ring-1 ring-white/10 outline-none focus:ring-teal-400/60" value={query} onChange={(e) => setQuery(e.target.value)} />
+                  <input type="search" placeholder="Buscar por nome, tag ou descrição…" className="w-full rounded-2xl bg-[#041018]/72 pl-11 pr-11 py-3 text-sm text-slate-100 placeholder:text-slate-500 ring-1 ring-white/10 outline-none focus:ring-cyan-400/60" value={query} onChange={(e) => setQuery(e.target.value)} />
                   {query ? (
-                    <button type="button" onClick={() => setQuery("")} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl p-2 text-slate-300 hover:bg-white/5" aria-label="Limpar busca">
+                    <button type="button" onClick={() => setQuery("")} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl p-2 text-slate-300 hover:bg-white/4" aria-label="Limpar busca">
                       <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current" strokeWidth="2">
                         <path d="M6 6l12 12M18 6 6 18" strokeLinecap="round" />
                       </svg>
@@ -169,7 +169,7 @@ export default function CatalogPage({ items, loading = false, error = "", addToC
                   ) : null}
                 </label>
 
-                <button type="button" onClick={() => setFiltersOpen(true)} className="inline-flex lg:hidden items-center justify-center gap-2 rounded-2xl bg-white/5 px-4 py-3 text-sm font-semibold text-slate-100 ring-1 ring-white/10 hover:bg-white/8">
+                <button type="button" onClick={() => setFiltersOpen(true)} className="inline-flex lg:hidden items-center justify-center gap-2 rounded-2xl bg-white/4 px-4 py-3 text-sm font-semibold text-slate-100 ring-1 ring-white/10 hover:bg-white/8">
                   <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current" strokeWidth="1.8">
                     <path d="M4 7h16M7 12h10M10 17h4" strokeLinecap="round" />
                   </svg>
@@ -210,13 +210,13 @@ export default function CatalogPage({ items, loading = false, error = "", addToC
               <div className="lg:hidden fixed inset-0 z-[120]">
                 <button type="button" className="absolute inset-0 bg-black/70 backdrop-blur-[2px]" onClick={() => setFiltersOpen(false)} aria-label="Fechar filtros" />
                 <div className="absolute inset-x-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-[30px] border border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,.98),rgba(2,6,23,.98))] p-4 pb-[calc(env(safe-area-inset-bottom,0px)+16px)] shadow-2xl shadow-black/40">
-                  <div className="mx-auto mb-4 h-1.5 w-14 rounded-full bg-white/15" />
+                  <div className="mx-auto mb-4 h-1.5 w-14 rounded-full bg-white/8" />
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="text-base font-bold text-slate-100">Filtros do catálogo</p>
                       <p className="text-xs text-slate-400">Refine a vitrine sem ocupar espaço da tela.</p>
                     </div>
-                    <button type="button" onClick={() => setFiltersOpen(false)} className="rounded-xl p-2 ring-1 ring-white/10 hover:bg-white/5" aria-label="Fechar">
+                    <button type="button" onClick={() => setFiltersOpen(false)} className="rounded-xl p-2 ring-1 ring-white/10 hover:bg-white/4" aria-label="Fechar">
                       <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current" strokeWidth="2">
                         <path d="M6 6l12 12M18 6 6 18" strokeLinecap="round" />
                       </svg>
@@ -248,8 +248,8 @@ export default function CatalogPage({ items, loading = false, error = "", addToC
                   </div>
 
                   <div className="mt-6 grid grid-cols-2 gap-3">
-                    <button type="button" onClick={clearFilters} className="rounded-2xl px-4 py-3 font-semibold ring-1 ring-white/10 hover:bg-white/5">Limpar</button>
-                    <button type="button" onClick={() => setFiltersOpen(false)} className="rounded-2xl bg-indigo-400 px-4 py-3 font-semibold text-black ring-1 ring-indigo-300/40 hover:bg-indigo-300">Ver resultados</button>
+                    <button type="button" onClick={clearFilters} className="rounded-2xl px-4 py-3 font-semibold ring-1 ring-white/10 hover:bg-white/4">Limpar</button>
+                    <button type="button" onClick={() => setFiltersOpen(false)} className="rounded-2xl bg-cyan-500 px-4 py-3 font-semibold text-black ring-1 ring-cyan-300/40 hover:bg-cyan-400">Ver resultados</button>
                   </div>
                 </div>
               </div>
@@ -257,14 +257,14 @@ export default function CatalogPage({ items, loading = false, error = "", addToC
 
             <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
               {loading && Array.from({ length: 12 }).map((_, idx) => (
-                <div key={idx} className="w-full max-w-[320px] rounded-2xl overflow-hidden ring-1 ring-white/10 bg-slate-900/60">
-                  <div className="aspect-[4/5] bg-slate-800/60 animate-pulse" />
+                <div key={idx} className="w-full max-w-[320px] rounded-2xl overflow-hidden ring-1 ring-white/10 bg-[#07161d]/60">
+                  <div className="aspect-[4/5] bg-[#0c2430]/68 animate-pulse" />
                   <div className="p-4">
-                    <div className="h-4 bg-slate-800/60 rounded animate-pulse" />
-                    <div className="mt-3 h-9 bg-slate-800/60 rounded animate-pulse" />
+                    <div className="h-4 bg-[#0c2430]/68 rounded animate-pulse" />
+                    <div className="mt-3 h-9 bg-[#0c2430]/68 rounded animate-pulse" />
                     <div className="mt-4 grid grid-cols-2 gap-2">
-                      <div className="h-10 bg-slate-800/60 rounded animate-pulse" />
-                      <div className="h-10 bg-slate-800/60 rounded animate-pulse" />
+                      <div className="h-10 bg-[#0c2430]/68 rounded animate-pulse" />
+                      <div className="h-10 bg-[#0c2430]/68 rounded animate-pulse" />
                     </div>
                   </div>
                 </div>

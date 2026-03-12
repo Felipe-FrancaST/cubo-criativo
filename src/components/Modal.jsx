@@ -58,7 +58,7 @@ export default function Modal({
     <div className={`fixed inset-0 z-[150] ${open ? "visible" : "invisible"}`} aria-hidden={!open}>
       {/* backdrop */}
       <div
-        className={`absolute inset-0 bg-black/60 transition-opacity ${open ? "opacity-100" : "opacity-0"}`}
+        className={`absolute inset-0 bg-[#020b10]/72 transition-opacity ${open ? "opacity-100" : "opacity-0"}`}
         onClick={onClose}
       />
       {/* painel */}
@@ -71,7 +71,7 @@ export default function Modal({
         className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2
                     ${widthClass} ${maxWidth}
                     max-h-[92vh]
-                    bg-slate-900 ring-1 ring-white/10 rounded-2xl
+                    bg-[#07161d] ring-1 ring-white/10 rounded-2xl
                     overflow-hidden flex flex-col
                     transition-transform ${open ? "scale-100" : "scale-95"}
                     ${panelClassName}`}
@@ -82,7 +82,7 @@ export default function Modal({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg p-2 ring-1 ring-white/15 hover:bg-white/5"
+              className="rounded-lg p-2 ring-1 ring-white/15 hover:bg-white/4"
               aria-label="Fechar"
             >
               <span className="material-icons">close</span>

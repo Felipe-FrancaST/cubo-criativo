@@ -3,7 +3,7 @@ import { trackEvent } from '../lib/analytics.js';
 
 function Badge({ children }) {
   return (
-    <span className="inline-flex items-center rounded-full bg-white/10 ring-1 ring-white/15 px-3 py-1 text-xs text-slate-200">
+    <span className="inline-flex items-center rounded-full bg-white/6 ring-1 ring-white/15 px-3 py-1 text-xs text-slate-200">
       {children}
     </span>
   );
@@ -175,7 +175,7 @@ export default function VipRpgPage({
   if (accessToken && (isVipCached || !vipChecked || vipLoading || isVip)) {
     return (
       <main className="min-h-[70vh] flex items-center justify-center">
-        <div className="container-cc rounded-2xl p-6 ring-1 ring-white/10 bg-white/5 text-center">
+        <div className="container-cc rounded-2xl p-6 ring-1 ring-white/10 bg-white/4 text-center">
           <div className="text-sm text-slate-200 font-semibold">Abrindo Área VIP…</div>
           <div className="mt-1 text-xs text-slate-400">Verificando sua assinatura</div>
         </div>
@@ -188,7 +188,7 @@ export default function VipRpgPage({
   if (plansLoading) {
     return (
       <main className="min-h-[70vh] flex items-center justify-center">
-        <div className="container-cc rounded-2xl p-6 ring-1 ring-white/10 bg-white/5 text-center">
+        <div className="container-cc rounded-2xl p-6 ring-1 ring-white/10 bg-white/4 text-center">
           <div className="text-sm text-slate-200 font-semibold">Carregando planos VIP…</div>
           <div className="mt-1 text-xs text-slate-400">Aguarde um instante</div>
         </div>
@@ -200,13 +200,13 @@ export default function VipRpgPage({
   if (!visiblePlans.length) {
     return (
       <main className="min-h-[70vh] flex items-center justify-center">
-        <div className="container-cc rounded-2xl p-6 ring-1 ring-white/10 bg-white/5 text-center">
+        <div className="container-cc rounded-2xl p-6 ring-1 ring-white/10 bg-white/4 text-center">
           <div className="text-sm text-slate-200 font-semibold">Planos VIP indisponíveis</div>
           <div className="mt-1 text-xs text-slate-400">
             Nenhum plano ativo encontrado. Verifique a tabela <b>vip_plans</b> no Supabase.
           </div>
           <button
-            className="mt-4 rounded-xl px-4 py-2 bg-white/10 hover:bg-white/15 text-slate-100"
+            className="mt-4 rounded-xl px-4 py-2 bg-white/6 hover:bg-white/8 text-slate-100"
             onClick={() => onGoHome?.()}
           >
             Voltar
@@ -391,14 +391,14 @@ export default function VipRpgPage({
             </div>
 
             {vipLoading ? (
-              <div className="mt-8 rounded-2xl bg-white/5 ring-1 ring-white/10 p-5 text-slate-200">Carregando…</div>
+              <div className="mt-8 rounded-2xl bg-white/4 ring-1 ring-white/10 p-5 text-slate-200">Carregando…</div>
             ) : isVip ? (
-              <div className="mt-8 rounded-2xl bg-white/5 ring-1 ring-white/10 p-5 text-slate-200">
+              <div className="mt-8 rounded-2xl bg-white/4 ring-1 ring-white/10 p-5 text-slate-200">
                 Abrindo Área VIP…
               </div>
             ) : (
               <div className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-4">
-                <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-5">
+                <div className="rounded-2xl bg-white/4 ring-1 ring-white/10 p-5">
                   <p className="text-sm font-extrabold">O que você recebe</p>
                   <ul className="mt-3 space-y-2 text-sm text-slate-200">
                     <li className="flex gap-2"><span className="text-emerald-300">✓</span> <span>Miniaturas mensais (resina premium)</span></li>
@@ -407,7 +407,7 @@ export default function VipRpgPage({
                   </ul>
                 </div>
 
-                <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-5">
+                <div className="rounded-2xl bg-white/4 ring-1 ring-white/10 p-5">
                   <p className="text-sm font-extrabold">Planos</p>
                   <div className="mt-3 grid grid-cols-1 gap-2">
                     {visiblePlans.map((pl) => (
@@ -416,7 +416,7 @@ export default function VipRpgPage({
                         type="button"
                         onClick={() => setSelectedPlanId(pl.id)}
                         className={`text-left rounded-xl p-3 ring-1 ${
-                          selectedPlanId === pl.id ? 'ring-teal-300 bg-teal-400/10' : 'ring-white/10 bg-white/5 hover:bg-white/10'
+                          selectedPlanId === pl.id ? 'ring-cyan-300 bg-cyan-400/10' : 'ring-white/10 bg-white/4 hover:bg-white/6'
                         }`}
                       >
                         <div className="flex items-center justify-between gap-3">
@@ -434,7 +434,7 @@ export default function VipRpgPage({
                   </div>
                 </div>
 
-                <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-5">
+                <div className="rounded-2xl bg-white/4 ring-1 ring-white/10 p-5">
                   <p className="text-sm font-extrabold">Assinar agora</p>
                   <p className="mt-2 text-sm text-slate-300">Você precisa estar logado e com CPF/endereço preenchidos para garantir o envio.</p>
 
@@ -449,14 +449,14 @@ export default function VipRpgPage({
                     <button
                       disabled={busy}
                       onClick={() => startCard(selectedPlanId)}
-                      className="container-cc rounded-xl px-4 py-3 font-extrabold bg-teal-400 text-black ring-4 ring-teal-400/20 disabled:opacity-60"
+                      className="container-cc rounded-xl px-4 py-3 font-extrabold bg-cyan-400 text-black ring-4 ring-cyan-400/20 disabled:opacity-60"
                     >
                       Assinar com cartão
                     </button>
                     <button
                       disabled={busy}
                       onClick={() => startPix(selectedPlanId)}
-                      className="container-cc rounded-xl px-4 py-3 font-semibold ring-1 ring-white/15 hover:bg-white/5 disabled:opacity-60"
+                      className="container-cc rounded-xl px-4 py-3 font-semibold ring-1 ring-white/15 hover:bg-white/4 disabled:opacity-60"
                     >
                       Assinar com Pix
                     </button>
@@ -474,7 +474,7 @@ export default function VipRpgPage({
                             href={pix.ticket_url}
                             target="_blank"
                             rel="noreferrer"
-                            className="rounded-xl px-3 py-2 text-xs ring-1 ring-white/10 hover:bg-white/5"
+                            className="rounded-xl px-3 py-2 text-xs ring-1 ring-white/10 hover:bg-white/4"
                           >
                             Abrir no Mercado Pago
                           </a>
@@ -493,7 +493,7 @@ export default function VipRpgPage({
                             <input
                               readOnly
                               value={pix.qr_code}
-                              className="w-full rounded-xl bg-slate-900 ring-1 ring-white/10 px-3 py-2 text-xs text-slate-200"
+                              className="w-full rounded-xl bg-[#07161d] ring-1 ring-white/10 px-3 py-2 text-xs text-slate-200"
                             />
                             <button
                               type="button"
@@ -515,7 +515,7 @@ export default function VipRpgPage({
                               className={`rounded-xl px-3 py-2 text-xs font-extrabold ring-1 disabled:opacity-60 ${
                                 ['paid', 'approved'].includes(String(pixStatus || '').toLowerCase())
                                   ? 'bg-emerald-500/20 text-emerald-100 ring-emerald-300/30'
-                                  : 'bg-white/10 ring-white/15 hover:bg-white/15'
+                                  : 'bg-white/6 ring-white/15 hover:bg-white/8'
                               }`}
                             >
                               {pixChecking
@@ -534,9 +534,9 @@ export default function VipRpgPage({
             )}
 
             <div className="mt-8 flex flex-wrap gap-2">
-              <button onClick={onGoHome} className="container-cc rounded-xl px-4 py-2 text-sm ring-1 ring-white/10 hover:bg-white/5">Voltar</button>
+              <button onClick={onGoHome} className="container-cc rounded-xl px-4 py-2 text-sm ring-1 ring-white/10 hover:bg-white/4">Voltar</button>
               {!user ? (
-                <button onClick={onOpenAuth} className="container-cc rounded-xl px-4 py-2 text-sm ring-1 ring-white/10 hover:bg-white/5">Entrar para assinar</button>
+                <button onClick={onOpenAuth} className="container-cc rounded-xl px-4 py-2 text-sm ring-1 ring-white/10 hover:bg-white/4">Entrar para assinar</button>
               ) : null}
             </div>
           </div>

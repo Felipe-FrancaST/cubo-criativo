@@ -142,20 +142,20 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
     }
     return {
       label: "Pendente",
-      cls: "bg-amber-400/15 text-amber-200 ring-amber-400/30",
+      cls: "bg-cyan-400/15 text-cyan-200 ring-amber-400/30",
     };
   };
 
   const prodUI = (status) => {
     const s = String(status || "recebido").toLowerCase();
     if (s === "em_producao") {
-      return { label: "Em produção", cls: "bg-indigo-500/15 text-indigo-200 ring-indigo-400/30" };
+      return { label: "Em produção", cls: "bg-cyan-600/15 text-indigo-200 ring-indigo-400/30" };
     }
     if (s === "pronto") {
       return { label: "Pronto", cls: "bg-cyan-500/15 text-cyan-200 ring-cyan-400/30" };
     }
     if (s === "enviado") {
-      return { label: "Enviado", cls: "bg-amber-500/15 text-amber-200 ring-amber-400/30" };
+      return { label: "Enviado", cls: "bg-cyan-500/15 text-cyan-200 ring-amber-400/30" };
     }
     if (s === "entregue") {
       return { label: "Entregue", cls: "bg-emerald-500/15 text-emerald-200 ring-emerald-400/30" };
@@ -166,7 +166,7 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
     if (s === "reembolsado") {
       return { label: "Reembolsado", cls: "bg-teal-500/15 text-teal-200 ring-teal-400/30" };
     }
-    return { label: "Recebido", cls: "bg-white/5 text-slate-200 ring-white/15" };
+    return { label: "Recebido", cls: "bg-white/4 text-slate-200 ring-white/15" };
   };
 
 
@@ -765,7 +765,7 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
             {user && (
               <button
                 onClick={fetchOrders}
-                className="rounded-lg px-3 py-2 text-sm ring-1 ring-white/15 hover:bg-white/5"
+                className="rounded-lg px-3 py-2 text-sm ring-1 ring-white/15 hover:bg-white/4"
                 disabled={loading}
                 title="Atualizar"
               >
@@ -774,7 +774,7 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
             )}
             <button
               onClick={onClose}
-              className="rounded-lg p-2 ring-1 ring-white/15 hover:bg-white/5"
+              className="rounded-lg p-2 ring-1 ring-white/15 hover:bg-white/4"
               aria-label="Fechar"
             >
               <span className="material-icons">close</span>
@@ -813,7 +813,7 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
             )}
 
             {!loading && !error && orders.length === 0 && (
-              <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-5 text-slate-300">Você ainda não tem pedidos.</div>
+              <div className="rounded-2xl bg-white/4 ring-1 ring-white/10 p-5 text-slate-300">Você ainda não tem pedidos.</div>
             )}
 
             <div className="space-y-3">
@@ -839,7 +839,7 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
           </span>
           {o.shipping_tracking ? (
             <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1 text-xs rounded-full px-2 py-1 ring-1 ring-white/15 bg-white/5 text-slate-200">
+              <span className="inline-flex items-center gap-1 text-xs rounded-full px-2 py-1 ring-1 ring-white/15 bg-white/4 text-slate-200">
                 Rastreio: {String(o.shipping_tracking)}
               </span>
               <button
@@ -847,7 +847,7 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
                   const ok = copyToClipboard(o.shipping_tracking);
                   if (!ok) return;
                 }}
-                className="text-xs rounded-full px-2 py-1 ring-1 ring-white/15 hover:bg-white/5 text-slate-200"
+                className="text-xs rounded-full px-2 py-1 ring-1 ring-white/15 hover:bg-white/4 text-slate-200"
                 title="Copiar código"
               >
                 Copiar
@@ -873,24 +873,24 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
     </div>
 
     {Array.isArray(o.order_items) && o.order_items.length > 0 && (
-  <div className="mt-4 rounded-2xl bg-white/5 ring-1 ring-white/10 overflow-hidden">
+  <div className="mt-4 rounded-2xl bg-white/4 ring-1 ring-white/10 overflow-hidden">
     <ul className="divide-y divide-white/10">
       {o.order_items.map((it, idx) => (
         <li key={idx} className="flex items-center justify-between gap-3 px-3 py-3 hover:bg-white/[0.02]">
           <a
             href={productOrderItemHref(it)}
-            className="flex items-center gap-3 min-w-0 rounded-lg hover:bg-white/5 px-1 py-1 -mx-1 -my-1"
+            className="flex items-center gap-3 min-w-0 rounded-lg hover:bg-white/4 px-1 py-1 -mx-1 -my-1"
             title={it.name ? `Abrir ${it.name}` : "Abrir produto"}
           >
             {it.img ? (
               <img
                 src={it.img}
                 alt={it.name || "Produto"}
-                className="h-10 w-10 rounded-md object-cover ring-1 ring-white/10 bg-slate-800"
+                className="h-10 w-10 rounded-md object-cover ring-1 ring-white/10 bg-[#0c2430]"
                 loading="lazy"
               />
             ) : (
-              <div className="h-10 w-10 rounded-md bg-slate-800 ring-1 ring-white/10 grid place-items-center text-slate-400">
+              <div className="h-10 w-10 rounded-md bg-[#0c2430] ring-1 ring-white/10 grid place-items-center text-slate-400">
                 <span className="material-icons text-base">image</span>
               </div>
             )}
@@ -925,7 +925,7 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
       {String(o.production_status || "recebido").toLowerCase() !== "entregue" ? (
         <button
           onClick={() => openCancel(o)}
-          className="text-sm rounded-xl px-3 py-2 ring-1 ring-white/15 hover:bg-white/5 text-slate-100"
+          className="text-sm rounded-xl px-3 py-2 ring-1 ring-white/15 hover:bg-white/4 text-slate-100"
         >
           Cancelar pedido
         </button>
@@ -934,7 +934,7 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
       {String(o.production_status || "").toLowerCase() === "entregue" ? (
         <button
           onClick={() => openReview(o)}
-          className="text-sm rounded-xl px-3 py-2 bg-amber-400 text-black font-semibold hover:bg-amber-300"
+          className="text-sm rounded-xl px-3 py-2 bg-amber-400 text-black font-semibold hover:bg-cyan-400"
         >
           {reviewsByOrder?.[String(o.id)] ? "Editar avaliação" : "Avaliar pedido"}
         </button>
@@ -945,7 +945,7 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
       <div className="mt-3 rounded-xl bg-emerald-500/10 ring-1 ring-emerald-400/20 px-3 py-3">
         <div className="flex items-center justify-between gap-3">
           <p className="text-sm font-semibold text-emerald-100">Sua avaliação</p>
-          <span className="text-amber-300 text-sm">{"★".repeat(Math.max(1, Math.min(5, Number(reviewsByOrder[String(o.id)]?.rating) || 5)))}</span>
+          <span className="text-cyan-300 text-sm">{"★".repeat(Math.max(1, Math.min(5, Number(reviewsByOrder[String(o.id)]?.rating) || 5)))}</span>
         </div>
         <p className="mt-1 text-sm text-slate-200">{reviewsByOrder[String(o.id)]?.comment}</p>
       </div>
@@ -976,14 +976,14 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
 
             {/* Conteúdo */}
             {cancelModal.step === "processing" ? (
-              <div className="mt-4 rounded-xl bg-white/5 ring-1 ring-white/10 px-3 py-3">
+              <div className="mt-4 rounded-xl bg-white/4 ring-1 ring-white/10 px-3 py-3">
                 <p className="text-slate-200">Cancelando pedido…</p>
               </div>
             ) : null}
 
             {cancelModal.step === "confirm" && cancelModal.mode === "partial" ? (
-              <div className="mt-4 rounded-xl bg-amber-500/10 ring-1 ring-amber-400/30 px-3 py-3">
-                <p className="font-semibold text-amber-200">Atenção</p>
+              <div className="mt-4 rounded-xl bg-cyan-500/10 ring-1 ring-amber-400/30 px-3 py-3">
+                <p className="font-semibold text-cyan-200">Atenção</p>
                 <p className="mt-1 text-slate-200">
                   Este pedido já está em produção. Se desejar continuar, o reembolso será somente da metade do valor para suprir os custos do processo.
                 </p>
@@ -1015,7 +1015,7 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
             <div className="mt-5 flex items-center justify-end gap-2">
               <button
                 onClick={closeCancel}
-                className="text-sm rounded-xl px-3 py-2 ring-1 ring-white/15 hover:bg-white/5 text-slate-100"
+                className="text-sm rounded-xl px-3 py-2 ring-1 ring-white/15 hover:bg-white/4 text-slate-100"
                 disabled={cancelModal.busy}
               >
                 {cancelModal.step === "success" || cancelModal.step === "info" ? "Fechar" : "Voltar"}
@@ -1091,13 +1091,13 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
             ) : null}
 
             {payModal.loading ? (
-              <div className="mt-4 rounded-xl bg-white/5 ring-1 ring-white/10 px-3 py-3">
+              <div className="mt-4 rounded-xl bg-white/4 ring-1 ring-white/10 px-3 py-3">
                 <p className="text-slate-200">Carregando Pix…</p>
               </div>
             ) : null}
 
             {!payModal.loading && payModal.pix ? (
-              <div className="mt-4 rounded-xl bg-white/5 ring-1 ring-white/10 p-3">
+              <div className="mt-4 rounded-xl bg-white/4 ring-1 ring-white/10 p-3">
                 {payModal.pix.qr_code_base64 ? (
                   <div className="grid place-items-center">
                     <img
@@ -1119,7 +1119,7 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
                       />
                       <button
                         onClick={() => copyToClipboard(payModal.pix.qr_code)}
-                        className="shrink-0 rounded-lg px-3 py-2 bg-amber-400 text-black font-semibold hover:bg-amber-300"
+                        className="shrink-0 rounded-lg px-3 py-2 bg-amber-400 text-black font-semibold hover:bg-cyan-400"
                       >
                         Copiar
                       </button>
@@ -1141,7 +1141,7 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
 
                   <button
                     onClick={() => verifyPay(payModal.order.id)}
-                    className="text-sm rounded-xl px-3 py-2 ring-1 ring-white/15 hover:bg-white/5"
+                    className="text-sm rounded-xl px-3 py-2 ring-1 ring-white/15 hover:bg-white/4"
                     disabled={payModal.checking}
                   >
                     {payModal.checking ? "Verificando…" : "Verificar pagamento"}
@@ -1149,7 +1149,7 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
 
                   <button
                     onClick={closePay}
-                    className="text-sm rounded-xl px-3 py-2 ring-1 ring-white/15 hover:bg-white/5"
+                    className="text-sm rounded-xl px-3 py-2 ring-1 ring-white/15 hover:bg-white/4"
                   >
                     Fechar
                   </button>
@@ -1178,7 +1178,7 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
                     key={n}
                     type="button"
                     onClick={() => setReviewModal((s) => ({ ...s, rating: n }))}
-                    className={`text-2xl leading-none ${n <= (Number(reviewModal.rating) || 0) ? "text-amber-300" : "text-slate-600"}`}
+                    className={`text-2xl leading-none ${n <= (Number(reviewModal.rating) || 0) ? "text-cyan-300" : "text-slate-600"}`}
                     aria-label={`${n} estrela${n > 1 ? 's' : ''}`}
                     title={`${n} estrela${n > 1 ? 's' : ''}`}
                   >
@@ -1218,14 +1218,14 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
             <div className="mt-5 flex items-center justify-end gap-2">
               <button
                 onClick={closeReview}
-                className="text-sm rounded-xl px-3 py-2 ring-1 ring-white/15 hover:bg-white/5 text-slate-100"
+                className="text-sm rounded-xl px-3 py-2 ring-1 ring-white/15 hover:bg-white/4 text-slate-100"
                 disabled={reviewModal.submitting}
               >
                 Fechar
               </button>
               <button
                 onClick={submitReview}
-                className="text-sm rounded-xl px-3 py-2 bg-amber-400 text-black font-semibold hover:bg-amber-300 disabled:opacity-60"
+                className="text-sm rounded-xl px-3 py-2 bg-amber-400 text-black font-semibold hover:bg-cyan-400 disabled:opacity-60"
                 disabled={reviewModal.submitting}
               >
                 {reviewModal.submitting ? "Enviando…" : (reviewsByOrder?.[String(reviewModal.order.id)] ? "Salvar avaliação" : "Enviar avaliação")}

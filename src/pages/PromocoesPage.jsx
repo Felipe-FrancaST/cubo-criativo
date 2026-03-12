@@ -33,13 +33,13 @@ export default function PromocoesPage({
             <div className="flex items-center gap-3">
               <button
                 onClick={onGoHome}
-                className="container-cc rounded-xl px-4 py-2 ring-1 ring-white/15 hover:bg-white/5 text-sm"
+                className="container-cc rounded-xl px-4 py-2 ring-1 ring-white/15 hover:bg-white/4 text-sm"
               >
                 <span className="material-icons align-middle text-[18px]">chevron_left</span> Voltar
               </button>
-              <div className="container-cc rounded-xl px-4 py-2 bg-white/5 ring-1 ring-white/10 text-sm">
+              <div className="container-cc rounded-xl px-4 py-2 bg-white/4 ring-1 ring-white/10 text-sm">
                 <span className="text-slate-300">Total:</span>{" "}
-                <span className="font-extrabold text-amber-300">{loading ? "…" : promos.length}</span>
+                <span className="font-extrabold text-cyan-300">{loading ? "…" : promos.length}</span>
               </div>
             </div>
           </div>
@@ -56,15 +56,15 @@ export default function PromocoesPage({
                 {Array.from({ length: 8 }).map((_, idx) => (
                   <div
                     key={idx}
-                    className="w-full max-w-[340px] rounded-3xl overflow-hidden ring-1 ring-white/10 bg-slate-900/60"
+                    className="w-full max-w-[340px] rounded-3xl overflow-hidden ring-1 ring-white/10 bg-[#07161d]/60"
                   >
-                    <div className="aspect-[4/5] bg-slate-800/60 animate-pulse" />
+                    <div className="aspect-[4/5] bg-[#0c2430]/68 animate-pulse" />
                     <div className="p-5">
-                      <div className="h-4 bg-slate-800/60 rounded animate-pulse" />
-                      <div className="mt-3 h-8 bg-slate-800/60 rounded animate-pulse" />
+                      <div className="h-4 bg-[#0c2430]/68 rounded animate-pulse" />
+                      <div className="mt-3 h-8 bg-[#0c2430]/68 rounded animate-pulse" />
                       <div className="mt-5 grid grid-cols-2 gap-2">
-                        <div className="h-10 bg-slate-800/60 rounded animate-pulse" />
-                        <div className="h-10 bg-slate-800/60 rounded animate-pulse" />
+                        <div className="h-10 bg-[#0c2430]/68 rounded animate-pulse" />
+                        <div className="h-10 bg-[#0c2430]/68 rounded animate-pulse" />
                       </div>
                     </div>
                   </div>
@@ -73,7 +73,7 @@ export default function PromocoesPage({
             )}
 
             {!loading && !error && promos.length === 0 && (
-              <div className="rounded-2xl p-5 ring-1 ring-white/10 bg-white/5 text-slate-200 text-sm">
+              <div className="rounded-2xl p-5 ring-1 ring-white/10 bg-white/4 text-slate-200 text-sm">
                 Nenhuma promoção ativa no momento.
               </div>
             )}

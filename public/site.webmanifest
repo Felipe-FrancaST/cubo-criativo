@@ -3,8 +3,8 @@
   "short_name": "Cubo Criativo",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#020617",
-  "theme_color": "#020617",
+  "background_color": "#041018",
+  "theme_color": "#041018",
   "icons": [
     {
       "src": "/images/logo.png",

@@ -40,14 +40,14 @@ export default function FAQPage({ onGoHome }) {
             <h1 className="mt-3 text-3xl sm:text-4xl font-black tracking-tight">Perguntas frequentes</h1>
             <p className="mt-2 text-slate-300 text-sm sm:text-base max-w-2xl">Respostas rápidas sobre prazos, envio, pagamento e cuidados com as peças.</p>
           </div>
-          <button onClick={onGoHome} className="container-cc rounded-xl px-4 py-2 ring-1 ring-white/15 hover:bg-white/5 text-sm">
+          <button onClick={onGoHome} className="container-cc rounded-xl px-4 py-2 ring-1 ring-white/15 hover:bg-white/4 text-sm">
             <span className="material-icons align-middle text-[18px]">chevron_left</span> Voltar
           </button>
         </div>
 
         <div className="mt-8 space-y-4">
           {faqs.map((item) => (
-            <details key={item.q} className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-5 open:bg-white/[0.07]">
+            <details key={item.q} className="rounded-2xl bg-white/4 ring-1 ring-white/10 p-5 open:bg-white/[0.07]">
               <summary className="cursor-pointer font-bold text-slate-100">{item.q}</summary>
               <p className="mt-3 text-sm leading-relaxed text-slate-300">{item.a}</p>
             </details>

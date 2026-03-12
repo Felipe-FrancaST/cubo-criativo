@@ -199,7 +199,7 @@ function Toast({ open, children }) {
         open ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-3 pointer-events-none"
       }`}
     >
-      <div className="container-cc rounded-full bg-gradient-to-r from-amber-300 via-amber-200 to-orange-200 text-[#241208] font-semibold px-4 py-2 shadow-lg ring-4 ring-amber-400/20">
+      <div className="container-cc rounded-full bg-gradient-to-r from-cyan-400 via-cyan-300 to-sky-200 text-[#031116] font-semibold px-4 py-2 shadow-lg ring-4 ring-cyan-400/20">
         {children}
       </div>
     </div>
@@ -1435,7 +1435,7 @@ React.useEffect(() => {
   })();
 
   return (
-    <div className="min-h-screen w-full overflow-x-clip flex flex-col bg-[radial-gradient(circle_at_top,rgba(122,35,65,.14),transparent_24%),linear-gradient(180deg,#120809_0%,#090506_48%,#050304_100%)] text-amber-50">
+    <div className="min-h-screen w-full overflow-x-clip flex flex-col bg-[radial-gradient(circle_at_top,rgba(122,35,65,.14),transparent_24%),linear-gradient(180deg,#120809_0%,#090506_48%,#050304_100%)] text-cyan-50">
       <Toast open={toastOpen}>{toastMsg}</Toast>
 
       <SiteHeader
@@ -1488,15 +1488,15 @@ React.useEffect(() => {
       />
 
       {/* TRUST BAR */}
-      <div className="border-b border-amber-300/10 bg-[linear-gradient(180deg,rgba(28,14,10,.82),rgba(11,6,5,.68))]">
+      <div className="border-b border-cyan-300/10 bg-[linear-gradient(180deg,rgba(7,22,29,.86),rgba(4,16,24,.72))]">
         <div className="container-cc px-4 sm:px-6 lg:px-8 py-2">
           {/* Mobile: compacto (não ocupa tela) */}
           <div className="md:hidden">
-            <div className="flex items-center justify-between gap-3 text-[12px] text-slate-200">
+            <div className="flex items-center justify-between gap-3 text-[12px] text-cyan-50/88">
               <div className="flex items-center gap-2">
-                <span className="material-icons text-[18px] text-slate-300" title="Envio com rastreio">local_shipping</span>
-                <span className="material-icons text-[18px] text-slate-300" title="Pagamento seguro">lock</span>
-                <span className="material-icons text-[18px] text-slate-300" title="Produção 15–30 dias úteis">schedule</span>
+                <span className="material-icons text-[18px] text-cyan-100/72" title="Envio com rastreio">local_shipping</span>
+                <span className="material-icons text-[18px] text-cyan-100/72" title="Pagamento seguro">lock</span>
+                <span className="material-icons text-[18px] text-cyan-100/72" title="Produção 15–30 dias úteis">schedule</span>
                 <a
                   className="inline-flex items-center"
                   href={`https://wa.me/${brand.whatsapp}`}
@@ -1504,40 +1504,40 @@ React.useEffect(() => {
                   rel="noreferrer"
                   title="Suporte no WhatsApp"
                 >
-                  <span className="material-icons text-[18px] text-slate-300">support_agent</span>
+                  <span className="material-icons text-[18px] text-cyan-100/72">support_agent</span>
                 </a>
               </div>
 
               <button
                 type="button"
-                className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[12px] text-slate-200 hover:bg-white/10"
+                className="inline-flex items-center gap-1 rounded-full border border-cyan-300/10 bg-white/4 px-2 py-1 text-[12px] text-cyan-50/88 hover:bg-white/6"
                 onClick={() => setTrustOpen((v) => !v)}
                 aria-expanded={trustOpen}
               >
-                <span className="material-icons text-[16px] text-slate-300">info</span>
+                <span className="material-icons text-[16px] text-cyan-100/72">info</span>
                 <span>{trustOpen ? "Ocultar" : "Detalhes"}</span>
               </button>
             </div>
 
             {trustOpen && (
-              <div className="mt-2 rounded-2xl border border-white/10 bg-black/40 p-3 text-[12px] text-slate-200">
+              <div className="mt-2 rounded-2xl border border-cyan-300/10 bg-[#020b10]/70 p-3 text-[12px] text-cyan-50/88">
                 <div className="grid grid-cols-1 gap-2">
                   <div className="flex items-center gap-2">
-                    <span className="material-icons text-[18px] text-slate-300">local_shipping</span>
+                    <span className="material-icons text-[18px] text-cyan-100/72">local_shipping</span>
                     <span>Envio p/ todo o Brasil (rastreio)</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="material-icons text-[18px] text-slate-300">lock</span>
+                    <span className="material-icons text-[18px] text-cyan-100/72">lock</span>
                     <span>Pagamento seguro (Mercado Pago)</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="material-icons text-[18px] text-slate-300">schedule</span>
+                    <span className="material-icons text-[18px] text-cyan-100/72">schedule</span>
                     <span>Produção: 15–30 dias úteis</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="material-icons text-[18px] text-slate-300">support_agent</span>
+                    <span className="material-icons text-[18px] text-cyan-100/72">support_agent</span>
                     <a
-                      className="underline decoration-dotted hover:text-white"
+                      className="underline decoration-dotted hover:text-cyan-50"
                       href={`https://wa.me/${brand.whatsapp}`}
                       target="_blank"
                       rel="noreferrer"
@@ -1551,23 +1551,23 @@ React.useEffect(() => {
           </div>
 
           {/* Desktop: completo */}
-          <div className="hidden md:grid grid-cols-4 gap-2 text-[12px] sm:text-[13px] text-slate-200">
+          <div className="hidden md:grid grid-cols-4 gap-2 text-[12px] sm:text-[13px] text-cyan-50/88">
             <div className="flex items-center gap-2">
-              <span className="material-icons text-[18px] text-slate-300">local_shipping</span>
+              <span className="material-icons text-[18px] text-cyan-100/72">local_shipping</span>
               <span>Envio p/ todo o Brasil (rastreio)</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="material-icons text-[18px] text-slate-300">lock</span>
+              <span className="material-icons text-[18px] text-cyan-100/72">lock</span>
               <span>Pagamento seguro (Mercado Pago)</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="material-icons text-[18px] text-slate-300">schedule</span>
+              <span className="material-icons text-[18px] text-cyan-100/72">schedule</span>
               <span>Produção: 15–30 dias úteis</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="material-icons text-[18px] text-slate-300">support_agent</span>
+              <span className="material-icons text-[18px] text-cyan-100/72">support_agent</span>
               <a
-                className="underline decoration-dotted hover:text-white"
+                className="underline decoration-dotted hover:text-cyan-50"
                 href={`https://wa.me/${brand.whatsapp}`}
                 target="_blank"
                 rel="noreferrer"
@@ -1580,22 +1580,22 @@ React.useEffect(() => {
       </div>
 
       {/* Conteúdo */}
-      <Suspense fallback={<main className="container-cc px-4 sm:px-6 lg:px-8 py-10"><div className="rounded-2xl ring-1 ring-white/10 bg-white/5 p-6 text-amber-50/90">Carregando página…</div></main>}>
+      <Suspense fallback={<main className="container-cc px-4 sm:px-6 lg:px-8 py-10"><div className="rounded-2xl ring-1 ring-white/10 bg-white/4 p-6 text-cyan-50/90">Carregando página…</div></main>}>
         {page}
       </Suspense>
 
       {/* FOOTER */}
-        <footer id="contato" className="mt-auto border-t border-white/10">
+        <footer id="contato" className="mt-auto border-t border-cyan-300/10">
           <div
             className="container-cc grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 text-sm px-4 sm:px-6 lg:px-8 py-10" >
             <div>
               <p className="font-extrabold text-lg">{brand.name}</p>
-              <p className="text-slate-400 mt-2">Cultura geek, qualidade de coleção.</p>
-              <p className="text-xs text-slate-500 mt-3">Produção sob encomenda: 15–30 dias úteis • envio com rastreio</p>
+              <p className="text-cyan-200/54 mt-2">Cultura geek, qualidade de coleção.</p>
+              <p className="text-xs text-cyan-300/38 mt-3">Produção sob encomenda: 15–30 dias úteis • envio com rastreio</p>
             </div>
             <div>
               <p className="font-bold">Compra segura</p>
-              <ul className="mt-2 text-slate-300 space-y-1">
+              <ul className="mt-2 text-cyan-100/72 space-y-1">
                 <li>• Checkout no site via Mercado Pago</li>
                 <li>• PIX e cartão (conforme checkout)</li>
                 <li>• Também finalizamos pelo WhatsApp</li>
@@ -1603,7 +1603,7 @@ React.useEffect(() => {
             </div>
             <div>
               <p className="font-bold">Links úteis</p>
-              <ul className="mt-2 text-slate-300 space-y-1">
+              <ul className="mt-2 text-cyan-100/72 space-y-1">
                 <li><a href="/catalogo" className="underline decoration-dotted">Catálogo</a></li>
                 <li><a href="/promocoes" className="underline decoration-dotted">Promoções</a></li>
                 <li><a href="/faq" className="underline decoration-dotted">FAQ</a></li>
@@ -1614,7 +1614,7 @@ React.useEffect(() => {
             </div>
             <div>
               <p className="font-bold">Contato</p>
-              <ul className="mt-2 text-slate-300 space-y-1">
+              <ul className="mt-2 text-cyan-100/72 space-y-1">
                 <li>
                   <a className="underline decoration-dotted" href={`https://wa.me/${brand.whatsapp}`} target="_blank" rel="noreferrer">
                     WhatsApp
@@ -1638,7 +1638,7 @@ React.useEffect(() => {
               </ul>
             </div>
           </div>
-          <div className="text-center text-xs text-slate-500 pb-8">
+          <div className="text-center text-xs text-cyan-300/38 pb-8">
             © {new Date().getFullYear()} {brand.name}. Todos os direitos reservados.
           </div>
         </footer>
@@ -1713,7 +1713,7 @@ React.useEffect(() => {
         {galleryOpen && (
           <div className="relative">
             <div
-              className="relative w-full max-w-[820px] mx-auto grid place-items-center rounded-xl ring-1 ring-white/10 bg-slate-900/60 p-2 select-none"
+              className="relative w-full max-w-[820px] mx-auto grid place-items-center rounded-xl ring-1 ring-white/10 bg-[#07161d]/60 p-2 select-none"
               onTouchStart={onGalleryTouchStart}
               onTouchMove={onGalleryTouchMove}
               onTouchEnd={onGalleryTouchEnd}
@@ -1748,7 +1748,7 @@ React.useEffect(() => {
                   draggable={false}
                 />
               ) : (
-                <div className="h-[45vh] w-full rounded-lg bg-white/5 ring-1 ring-white/10 animate-pulse" />
+                <div className="h-[45vh] w-full rounded-lg bg-white/4 ring-1 ring-white/10 animate-pulse" />
               )}
 
               {galleryIsLoading && (
@@ -1768,7 +1768,7 @@ React.useEffect(() => {
                     type="button"
                     onClick={prevImage}
                     aria-label="Imagem anterior"
-                    className="absolute left-3 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full grid place-items-center bg-black/45 ring-1 ring-white/15 text-white hover:bg-black/60 active:scale-[0.98]"
+                    className="absolute left-3 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full grid place-items-center bg-black/45 ring-1 ring-white/15 text-white hover:bg-[#020b10]/72 active:scale-[0.98]"
                   >
                     <span aria-hidden>‹</span>
                   </button>
@@ -1776,7 +1776,7 @@ React.useEffect(() => {
                     type="button"
                     onClick={nextImage}
                     aria-label="Próxima imagem"
-                    className="absolute right-3 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full grid place-items-center bg-black/45 ring-1 ring-white/15 text-white hover:bg-black/60 active:scale-[0.98]"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full grid place-items-center bg-black/45 ring-1 ring-white/15 text-white hover:bg-[#020b10]/72 active:scale-[0.98]"
                   >
                     <span aria-hidden>›</span>
                   </button>

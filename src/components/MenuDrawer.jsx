@@ -7,7 +7,7 @@ function DrawerButton({ icon, children, onClick, right }) {
   return (
     <button
       onClick={onClick}
-      className="w-full flex items-center justify-between gap-3 rounded-xl px-2.5 sm:px-4 py-2 sm:py-3 ring-1 ring-white/10 hover:bg-white/5 transition"
+      className="w-full flex items-center justify-between gap-3 rounded-xl px-2.5 sm:px-4 py-2 sm:py-3 ring-1 ring-white/10 hover:bg-white/4 transition"
     >
       <span className="flex items-center gap-3 min-w-0">
         <span className="material-icons text-[16px] sm:text-[20px] text-slate-200">{icon}</span>
@@ -49,7 +49,7 @@ export default function MenuDrawer({
   return (
     <div className={`fixed inset-0 z-[145] ${open ? "visible" : "invisible"}`} aria-hidden={!open}>
       <div
-        className={`absolute inset-0 bg-black/50 transition-opacity ${open ? "opacity-100" : "opacity-0"}`}
+        className={`absolute inset-0 bg-[#020b10]/65 transition-opacity ${open ? "opacity-100" : "opacity-0"}`}
         onClick={onClose}
       />
 
@@ -59,7 +59,7 @@ export default function MenuDrawer({
         aria-modal="true"
         aria-label="Menu"
         tabIndex={-1}
-        className={`absolute left-0 top-0 h-full w-[88vw] sm:w-[380px] bg-slate-950/95 backdrop-blur shadow-xl ring-1 ring-white/10 transition-transform duration-300 pb-[env(safe-area-inset-bottom)] ${
+        className={`absolute left-0 top-0 h-full w-[88vw] sm:w-[380px] bg-[#05131a]/95 backdrop-blur shadow-xl ring-1 ring-white/10 transition-transform duration-300 pb-[env(safe-area-inset-bottom)] ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -78,7 +78,7 @@ export default function MenuDrawer({
               <p className="text-xs text-slate-400">Menu</p>
             </div>
           </div>
-          <button type="button" onClick={onClose} className="rounded-lg p-2 ring-1 ring-white/15 hover:bg-white/5" aria-label="Fechar menu">
+          <button type="button" onClick={onClose} className="rounded-lg p-2 ring-1 ring-white/15 hover:bg-white/4" aria-label="Fechar menu">
             <span className="material-icons">close</span>
           </button>
         </div>
@@ -149,7 +149,7 @@ export default function MenuDrawer({
       </DrawerButton>
     ) : (
       <>
-        <div className="rounded-xl bg-white/5 ring-1 ring-white/10 px-4 py-3">
+        <div className="rounded-xl bg-white/4 ring-1 ring-white/10 px-4 py-3">
           <p className="text-xs text-slate-400">Logado como</p>
           <p className="mt-1 text-sm text-slate-100 break-all">{user.email}</p>
         </div>
@@ -160,7 +160,7 @@ export default function MenuDrawer({
               onOpenSettings?.("profile");
               onClose?.();
             }}
-            className="rounded-xl px-4 py-3 text-sm ring-1 ring-white/10 hover:bg-white/5 transition flex items-center gap-2 justify-center"
+            className="rounded-xl px-4 py-3 text-sm ring-1 ring-white/10 hover:bg-white/4 transition flex items-center gap-2 justify-center"
           >
             <span className="material-icons text-[18px]">person</span>
             Perfil
@@ -171,7 +171,7 @@ export default function MenuDrawer({
               onOpenSettings?.("settings");
               onClose?.();
             }}
-            className="rounded-xl px-4 py-3 text-sm ring-1 ring-white/10 hover:bg-white/5 transition flex items-center gap-2 justify-center"
+            className="rounded-xl px-4 py-3 text-sm ring-1 ring-white/10 hover:bg-white/4 transition flex items-center gap-2 justify-center"
           >
             <span className="material-icons text-[18px]">settings</span>
             Ajustes
@@ -232,7 +232,7 @@ export default function MenuDrawer({
 
     <a
       href="/privacy.html"
-      className="w-full flex items-center justify-between gap-3 rounded-xl px-4 py-3 ring-1 ring-white/10 hover:bg-white/5 transition"
+      className="w-full flex items-center justify-between gap-3 rounded-xl px-4 py-3 ring-1 ring-white/10 hover:bg-white/4 transition"
       onClick={() => { trackEvent("legal_click", { page: "privacy", location: "menu" }); onClose?.(); }}
     >
       <span className="flex items-center gap-3 min-w-0">
@@ -244,7 +244,7 @@ export default function MenuDrawer({
 
     <a
       href="/terms.html"
-      className="w-full flex items-center justify-between gap-3 rounded-xl px-4 py-3 ring-1 ring-white/10 hover:bg-white/5 transition"
+      className="w-full flex items-center justify-between gap-3 rounded-xl px-4 py-3 ring-1 ring-white/10 hover:bg-white/4 transition"
       onClick={() => { trackEvent("legal_click", { page: "terms", location: "menu" }); onClose?.(); }}
     >
       <span className="flex items-center gap-3 min-w-0">
@@ -260,7 +260,7 @@ export default function MenuDrawer({
               href="https://instagram.com/cubo_criativo3d"
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center justify-center rounded-xl px-3 py-3 ring-1 ring-white/10 hover:bg-white/5"
+              className="inline-flex items-center justify-center rounded-xl px-3 py-3 ring-1 ring-white/10 hover:bg-white/4"
               title="Instagram"
               onClick={() => trackEvent("social_click", { network: "instagram", location: "menu" })}
             >
@@ -270,7 +270,7 @@ export default function MenuDrawer({
               href="https://tiktok.com/@cubo.criativo"
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center justify-center rounded-xl px-3 py-3 ring-1 ring-white/10 hover:bg-white/5"
+              className="inline-flex items-center justify-center rounded-xl px-3 py-3 ring-1 ring-white/10 hover:bg-white/4"
               title="TikTok"
               onClick={() => trackEvent("social_click", { network: "tiktok", location: "menu" })}
             >
@@ -280,7 +280,7 @@ export default function MenuDrawer({
               href={`https://wa.me/${brand.whatsapp}`}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center justify-center rounded-xl px-3 py-3 ring-1 ring-white/10 hover:bg-white/5"
+              className="inline-flex items-center justify-center rounded-xl px-3 py-3 ring-1 ring-white/10 hover:bg-white/4"
               title="WhatsApp"
               onClick={() => trackEvent("whatsapp_click", { location: "menu" })}
             >

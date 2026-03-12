@@ -31,7 +31,7 @@ export default function GalleryModal({
     >
       {open && (
         <div className="relative">
-          <div className="relative w-full max-w-[820px] mx-auto grid place-items-center rounded-xl ring-1 ring-white/10 bg-slate-900/60 p-2">
+          <div className="relative w-full max-w-[820px] mx-auto grid place-items-center rounded-xl ring-1 ring-white/10 bg-[#07161d]/60 p-2">
             <img
               key={index}
               src={imgs[index]}
@@ -44,14 +44,14 @@ export default function GalleryModal({
                 <button
                   onClick={onPrev}
                   aria-label="Imagem anterior"
-                  className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full p-2 bg-black/40 hover:bg-black/60 ring-1 ring-white/20"
+                  className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full p-2 bg-[#020b10]/70 hover:bg-[#020b10]/72 ring-1 ring-white/20"
                 >
                   <span className="material-icons">chevron_left</span>
                 </button>
                 <button
                   onClick={onNext}
                   aria-label="Próxima imagem"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-2 bg-black/40 hover:bg-black/60 ring-1 ring-white/20"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-2 bg-[#020b10]/70 hover:bg-[#020b10]/72 ring-1 ring-white/20"
                 >
                   <span className="material-icons">chevron_right</span>
                 </button>

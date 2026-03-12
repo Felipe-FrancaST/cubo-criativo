@@ -12,12 +12,12 @@ function fmtBRL(v) {
 function prodUI(status) {
   const v = String(status || 'recebido').toLowerCase();
   if (v === 'recebido' || v === 'editavel') return { label: 'Recebido', cls: 'bg-emerald-500/10 text-emerald-200 ring-emerald-400/25' };
-  if (v === 'em_producao') return { label: 'Em produção', cls: 'bg-indigo-500/10 text-indigo-200 ring-indigo-400/25' };
-  if (v === 'pronto') return { label: 'Pronto', cls: 'bg-sky-500/10 text-sky-200 ring-sky-400/25' };
-  if (v === 'enviado') return { label: 'Enviado', cls: 'bg-amber-500/10 text-amber-100 ring-amber-400/25' };
+  if (v === 'em_producao') return { label: 'Em produção', cls: 'bg-cyan-600/10 text-indigo-200 ring-indigo-400/25' };
+  if (v === 'pronto') return { label: 'Pronto', cls: 'bg-sky-400/10 text-sky-200 ring-sky-400/25' };
+  if (v === 'enviado') return { label: 'Enviado', cls: 'bg-cyan-500/10 text-amber-100 ring-amber-400/25' };
   if (v === 'entregue') return { label: 'Entregue', cls: 'bg-teal-500/10 text-teal-100 ring-teal-400/25' };
   if (v === 'cancelado') return { label: 'Cancelado', cls: 'bg-rose-500/10 text-rose-200 ring-rose-400/25' };
-  return { label: v.replaceAll('_', ' '), cls: 'bg-white/5 text-slate-200 ring-white/10' };
+  return { label: v.replaceAll('_', ' '), cls: 'bg-white/4 text-slate-200 ring-white/10' };
 }
 
 function trackUrl(code) {
@@ -78,10 +78,10 @@ function QuickAction({ href, onClick, icon, title, text, external = false }) {
   return (
     <Comp
       {...props}
-      className="rounded-2xl bg-white/5 ring-1 ring-white/10 px-4 py-4 text-left hover:bg-white/[0.08] transition"
+      className="rounded-2xl bg-white/4 ring-1 ring-white/10 px-4 py-4 text-left hover:bg-white/[0.08] transition"
     >
       <div className="flex items-start gap-3">
-        <span className="material-icons text-teal-300">{icon}</span>
+        <span className="material-icons text-cyan-300">{icon}</span>
         <div>
           <div className="font-semibold text-slate-100">{title}</div>
           <div className="mt-1 text-sm text-slate-400">{text}</div>
@@ -103,7 +103,7 @@ function Field({ label, children }) {
 
 function PasswordInput({ value, onChange, autoComplete = "current-password", placeholder = "••••••••", className = "", inputClassName = "", buttonClassName = "", ...props }) {
   const [visible, setVisible] = React.useState(false);
-  const resolvedInputClass = (className || inputClassName || "w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 pr-12 outline-none focus:ring-teal-400/60").trim();
+  const resolvedInputClass = (className || inputClassName || "w-full rounded-xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 pr-12 outline-none focus:ring-cyan-400/60").trim();
   const resolvedButtonClass = (buttonClassName || "absolute inset-y-0 right-0 inline-flex w-12 items-center justify-center text-slate-300 transition hover:text-white").trim();
   return (
     <div className="relative">
@@ -292,7 +292,7 @@ export default function AccountPage({ onClose, onGoHome }) {
     <main className="flex-1">
       <section
         className="container-cc px-4 sm:px-6 lg:px-8 py-10 sm:py-14" >
-        <div className="rounded-3xl ring-1 ring-white/10 bg-slate-900/40 backdrop-blur p-6 sm:p-8">
+        <div className="rounded-3xl ring-1 ring-white/10 bg-[#07161d]/40 backdrop-blur p-6 sm:p-8">
           <div className="flex items-start justify-between gap-4">
             <div>
               <h1 className="text-2xl font-extrabold">Minha conta</h1>
@@ -304,7 +304,7 @@ export default function AccountPage({ onClose, onGoHome }) {
               {onGoHome && (
                 <button
                   onClick={onGoHome}
-                  className="rounded-xl px-3 py-2 text-sm ring-1 ring-white/10 hover:bg-white/5"
+                  className="rounded-xl px-3 py-2 text-sm ring-1 ring-white/10 hover:bg-white/4"
                 >
                   Início
                 </button>
@@ -312,7 +312,7 @@ export default function AccountPage({ onClose, onGoHome }) {
               {onClose && (
                 <button
                   onClick={onClose}
-                  className="rounded-xl px-3 py-2 text-sm ring-1 ring-white/10 hover:bg-white/5"
+                  className="rounded-xl px-3 py-2 text-sm ring-1 ring-white/10 hover:bg-white/4"
                 >
                   Fechar
                 </button>
@@ -322,7 +322,7 @@ export default function AccountPage({ onClose, onGoHome }) {
 
           {user ? (
             <div className="mt-6 space-y-4">
-              <div className="rounded-2xl p-4 ring-1 ring-white/10 bg-white/5">
+              <div className="rounded-2xl p-4 ring-1 ring-white/10 bg-white/4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="text-sm text-slate-300">Logado como</p>
@@ -331,13 +331,13 @@ export default function AccountPage({ onClose, onGoHome }) {
                   <div className="flex flex-wrap gap-2">
                     <button
                       onClick={fetchDashboard}
-                      className="rounded-xl px-3 py-2 text-sm ring-1 ring-white/10 hover:bg-white/5"
+                      className="rounded-xl px-3 py-2 text-sm ring-1 ring-white/10 hover:bg-white/4"
                     >
                       Atualizar painel
                     </button>
                     <button
                       onClick={() => signOut()}
-                      className="rounded-xl px-3 py-2 text-sm ring-1 ring-white/10 hover:bg-white/5"
+                      className="rounded-xl px-3 py-2 text-sm ring-1 ring-white/10 hover:bg-white/4"
                     >
                       Sair
                     </button>
@@ -346,7 +346,7 @@ export default function AccountPage({ onClose, onGoHome }) {
                         onGoHome?.();
                         onClose?.();
                       }}
-                      className="rounded-xl px-3 py-2 text-sm font-semibold bg-teal-400 text-black ring-4 ring-teal-400/20"
+                      className="rounded-xl px-3 py-2 text-sm font-semibold bg-cyan-400 text-black ring-4 ring-cyan-400/20"
                     >
                       Voltar para a loja
                     </button>
@@ -361,7 +361,7 @@ export default function AccountPage({ onClose, onGoHome }) {
                   ['Com rastreio', dashboard.orders.filter((o) => !!o.shipping_tracking).length],
                   ['VIP', dashboard.vip?.vip_until && new Date(dashboard.vip.vip_until).getTime() > Date.now() ? 'Ativo' : '—'],
                 ].map(([label, value]) => (
-                  <div key={label} className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
+                  <div key={label} className="rounded-2xl bg-white/4 ring-1 ring-white/10 p-4">
                     <div className="text-xs uppercase tracking-wide text-slate-400">{label}</div>
                     <div className="mt-2 text-2xl font-extrabold text-slate-100">{value}</div>
                   </div>
@@ -405,7 +405,7 @@ export default function AccountPage({ onClose, onGoHome }) {
                               <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-slate-300">
                                 {order.shipping_tracking ? (
                                   <>
-                                    <span className="rounded-full bg-white/5 px-3 py-1 ring-1 ring-white/10">Rastreio: <b>{order.shipping_tracking}</b></span>
+                                    <span className="rounded-full bg-white/4 px-3 py-1 ring-1 ring-white/10">Rastreio: <b>{order.shipping_tracking}</b></span>
                                     <a href={trackUrl(order.shipping_tracking)} target="_blank" rel="noreferrer" className="rounded-full bg-emerald-400 px-3 py-1 font-semibold text-black hover:bg-emerald-300">Rastrear</a>
                                   </>
                                 ) : (
@@ -429,7 +429,7 @@ export default function AccountPage({ onClose, onGoHome }) {
                 </div>
 
                 <div className="space-y-4">
-                  <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-5">
+                  <div className="rounded-2xl bg-white/4 ring-1 ring-white/10 p-5">
                     <div className="text-xs uppercase tracking-wide text-slate-400">Histórico recente</div>
                     <div className="mt-1 text-lg font-extrabold text-slate-100">Atualizações de pedido e e-mails</div>
                     <div className="mt-4 space-y-3">
@@ -459,7 +459,7 @@ export default function AccountPage({ onClose, onGoHome }) {
                   type="button"
                   onClick={() => { setMode("login"); setAgreeTerms(false); }}
                   className={`rounded-xl px-4 py-2 text-sm ring-1 ring-white/10 ${
-                    mode === "login" ? "bg-white/10" : "hover:bg-white/5"
+                    mode === "login" ? "bg-white/6" : "hover:bg-white/4"
                   }`}
                 >
                   Entrar
@@ -468,7 +468,7 @@ export default function AccountPage({ onClose, onGoHome }) {
                   type="button"
                   onClick={() => { setMode("signup"); setAgreeTerms(false); }}
                   className={`rounded-xl px-4 py-2 text-sm ring-1 ring-white/10 ${
-                    mode === "signup" ? "bg-white/10" : "hover:bg-white/5"
+                    mode === "signup" ? "bg-white/6" : "hover:bg-white/4"
                   }`}
                 >
                   Criar conta
@@ -478,7 +478,7 @@ export default function AccountPage({ onClose, onGoHome }) {
               <form onSubmit={handleSubmit} className="mt-5 space-y-3">
                 {mode === "signup" && (
   <div className="space-y-3">
-    <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
+    <div className="rounded-2xl bg-white/4 ring-1 ring-white/10 p-4">
       <p className="text-sm font-semibold text-slate-100">Dados para entrega</p>
       <p className="mt-1 text-xs text-slate-400">
         Preencha para facilitar o fechamento do pedido (você pode editar depois).
@@ -491,7 +491,7 @@ export default function AccountPage({ onClose, onGoHome }) {
             onChange={(e) => setFullName(e.target.value)}
             type="text"
             autoComplete="name"
-            className="container-cc w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+            className="container-cc w-full rounded-xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-cyan-400/60"
             placeholder="Seu nome"
           />
         </Field>
@@ -502,7 +502,7 @@ export default function AccountPage({ onClose, onGoHome }) {
             onChange={(e) => setPhone(e.target.value)}
             type="tel"
             autoComplete="tel"
-            className="container-cc w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+            className="container-cc w-full rounded-xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-cyan-400/60"
             placeholder="(11) 99999-9999"
           />
         </Field>
@@ -516,7 +516,7 @@ export default function AccountPage({ onClose, onGoHome }) {
               type="text"
               inputMode="numeric"
               autoComplete="off"
-              className="container-cc w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+              className="container-cc w-full rounded-xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-cyan-400/60"
               placeholder="000.000.000-00"
             />
           </Field>
@@ -526,7 +526,7 @@ export default function AccountPage({ onClose, onGoHome }) {
               onChange={(e) => setBirthdate(e.target.value)}
               type="date"
               autoComplete="bday"
-              className="container-cc w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+              className="container-cc w-full rounded-xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-cyan-400/60"
             />
           </Field>
         </div>
@@ -539,7 +539,7 @@ export default function AccountPage({ onClose, onGoHome }) {
               type="text"
               inputMode="numeric"
               autoComplete="postal-code"
-              className="container-cc w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+              className="container-cc w-full rounded-xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-cyan-400/60"
               placeholder="00000-000"
             />
           </Field>
@@ -549,7 +549,7 @@ export default function AccountPage({ onClose, onGoHome }) {
               onChange={(e) => setStateUF(e.target.value.toUpperCase())}
               type="text"
               autoComplete="address-level1"
-              className="container-cc w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+              className="container-cc w-full rounded-xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-cyan-400/60"
               placeholder="SP"
               maxLength={2}
             />
@@ -563,7 +563,7 @@ export default function AccountPage({ onClose, onGoHome }) {
               onChange={(e) => setCity(e.target.value)}
               type="text"
               autoComplete="address-level2"
-              className="container-cc w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+              className="container-cc w-full rounded-xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-cyan-400/60"
               placeholder="Cidade"
             />
           </Field>
@@ -573,7 +573,7 @@ export default function AccountPage({ onClose, onGoHome }) {
               onChange={(e) => setNeighborhood(e.target.value)}
               type="text"
               autoComplete="address-level3"
-              className="container-cc w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+              className="container-cc w-full rounded-xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-cyan-400/60"
               placeholder="Bairro"
             />
           </Field>
@@ -586,7 +586,7 @@ export default function AccountPage({ onClose, onGoHome }) {
               onChange={(e) => setStreet(e.target.value)}
               type="text"
               autoComplete="address-line1"
-              className="container-cc w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+              className="container-cc w-full rounded-xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-cyan-400/60"
               placeholder="Rua"
             />
           </Field>
@@ -597,7 +597,7 @@ export default function AccountPage({ onClose, onGoHome }) {
               type="text"
               inputMode="numeric"
               autoComplete="address-line2"
-              className="container-cc w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+              className="container-cc w-full rounded-xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-cyan-400/60"
               placeholder="123"
             />
           </Field>
@@ -609,7 +609,7 @@ export default function AccountPage({ onClose, onGoHome }) {
             onChange={(e) => setAddr2(e.target.value)}
             type="text"
             autoComplete="address-line3"
-            className="container-cc w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+            className="container-cc w-full rounded-xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-cyan-400/60"
             placeholder="Apartamento, bloco, etc"
           />
         </Field>
@@ -623,7 +623,7 @@ export default function AccountPage({ onClose, onGoHome }) {
                     onChange={(e) => setEmail(e.target.value)}
                     type="email"
                     autoComplete="email"
-                    className="container-cc w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-teal-400/60"
+                    className="container-cc w-full rounded-xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 outline-none focus:ring-cyan-400/60"
                     placeholder="voce@exemplo.com"
                   />
                 </Field>
@@ -633,7 +633,7 @@ export default function AccountPage({ onClose, onGoHome }) {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     autoComplete={mode === "login" ? "current-password" : "new-password"}
-                    className="container-cc w-full rounded-xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 pr-12 outline-none focus:ring-teal-400/60"
+                    className="container-cc w-full rounded-xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 pr-12 outline-none focus:ring-cyan-400/60"
                     placeholder="••••••••"
                   />
                 </Field>
@@ -644,13 +644,13 @@ export default function AccountPage({ onClose, onGoHome }) {
                       type="checkbox"
                       checked={agreeTerms}
                       onChange={(e) => setAgreeTerms(e.target.checked)}
-                      className="mt-1 h-4 w-4 rounded border-white/20 bg-slate-900 text-teal-400 focus:ring-teal-400"
+                      className="mt-1 h-4 w-4 rounded border-white/20 bg-[#07161d] text-teal-400 focus:ring-teal-400"
                     />
                     <span className="leading-6">
                       Li e concordo com os{' '}
-                      <a href="/terms.html" target="_blank" rel="noreferrer" className="font-medium text-teal-300 hover:text-teal-200 underline underline-offset-4">Termos de uso</a>{' '}
+                      <a href="/terms.html" target="_blank" rel="noreferrer" className="font-medium text-cyan-300 hover:text-cyan-200 underline underline-offset-4">Termos de uso</a>{' '}
                       e com a{' '}
-                      <a href="/privacy.html" target="_blank" rel="noreferrer" className="font-medium text-teal-300 hover:text-teal-200 underline underline-offset-4">Política de Privacidade</a>.
+                      <a href="/privacy.html" target="_blank" rel="noreferrer" className="font-medium text-cyan-300 hover:text-cyan-200 underline underline-offset-4">Política de Privacidade</a>.
                     </span>
                   </label>
                 )}
@@ -670,7 +670,7 @@ export default function AccountPage({ onClose, onGoHome }) {
                   disabled={busy}
                   className={`w-full rounded-xl px-4 py-3 font-semibold ring-1 ring-white/10 transition ${
                     busy
-                      ? "bg-slate-700/50 text-slate-300 cursor-not-allowed"
+                      ? "bg-[#12303b]/55 text-slate-300 cursor-not-allowed"
                       : "bg-emerald-400 hover:bg-emerald-300 text-black"
                   }`}
                 >

@@ -4,25 +4,25 @@ import * as THREE from "three";
 
 const FACE_STORIES = {
   1: { title: "Mímica do azar", text: "O dado quase caiu da mesa. Ainda assim, ele voltou para a sua mão pedindo revanche.", aura: "from-rose-500/25 via-orange-400/10 to-transparent" },
-  2: { title: "Passo cauteloso", text: "Nem toda vitória chega correndo. Às vezes ela só pede que você continue.", aura: "from-amber-500/25 via-yellow-300/10 to-transparent" },
-  3: { title: "Faísca baixa", text: "Pouca sorte, mas o bastante para acender uma ideia nova.", aura: "from-amber-400/25 via-emerald-300/10 to-transparent" },
+  2: { title: "Passo cauteloso", text: "Nem toda vitória chega correndo. Às vezes ela só pede que você continue.", aura: "from-cyan-500/25 via-sky-300/10 to-transparent" },
+  3: { title: "Faísca baixa", text: "Pouca sorte, mas o bastante para acender uma ideia nova.", aura: "from-cyan-400/25 via-cyan-300/10 to-transparent" },
   4: { title: "Rolagem firme", text: "Nada espetacular. Nada perdido. É o tipo de resultado que constrói consistência.", aura: "from-cyan-500/25 via-sky-300/10 to-transparent" },
   5: { title: "Vento favorável", text: "O dado ainda gira bonito. Hoje a sorte está aprendendo seu nome.", aura: "from-sky-500/25 via-cyan-300/10 to-transparent" },
-  6: { title: "Boa trilha", text: "Não é milagre. É caminho aberto.", aura: "from-teal-500/25 via-emerald-300/10 to-transparent" },
-  7: { title: "Sinal promissor", text: "Tem chance boa vindo por perto. Vale insistir em algo que você quer.", aura: "from-emerald-500/25 via-lime-300/10 to-transparent" },
-  8: { title: "Ritmo forte", text: "O dado encontrou cadência. Você também.", aura: "from-emerald-500/25 via-teal-300/10 to-transparent" },
+  6: { title: "Boa trilha", text: "Não é milagre. É caminho aberto.", aura: "from-cyan-500/25 via-cyan-300/10 to-transparent" },
+  7: { title: "Sinal promissor", text: "Tem chance boa vindo por perto. Vale insistir em algo que você quer.", aura: "from-cyan-500/25 via-lime-300/10 to-transparent" },
+  8: { title: "Ritmo forte", text: "O dado encontrou cadência. Você também.", aura: "from-cyan-500/25 via-cyan-300/10 to-transparent" },
   9: { title: "Sorte em marcha", text: "Um resultado sólido, limpo, sem truque. O tipo que dá gosto de ver.", aura: "from-violet-500/25 via-sky-300/10 to-transparent" },
   10: { title: "Metade lendária", text: "A mesa aprovou. O universo também não reclamou.", aura: "from-fuchsia-500/25 via-violet-300/10 to-transparent" },
   11: { title: "Portal aberto", text: "Passou da metade. Agora o dado já começou a sorrir de volta.", aura: "from-violet-500/25 via-fuchsia-300/10 to-transparent" },
   12: { title: "Golpe bonito", text: "Tem resultado que cai redondo. Esse caiu brilhando.", aura: "from-indigo-500/25 via-violet-300/10 to-transparent" },
   13: { title: "Sorte afiada", text: "Hoje a sua rolagem anda com lâmina curta e precisão limpa.", aura: "from-indigo-500/25 via-sky-300/10 to-transparent" },
-  14: { title: "Mesa em silêncio", text: "Aquele momento em que todo mundo olha o dado e entende que veio coisa boa.", aura: "from-cyan-500/25 via-indigo-300/10 to-transparent" },
-  15: { title: "Crítico quase lá", text: "O tipo de rolagem que já merece comemoração antes mesmo da próxima rodada.", aura: "from-emerald-500/25 via-cyan-300/10 to-transparent" },
-  16: { title: "Presente raro", text: "A sorte resolveu caprichar. Não discuta com ela.", aura: "from-amber-400/25 via-violet-300/10 to-transparent" },
-  17: { title: "Aplauso da sorte", text: "A rolagem bateu forte na mesa. Daquelas que mudam o humor da noite.", aura: "from-amber-400/25 via-fuchsia-300/10 to-transparent" },
+  14: { title: "Mesa em silêncio", text: "Aquele momento em que todo mundo olha o dado e entende que veio coisa boa.", aura: "from-cyan-500/25 via-sky-300/10 to-transparent" },
+  15: { title: "Crítico quase lá", text: "O tipo de rolagem que já merece comemoração antes mesmo da próxima rodada.", aura: "from-cyan-500/25 via-cyan-300/10 to-transparent" },
+  16: { title: "Presente raro", text: "A sorte resolveu caprichar. Não discuta com ela.", aura: "from-cyan-400/25 via-violet-300/10 to-transparent" },
+  17: { title: "Aplauso da sorte", text: "A rolagem bateu forte na mesa. Daquelas que mudam o humor da noite.", aura: "from-cyan-400/25 via-fuchsia-300/10 to-transparent" },
   18: { title: "Luz nas faces", text: "Pouco faltou para o impossível. Ainda assim, já veio grande.", aura: "from-fuchsia-500/25 via-amber-300/10 to-transparent" },
   19: { title: "Quase lendário", text: "Uma rolagem dessas não pede desculpa. Ela entra, vence e senta no melhor lugar.", aura: "from-violet-500/30 via-amber-300/15 to-transparent" },
-  20: { title: "Crítico natural", text: "O presente veio dourado. Tem dias em que o d20 decide te tratar como lenda.", aura: "from-amber-400/35 via-yellow-200/20 to-transparent" },
+  20: { title: "Crítico natural", text: "O presente veio dourado. Tem dias em que o d20 decide te tratar como lenda.", aura: "from-cyan-400/35 via-cyan-200/20 to-transparent" },
 };
 
 const DIE_RADIUS = 1.56;
@@ -480,7 +480,7 @@ export default function VipPresentD20({ accessToken = "", user = null, isVip = f
   }
 
   return (
-    <div className="rounded-[28px] bg-white/5 ring-1 ring-white/10 p-4 sm:p-5 overflow-hidden">
+    <div className="rounded-[28px] bg-white/4 ring-1 ring-white/10 p-4 sm:p-5 overflow-hidden">
       <style>{`
         .vip-present-stage-canvas canvas {
           display: block;
@@ -530,7 +530,7 @@ export default function VipPresentD20({ accessToken = "", user = null, isVip = f
         </div>
 
         {error ? <div className="mt-4 rounded-2xl bg-rose-500/10 ring-1 ring-rose-400/20 px-4 py-3 text-sm text-rose-100">{error}</div> : null}
-        {!isVip ? <div className="mt-4 rounded-2xl bg-amber-500/10 ring-1 ring-amber-400/20 px-4 py-3 text-sm text-amber-50">Esta rolagem fica disponível apenas para assinantes VIP com plano ativo.</div> : null}
+        {!isVip ? <div className="mt-4 rounded-2xl bg-cyan-500/10 ring-1 ring-cyan-400/20 px-4 py-3 text-sm text-cyan-50">Esta rolagem fica disponível apenas para assinantes VIP com plano ativo.</div> : null}
 
         <div className="mt-5 flex flex-col gap-5 lg:flex-row lg:items-stretch">
           <div className="relative flex-1 rounded-[30px] overflow-hidden bg-[linear-gradient(180deg,rgba(2,6,23,.96),rgba(2,6,23,.8))] ring-1 ring-white/10 min-h-[340px] sm:min-h-[420px] lg:min-h-[460px]">
@@ -579,11 +579,11 @@ export default function VipPresentD20({ accessToken = "", user = null, isVip = f
                 </div>
 
                 <div
-                  className={`vip-present-pill absolute bottom-[10%] sm:bottom-[12%] left-1/2 z-10 -translate-x-1/2 rounded-[28px] border border-white/10 bg-slate-950/50 px-4 py-3 text-center ring-1 ring-white/10 transition-all duration-500 ${rolling || !showResult ? 'pointer-events-none translate-y-4 scale-95 opacity-0' : 'translate-y-0 scale-100 opacity-100'}`}
+                  className={`vip-present-pill absolute bottom-[10%] sm:bottom-[12%] left-1/2 z-10 -translate-x-1/2 rounded-[28px] border border-white/10 bg-[#041018]/68 px-4 py-3 text-center ring-1 ring-white/10 transition-all duration-500 ${rolling || !showResult ? 'pointer-events-none translate-y-4 scale-95 opacity-0' : 'translate-y-0 scale-100 opacity-100'}`}
                   aria-hidden={rolling || !showResult}
                 >
                   <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400">Resultado</div>
-                  <div className={`mt-1 text-5xl font-black leading-none ${flash ? 'text-amber-200' : 'text-white'}`}>{currentValue}</div>
+                  <div className={`mt-1 text-5xl font-black leading-none ${flash ? 'text-cyan-200' : 'text-white'}`}>{currentValue}</div>
                 </div>
               </div>
 
@@ -602,13 +602,13 @@ export default function VipPresentD20({ accessToken = "", user = null, isVip = f
           </div>
 
           <div className="w-full lg:w-[380px] shrink-0 space-y-4">
-            <div className={`rounded-[26px] p-5 ring-1 ${isJackpot ? 'bg-gradient-to-br from-amber-400/20 via-yellow-300/10 to-transparent ring-amber-300/30' : 'bg-gradient-to-br from-slate-950 via-slate-900 to-black ring-white/10'}`}>
+            <div className={`rounded-[26px] p-5 ring-1 ${isJackpot ? 'bg-gradient-to-br from-amber-400/20 via-sky-300/10 to-transparent ring-amber-300/30' : 'bg-gradient-to-br from-slate-950 via-slate-900 to-black ring-white/10'}`}>
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <div className="text-xs uppercase tracking-[0.24em] text-slate-400">Resultado do ciclo</div>
                   <div className="mt-2 text-2xl font-extrabold text-slate-100">{rollData ? rollData.reward_title : 'Seu presente ainda não foi rolado'}</div>
                 </div>
-                <div className={`grid h-14 w-14 place-items-center rounded-2xl ring-1 ring-white/10 text-xl font-black ${isJackpot ? 'bg-gradient-to-br from-amber-300 to-yellow-200 text-black' : currentValue >= 12 ? 'bg-gradient-to-br from-violet-300 to-cyan-300 text-black' : 'bg-gradient-to-br from-slate-800 to-slate-700 text-white'}`}>
+                <div className={`grid h-14 w-14 place-items-center rounded-2xl ring-1 ring-white/10 text-xl font-black ${isJackpot ? 'bg-gradient-to-br from-cyan-400 to-yellow-200 text-black' : currentValue >= 12 ? 'bg-gradient-to-br from-violet-300 to-cyan-300 text-black' : 'bg-gradient-to-br from-slate-800 to-slate-700 text-white'}`}>
                   {currentValue}
                 </div>
               </div>
@@ -629,17 +629,17 @@ export default function VipPresentD20({ accessToken = "", user = null, isVip = f
               ) : null}
 
               {isJackpot && rollData ? (
-                <div className="mt-4 rounded-2xl bg-amber-400/10 p-4 ring-1 ring-amber-300/20">
-                  <div className="text-sm font-extrabold text-amber-50">Parabéns, você tirou 20!</div>
-                  <p className="mt-2 text-sm leading-6 text-amber-50/90">Você liberou uma miniatura personalizada exclusiva 🎁.</p>
+                <div className="mt-4 rounded-2xl bg-amber-400/10 p-4 ring-1 ring-cyan-300/20">
+                  <div className="text-sm font-extrabold text-cyan-50">Parabéns, você tirou 20!</div>
+                  <p className="mt-2 text-sm leading-6 text-cyan-50/90">Você liberou uma miniatura personalizada exclusiva 🎁.</p>
                   {String(rollData.claim_status || '').toLowerCase() === 'requested' ? (
-                    <div className="mt-3 rounded-xl bg-black/25 px-4 py-3 text-sm text-amber-50">{claimMessage || 'Entraremos em contato com você, aguarde.'}</div>
+                    <div className="mt-3 rounded-xl bg-black/25 px-4 py-3 text-sm text-cyan-50">{claimMessage || 'Entraremos em contato com você, aguarde.'}</div>
                   ) : (
                     <button
                       type="button"
                       onClick={handleClaimPrize}
                       disabled={claiming}
-                      className="mt-3 rounded-xl bg-amber-300 px-4 py-3 text-sm font-extrabold text-black hover:bg-amber-200 disabled:opacity-60"
+                      className="mt-3 rounded-xl bg-cyan-400 px-4 py-3 text-sm font-extrabold text-black hover:bg-amber-200 disabled:opacity-60"
                     >
                       {claiming ? 'Enviando...' : 'Solicitar meu prêmio'}
                     </button>

@@ -22,7 +22,7 @@ const statusBadge = (status) => {
   if (s === "paid") return { label: "Pago", cls: "bg-emerald-400/15 text-emerald-200 ring-emerald-400/30" };
   if (["failed", "canceled", "cancelled", "rejected"].includes(s))
     return { label: "Falhou", cls: "bg-red-500/15 text-red-200 ring-red-500/30" };
-  return { label: "Pendente", cls: "bg-amber-400/15 text-amber-200 ring-amber-400/30" };
+  return { label: "Pendente", cls: "bg-cyan-400/15 text-cyan-200 ring-amber-400/30" };
 };
 
 const prodStatusBadge = (s) => {
@@ -33,11 +33,11 @@ const prodStatusBadge = (s) => {
     case "recebido":
       return { label: "Recebido", cls: "bg-slate-500/15 text-slate-200 ring-white/15" };
     case "em_producao":
-      return { label: "Em produção", cls: "bg-indigo-500/15 text-indigo-200 ring-indigo-400/30" };
+      return { label: "Em produção", cls: "bg-cyan-600/15 text-indigo-200 ring-indigo-400/30" };
     case "pronto":
       return { label: "Pronto", cls: "bg-cyan-500/15 text-cyan-200 ring-cyan-400/30" };
     case "enviado":
-      return { label: "Enviado", cls: "bg-amber-500/15 text-amber-200 ring-amber-400/30" };
+      return { label: "Enviado", cls: "bg-cyan-500/15 text-cyan-200 ring-amber-400/30" };
     case "entregue":
       return { label: "Entregue", cls: "bg-emerald-500/15 text-emerald-200 ring-emerald-400/30" };
     case "cancelado":
@@ -53,17 +53,17 @@ const emailAuditBadge = (status) => {
   const v = String(status || '').toLowerCase();
   if (v === 'sent') return { label: 'E-mail enviado', cls: 'bg-emerald-500/15 text-emerald-200 ring-emerald-400/30' };
   if (v === 'failed') return { label: 'Falha no e-mail', cls: 'bg-red-500/15 text-red-200 ring-red-500/30' };
-  if (v === 'skipped') return { label: 'E-mail pulado', cls: 'bg-amber-500/15 text-amber-200 ring-amber-400/30' };
-  return { label: 'Sem histórico', cls: 'bg-white/5 text-slate-300 ring-white/10' };
+  if (v === 'skipped') return { label: 'E-mail pulado', cls: 'bg-cyan-500/15 text-cyan-200 ring-amber-400/30' };
+  return { label: 'Sem histórico', cls: 'bg-white/4 text-slate-300 ring-white/10' };
 };
 
 const timelineEventMeta = (event) => {
   const type = String(event?.event_type || '').toLowerCase();
   if (type === 'order_created') return { icon: 'receipt_long', cls: 'bg-slate-500/15 text-slate-200 ring-white/10' };
   if (type === 'payment_confirmed') return { icon: 'payments', cls: 'bg-emerald-500/15 text-emerald-200 ring-emerald-400/30' };
-  if (type === 'production_status') return { icon: 'precision_manufacturing', cls: 'bg-indigo-500/15 text-indigo-200 ring-indigo-400/30' };
-  if (type === 'tracking_updated') return { icon: 'local_shipping', cls: 'bg-amber-500/15 text-amber-200 ring-amber-400/30' };
-  return { icon: 'history', cls: 'bg-white/5 text-slate-200 ring-white/10' };
+  if (type === 'production_status') return { icon: 'precision_manufacturing', cls: 'bg-cyan-600/15 text-indigo-200 ring-indigo-400/30' };
+  if (type === 'tracking_updated') return { icon: 'local_shipping', cls: 'bg-cyan-500/15 text-cyan-200 ring-amber-400/30' };
+  return { icon: 'history', cls: 'bg-white/4 text-slate-200 ring-white/10' };
 };
 
 function TimelineList({ events, compact = false }) {
@@ -81,7 +81,7 @@ function TimelineList({ events, compact = false }) {
               <div className={`mt-0.5 inline-flex h-9 w-9 items-center justify-center rounded-full ring-1 ${meta.cls}`}>
                 <span className="material-icons text-[18px]">{meta.icon}</span>
               </div>
-              {idx < list.length - 1 ? <div className="mt-2 h-full w-px bg-white/10" /> : null}
+              {idx < list.length - 1 ? <div className="mt-2 h-full w-px bg-white/6" /> : null}
             </div>
             <div className="min-w-0 flex-1 pb-3">
               <div className="flex flex-wrap items-center gap-2">
@@ -225,7 +225,7 @@ function SidebarItem({ active, icon, children, onClick, badge }) {
         <span className="material-icons text-[18px] text-slate-200/90">{icon}</span>
         <span className="text-sm text-slate-100 truncate">{children}</span>
       </span>
-      {badge ? <span className={`${badgeBase} bg-white/5 text-slate-200 ring-white/10`}>{badge}</span> : null}
+      {badge ? <span className={`${badgeBase} bg-white/4 text-slate-200 ring-white/10`}>{badge}</span> : null}
     </button>
   );
 }
@@ -258,7 +258,7 @@ function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTrack
   return (
     <>
       <div className="fixed inset-0 z-[9999]">
-      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+      <div className="absolute inset-0 bg-[#020b10]/72" onClick={onClose} />
       <div className="absolute right-0 top-0 h-full w-full sm:w-[560px] bg-[#0a0f1a] border-l border-white/10">
         <div className="p-4 border-b border-white/10 flex items-start justify-between gap-3">
           <div>
@@ -267,7 +267,7 @@ function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTrack
           </div>
           <button
             onClick={onClose}
-            className="rounded-xl px-3 py-2 text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+            className="rounded-xl px-3 py-2 text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
             aria-label="Fechar"
           >
             <span className="material-icons text-[18px]">close</span>
@@ -292,7 +292,7 @@ function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTrack
                 return <span className={`${badgeBase} ${b.cls}`}>🏭 {b.label}</span>;
               })()}
               {order?.order_type ? (
-                <span className={`${badgeBase} bg-white/5 text-slate-200 ring-white/10`}>
+                <span className={`${badgeBase} bg-white/4 text-slate-200 ring-white/10`}>
                   {String(order.order_type).toLowerCase() === "vip" ? "VIP" : "Loja"}
                 </span>
               ) : null}
@@ -320,14 +320,14 @@ function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTrack
             <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
               <button
                 onClick={() => onUpdateStatus?.(order)}
-                className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+                className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
               >
                 <span className="material-icons text-[16px] align-middle mr-1">sync_alt</span>
                 Alterar status
               </button>
               <button
                 onClick={() => onUpdateTracking?.(order)}
-                className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+                className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
               >
                 <span className="material-icons text-[16px] align-middle mr-1">local_shipping</span>
                 Atualizar rastreio
@@ -335,14 +335,14 @@ function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTrack
               <button
                 onClick={() => onResendEmail?.(order)}
                 disabled={!!resendBusy}
-                className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/5 ring-1 ring-white/10 disabled:opacity-60 disabled:cursor-not-allowed"
+                className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10 disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 <span className="material-icons text-[16px] align-middle mr-1">forward_to_inbox</span>
                 {resendBusy ? 'Reenviando…' : 'Reenviar e-mail'}
               </button>
               <button
                 onClick={() => copyToClipboard(order?.customer_email || '')}
-                className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+                className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
               >
                 <span className="material-icons text-[16px] align-middle mr-1">content_copy</span>
                 Copiar e-mail
@@ -367,7 +367,7 @@ function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTrack
                 order?.customer_name ? (
                   <button
                     onClick={() => copyToClipboard(order.customer_name)}
-                    className="rounded-xl px-2 py-1 text-xs text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+                    className="rounded-xl px-2 py-1 text-xs text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
                   >
                     Copiar
                   </button>
@@ -381,7 +381,7 @@ function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTrack
                 order?.customer_email ? (
                   <button
                     onClick={() => copyToClipboard(order.customer_email)}
-                    className="rounded-xl px-2 py-1 text-xs text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+                    className="rounded-xl px-2 py-1 text-xs text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
                   >
                     Copiar
                   </button>
@@ -394,7 +394,7 @@ function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTrack
               action={
                 waUrl ? (
                   <a
-                    className="rounded-xl px-2 py-1 text-xs text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+                    className="rounded-xl px-2 py-1 text-xs text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
                     href={waUrl}
                     target="_blank"
                     rel="noreferrer"
@@ -411,7 +411,7 @@ function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTrack
                 address ? (
                   <button
                     onClick={() => copyToClipboard(address)}
-                    className="rounded-xl px-2 py-1 text-xs text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+                    className="rounded-xl px-2 py-1 text-xs text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
                   >
                     Copiar
                   </button>
@@ -426,7 +426,7 @@ function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTrack
               {(order?.order_items || []).length ? (
                 order.order_items.map((it, idx) => (
                   <div key={idx} className="flex items-center gap-3 rounded-xl bg-black/20 ring-1 ring-white/10 p-2">
-                    <div className="w-10 h-10 rounded-lg overflow-hidden bg-white/5 ring-1 ring-white/10 shrink-0">
+                    <div className="w-10 h-10 rounded-lg overflow-hidden bg-white/4 ring-1 ring-white/10 shrink-0">
                       {it?.img ? <img src={it.img} alt="" className="w-full h-full object-contain" /> : null}
                     </div>
                     <div className="min-w-0">
@@ -453,7 +453,7 @@ function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTrack
                         className="rounded-xl bg-black/20 ring-1 ring-white/10 p-2"
                         title={opt?.title || ""}
                       >
-                        <div className="w-full aspect-square rounded-lg overflow-hidden bg-white/5 ring-1 ring-white/10">
+                        <div className="w-full aspect-square rounded-lg overflow-hidden bg-white/4 ring-1 ring-white/10">
                           {opt?.image_url ? (
                             <img src={opt.image_url} alt={opt?.title || ""} className="w-full h-full object-cover" />
                           ) : (
@@ -492,7 +492,7 @@ function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTrack
                 ) : null}
 
                 {order.vip_present_roll.roll_value === 20 ? (
-                  <div className="mt-3 rounded-xl bg-amber-400/10 ring-1 ring-amber-300/20 p-3 text-xs text-amber-50">
+                  <div className="mt-3 rounded-xl bg-amber-400/10 ring-1 ring-cyan-300/20 p-3 text-xs text-cyan-50">
                     Solicitação do prêmio: <b>{order.vip_present_roll.claim_status || 'available'}</b>
                     {order.vip_present_roll.claimed_at ? ` • ${new Date(order.vip_present_roll.claimed_at).toLocaleString('pt-BR')}` : ''}
                   </div>
@@ -506,14 +506,14 @@ function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTrack
             <div className="mt-3 grid grid-cols-2 gap-2">
               <button
                 onClick={() => copyToClipboard(order?.id)}
-                className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+                className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
               >
                 Copiar ID
               </button>
 
               <button
                 onClick={() => copyToClipboard(order?.provider_payment_id)}
-                className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+                className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
                 disabled={!order?.provider_payment_id}
               >
                 Copiar ID pagamento
@@ -521,7 +521,7 @@ function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTrack
 
               <button
                 onClick={() => onUpdateTracking?.(order)}
-                className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+                className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
                 disabled={String(order?.status || "").toLowerCase() !== "paid"}
                 title={String(order?.status || "").toLowerCase() !== "paid" ? "Apenas pedidos pagos" : ""}
               >
@@ -530,7 +530,7 @@ function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTrack
 
               <button
                 onClick={() => onUpdateStatus?.(order)}
-                className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+                className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
                 disabled={String(order?.status || "").toLowerCase() !== "paid"}
                 title={String(order?.status || "").toLowerCase() !== "paid" ? "Apenas pedidos pagos" : ""}
               >
@@ -607,7 +607,7 @@ function ConfirmDeleteModal({ open, order, onClose, onConfirm }) {
         </div>
 
         <div className="p-5 space-y-2">
-          <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
+          <div className="rounded-2xl bg-white/4 ring-1 ring-white/10 p-4">
             <p className="text-xs text-slate-400">Pedido</p>
             <p className="text-sm text-slate-100 mt-1">
               <span className="font-semibold">#{id}</span>{email ? ` • ${email}` : ""}{total ? ` • ${total}` : ""}
@@ -621,7 +621,7 @@ function ConfirmDeleteModal({ open, order, onClose, onConfirm }) {
         <div className="p-5 flex items-center justify-end gap-2 border-t border-white/10">
           <button
             onClick={onClose}
-            className="rounded-xl px-4 py-2 text-sm text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+            className="rounded-xl px-4 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
           >
             Cancelar
           </button>
@@ -662,7 +662,7 @@ function ConfirmDeleteVotingModal({ state, onClose, onConfirm }) {
         </div>
 
         <div className="p-5 space-y-2">
-          <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
+          <div className="rounded-2xl bg-white/4 ring-1 ring-white/10 p-4">
             <p className="text-xs text-slate-400">Votação</p>
             <p className="text-sm text-slate-100 mt-1">
               <span className="font-semibold">#{id}</span> • {month}
@@ -677,7 +677,7 @@ function ConfirmDeleteVotingModal({ state, onClose, onConfirm }) {
           <button
             onClick={onClose}
             disabled={busy}
-            className="rounded-xl px-4 py-2 text-sm text-slate-200 hover:bg-white/5 ring-1 ring-white/10 disabled:opacity-60"
+            className="rounded-xl px-4 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10 disabled:opacity-60"
           >
             Cancelar
           </button>
@@ -724,7 +724,7 @@ function StatusModal({ open, mode, order, onClose, onSubmit }) {
 
   return (
     <div className="fixed inset-0 z-[9999]">
-      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+      <div className="absolute inset-0 bg-[#020b10]/72" onClick={onClose} />
       <div className="absolute left-1/2 top-1/2 w-[92vw] max-w-[520px] -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-[#0a0f1a] ring-1 ring-white/10 p-4">
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -735,7 +735,7 @@ function StatusModal({ open, mode, order, onClose, onSubmit }) {
           </div>
           <button
             onClick={onClose}
-            className="rounded-xl px-3 py-2 text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+            className="rounded-xl px-3 py-2 text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
             aria-label="Fechar"
           >
             <span className="material-icons text-[18px]">close</span>
@@ -806,7 +806,7 @@ function StatusModal({ open, mode, order, onClose, onSubmit }) {
         <div className="mt-4 flex items-center justify-end gap-2">
           <button
             onClick={onClose}
-            className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+            className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
           >
             Cancelar
           </button>
@@ -850,7 +850,7 @@ function CloseVotingModal({ state, onClose, onConfirm, onSelectWinner }) {
             </div>
             <button
               onClick={() => (!busy ? onClose?.() : null)}
-              className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+              className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
               disabled={busy}
             >
               Fechar
@@ -888,7 +888,7 @@ function CloseVotingModal({ state, onClose, onConfirm, onSelectWinner }) {
             <div className="mt-5 flex items-center justify-end gap-2">
               <button
                 onClick={() => (!busy ? onClose?.() : null)}
-                className="rounded-xl px-4 py-2 text-sm text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+                className="rounded-xl px-4 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
                 disabled={busy}
               >
                 Cancelar
@@ -939,7 +939,7 @@ function StartVotingModal({ state, imageLibrary, imageLibraryLoading, imageLibra
             </div>
             <button
               onClick={() => (!busy ? onClose?.() : null)}
-              className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+              className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
               disabled={busy}
             >
               Fechar
@@ -976,7 +976,7 @@ function StartVotingModal({ state, imageLibrary, imageLibraryLoading, imageLibra
               <div className="text-xs uppercase tracking-wide text-slate-400">Opções</div>
               <button
                 onClick={() => (!busy ? addOpt() : null)}
-                className="rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+                className="rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
                 disabled={busy}
               >
                 + Adicionar opção
@@ -988,7 +988,7 @@ function StartVotingModal({ state, imageLibrary, imageLibraryLoading, imageLibra
                 <div className="rounded-xl bg-red-500/10 ring-1 ring-red-400/20 p-3 text-sm text-red-200">{imageLibraryError}</div>
               ) : null}
               {!imageLibraryLoading && !imageLibraryError && !images.length ? (
-                <div className="rounded-xl bg-amber-500/10 ring-1 ring-amber-400/20 p-3 text-sm text-amber-100">
+                <div className="rounded-xl bg-cyan-500/10 ring-1 ring-cyan-400/20 p-3 text-sm text-amber-100">
                   Nenhuma imagem foi encontrada na biblioteca do Supabase. Cadastre as imagens na tabela <b>vip_theme_image_library</b> para usá-las nas votações.
                 </div>
               ) : null}
@@ -1001,7 +1001,7 @@ function StartVotingModal({ state, imageLibrary, imageLibraryLoading, imageLibra
                     <div className="text-slate-100 font-semibold">Opção {idx + 1}</div>
                     <button
                       onClick={() => (!busy ? delOpt(idx) : null)}
-                      className="rounded-xl px-3 py-2 text-xs text-slate-200 hover:bg-white/5 ring-1 ring-white/10 disabled:opacity-50"
+                      className="rounded-xl px-3 py-2 text-xs text-slate-200 hover:bg-white/4 ring-1 ring-white/10 disabled:opacity-50"
                       disabled={busy || opts.length <= 2}
                       title={opts.length <= 2 ? "Mínimo de 2 opções" : "Remover"}
                     >
@@ -1064,7 +1064,7 @@ function StartVotingModal({ state, imageLibrary, imageLibraryLoading, imageLibra
             <div className="mt-5 flex items-center justify-end gap-2">
               <button
                 onClick={() => (!busy ? onClose?.() : null)}
-                className="rounded-xl px-4 py-2 text-sm text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+                className="rounded-xl px-4 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
                 disabled={busy}
               >
                 Cancelar
@@ -1532,7 +1532,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
           <div className="mt-5 flex items-center gap-2">
             <button
               onClick={() => onNavigateHome?.()}
-              className="rounded-xl px-4 py-2 text-sm text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+              className="rounded-xl px-4 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
             >
               Voltar para o site
             </button>
@@ -1553,14 +1553,14 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
         <div className="flex items-center gap-2">
           <button
             onClick={() => fetchOrders()}
-            className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+            className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
           >
             <span className="material-icons text-[18px] align-middle mr-1">refresh</span>
             Atualizar
           </button>
           <button
             onClick={() => onNavigateHome?.()}
-            className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+            className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
           >
             <span className="material-icons text-[18px] align-middle mr-1">home</span>
             Site
@@ -1648,7 +1648,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                 right={
                   <button
                     onClick={() => exportCsv(filteredOrders)}
-                    className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+                    className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
                   >
                     <span className="material-icons text-[18px] align-middle mr-1">download</span>
                     Exportar CSV
@@ -1711,13 +1711,13 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                             <td className="py-2 pr-3 whitespace-nowrap">
                               <button
                                 onClick={() => setActionModal({ open: true, mode: "status", orderId: o.id })}
-                                className="rounded-xl px-2 py-1 text-xs text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+                                className="rounded-xl px-2 py-1 text-xs text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
                               >
                                 Status
                               </button>
                               <button
                                 onClick={() => setActionModal({ open: true, mode: "tracking", orderId: o.id })}
-                                className="ml-2 rounded-xl px-2 py-1 text-xs text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+                                className="ml-2 rounded-xl px-2 py-1 text-xs text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
                               >
                                 Rastreio
                               </button>
@@ -1747,7 +1747,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                 right={
                   <button
                     onClick={() => exportCsv(filteredOrders)}
-                    className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+                    className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
                   >
                     <span className="material-icons text-[18px] align-middle mr-1">download</span>
                     Exportar CSV
@@ -1837,7 +1837,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                         setFilterProd("all");
                         setFilterType("all");
                       }}
-                      className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+                      className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
                     >
                       Limpar filtros
                     </button>
@@ -1903,20 +1903,20 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                             <td className="py-3 px-3 whitespace-nowrap text-right">
                               <button
                                 onClick={() => setDetails({ open: true, orderId: o.id })}
-                                className="rounded-xl px-2 py-1 text-xs text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+                                className="rounded-xl px-2 py-1 text-xs text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
                               >
                                 Detalhes
                               </button>
                               <button
                                 onClick={() => setActionModal({ open: true, mode: "status", orderId: o.id })}
-                                className="ml-2 rounded-xl px-2 py-1 text-xs text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+                                className="ml-2 rounded-xl px-2 py-1 text-xs text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
                                 disabled={String(o.status || "").toLowerCase() !== "paid"}
                               >
                                 Status
                               </button>
                               <button
                                 onClick={() => setActionModal({ open: true, mode: "tracking", orderId: o.id })}
-                                className="ml-2 rounded-xl px-2 py-1 text-xs text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+                                className="ml-2 rounded-xl px-2 py-1 text-xs text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
                                 disabled={String(o.status || "").toLowerCase() !== "paid"}
                               >
                                 Rastreio
@@ -1962,7 +1962,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                 right={
                   <button
                     onClick={() => { fetchGameCoupon(); fetchGameCouponMetrics(); }}
-                    className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+                    className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
                   >
                     <span className="material-icons text-[18px] align-middle mr-1">refresh</span>
                     Recarregar
@@ -1997,7 +1997,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
               ) : null}
 
               {gameCouponMetrics.coupon_orders_using_fallback ? (
-                <div className="rounded-2xl bg-amber-500/10 ring-1 ring-amber-400/20 p-4 text-sm text-amber-100">
+                <div className="rounded-2xl bg-cyan-500/10 ring-1 ring-cyan-400/20 p-4 text-sm text-amber-100">
                   As métricas de aplicação/compra estão em modo compatível. Para contar checkouts iniciados com mais precisão, rode também o SQL do arquivo <code>supabase/coupon_metrics_orders.sql</code>.
                 </div>
               ) : null}
@@ -2135,7 +2135,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => fetchVipVoting()}
-                      className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+                      className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
                     >
                       Atualizar
                     </button>
@@ -2208,7 +2208,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                                   error: "",
                                 })
                               }
-                              className="rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-white/5 ring-1 ring-white/10"
+                              className="rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
                             >
                               Encerrar votação
                             </button>
@@ -2235,7 +2235,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                               <div className="mt-1 text-slate-100 font-extrabold">{winner.title}</div>
                             </div>
                           ) : (
-                            <div className="mt-3 rounded-xl bg-amber-500/10 ring-1 ring-amber-400/20 p-3 text-sm text-amber-200">
+                            <div className="mt-3 rounded-xl bg-cyan-500/10 ring-1 ring-cyan-400/20 p-3 text-sm text-cyan-200">
                               Votação encerrada, mas o vencedor não está salvo no banco (adicione a coluna <b>winner_option_id</b> em <b>vip_theme_polls</b>).
                             </div>
                           );

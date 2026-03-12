@@ -26,7 +26,7 @@ export default function SobEncomendaPage({
             <button
               type="button"
               onClick={onGoCatalogo}
-              className="container-cc rounded-xl px-4 py-2 text-sm ring-1 ring-white/15 hover:bg-white/5"
+              className="container-cc rounded-xl px-4 py-2 text-sm ring-1 ring-white/15 hover:bg-white/4"
             >
               Ver catálogo completo
             </button>
@@ -34,7 +34,7 @@ export default function SobEncomendaPage({
         </div>
 
         <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className="rounded-2xl p-4 ring-1 ring-white/10 bg-white/5">
+          <div className="rounded-2xl p-4 ring-1 ring-white/10 bg-white/4">
             <p className="font-bold">Como funciona</p>
             <ul className="mt-2 text-sm text-slate-300 space-y-1">
               <li>• Você compra pelo site (ou fecha no WhatsApp).</li>
@@ -42,14 +42,14 @@ export default function SobEncomendaPage({
               <li>• Envio com rastreio para todo o Brasil.</li>
             </ul>
           </div>
-          <div className="rounded-2xl p-4 ring-1 ring-white/10 bg-white/5">
+          <div className="rounded-2xl p-4 ring-1 ring-white/10 bg-white/4">
             <p className="font-bold">Prazos</p>
             <p className="mt-2 text-sm text-slate-300">
               O prazo varia conforme fila de produção, complexidade e pintura. Em geral:
             </p>
             <p className="mt-2 text-sm text-slate-200 font-semibold">15–30 dias úteis</p>
           </div>
-          <div className="rounded-2xl p-4 ring-1 ring-white/10 bg-white/5">
+          <div className="rounded-2xl p-4 ring-1 ring-white/10 bg-white/4">
             <p className="font-bold">Dúvidas?</p>
             <p className="mt-2 text-sm text-slate-300">
               Fale com a gente no WhatsApp e enviamos detalhes, fotos e prazos atualizados.
@@ -67,15 +67,15 @@ export default function SobEncomendaPage({
               Array.from({ length: 12 }).map((_, idx) => (
                 <div
                   key={idx}
-                  className="w-full max-w-[320px] rounded-2xl overflow-hidden ring-1 ring-white/10 bg-slate-900/60"
+                  className="w-full max-w-[320px] rounded-2xl overflow-hidden ring-1 ring-white/10 bg-[#07161d]/60"
                 >
-                  <div className="aspect-[4/5] bg-slate-800/60 animate-pulse" />
+                  <div className="aspect-[4/5] bg-[#0c2430]/68 animate-pulse" />
                   <div className="p-4">
-                    <div className="h-4 bg-slate-800/60 rounded animate-pulse" />
-                    <div className="mt-3 h-9 bg-slate-800/60 rounded animate-pulse" />
+                    <div className="h-4 bg-[#0c2430]/68 rounded animate-pulse" />
+                    <div className="mt-3 h-9 bg-[#0c2430]/68 rounded animate-pulse" />
                     <div className="mt-4 grid grid-cols-2 gap-2">
-                      <div className="h-10 bg-slate-800/60 rounded animate-pulse" />
-                      <div className="h-10 bg-slate-800/60 rounded animate-pulse" />
+                      <div className="h-10 bg-[#0c2430]/68 rounded animate-pulse" />
+                      <div className="h-10 bg-[#0c2430]/68 rounded animate-pulse" />
                     </div>
                   </div>
                 </div>

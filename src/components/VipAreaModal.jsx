@@ -33,10 +33,10 @@ function vipBlockMessage(status) {
 function statusLabel(s) {
   const v = String(s || "editavel").toLowerCase();
   if (v === "editavel" || v === "recebido") return { label: "Editável", cls: "bg-emerald-500/10 ring-emerald-400/25 text-emerald-200" };
-  if (v === "em_producao") return { label: "Em produção", cls: "bg-indigo-500/10 ring-indigo-400/25 text-indigo-200" };
-  if (v === "enviado") return { label: "Enviado", cls: "bg-amber-500/10 ring-amber-400/25 text-amber-200" };
+  if (v === "em_producao") return { label: "Em produção", cls: "bg-cyan-600/10 ring-indigo-400/25 text-indigo-200" };
+  if (v === "enviado") return { label: "Enviado", cls: "bg-cyan-500/10 ring-amber-400/25 text-cyan-200" };
   if (v === "entregue") return { label: "Entregue", cls: "bg-teal-500/10 ring-teal-400/25 text-teal-200" };
-  return { label: v.replaceAll("_", " "), cls: "bg-white/5 ring-white/15 text-slate-200" };
+  return { label: v.replaceAll("_", " "), cls: "bg-white/4 ring-white/15 text-slate-200" };
 }
 
 function fmtBRLFromCents(cents) {
@@ -774,7 +774,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                   <span className="material-icons text-[16px]">flag</span>
                   Status: <b>{st.label}</b>
                 </span>
-                <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs ring-1 ring-white/15 bg-white/5 text-slate-200">
+                <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs ring-1 ring-white/15 bg-white/4 text-slate-200">
                   <span className="material-icons text-[16px]">calendar_month</span>
                   Ciclo: <b>{cycle}</b>
                 </span>
@@ -784,7 +784,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                     VIP ativo • expira em <b>{new Date(vipUntil).toLocaleDateString("pt-BR")}</b>
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs ring-1 ring-white/15 bg-white/5 text-slate-200">
+                  <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs ring-1 ring-white/15 bg-white/4 text-slate-200">
                     <span className="material-icons text-[16px]">lock</span>
                     Não VIP
                   </span>
@@ -797,7 +797,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                   <button
                     type="button"
                     onClick={onGoHome}
-                    className="rounded-xl px-3 py-2 text-xs font-semibold ring-1 ring-white/15 hover:bg-white/5 transition"
+                    className="rounded-xl px-3 py-2 text-xs font-semibold ring-1 ring-white/15 hover:bg-white/4 transition"
                     title="Voltar"
                   >
                     <span className="inline-flex items-center gap-2">
@@ -808,7 +808,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                 ) : null}
               </div>
             ) : (
-              <button onClick={onClose} className="rounded-xl p-2 ring-1 ring-white/15 hover:bg-white/5" aria-label="Fechar">
+              <button onClick={onClose} className="rounded-xl p-2 ring-1 ring-white/15 hover:bg-white/4" aria-label="Fechar">
                 <span className="material-icons">close</span>
               </button>
             )}
@@ -816,27 +816,27 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
 
           {!user ? (
             authLoading ? (
-              <div className="mt-6 rounded-2xl bg-white/5 ring-1 ring-white/10 p-4 text-slate-200">Carregando…</div>
+              <div className="mt-6 rounded-2xl bg-white/4 ring-1 ring-white/10 p-4 text-slate-200">Carregando…</div>
             ) : (
-              <div className="mt-6 rounded-2xl bg-white/5 ring-1 ring-white/10 p-5">
+              <div className="mt-6 rounded-2xl bg-white/4 ring-1 ring-white/10 p-5">
                 <p className="text-slate-200">Entre para acessar a Área VIP.</p>
                 <button
                   type="button"
                   onClick={() => onRequireLogin?.("Entre para acessar a Área VIP.")}
-                  className="mt-4 rounded-xl px-4 py-3 font-extrabold bg-teal-400 text-black ring-4 ring-teal-400/20"
+                  className="mt-4 rounded-xl px-4 py-3 font-extrabold bg-cyan-400 text-black ring-4 ring-cyan-400/20"
                 >
                   Entrar
                 </button>
               </div>
             )
           ) : loading ? (
-            <div className="mt-6 rounded-2xl bg-white/5 ring-1 ring-white/10 p-4 text-slate-200">Carregando…</div>
+            <div className="mt-6 rounded-2xl bg-white/4 ring-1 ring-white/10 p-4 text-slate-200">Carregando…</div>
           ) : error ? (
             <div className="mt-6 rounded-2xl bg-rose-500/10 ring-1 ring-rose-400/20 p-4 text-rose-100">{error}</div>
           ) : !isVip ? (
-            <div className="mt-6 rounded-2xl bg-white/5 ring-1 ring-white/10 p-5">
+            <div className="mt-6 rounded-2xl bg-white/4 ring-1 ring-white/10 p-5">
               <p className="text-slate-200">Assine para escolher suas miniaturas mensais e liberar benefícios VIP.</p>
-              <button onClick={onGoVip} className="mt-4 rounded-xl px-4 py-3 font-extrabold bg-teal-400 text-black ring-4 ring-teal-400/20">Ver planos VIP</button>
+              <button onClick={onGoVip} className="mt-4 rounded-xl px-4 py-3 font-extrabold bg-cyan-400 text-black ring-4 ring-cyan-400/20">Ver planos VIP</button>
             </div>
           ) : (
             <>
@@ -846,11 +846,11 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                 <div className="rounded-2xl bg-black/35 backdrop-blur-md ring-1 ring-white/10 p-2">
                   <div className="sm:hidden rounded-2xl bg-gradient-to-br from-amber-400/10 via-violet-400/10 to-transparent ring-1 ring-white/10 px-3 py-3">
                     <label htmlFor="vip-tab-select" className="mb-2 flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-[0.24em] text-slate-400">
-                      <span className="material-icons text-[16px] text-amber-200">menu_open</span>
+                      <span className="material-icons text-[16px] text-cyan-200">menu_open</span>
                       Navegação VIP
                     </label>
                     <div className="relative">
-                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 material-icons text-[18px] text-amber-200">auto_awesome</span>
+                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 material-icons text-[18px] text-cyan-200">auto_awesome</span>
                       <select
                         id="vip-tab-select"
                         value={tab}
@@ -873,7 +873,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                           key={t.k}
                           type="button"
                           onClick={() => setTab(t.k)}
-                          className={`shrink-0 inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-extrabold ring-1 transition ${active ? 'bg-violet-400 text-black ring-violet-200/30' : 'bg-white/5 text-slate-200 ring-white/10 hover:bg-white/10'}`}
+                          className={`shrink-0 inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-extrabold ring-1 transition ${active ? 'bg-violet-400 text-black ring-violet-200/30' : 'bg-white/4 text-slate-200 ring-white/10 hover:bg-white/6'}`}
                         >
                           <span className="material-icons text-[16px]">{t.ic}</span>
                           {t.label}
@@ -884,19 +884,19 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                 </div>
               </div>
 
-              <div className="mt-4 rounded-[24px] bg-white/5 ring-1 ring-white/10 p-3 sm:p-4">
+              <div className="mt-4 rounded-[24px] bg-white/4 ring-1 ring-white/10 p-3 sm:p-4">
                 <div className="flex items-start gap-3 justify-between">
                   <div className="min-w-0">
                     <div className="text-[11px] uppercase tracking-[0.28em] text-slate-500">Área VIP</div>
                     <div className="mt-2 flex flex-wrap gap-2">
-                      <span className="inline-flex items-center rounded-full bg-white/5 px-3 py-1 text-xs font-semibold text-slate-200 ring-1 ring-white/10">Ciclo {cycle}</span>
+                      <span className="inline-flex items-center rounded-full bg-white/4 px-3 py-1 text-xs font-semibold text-slate-200 ring-1 ring-white/10">Ciclo {cycle}</span>
                       <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ring-1 ${st.cls}`}>{st.label}</span>
-                      <span className="inline-flex items-center rounded-full bg-white/5 px-3 py-1 text-xs font-semibold text-slate-200 ring-1 ring-white/10">Plano {vipPlanLabel}</span>
+                      <span className="inline-flex items-center rounded-full bg-white/4 px-3 py-1 text-xs font-semibold text-slate-200 ring-1 ring-white/10">Plano {vipPlanLabel}</span>
                     </div>
                     {!editable && blockNotice ? (
-                      <div className="mt-3 rounded-2xl bg-amber-500/10 ring-1 ring-amber-400/25 px-4 py-3 text-sm text-amber-100">
+                      <div className="mt-3 rounded-2xl bg-cyan-500/10 ring-1 ring-amber-400/25 px-4 py-3 text-sm text-amber-100">
                         <div className="font-extrabold">{blockNotice.title}</div>
-                        <div className="mt-1 text-amber-50/90">{blockNotice.text}</div>
+                        <div className="mt-1 text-cyan-50/90">{blockNotice.text}</div>
                       </div>
                     ) : null}
                   </div>
@@ -905,14 +905,14 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                     onClick={() => setHelpOpen((v) => !v)}
                     aria-expanded={helpOpen}
                     aria-label="Como funciona esta aba"
-                    className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white/5 text-amber-200 ring-1 ring-white/10 hover:bg-white/10"
+                    className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white/4 text-cyan-200 ring-1 ring-white/10 hover:bg-white/6"
                   >
                     <span className="material-icons">tips_and_updates</span>
                   </button>
                 </div>
 
                 {helpOpen ? (
-                  <div className="mt-3 rounded-[20px] bg-gradient-to-br from-amber-300/10 via-sky-300/5 to-transparent p-4 ring-1 ring-white/10">
+                  <div className="mt-3 rounded-[20px] bg-gradient-to-br from-cyan-400/10 via-sky-300/5 to-transparent p-4 ring-1 ring-white/10">
                     <div className="text-xs font-extrabold uppercase tracking-[0.24em] text-slate-300">{help.title}</div>
                     <p className="mt-2 text-sm leading-6 text-slate-200/90">{help.body}</p>
                   </div>
@@ -922,7 +922,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
               {/* Conteúdo por aba */}
               {tab === 'pedido' ? (
                 <div className="mt-5 space-y-4">
-                  <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-5">
+                  <div className="rounded-2xl bg-white/4 ring-1 ring-white/10 p-5">
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <div className="text-xs uppercase tracking-wide text-slate-400">Status do seu pedido VIP</div>
@@ -939,18 +939,18 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                   </div>
 
                   {String(orderStatus || '').toLowerCase() === 'enviado' && shippingTracking ? (
-                    <div className="rounded-2xl bg-amber-500/10 ring-1 ring-amber-400/20 p-5">
+                    <div className="rounded-2xl bg-cyan-500/10 ring-1 ring-cyan-400/20 p-5">
                       <div className="flex items-center justify-between gap-2 flex-wrap">
                         <p className="text-sm font-extrabold text-amber-100">Código de rastreio</p>
-                        <a href={`https://rastreamento.correios.com.br/app/index.php?objetos=${encodeURIComponent(shippingTracking)}`} target="_blank" rel="noreferrer" className="rounded-lg px-3 py-2 text-xs font-extrabold bg-amber-300 text-black hover:bg-amber-200">Rastrear</a>
+                        <a href={`https://rastreamento.correios.com.br/app/index.php?objetos=${encodeURIComponent(shippingTracking)}`} target="_blank" rel="noreferrer" className="rounded-lg px-3 py-2 text-xs font-extrabold bg-cyan-400 text-black hover:bg-amber-200">Rastrear</a>
                       </div>
                       <div className="mt-3 flex flex-col gap-2">
-                        <code className="rounded-lg bg-black/30 px-3 py-3 text-xs text-amber-50 ring-1 ring-amber-200/10 break-all">{shippingTracking}</code>
-                        <button type="button" onClick={() => navigator.clipboard.writeText(String(shippingTracking || ''))} className="rounded-xl px-4 py-3 text-xs font-extrabold ring-1 ring-amber-300/20 hover:bg-white/5">Copiar código</button>
+                        <code className="rounded-lg bg-black/30 px-3 py-3 text-xs text-cyan-50 ring-1 ring-amber-200/10 break-all">{shippingTracking}</code>
+                        <button type="button" onClick={() => navigator.clipboard.writeText(String(shippingTracking || ''))} className="rounded-xl px-4 py-3 text-xs font-extrabold ring-1 ring-cyan-300/20 hover:bg-white/4">Copiar código</button>
                       </div>
                     </div>
                   ) : (
-                    <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-5 text-sm text-slate-300">
+                    <div className="rounded-2xl bg-white/4 ring-1 ring-white/10 p-5 text-sm text-slate-300">
                       Quando seu pedido for enviado, o <b>código de rastreio</b> vai aparecer aqui.
                     </div>
                   )}
@@ -965,7 +965,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
 
               {tab === 'upgrade' ? (
                 <div className="mt-5 space-y-4">
-                  <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-5">
+                  <div className="rounded-2xl bg-white/4 ring-1 ring-white/10 p-5">
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <div className="text-xs uppercase tracking-wide text-slate-400">Upgrade de nível</div>
@@ -1000,7 +1000,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                         <div className="mt-1 text-xl font-extrabold text-slate-100">Escolha a forma de pagamento</div>
                         <div className="mt-2 text-sm text-slate-300">Valor: <b>{fmtBRLFromCents(upgradeDiffCents)}</b></div>
                       </div>
-                      <button onClick={() => setUpgradePayOpen(false)} className="rounded-xl p-2 ring-1 ring-white/15 hover:bg-white/5" aria-label="Fechar">
+                      <button onClick={() => setUpgradePayOpen(false)} className="rounded-xl p-2 ring-1 ring-white/15 hover:bg-white/4" aria-label="Fechar">
                         <span className="material-icons">close</span>
                       </button>
                     </div>
@@ -1009,14 +1009,14 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                       <button
                         disabled={upgradeBusy}
                         onClick={() => { setUpgradePayMethod('card'); setUpgradePayOpen(false); startUpgradeCard(); }}
-                        className={`rounded-xl px-4 py-3 font-extrabold ring-4 transition ${upgradeBusy ? "bg-amber-300/20 text-amber-50 ring-amber-200/15 cursor-wait" : "bg-teal-400 text-black ring-teal-400/20 hover:opacity-95"}`}
+                        className={`rounded-xl px-4 py-3 font-extrabold ring-4 transition ${upgradeBusy ? "bg-cyan-400/20 text-cyan-50 ring-cyan-200/15 cursor-wait" : "bg-cyan-400 text-black ring-cyan-400/20 hover:opacity-95"}`}
                       >
                         {upgradeBusy && upgradePayMethod === 'card' ? 'Aguarde…' : 'Pagar com cartão'}
                       </button>
                       <button
                         disabled={upgradeBusy}
                         onClick={() => { setUpgradePayMethod('pix'); setUpgradePayOpen(false); startUpgradePix(); }}
-                        className={`rounded-xl px-4 py-3 font-semibold ring-1 transition ${upgradeBusy ? "bg-amber-300/20 text-amber-50 ring-amber-200/15 cursor-wait" : "ring-white/15 hover:bg-white/5"}`}
+                        className={`rounded-xl px-4 py-3 font-semibold ring-1 transition ${upgradeBusy ? "bg-cyan-400/20 text-cyan-50 ring-cyan-200/15 cursor-wait" : "ring-white/15 hover:bg-white/4"}`}
                       >
                         {upgradeBusy && upgradePayMethod === 'pix' ? 'Aguarde…' : 'Pagar com Pix'}
                       </button>
@@ -1026,7 +1026,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
               ) : null}
 
               {showUpgrade && upgrade?.order_id ? (
-                <div className="mt-4 rounded-2xl bg-white/5 ring-1 ring-white/10 p-5">
+                <div className="mt-4 rounded-2xl bg-white/4 ring-1 ring-white/10 p-5">
                   <div className="flex items-center justify-between gap-3 flex-wrap">
                     <div>
                       <div className="text-sm font-extrabold text-slate-100">Pix do upgrade</div>
@@ -1063,7 +1063,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                       <textarea readOnly value={upgrade?.qr_code || ''} className="mt-2 w-full h-40 rounded-xl bg-black/30 ring-1 ring-white/10 p-3 text-xs text-slate-100" />
                       <button
                         onClick={() => { try { navigator.clipboard.writeText(upgrade?.qr_code || ''); setMsg('Código Pix copiado ✅'); } catch {} }}
-                        className="mt-3 w-full rounded-xl px-4 py-3 font-extrabold bg-teal-400 text-black ring-4 ring-teal-400/20"
+                        className="mt-3 w-full rounded-xl px-4 py-3 font-extrabold bg-cyan-400 text-black ring-4 ring-cyan-400/20"
                       >
                         Copiar código Pix
                       </button>
@@ -1073,11 +1073,11 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
               ) : null}
 
               {showPoll && pollLoading ? (
-                <div className="mt-4 rounded-2xl bg-white/5 ring-1 ring-white/10 p-5 text-slate-200">Carregando votação…</div>
+                <div className="mt-4 rounded-2xl bg-white/4 ring-1 ring-white/10 p-5 text-slate-200">Carregando votação…</div>
               ) : null}
 
               {showPoll && poll?.id ? (
-                <div className="mt-4 rounded-2xl bg-white/5 ring-1 ring-white/10 p-5">
+                <div className="mt-4 rounded-2xl bg-white/4 ring-1 ring-white/10 p-5">
                   <div className="flex items-start justify-between gap-3 flex-wrap">
                     <div>
                       <div className="text-xs uppercase tracking-wide text-slate-400">Votação VIP</div>
@@ -1129,7 +1129,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                           key={o.id}
                           disabled={voteBusy || String(poll?.status || '').toLowerCase() !== 'open'}
                           onClick={() => vote(o.id)}
-                          className={`text-left rounded-2xl ring-1 p-4 transition hover:-translate-y-0.5 ${active ? 'bg-violet-500/15 ring-violet-400/30' : 'bg-black/25 ring-white/10 hover:bg-white/5'}`}
+                          className={`text-left rounded-2xl ring-1 p-4 transition hover:-translate-y-0.5 ${active ? 'bg-violet-500/15 ring-violet-400/30' : 'bg-black/25 ring-white/10 hover:bg-white/4'}`}
                         >
                           {o.image_url ? (
                             <div className="mb-3 overflow-hidden rounded-2xl bg-black/25 ring-1 ring-white/10">
@@ -1149,7 +1149,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                             {active ? <span className="material-icons text-violet-200">check_circle</span> : <span className="material-icons text-slate-400">how_to_vote</span>}
                           </div>
                           <div className="mt-3">
-                            <div className="h-2 rounded-full bg-white/10 overflow-hidden">
+                            <div className="h-2 rounded-full bg-white/6 overflow-hidden">
                               <div className="h-full bg-violet-400" style={{ width: `${pct}%` }} />
                             </div>
                             <div className="mt-2 text-xs text-slate-400">{votes} voto(s) • {pct}%</div>
@@ -1178,7 +1178,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
               </div>
 
               {/* Miniaturas escolhidas (fixo no topo, como antes) */}
-              <div className="mt-4 rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
+              <div className="mt-4 rounded-2xl bg-white/4 ring-1 ring-white/10 p-4">
                 <div className="flex items-center justify-between gap-3 flex-wrap">
                   <div>
                     <div className="text-xs uppercase tracking-wide text-slate-400">Minhas escolhas do mês</div>
@@ -1195,7 +1195,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                       {selectedCards.map(({ id, opt }) => {
                         const isBoss = String(opt?.item_type || '').toLowerCase() === 'boss';
                         const borderCls = isBoss ? 'ring-amber-300/40 bg-amber-400/10' : 'ring-violet-300/35 bg-violet-400/10';
-                        const badgeCls = isBoss ? 'bg-amber-300/85 text-black' : 'bg-violet-300/85 text-black';
+                        const badgeCls = isBoss ? 'bg-cyan-400/85 text-black' : 'bg-violet-300/85 text-black';
                         return (
                           <button
                             key={id}
@@ -1235,10 +1235,10 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                             key={id}
                             type="button"
                             onClick={() => { if (opt) openPreviewLite(opt); }}
-                            className={`text-left rounded-2xl transition overflow-hidden ${isBoss ? 'bg-amber-400/10 ring-1 ring-amber-300/25 hover:bg-amber-400/15' : 'bg-black/25 ring-1 ring-violet-300/20 hover:bg-white/5'}`}
+                            className={`text-left rounded-2xl transition overflow-hidden ${isBoss ? 'bg-amber-400/10 ring-1 ring-amber-300/25 hover:bg-cyan-400/15' : 'bg-black/25 ring-1 ring-violet-300/20 hover:bg-white/4'}`}
                             title={opt?.title || 'Escolha'}
                           >
-                            <div className="aspect-square bg-slate-900/70 p-2">
+                            <div className="aspect-square bg-[#07161d]/70 p-2">
                               {opt?.image_url ? (
                                 <img
                                   src={opt.image_url}
@@ -1285,7 +1285,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
               ) : null}
 
               {optionsLoading && !options.length ? (
-                <div className="mt-4 rounded-2xl bg-white/5 ring-1 ring-white/10 p-4 text-slate-200">Carregando catálogo VIP…</div>
+                <div className="mt-4 rounded-2xl bg-white/4 ring-1 ring-white/10 p-4 text-slate-200">Carregando catálogo VIP…</div>
               ) : null}
 
               <div className="mt-4 grid grid-cols-1 min-[420px]:grid-cols-2 sm:grid-cols-3 gap-3">
@@ -1298,7 +1298,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                   return (
                     <div
                       key={opt.id}
-                      className={`rounded-2xl overflow-hidden ring-1 transition relative ${isSel ? "bg-violet-500/15 ring-violet-300/40 shadow-[0_0_0_1px_rgba(167,139,250,0.25)]" : "bg-white/5 ring-white/10"}`}
+                      className={`rounded-2xl overflow-hidden ring-1 transition relative ${isSel ? "bg-violet-500/15 ring-violet-300/40 shadow-[0_0_0_1px_rgba(167,139,250,0.25)]" : "bg-white/4 ring-white/10"}`}
                     >
                       {isSel ? (
                         <div className="absolute top-2 left-2 z-10 inline-flex items-center gap-1 rounded-full bg-violet-500/25 text-violet-50 ring-1 ring-violet-300/30 px-2 py-1 text-[10px] font-extrabold">
@@ -1311,7 +1311,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                         onClick={() => openPreviewLite(opt)}
                         className="block w-full text-left"
                       >
-                        <div className="aspect-square bg-slate-900/70 p-2">
+                        <div className="aspect-square bg-[#07161d]/70 p-2">
                           {opt.image_url ? (
                             <img src={opt.image_url} alt={opt.title} className="h-full w-full object-contain rounded-xl ring-1 ring-white/10" loading="lazy" />
                           ) : (
@@ -1325,7 +1325,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                           <div className="min-w-0">
                             <p className="text-xs sm:text-sm font-extrabold text-slate-100 truncate">{opt.title}</p>
                             <div className="mt-1 flex flex-wrap gap-1">
-                              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] ring-1 ${kind === 'boss' ? 'bg-amber-500/10 ring-amber-400/25 text-amber-100' : 'bg-emerald-500/10 ring-emerald-400/25 text-emerald-100'}`}>
+                              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] ring-1 ${kind === 'boss' ? 'bg-cyan-500/10 ring-amber-400/25 text-amber-100' : 'bg-emerald-500/10 ring-emerald-400/25 text-emerald-100'}`}>
                                 {kind === 'boss' ? 'Boss' : 'Miniatura'}
                               </span>
                             </div>
@@ -1383,7 +1383,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                                 return [...prev, opt.id];
                               });
                             }}
-                            className={`shrink-0 rounded-lg p-1.5 ring-1 transition ${isSel ? "bg-violet-500/25 ring-violet-300/30 text-violet-50" : "bg-white/5 ring-white/10 text-slate-300"} ${(!editable || !editing || saving) ? "opacity-60 cursor-not-allowed" : addBlocked ? "hover:bg-rose-500/10 hover:ring-rose-400/30" : "hover:bg-white/10"}`}
+                            className={`shrink-0 rounded-lg p-1.5 ring-1 transition ${isSel ? "bg-violet-500/25 ring-violet-300/30 text-violet-50" : "bg-white/4 ring-white/10 text-slate-300"} ${(!editable || !editing || saving) ? "opacity-60 cursor-not-allowed" : addBlocked ? "hover:bg-rose-500/10 hover:ring-rose-400/30" : "hover:bg-white/6"}`}
                             aria-label={isSel ? 'Remover miniatura' : 'Selecionar miniatura'}
                           >
                             <span className="material-icons text-[18px]">{isSel ? "check_circle" : "add_circle"}</span>
@@ -1410,7 +1410,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                         <h3 className="text-lg font-extrabold text-white truncate">{preview.title}</h3>
                         {preview.description ? <p className="mt-1 text-sm text-slate-400">{preview.description}</p> : null}
                       </div>
-                      <button onClick={() => setPreview(null)} className="rounded-lg p-2 ring-1 ring-white/10 hover:bg-white/5">
+                      <button onClick={() => setPreview(null)} className="rounded-lg p-2 ring-1 ring-white/10 hover:bg-white/4">
                         <span className="material-icons text-[18px]">close</span>
                       </button>
                     </div>

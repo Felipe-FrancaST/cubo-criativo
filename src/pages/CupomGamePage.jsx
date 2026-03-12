@@ -186,21 +186,21 @@ export default function CupomGamePage({ onGoHome, accessToken, onRequireLogin })
             <button
               type="button"
               onClick={() => setHelpOpen((v) => !v)}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-amber-300/20 bg-amber-300/10 text-amber-200 transition hover:bg-amber-300/15"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-300/20 bg-cyan-400/10 text-cyan-200 transition hover:bg-cyan-400/15"
               aria-label="Como funciona o Cubo Game"
               aria-expanded={helpOpen}
             >
               <span className="material-icons text-[20px]">lightbulb</span>
             </button>
-            <button onClick={onGoHome} className="container-cc rounded-xl px-4 py-2 ring-1 ring-white/15 hover:bg-white/5">Voltar</button>
+            <button onClick={onGoHome} className="container-cc rounded-xl px-4 py-2 ring-1 ring-white/15 hover:bg-white/4">Voltar</button>
           </div>
         </div>
 
         {helpOpen ? (
-          <div className="mb-4 rounded-2xl border border-amber-300/20 bg-gradient-to-br from-amber-400/10 via-slate-900/92 to-slate-950/95 p-4 shadow-[0_12px_40px_rgba(0,0,0,0.26)]">
+          <div className="mb-4 rounded-2xl border border-cyan-300/20 bg-gradient-to-br from-amber-400/10 via-slate-900/92 to-slate-950/95 p-4 shadow-[0_12px_40px_rgba(0,0,0,0.26)]">
             <div className="flex items-start gap-3">
-              <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-amber-300/12 ring-1 ring-amber-200/20">
-                <span className="material-icons text-amber-200">tips_and_updates</span>
+              <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-cyan-400/12 ring-1 ring-amber-200/20">
+                <span className="material-icons text-cyan-200">tips_and_updates</span>
               </div>
               <div className="min-w-0">
                 <h2 className="text-sm font-semibold text-white">Como funciona o Cubo Game</h2>
@@ -244,7 +244,7 @@ export default function CupomGamePage({ onGoHome, accessToken, onRequireLogin })
               ) : null}
             </div>
 
-            <div className="rounded-2xl p-4 ring-1 ring-white/10 bg-white/5 space-y-2 text-sm">
+            <div className="rounded-2xl p-4 ring-1 ring-white/10 bg-white/4 space-y-2 text-sm">
               <div className="grid grid-cols-2 gap-2">
                 <div className="rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2">
                   <p className="text-xs text-slate-400">Tentativas</p>
@@ -258,26 +258,26 @@ export default function CupomGamePage({ onGoHome, accessToken, onRequireLogin })
               <div className="flex justify-between gap-3"><span className="text-slate-400">Status</span><span className="text-right">{status.loading ? 'Carregando…' : !accessToken ? 'Faça login para jogar' : status.can_play ? 'Pode jogar' : (isVip ? 'Já jogou hoje' : 'Já jogou esta semana')}</span></div>
               <div className="flex justify-between gap-3"><span className="text-slate-400">Próxima rodada</span><span className="text-right font-medium">{countdown}</span></div>
               {resultMsg ? (
-                <div className={`rounded-2xl px-4 py-4 text-center shadow-[0_16px_40px_rgba(0,0,0,0.28)] ${/Parabéns, você venceu/i.test(resultMsg) ? 'bg-gradient-to-br from-amber-300/18 via-emerald-400/10 to-slate-950 ring-1 ring-amber-300/30 text-amber-50' : 'bg-white/5 ring-1 ring-white/10 text-slate-100'}`}>
+                <div className={`rounded-2xl px-4 py-4 text-center shadow-[0_16px_40px_rgba(0,0,0,0.28)] ${/Parabéns, você venceu/i.test(resultMsg) ? 'bg-gradient-to-br from-cyan-400/18 via-emerald-400/10 to-slate-950 ring-1 ring-amber-300/30 text-cyan-50' : 'bg-white/4 ring-1 ring-white/10 text-slate-100'}`}>
                   {/Parabéns, você venceu/i.test(resultMsg) ? (
-                    <div className="mb-2 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-300/15 ring-1 ring-amber-200/25 text-amber-200">
+                    <div className="mb-2 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-400/15 ring-1 ring-amber-200/25 text-cyan-200">
                       <span className="material-icons">emoji_events</span>
                     </div>
                   ) : null}
                   <p className={`text-base font-bold ${/Parabéns, você venceu/i.test(resultMsg) ? 'text-amber-100' : 'text-slate-100'}`}>{/Parabéns, você venceu/i.test(resultMsg) ? 'Parabéns, você venceu!' : 'Status da rodada'}</p>
-                  <p className={`mt-1 text-sm leading-6 ${/Parabéns, você venceu/i.test(resultMsg) ? 'text-amber-50/90' : 'text-slate-200'}`}>{resultMsg}</p>
+                  <p className={`mt-1 text-sm leading-6 ${/Parabéns, você venceu/i.test(resultMsg) ? 'text-cyan-50/90' : 'text-slate-200'}`}>{resultMsg}</p>
                 </div>
               ) : null}
               {status.error ? <div className="rounded-xl bg-rose-500/10 ring-1 ring-rose-400/20 px-3 py-2 text-rose-200">{status.error}</div> : null}
             </div>
           </aside>
 
-          <div className="order-2 lg:order-1 rounded-2xl p-3 sm:p-5 ring-1 ring-white/10 bg-slate-900/50">
+          <div className="order-2 lg:order-1 rounded-2xl p-3 sm:p-5 ring-1 ring-white/10 bg-[#07161d]/50">
             {loginGateVisible && !accessToken ? (
-              <div className="mb-4 rounded-2xl border border-amber-300/20 bg-gradient-to-br from-amber-400/12 via-slate-900/85 to-slate-950/95 px-4 py-4 shadow-[0_18px_50px_rgba(0,0,0,0.28)] backdrop-blur-sm">
+              <div className="mb-4 rounded-2xl border border-cyan-300/20 bg-gradient-to-br from-amber-400/12 via-slate-900/85 to-slate-950/95 px-4 py-4 shadow-[0_18px_50px_rgba(0,0,0,0.28)] backdrop-blur-sm">
                 <div className="flex items-start gap-3">
-                  <div className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-amber-300/12 ring-1 ring-amber-200/20">
-                    <span className="material-icons text-amber-200">lock_open</span>
+                  <div className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-cyan-400/12 ring-1 ring-amber-200/20">
+                    <span className="material-icons text-cyan-200">lock_open</span>
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold text-white">Faça login para jogar</p>
@@ -286,14 +286,14 @@ export default function CupomGamePage({ onGoHome, accessToken, onRequireLogin })
                       <button
                         type="button"
                         onClick={() => onRequireLogin?.('Faça login para jogar e receber seu cupom.')}
-                        className="rounded-xl bg-amber-300 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-amber-200"
+                        className="rounded-xl bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-amber-200"
                       >
                         Entrar agora
                       </button>
                       <button
                         type="button"
                         onClick={() => setLoginGateVisible(false)}
-                        className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-200 transition hover:bg-white/10"
+                        className="rounded-xl border border-white/10 bg-white/4 px-4 py-2 text-sm font-medium text-slate-200 transition hover:bg-white/6"
                       >
                         Agora não
                       </button>
@@ -309,7 +309,7 @@ export default function CupomGamePage({ onGoHome, accessToken, onRequireLogin })
                   key={card.id}
                   onClick={() => onCardClick(idx)}
                   disabled={(!!accessToken && (!status.can_play || busy || finished || card.matched)) || (!accessToken && loginGateVisible)}
-                  className={`aspect-square rounded-xl sm:rounded-2xl text-2xl sm:text-3xl grid place-items-center ring-1 transition active:scale-[0.98] ${reveal(idx) ? 'bg-white/10 ring-white/20' : 'bg-gradient-to-br from-fuchsia-500/15 to-teal-500/15 ring-white/10 hover:bg-white/10'} ${!accessToken ? 'cursor-pointer' : ''}`}
+                  className={`aspect-square rounded-xl sm:rounded-2xl text-2xl sm:text-3xl grid place-items-center ring-1 transition active:scale-[0.98] ${reveal(idx) ? 'bg-white/6 ring-white/20' : 'bg-gradient-to-br from-fuchsia-500/15 to-teal-500/15 ring-white/10 hover:bg-white/6'} ${!accessToken ? 'cursor-pointer' : ''}`}
                   aria-label={reveal(idx) ? `Carta ${card.icon}` : 'Carta fechada'}
                 >
                   <span>{reveal(idx) ? card.icon : '❓'}</span>

@@ -14,7 +14,7 @@ export default function ProductPage({ slug, product, loading, onBack, addToCart,
     return (
       <main className="flex-1">
         <section className="max-w-6xl mx-auto px-4 py-10">
-          <div className="rounded-2xl bg-slate-900/60 ring-1 ring-white/10 p-6">
+          <div className="rounded-2xl bg-[#07161d]/60 ring-1 ring-white/10 p-6">
             <p className="text-slate-300">Carregando produto…</p>
           </div>
         </section>
@@ -26,13 +26,13 @@ export default function ProductPage({ slug, product, loading, onBack, addToCart,
     return (
       <main className="flex-1">
         <section className="max-w-6xl mx-auto px-4 py-10">
-          <div className="rounded-2xl bg-slate-900/60 ring-1 ring-white/10 p-6">
+          <div className="rounded-2xl bg-[#07161d]/60 ring-1 ring-white/10 p-6">
             <h1 className="text-xl font-black">Produto não encontrado</h1>
             <p className="mt-2 text-slate-300">O link pode estar errado ou o produto foi removido.</p>
             <button
               type="button"
               onClick={onBack}
-              className="mt-6 rounded-lg px-4 py-2 bg-teal-400 text-black font-semibold ring-4 ring-teal-400/20"
+              className="mt-6 rounded-lg px-4 py-2 bg-cyan-400 text-black font-semibold ring-4 ring-cyan-400/20"
             >
               Voltar
             </button>
@@ -57,7 +57,7 @@ export default function ProductPage({ slug, product, loading, onBack, addToCart,
           <button
             type="button"
             onClick={onBack}
-            className="rounded-lg px-3 py-2 ring-1 ring-white/15 hover:bg-white/5"
+            className="rounded-lg px-3 py-2 ring-1 ring-white/15 hover:bg-white/4"
           >
             ← voltar
           </button>
@@ -71,11 +71,11 @@ export default function ProductPage({ slug, product, loading, onBack, addToCart,
         </div>
 
         <div className="mt-6 grid gap-6 lg:grid-cols-2">
-          <div className="rounded-2xl overflow-hidden bg-slate-900/60 ring-1 ring-white/10">
+          <div className="rounded-2xl overflow-hidden bg-[#07161d]/60 ring-1 ring-white/10">
             <div
               role="button"
               tabIndex={0}
-              className="aspect-square bg-slate-900/40 p-3 sm:p-4 grid place-items-center overflow-hidden w-full relative cursor-pointer focus:outline-none focus:ring-2 focus:ring-teal-400/40"
+              className="aspect-square bg-[#07161d]/40 p-3 sm:p-4 grid place-items-center overflow-hidden w-full relative cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
               onClick={() => openGallery?.(product)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
@@ -98,13 +98,13 @@ export default function ProductPage({ slug, product, loading, onBack, addToCart,
                 <div className="text-slate-300 text-xs px-3 text-center">Imagem indisponível.</div>
               )}
 
-              <span className="absolute bottom-2 right-2 text-[10px] px-2 py-0.5 rounded-full bg-black/50 ring-1 ring-white/20">
+              <span className="absolute bottom-2 right-2 text-[10px] px-2 py-0.5 rounded-full bg-[#020b10]/65 ring-1 ring-white/20">
                 ver fotos
               </span>
             </div>
           </div>
 
-          <div className="rounded-2xl bg-slate-900/60 ring-1 ring-white/10 p-6">
+          <div className="rounded-2xl bg-[#07161d]/60 ring-1 ring-white/10 p-6">
             <h1 className="text-2xl lg:text-3xl font-black tracking-tight">{product.nome}</h1>
 
             <div className="mt-3 flex items-center gap-3 flex-wrap">
@@ -123,7 +123,7 @@ export default function ProductPage({ slug, product, loading, onBack, addToCart,
               )}
 
               {outOfStock ? (
-                <span className="text-xs font-bold px-2 py-1 rounded-full bg-slate-800 text-slate-300 ring-1 ring-white/10">
+                <span className="text-xs font-bold px-2 py-1 rounded-full bg-[#0c2430] text-slate-300 ring-1 ring-white/10">
                   esgotado
                 </span>
               ) : null}
@@ -141,7 +141,7 @@ export default function ProductPage({ slug, product, loading, onBack, addToCart,
               <div className="mt-5">
                 <label className="text-sm text-slate-300">Escala / Preço</label>
                 <select
-                  className="mt-2 w-full rounded-lg bg-slate-800/60 ring-1 ring-white/10 px-3 py-3 text-base"
+                  className="mt-2 w-full rounded-lg bg-[#0c2430]/68 ring-1 ring-white/10 px-3 py-3 text-base"
                   value={selIndex}
                   onChange={(e) => setSelIndex(Number(e.target.value))}
                 >
@@ -160,8 +160,8 @@ export default function ProductPage({ slug, product, loading, onBack, addToCart,
                 type="button"
                 disabled={outOfStock}
                 onClick={() => addToCart?.(product, { escala, unitPrice: currentPrice })}
-                className={`rounded-lg px-4 py-3 font-semibold ring-4 ring-teal-400/20 transition min-h-[44px] ${
-                  outOfStock ? "bg-slate-800 text-slate-400 cursor-not-allowed ring-white/10" : "bg-teal-400 text-black"
+                className={`rounded-lg px-4 py-3 font-semibold ring-4 ring-cyan-400/20 transition min-h-[44px] ${
+                  outOfStock ? "bg-[#0c2430] text-slate-400 cursor-not-allowed ring-white/10" : "bg-cyan-400 text-black"
                 }`}
               >
                 {outOfStock ? "Esgotado" : "Adicionar ao carrinho"}
@@ -172,7 +172,7 @@ export default function ProductPage({ slug, product, loading, onBack, addToCart,
                 disabled={outOfStock}
                 onClick={() => buyNow?.(product, { escala, unitPrice: currentPrice })}
                 className={`rounded-lg px-4 py-3 ring-1 ring-white/15 min-h-[44px] ${
-                  outOfStock ? "bg-slate-800 text-slate-400 cursor-not-allowed" : "hover:bg-white/5"
+                  outOfStock ? "bg-[#0c2430] text-slate-400 cursor-not-allowed" : "hover:bg-white/4"
                 }`}
               >
                 {outOfStock ? "Esgotado" : "Comprar agora"}
@@ -184,7 +184,7 @@ export default function ProductPage({ slug, product, loading, onBack, addToCart,
                 {product.tags.slice(0, 12).map((t) => (
                   <span
                     key={t}
-                    className="text-[11px] font-semibold px-2 py-1 rounded-full bg-black/40 ring-1 ring-white/10 text-slate-200"
+                    className="text-[11px] font-semibold px-2 py-1 rounded-full bg-[#020b10]/70 ring-1 ring-white/10 text-slate-200"
                   >
                     {t}
                   </span>

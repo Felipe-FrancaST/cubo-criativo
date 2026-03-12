@@ -16,7 +16,7 @@ export default function SettingsPage({
           <button
             type="button"
             onClick={() => onGoBack?.()}
-            className="inline-flex items-center gap-2 rounded-xl px-3 py-2 ring-1 ring-white/10 hover:bg-white/5"
+            className="inline-flex items-center gap-2 rounded-xl px-3 py-2 ring-1 ring-white/10 hover:bg-white/4"
           >
             <span className="material-icons text-[18px]">arrow_back</span>
             <span className="text-sm">Voltar</span>

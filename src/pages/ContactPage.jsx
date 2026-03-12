@@ -4,7 +4,7 @@ import { trackEvent } from "../lib/analytics.js";
 
 function Card({ icon, title, desc, children }) {
   return (
-    <div className="rounded-3xl p-6 sm:p-7 bg-white/5 ring-1 ring-white/10 shadow-[0_0_0_1px_rgba(255,255,255,0.04)]">
+    <div className="rounded-3xl p-6 sm:p-7 bg-white/4 ring-1 ring-white/10 shadow-[0_0_0_1px_rgba(255,255,255,0.04)]">
       <div className="flex items-start gap-3">
         <div className="h-10 w-10 rounded-2xl bg-black/30 ring-1 ring-white/10 grid place-items-center">
           <span className="material-icons text-[20px] text-emerald-300">{icon}</span>
@@ -43,7 +43,7 @@ export default function ContactPage({ onGoHome, onGoFaq, onGoPoliticas }) {
               </p>
             </div>
 
-            <button onClick={onGoHome} className="container-cc rounded-xl px-4 py-2 ring-1 ring-white/15 hover:bg-white/5 text-sm">
+            <button onClick={onGoHome} className="container-cc rounded-xl px-4 py-2 ring-1 ring-white/15 hover:bg-white/4 text-sm">
               <span className="material-icons align-middle text-[18px]">chevron_left</span> Voltar
             </button>
           </div>
@@ -68,7 +68,7 @@ export default function ContactPage({ onGoHome, onGoFaq, onGoPoliticas }) {
                 <a
                   href={mailLink}
                   onClick={() => trackEvent("email_click", { location: "contato" })}
-                  className="container-cc inline-flex items-center justify-center gap-2 w-full rounded-2xl px-4 py-3 ring-1 ring-white/15 hover:bg-white/5 transition font-semibold"
+                  className="container-cc inline-flex items-center justify-center gap-2 w-full rounded-2xl px-4 py-3 ring-1 ring-white/15 hover:bg-white/4 transition font-semibold"
                 >
                   <span className="material-icons text-[18px]">send</span>
                   Enviar e-mail
@@ -77,7 +77,7 @@ export default function ContactPage({ onGoHome, onGoFaq, onGoPoliticas }) {
               </Card>
             </div>
 
-            <div className="rounded-3xl p-6 sm:p-7 bg-white/5 ring-1 ring-white/10 shadow-[0_0_0_1px_rgba(255,255,255,0.04)]">
+            <div className="rounded-3xl p-6 sm:p-7 bg-white/4 ring-1 ring-white/10 shadow-[0_0_0_1px_rgba(255,255,255,0.04)]">
               <h2 className="text-lg font-extrabold">Outros canais</h2>
 
               <div className="mt-4 space-y-3">
@@ -99,8 +99,8 @@ export default function ContactPage({ onGoHome, onGoFaq, onGoPoliticas }) {
                 </p>
               </div>
               <div className="mt-4 grid grid-cols-2 gap-2">
-                <button onClick={onGoFaq} className="rounded-xl px-3 py-2 ring-1 ring-white/15 hover:bg-white/5 text-xs">FAQ</button>
-                <button onClick={onGoPoliticas} className="rounded-xl px-3 py-2 ring-1 ring-white/15 hover:bg-white/5 text-xs">Políticas</button>
+                <button onClick={onGoFaq} className="rounded-xl px-3 py-2 ring-1 ring-white/15 hover:bg-white/4 text-xs">FAQ</button>
+                <button onClick={onGoPoliticas} className="rounded-xl px-3 py-2 ring-1 ring-white/15 hover:bg-white/4 text-xs">Políticas</button>
               </div>
             </div>
           </div>

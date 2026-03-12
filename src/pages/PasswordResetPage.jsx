@@ -5,8 +5,8 @@ import { supabase } from "../lib/supabaseClient";
 function FloatingNotice({ tone = "success", message }) {
   if (!message) return null;
   const palette = tone === "error"
-    ? "border-rose-400/35 bg-slate-950/95 text-rose-100 shadow-[0_20px_60px_-20px_rgba(244,63,94,0.45)]"
-    : "border-emerald-400/35 bg-slate-950/95 text-emerald-100 shadow-[0_20px_60px_-20px_rgba(52,211,153,0.45)]";
+    ? "border-rose-400/35 bg-[#05131a]/95 text-rose-100 shadow-[0_20px_60px_-20px_rgba(244,63,94,0.45)]"
+    : "border-emerald-400/35 bg-[#05131a]/95 text-emerald-100 shadow-[0_20px_60px_-20px_rgba(52,211,153,0.45)]";
   const icon = tone === "error" ? "error" : "verified";
   return (
     <div className="sticky top-3 z-[60] mb-4 flex justify-center px-1">
@@ -66,7 +66,7 @@ function getRecoveryContext() {
 
 function PasswordInput({ value, onChange, autoComplete = "new-password", placeholder = "••••••••", className = "", inputClassName = "", buttonClassName = "", ...props }) {
   const [visible, setVisible] = React.useState(false);
-  const resolvedInputClass = (className || inputClassName || "w-full rounded-2xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 pr-12 outline-none focus:ring-teal-400/60").trim();
+  const resolvedInputClass = (className || inputClassName || "w-full rounded-2xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 pr-12 outline-none focus:ring-cyan-400/60").trim();
   const resolvedButtonClass = (buttonClassName || "absolute inset-y-0 right-0 inline-flex w-12 items-center justify-center text-slate-300 transition hover:text-white").trim();
   return (
     <div className="relative">
@@ -232,20 +232,20 @@ export default function PasswordResetPage({ onGoHome, onGoLogin }) {
 
             <form onSubmit={submit} className="mt-6 space-y-4">
               <Field label="Nova senha">
-                <PasswordInput value={newPassword} onChange={(e) => setNewPassword(e.target.value)} autoComplete="new-password" className="w-full rounded-2xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 pr-12 outline-none focus:ring-teal-400/60" placeholder="Mínimo 6 caracteres" />
+                <PasswordInput value={newPassword} onChange={(e) => setNewPassword(e.target.value)} autoComplete="new-password" className="w-full rounded-2xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 pr-12 outline-none focus:ring-cyan-400/60" placeholder="Mínimo 6 caracteres" />
               </Field>
               <Field label="Confirmar nova senha">
-                <PasswordInput value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} autoComplete="new-password" className="w-full rounded-2xl bg-slate-800/60 ring-1 ring-white/10 px-4 py-3 pr-12 outline-none focus:ring-teal-400/60" placeholder="Repita a nova senha" />
+                <PasswordInput value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} autoComplete="new-password" className="w-full rounded-2xl bg-[#0c2430]/68 ring-1 ring-white/10 px-4 py-3 pr-12 outline-none focus:ring-cyan-400/60" placeholder="Repita a nova senha" />
               </Field>
 
               <div className="flex flex-col gap-3 sm:flex-row">
-                <button type="submit" disabled={busy} className={`inline-flex items-center justify-center rounded-2xl px-5 py-3 font-semibold ring-1 ring-white/10 ${busy ? "bg-slate-700/50 text-slate-300" : "bg-indigo-400 text-black hover:bg-indigo-300"}`}>
+                <button type="submit" disabled={busy} className={`inline-flex items-center justify-center rounded-2xl px-5 py-3 font-semibold ring-1 ring-white/10 ${busy ? "bg-[#12303b]/55 text-slate-300" : "bg-cyan-500 text-black hover:bg-cyan-400"}`}>
                   {busy ? "Salvando…" : "Definir nova senha"}
                 </button>
-                <button type="button" onClick={() => onGoLogin?.()} className="inline-flex items-center justify-center rounded-2xl px-5 py-3 font-semibold ring-1 ring-white/10 hover:bg-white/5">
+                <button type="button" onClick={() => onGoLogin?.()} className="inline-flex items-center justify-center rounded-2xl px-5 py-3 font-semibold ring-1 ring-white/10 hover:bg-white/4">
                   Ir para login
                 </button>
-                <button type="button" onClick={() => onGoHome?.()} className="inline-flex items-center justify-center rounded-2xl px-5 py-3 text-sm text-slate-300 ring-1 ring-white/10 hover:bg-white/5">
+                <button type="button" onClick={() => onGoHome?.()} className="inline-flex items-center justify-center rounded-2xl px-5 py-3 text-sm text-slate-300 ring-1 ring-white/10 hover:bg-white/4">
                   Voltar ao início
                 </button>
               </div>

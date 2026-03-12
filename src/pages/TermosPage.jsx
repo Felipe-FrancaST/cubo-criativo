@@ -9,13 +9,13 @@ export default function TermosPage({ onGoHome }) {
             <h1 className="text-3xl sm:text-4xl font-black tracking-tight">Termos de uso</h1>
             <p className="mt-2 text-slate-300 text-sm">Condições gerais de navegação, compra e atendimento.</p>
           </div>
-          <button onClick={onGoHome} className="container-cc rounded-xl px-4 py-2 ring-1 ring-white/15 hover:bg-white/5 text-sm">Voltar</button>
+          <button onClick={onGoHome} className="container-cc rounded-xl px-4 py-2 ring-1 ring-white/15 hover:bg-white/4 text-sm">Voltar</button>
         </div>
         <div className="mt-8 space-y-4 text-sm text-slate-300">
-          <div className="rounded-2xl p-5 bg-white/5 ring-1 ring-white/10">Ao utilizar o site, você concorda com as regras de navegação, cadastro e compra aqui descritas.</div>
-          <div className="rounded-2xl p-5 bg-white/5 ring-1 ring-white/10">As informações de produtos, preços e disponibilidade podem ser atualizadas a qualquer momento, sem aviso prévio, respeitando pedidos já concluídos.</div>
-          <div className="rounded-2xl p-5 bg-white/5 ring-1 ring-white/10">As imagens e descrições têm caráter ilustrativo, podendo existir pequenas variações de acabamento, cor e escala conforme produção artesanal.</div>
-          <div className="rounded-2xl p-5 bg-white/5 ring-1 ring-white/10">Em caso de dúvidas, prevalece o atendimento pelos canais oficiais da loja.</div>
+          <div className="rounded-2xl p-5 bg-white/4 ring-1 ring-white/10">Ao utilizar o site, você concorda com as regras de navegação, cadastro e compra aqui descritas.</div>
+          <div className="rounded-2xl p-5 bg-white/4 ring-1 ring-white/10">As informações de produtos, preços e disponibilidade podem ser atualizadas a qualquer momento, sem aviso prévio, respeitando pedidos já concluídos.</div>
+          <div className="rounded-2xl p-5 bg-white/4 ring-1 ring-white/10">As imagens e descrições têm caráter ilustrativo, podendo existir pequenas variações de acabamento, cor e escala conforme produção artesanal.</div>
+          <div className="rounded-2xl p-5 bg-white/4 ring-1 ring-white/10">Em caso de dúvidas, prevalece o atendimento pelos canais oficiais da loja.</div>
         </div>
       </section>
     </main>
