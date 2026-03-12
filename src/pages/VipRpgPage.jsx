@@ -28,6 +28,7 @@ export default function VipRpgPage({
   onGoHome,
 }) {
   const [busy, setBusy] = React.useState(false);
+  const [submittingMethod, setSubmittingMethod] = React.useState(''); // 'card' | 'pix'
   const [error, setError] = React.useState('');
   const [ok, setOk] = React.useState('');
   const [pix, setPix] = React.useState(null);
@@ -299,14 +300,17 @@ export default function VipRpgPage({
   }
 
   async function startPix(planId) {
+    setSubmittingMethod('pix');
     setError('');
     setOk('');
     setPix(null);
     if (!accessToken) {
+      setSubmittingMethod('');
       onOpenAuth?.();
       return;
     }
     if (!(await ensureProfileComplete())) {
+      setSubmittingMethod('');
       setPendingStart('pix');
       onOpenSettings?.('profile', { autoClose: true });
       setError('Complete seus dados no perfil (CPF e endereço) para assinar.');
@@ -322,6 +326,7 @@ export default function VipRpgPage({
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         if (data?.code === 'profile_incomplete') {
+          setSubmittingMethod('');
           setPendingStart('pix');
           onOpenSettings?.('profile', { autoClose: true });
           setError('Complete seus dados no perfil (CPF e endereço) para assinar.');
@@ -343,17 +348,21 @@ export default function VipRpgPage({
       setError(String(e?.message || e));
     } finally {
       setBusy(false);
+      setSubmittingMethod('');
     }
   }
 
   async function startCard(planId) {
+    setSubmittingMethod('card');
     setError('');
     setOk('');
     if (!accessToken) {
+      setSubmittingMethod('');
       onOpenAuth?.();
       return;
     }
     if (!(await ensureProfileComplete())) {
+      setSubmittingMethod('');
       setPendingStart('card');
       onOpenSettings?.('profile', { autoClose: true });
       setError('Complete seus dados no perfil (CPF e endereço) para assinar.');
@@ -369,6 +378,7 @@ export default function VipRpgPage({
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         if (data?.code === 'profile_incomplete') {
+          setSubmittingMethod('');
           setPendingStart('card');
           onOpenSettings?.('profile', { autoClose: true });
           setError('Complete seus dados no perfil (CPF e endereço) para assinar.');
@@ -386,6 +396,7 @@ export default function VipRpgPage({
       setError(String(e?.message || e));
     } finally {
       setBusy(false);
+      setSubmittingMethod('');
     }
   }
 
@@ -485,14 +496,14 @@ export default function VipRpgPage({
                       onClick={() => startCard(selectedPlanId)}
                       className="container-cc rounded-xl px-4 py-3 font-extrabold bg-cyan-400 text-black ring-4 ring-cyan-400/20 disabled:opacity-60"
                     >
-                      Assinar com cartão
+                      {submittingMethod === 'card' ? 'Aguarde' : 'Assinar com cartão'}
                     </button>
                     <button
                       disabled={busy}
                       onClick={() => startPix(selectedPlanId)}
                       className="container-cc rounded-xl px-4 py-3 font-semibold ring-1 ring-white/15 hover:bg-white/4 disabled:opacity-60"
                     >
-                      Assinar com Pix
+                      {submittingMethod === 'pix' ? 'Aguarde' : 'Assinar com Pix'}
                     </button>
                   </div>
 
