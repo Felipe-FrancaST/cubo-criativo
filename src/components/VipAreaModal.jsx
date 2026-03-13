@@ -1012,15 +1012,23 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                       </div>
                     ) : null}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setHelpOpen((v) => !v)}
-                    aria-expanded={helpOpen}
-                    aria-label="Como funciona esta aba"
-                    className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white/4 text-cyan-200 ring-1 ring-white/10 hover:bg-white/6"
-                  >
-                    <span className="material-icons">tips_and_updates</span>
-                  </button>
+                  <div className="relative shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setHelpOpen((v) => !v)}
+                      aria-expanded={helpOpen}
+                      aria-label="Como funciona esta aba"
+                      className="grid h-11 w-11 place-items-center rounded-2xl bg-white/4 text-cyan-200 ring-1 ring-white/10 hover:bg-white/6"
+                    >
+                      <span className="material-icons">tips_and_updates</span>
+                    </button>
+                    {helpOpen ? (
+                      <div className="absolute right-0 top-[calc(100%+12px)] z-30 w-[min(88vw,380px)] rounded-[20px] bg-gradient-to-br from-cyan-400/10 via-sky-300/5 to-slate-950/95 p-4 shadow-2xl backdrop-blur ring-1 ring-cyan-300/20">
+                        <div className="text-xs font-extrabold uppercase tracking-[0.24em] text-slate-300">{help.title}</div>
+                        <p className="mt-2 text-sm leading-6 text-slate-200/90">{help.body}</p>
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
 
                 <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(0,1.35fr)_minmax(280px,0.9fr)]">
@@ -1089,12 +1097,6 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                   </div>
                 </div>
 
-                {helpOpen ? (
-                  <div className="mt-3 rounded-[20px] bg-gradient-to-br from-cyan-400/10 via-sky-300/5 to-transparent p-4 ring-1 ring-white/10">
-                    <div className="text-xs font-extrabold uppercase tracking-[0.24em] text-slate-300">{help.title}</div>
-                    <p className="mt-2 text-sm leading-6 text-slate-200/90">{help.body}</p>
-                  </div>
-                ) : null}
               </div>
 
               {/* Conteúdo por aba */}
