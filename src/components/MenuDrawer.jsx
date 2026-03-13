@@ -124,17 +124,18 @@ export default function MenuDrawer({
   <div className="space-y-2">
     <p className="text-xs font-semibold tracking-wider text-slate-500 uppercase px-1">Minha conta</p>
 
-    <DrawerButton
-      icon="receipt_long"
-      onClick={() => {
-        if (user) onOpenOrders?.();
-        else onOpenAuth?.();
-        onClose?.();
-      }}
-      right="chevron_right"
-    >
-      Meus pedidos
-    </DrawerButton>
+    {user ? (
+      <DrawerButton
+        icon="receipt_long"
+        onClick={() => {
+          onOpenOrders?.();
+          onClose?.();
+        }}
+        right="chevron_right"
+      >
+        Meus pedidos
+      </DrawerButton>
+    ) : null}
 
     {!user ? (
       <DrawerButton

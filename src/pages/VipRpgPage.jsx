@@ -306,6 +306,7 @@ export default function VipRpgPage({
     setPix(null);
     if (!accessToken) {
       setSubmittingMethod('');
+      setError('Faça login para assinar');
       onOpenAuth?.();
       return;
     }
@@ -358,6 +359,7 @@ export default function VipRpgPage({
     setOk('');
     if (!accessToken) {
       setSubmittingMethod('');
+      setError('Faça login para assinar');
       onOpenAuth?.();
       return;
     }

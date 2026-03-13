@@ -26,7 +26,6 @@ const SobrePage = lazy(() => import("./pages/SobrePage.jsx"));
 const ContactPage = lazy(() => import("./pages/ContactPage.jsx"));
 const AdminOrdersPage = lazy(() => import("./pages/AdminOrdersPage.jsx"));
 const FAQPage = lazy(() => import("./pages/FAQPage.jsx"));
-const PoliticaPrivacidadePage = lazy(() => import("./pages/PoliticaPrivacidadePage.jsx"));
 const TrocasPage = lazy(() => import("./pages/TrocasPage.jsx"));
 const TermosPage = lazy(() => import("./pages/TermosPage.jsx"));
 const CupomGamePage = lazy(() => import("./pages/CupomGamePage.jsx"));
@@ -475,7 +474,6 @@ React.useEffect(() => {
       "/contato": { title: "Contato | Cubo Criativo", description: "Atendimento via WhatsApp e e-mail para suporte, orçamento e pedidos.", path: "/contato" },
       "/sobre": { title: "Sobre nós | Cubo Criativo", description: "Conheça a Cubo Criativo e nosso trabalho com miniaturas e peças personalizadas.", path: "/sobre" },
       "/faq": { title: "FAQ | Cubo Criativo", description: "Perguntas frequentes sobre prazos, envio, pagamento e cuidados com as peças.", path: "/faq" },
-      "/politica-de-privacidade": { title: "Política de Privacidade | Cubo Criativo", description: "Como tratamos seus dados para cadastro, pagamento, envio e suporte.", path: "/politica-de-privacidade" },
       "/trocas-e-devolucoes": { title: "Trocas e devoluções | Cubo Criativo", description: "Informações sobre trocas, devoluções e peças sob encomenda.", path: "/trocas-e-devolucoes" },
       "/termos": { title: "Termos de uso | Cubo Criativo", description: "Condições gerais de navegação e compra no site da Cubo Criativo.", path: "/termos" },
       "/cupom": { title: "Cubo Game | Cubo Criativo", description: "Jogue 1x por semana no Cubo Game e ganhe cupom para usar no carrinho.", path: "/cupom" },
@@ -1345,13 +1343,14 @@ React.useEffect(() => {
       return <SobrePage onGoHome={() => navigate("/")} />;
     }
     if (route === "/contato") {
-      return <ContactPage onGoHome={() => navigate("/")} onGoFaq={() => navigate("/faq")} onGoPoliticas={() => navigate("/politica-de-privacidade")} />;
+      return <ContactPage onGoHome={() => navigate("/")} onGoFaq={() => navigate("/faq")} onGoPoliticas={() => { if (typeof window !== "undefined") window.location.href = "/privacy.html"; }} />;
     }
     if (route === "/faq") {
       return <FAQPage onGoHome={() => navigate("/")} />;
     }
     if (route === "/politica-de-privacidade") {
-      return <PoliticaPrivacidadePage onGoHome={() => navigate("/")} />;
+      if (typeof window !== "undefined") window.location.replace("/privacy.html");
+      return null;
     }
     if (route === "/trocas-e-devolucoes") {
       return <TrocasPage onGoHome={() => navigate("/")} />;
@@ -1425,7 +1424,7 @@ React.useEffect(() => {
         onGoCatalogo={() => navigate("/catalogo")}
         onGoPromocoes={() => navigate("/promocoes")}
         onGoFaq={() => navigate("/faq")}
-        onGoPoliticas={() => navigate("/politica-de-privacidade")}
+        onGoPoliticas={() => { if (typeof window !== "undefined") window.location.href = "/privacy.html"; }}
         onGoCupom={() => navigate("/cupom")}
         onGoSobEncomenda={() => navigate("/catalogo")}
       
