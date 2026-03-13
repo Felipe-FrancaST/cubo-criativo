@@ -1,39 +1,39 @@
 // src/App.jsx
 import React from "react";
-const { startTransition, Suspense } = React;
+const { startTransition, Suspense, lazy } = React;
 import brand from "./data/config";
 
 // Componentes
 import Modal from "./components/Modal.jsx";
-import CartDrawer from "./components/CartDrawer.jsx";
-import AuthModal from "./components/AuthModal.jsx";
-import OrdersModal from "./components/OrdersModal.jsx";
-import MenuDrawer from "./components/MenuDrawer.jsx";
-import VipAreaModal from "./components/VipAreaModal.jsx";
+const CartDrawer = lazy(() => import("./components/CartDrawer.jsx"));
+const AuthModal = lazy(() => import("./components/AuthModal.jsx"));
+const OrdersModal = lazy(() => import("./components/OrdersModal.jsx"));
+const MenuDrawer = lazy(() => import("./components/MenuDrawer.jsx"));
+const VipAreaModal = lazy(() => import("./components/VipAreaModal.jsx"));
 import SiteHeader from "./components/SiteHeader.jsx";
 import { useAuth } from "./auth/AuthProvider.jsx";
 import { supabase } from "./lib/supabaseClient";
 
 // Páginas
-import HomePage from "./pages/HomePage.jsx";
-import StockPage from "./pages/StockPage.jsx";
-import CatalogPage from "./pages/CatalogPage.jsx";
-import AccountPage from "./pages/AccountPage.jsx";
-import SettingsPage from "./pages/SettingsPage.jsx";
-import PromocoesPage from "./pages/PromocoesPage.jsx";
-import ProductPage from "./pages/ProductPage.jsx";
-import SobrePage from "./pages/SobrePage.jsx";
-import ContactPage from "./pages/ContactPage.jsx";
-import AdminOrdersPage from "./pages/AdminOrdersPage.jsx";
-import FAQPage from "./pages/FAQPage.jsx";
-import PoliticaPrivacidadePage from "./pages/PoliticaPrivacidadePage.jsx";
-import TrocasPage from "./pages/TrocasPage.jsx";
-import TermosPage from "./pages/TermosPage.jsx";
-import CupomGamePage from "./pages/CupomGamePage.jsx";
-import VipRpgPage from "./pages/VipRpgPage.jsx";
-import VipRedirectPage from "./pages/VipRedirectPage.jsx";
-import VipAreaPage from "./pages/VipAreaPage.jsx";
-import PasswordResetPage from "./pages/PasswordResetPage.jsx";
+const HomePage = lazy(() => import("./pages/HomePage.jsx"));
+const StockPage = lazy(() => import("./pages/StockPage.jsx"));
+const CatalogPage = lazy(() => import("./pages/CatalogPage.jsx"));
+const AccountPage = lazy(() => import("./pages/AccountPage.jsx"));
+const SettingsPage = lazy(() => import("./pages/SettingsPage.jsx"));
+const PromocoesPage = lazy(() => import("./pages/PromocoesPage.jsx"));
+const ProductPage = lazy(() => import("./pages/ProductPage.jsx"));
+const SobrePage = lazy(() => import("./pages/SobrePage.jsx"));
+const ContactPage = lazy(() => import("./pages/ContactPage.jsx"));
+const AdminOrdersPage = lazy(() => import("./pages/AdminOrdersPage.jsx"));
+const FAQPage = lazy(() => import("./pages/FAQPage.jsx"));
+const PoliticaPrivacidadePage = lazy(() => import("./pages/PoliticaPrivacidadePage.jsx"));
+const TrocasPage = lazy(() => import("./pages/TrocasPage.jsx"));
+const TermosPage = lazy(() => import("./pages/TermosPage.jsx"));
+const CupomGamePage = lazy(() => import("./pages/CupomGamePage.jsx"));
+const VipRpgPage = lazy(() => import("./pages/VipRpgPage.jsx"));
+const VipRedirectPage = lazy(() => import("./pages/VipRedirectPage.jsx"));
+const VipAreaPage = lazy(() => import("./pages/VipAreaPage.jsx"));
+const PasswordResetPage = lazy(() => import("./pages/PasswordResetPage.jsx"));
 import { fetchAdminStatus } from "./lib/admin.js";
 import { applySeo, setJsonLd, clearJsonLd } from "./lib/seo.js";
 import { trackEvent } from "./lib/analytics.js";
@@ -1463,7 +1463,7 @@ React.useEffect(() => {
         onGoHomeSection={goHomeSection}
       />
 
-      <MenuDrawer
+{menuDrawerOpen ? (<Suspense fallback={null}><MenuDrawer
         open={menuDrawerOpen}
         onClose={() => setMenuDrawerOpen(false)}
         route={route}
@@ -1485,7 +1485,7 @@ React.useEffect(() => {
         }}
         onOpenSettings={(tab) => openSettings(tab)}
         onSignOut={() => signOut()}
-      />
+      /></Suspense>) : null}
 
       {/* TRUST BAR */}
       <div className="border-b border-cyan-300/10 bg-[linear-gradient(180deg,rgba(7,22,29,.86),rgba(4,16,24,.72))]">
@@ -1644,7 +1644,7 @@ React.useEffect(() => {
         </footer>
 
       {/* DRAWER CARRINHO */}
-      <CartDrawer
+      {cartOpen ? (<Suspense fallback={null}><CartDrawer
         open={cartOpen}
         onClose={() => setCartOpen(false)}
         cart={cart}
@@ -1670,30 +1670,26 @@ React.useEffect(() => {
           clearTimeout(toastT.current);
           toastT.current = setTimeout(() => setToastOpen(false), 2400);
         }}
-      />
+      /></Suspense>) : null}
 
-      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
+      {authOpen ? (<Suspense fallback={null}><AuthModal open={authOpen} onClose={() => setAuthOpen(false)} /></Suspense>) : null}
 
-      <OrdersModal
+      {ordersOpen ? (<Suspense fallback={null}><OrdersModal
         open={ordersOpen}
         onRequireLogin={requireLogin}
         onClose={() => setOrdersOpen(false)}
         onPaymentFinalized={() => {
-          // Quando o usuário paga um Pix pela aba "Meus pedidos",
-          // precisamos replicar o mesmo comportamento do carrinho:
-          // limpar carrinho e fechar a aba.
           setCart([]);
           setOrdersOpen(false);
           setCartOpen(false);
-          // feedback leve
           setToastMsg("Pedido finalizado. Obrigado!");
           setToastOpen(true);
           clearTimeout(toastT.current);
           toastT.current = setTimeout(() => setToastOpen(false), 2400);
         }}
-      />
+      /></Suspense>) : null}
 
-      <VipAreaModal onRequireLogin={requireLogin} open={vipAreaOpen} onClose={() => setVipAreaOpen(false)} onGoVip={() => { setVipAreaOpen(false); navigate("/vip"); }} />
+      {vipAreaOpen ? (<Suspense fallback={null}><VipAreaModal onRequireLogin={requireLogin} open={vipAreaOpen} onClose={() => setVipAreaOpen(false)} onGoVip={() => { setVipAreaOpen(false); navigate("/vip"); }} /></Suspense>) : null}
 
       {/* MODAL GALERIA */}
       {/*
