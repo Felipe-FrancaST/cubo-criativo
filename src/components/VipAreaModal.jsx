@@ -264,6 +264,78 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
     return { mini, boss, total: (mini + boss) };
   }, [displaySelected, optionTypeById]);
 
+  const progress = React.useMemo(() => {
+    const safePct = (value, limit) => {
+      if (!limit) return value > 0 ? 100 : 0;
+      return Math.min(100, Math.round((value / limit) * 100));
+    };
+    const remaining = Math.max(0, totalLimit - selectedCounts.total);
+    const missingMini = Math.max(0, miniLimit - selectedCounts.mini);
+    const missingBoss = Math.max(0, bossLimit - selectedCounts.boss);
+    const complete = selectedCounts.total === totalLimit && selectedCounts.mini === miniLimit && selectedCounts.boss === bossLimit;
+    return {
+      totalPct: safePct(selectedCounts.total, totalLimit),
+      miniPct: safePct(selectedCounts.mini, miniLimit),
+      bossPct: bossLimit ? safePct(selectedCounts.boss, bossLimit) : 100,
+      remaining,
+      missingMini,
+      missingBoss,
+      complete,
+    };
+  }, [selectedCounts, totalLimit, miniLimit, bossLimit]);
+
+  const nextAction = React.useMemo(() => {
+    if (!user) return {
+      label: 'Entrar para acessar a Área VIP',
+      hint: 'Faça login para liberar seu painel VIP e acompanhar o ciclo.',
+      tab: null,
+      ctaLabel: 'Entrar',
+      kind: 'login',
+    };
+    if (!isVip) return {
+      label: 'Assinar um plano VIP',
+      hint: 'Libere escolhas mensais, votação, presente d20 e acompanhamento do pedido.',
+      tab: null,
+      ctaLabel: 'Ver planos VIP',
+      kind: 'upsell',
+    };
+    if (editable && editing && !progress.complete) return {
+      label: `Complete suas escolhas deste ciclo`,
+      hint: progress.remaining > 0 ? `Faltam ${progress.remaining} item(ns) para fechar o mês.` : 'Ajuste miniaturas e bosses até bater o limite exato do seu plano.',
+      tab: 'escolhas',
+      ctaLabel: 'Ir para escolhas',
+      kind: 'choices',
+    };
+    if (editable && editing && progress.complete) return {
+      label: 'Salvar escolhas do ciclo',
+      hint: 'Seu plano já está completo. Salve agora para garantir a produção deste mês.',
+      tab: 'escolhas',
+      ctaLabel: 'Salvar escolhas',
+      kind: 'save',
+    };
+    if (editable && !editing) return {
+      label: 'Acompanhar ou revisar seu pedido',
+      hint: 'Suas escolhas já estão salvas. Você ainda pode revisar enquanto o ciclo estiver editável.',
+      tab: 'pedido',
+      ctaLabel: 'Ver pedido',
+      kind: 'order',
+    };
+    if (String(orderStatus || '').toLowerCase() === 'enviado' && shippingTracking) return {
+      label: 'Acompanhar entrega',
+      hint: 'Seu código de rastreio já está disponível nesta área.',
+      tab: 'pedido',
+      ctaLabel: 'Ver rastreio',
+      kind: 'tracking',
+    };
+    return {
+      label: 'Acompanhar status do pedido',
+      hint: 'Seu ciclo atual já foi fechado. Use esta área para acompanhar a próxima etapa.',
+      tab: 'pedido',
+      ctaLabel: 'Ver pedido',
+      kind: 'order',
+    };
+  }, [user, isVip, editable, editing, progress, orderStatus, shippingTracking]);
+
   function canAdd(optionId) {
     const t = optionTypeById.get(optionId) || 'miniature';
     if (selectedCounts.total >= totalLimit) return false;
@@ -761,6 +833,23 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
     }
   }
 
+  function handlePrimaryAction() {
+    if (!user) {
+      onRequireLogin?.('Entre para acessar a Área VIP.');
+      if (!asPage) onClose?.();
+      return;
+    }
+    if (!isVip) {
+      onGoVip?.();
+      return;
+    }
+    if (nextAction.kind === 'save') {
+      saveSelection();
+      return;
+    }
+    if (nextAction.tab) setTab(nextAction.tab);
+  }
+
   const body = (
       <div className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-slate-950 via-slate-950 to-black ring-1 ring-white/10 shadow-2xl shadow-black/30">
         <div className="absolute inset-0 opacity-35 pointer-events-none" style={{ backgroundImage: "radial-gradient(circle at 20% 10%, rgba(168,85,247,.35), transparent 45%), radial-gradient(circle at 80% 20%, rgba(34,197,94,.22), transparent 55%), radial-gradient(circle at 50% 90%, rgba(56,189,248,.18), transparent 55%)" }} />
@@ -834,9 +923,42 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
           ) : error ? (
             <div className="mt-6 rounded-2xl bg-rose-500/10 ring-1 ring-rose-400/20 p-4 text-rose-100">{error}</div>
           ) : !isVip ? (
-            <div className="mt-6 rounded-2xl bg-white/4 ring-1 ring-white/10 p-5">
-              <p className="text-slate-200">Assine para escolher suas miniaturas mensais e liberar benefícios VIP.</p>
-              <button onClick={onGoVip} className="mt-4 rounded-xl px-4 py-3 font-extrabold bg-cyan-400 text-black ring-4 ring-cyan-400/20">Ver planos VIP</button>
+            <div className="mt-6 overflow-hidden rounded-[28px] bg-gradient-to-br from-violet-500/12 via-slate-950 to-cyan-500/10 ring-1 ring-violet-300/20 p-5 sm:p-6">
+              <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                <div className="max-w-2xl">
+                  <div className="inline-flex items-center gap-2 rounded-full bg-violet-400/10 px-3 py-1 text-[11px] font-extrabold uppercase tracking-[0.24em] text-violet-100 ring-1 ring-violet-300/20">
+                    <span className="material-icons text-[16px]">workspace_premium</span>
+                    Clube VIP
+                  </div>
+                  <h3 className="mt-4 text-2xl font-extrabold text-white">Seu próximo passo é entrar para o VIP</h3>
+                  <p className="mt-3 max-w-xl text-sm leading-6 text-slate-200/90">Assine para escolher miniaturas mensais, acompanhar produção, votar nos próximos temas e liberar seu presente d20 do mês em um painel exclusivo.</p>
+                </div>
+                <div className="lg:w-[320px] rounded-3xl bg-black/25 p-4 ring-1 ring-white/10">
+                  <div className="text-xs font-extrabold uppercase tracking-[0.24em] text-slate-400">O que desbloqueia</div>
+                  <div className="mt-4 space-y-3">
+                    {[
+                      ['deployed_code','Escolhas mensais','Selecione miniaturas e bosses do seu plano em um fluxo guiado.'],
+                      ['local_shipping','Pedido acompanhado','Veja status do ciclo, produção e rastreio em um só lugar.'],
+                      ['how_to_vote','Votação VIP','Ajude a definir o próximo tema do clube todo mês.'],
+                      ['redeem','Presente d20','Faça sua rolagem mensal e receba prêmios e cupons.'],
+                    ].map(([icon, title, desc]) => (
+                      <div key={title} className="rounded-2xl bg-white/4 px-3 py-3 ring-1 ring-white/10">
+                        <div className="flex items-start gap-3">
+                          <span className="material-icons text-cyan-200">{icon}</span>
+                          <div>
+                            <div className="text-sm font-extrabold text-slate-100">{title}</div>
+                            <div className="mt-1 text-xs leading-5 text-slate-400">{desc}</div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="mt-5 flex flex-wrap gap-3">
+                <button onClick={onGoVip} className="rounded-xl px-4 py-3 font-extrabold bg-cyan-400 text-black ring-4 ring-cyan-400/20 hover:bg-cyan-300">Ver planos VIP</button>
+                <div className="rounded-xl px-4 py-3 text-sm text-slate-300 ring-1 ring-white/10 bg-white/4">Escolhas mensais, votação, presente e acompanhamento no mesmo painel.</div>
+              </div>
             </div>
           ) : (
             <>
@@ -909,6 +1031,72 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                   >
                     <span className="material-icons">tips_and_updates</span>
                   </button>
+                </div>
+
+                <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(0,1.35fr)_minmax(280px,0.9fr)]">
+                  <div className="rounded-[22px] bg-gradient-to-br from-violet-500/10 via-slate-950/50 to-cyan-500/10 p-4 ring-1 ring-white/10">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-[11px] font-extrabold uppercase tracking-[0.24em] text-slate-400">Próxima ação</div>
+                        <div className="mt-2 text-lg font-extrabold text-white">{nextAction.label}</div>
+                        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">{nextAction.hint}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handlePrimaryAction}
+                        className="rounded-2xl bg-cyan-400 px-4 py-3 text-sm font-extrabold text-black ring-4 ring-cyan-400/15 transition hover:bg-cyan-300"
+                      >
+                        {nextAction.ctaLabel}
+                      </button>
+                    </div>
+                    <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                      <div className="rounded-2xl bg-black/20 px-3 py-3 ring-1 ring-white/10">
+                        <div className="text-[11px] uppercase tracking-[0.2em] text-slate-500">Plano</div>
+                        <div className="mt-1 text-sm font-extrabold text-slate-100">{vipPlanLabel}</div>
+                      </div>
+                      <div className="rounded-2xl bg-black/20 px-3 py-3 ring-1 ring-white/10">
+                        <div className="text-[11px] uppercase tracking-[0.2em] text-slate-500">Prazo</div>
+                        <div className="mt-1 text-sm font-extrabold text-slate-100">{cycleDeadline}</div>
+                      </div>
+                      <div className="rounded-2xl bg-black/20 px-3 py-3 ring-1 ring-white/10">
+                        <div className="text-[11px] uppercase tracking-[0.2em] text-slate-500">Faltam</div>
+                        <div className="mt-1 text-sm font-extrabold text-slate-100">{progress.remaining} item(ns)</div>
+                      </div>
+                      <div className="rounded-2xl bg-black/20 px-3 py-3 ring-1 ring-white/10">
+                        <div className="text-[11px] uppercase tracking-[0.2em] text-slate-500">Modo</div>
+                        <div className="mt-1 text-sm font-extrabold text-slate-100">{editing ? 'Editando' : 'Salvo'}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-[22px] bg-black/20 p-4 ring-1 ring-white/10">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="text-[11px] font-extrabold uppercase tracking-[0.24em] text-slate-400">Progresso das escolhas</div>
+                        <div className="mt-1 text-sm text-slate-300">Acompanhe miniaturas, bosses e o total do seu plano.</div>
+                      </div>
+                      <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-extrabold ring-1 ${progress.complete ? 'bg-emerald-500/15 text-emerald-100 ring-emerald-400/25' : 'bg-white/4 text-slate-200 ring-white/10'}`}>
+                        {progress.complete ? 'Completo' : 'Em andamento'}
+                      </span>
+                    </div>
+                    <div className="mt-4 space-y-3">
+                      {[
+                        ['Total', selectedCounts.total, totalLimit, progress.totalPct, progress.remaining ? `${progress.remaining} restante(s)` : 'Fechado'],
+                        ['Miniaturas', selectedCounts.mini, miniLimit, progress.miniPct, progress.missingMini ? `${progress.missingMini} restante(s)` : 'Concluído'],
+                        ...(bossLimit ? [['Bosses', selectedCounts.boss, bossLimit, progress.bossPct, progress.missingBoss ? `${progress.missingBoss} restante(s)` : 'Concluído']] : []),
+                      ].map(([label, value, limit, pct, tail]) => (
+                        <div key={label}>
+                          <div className="mb-1 flex items-center justify-between gap-3 text-xs">
+                            <span className="font-semibold text-slate-200">{label}</span>
+                            <span className="text-slate-400"><b className="text-slate-100">{value}</b>/{limit} • {tail}</span>
+                          </div>
+                          <div className="h-2.5 overflow-hidden rounded-full bg-white/8">
+                            <div className="h-full rounded-full bg-cyan-300 transition-all" style={{ width: `${pct}%` }} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
 
                 {helpOpen ? (
@@ -1163,17 +1351,35 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
 
               {tab === 'escolhas' ? (
                 <>
-              <div className="mt-6 flex items-center justify-between gap-3 flex-wrap">
-                <div className="text-sm text-slate-300">
-                  Escolha <b>{totalLimit}</b> item(ns) do mês ({miniLimit} miniatura(s){bossLimit ? ` + ${bossLimit} boss(es)` : ""}) entre <b>{optionsLoading ? '…' : options.length}</b> opções.
-                  {!editable ? (
-                    <span className="ml-2 text-slate-400">(Escolhas bloqueadas: status {st.label})</span>
-                  ) : null}
+              <div className="mt-6 rounded-2xl bg-white/4 ring-1 ring-white/10 p-4">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div className="text-sm text-slate-300">
+                    Escolha <b>{totalLimit}</b> item(ns) do mês ({miniLimit} miniatura(s){bossLimit ? ` + ${bossLimit} boss(es)` : ""}) entre <b>{optionsLoading ? '…' : options.length}</b> opções.
+                    {!editable ? (
+                      <span className="ml-2 text-slate-400">(Escolhas bloqueadas: status {st.label})</span>
+                    ) : null}
+                  </div>
+                  <div className="text-sm text-slate-200">
+                    Selecionadas: <b>{selectedCounts.total}</b>/{totalLimit}
+                    <span className="ml-2 text-slate-400">• Mini: <b className="text-slate-200">{selectedCounts.mini}</b>/{miniLimit}</span>
+                    <span className="ml-2 text-slate-400">• Boss: <b className="text-slate-200">{selectedCounts.boss}</b>/{bossLimit}</span>
+                  </div>
                 </div>
-                <div className="text-sm text-slate-200">
-                  Selecionadas: <b>{selectedCounts.total}</b>/{totalLimit}
-                  <span className="ml-2 text-slate-400">• Mini: <b className="text-slate-200">{selectedCounts.mini}</b>/{miniLimit}</span>
-                  <span className="ml-2 text-slate-400">• Boss: <b className="text-slate-200">{selectedCounts.boss}</b>/{bossLimit}</span>
+                <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  <div className="rounded-2xl bg-black/20 p-3 ring-1 ring-white/10">
+                    <div className="flex items-center justify-between gap-2 text-xs"><span className="font-semibold text-slate-200">Total do plano</span><span className="text-slate-400"><b className="text-slate-100">{selectedCounts.total}</b>/{totalLimit}</span></div>
+                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/8"><div className="h-full bg-cyan-300 transition-all" style={{ width: `${progress.totalPct}%` }} /></div>
+                  </div>
+                  <div className="rounded-2xl bg-black/20 p-3 ring-1 ring-white/10">
+                    <div className="flex items-center justify-between gap-2 text-xs"><span className="font-semibold text-slate-200">Miniaturas</span><span className="text-slate-400"><b className="text-slate-100">{selectedCounts.mini}</b>/{miniLimit}</span></div>
+                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/8"><div className="h-full bg-violet-300 transition-all" style={{ width: `${progress.miniPct}%` }} /></div>
+                  </div>
+                  {bossLimit ? (
+                    <div className="rounded-2xl bg-black/20 p-3 ring-1 ring-white/10">
+                      <div className="flex items-center justify-between gap-2 text-xs"><span className="font-semibold text-slate-200">Bosses</span><span className="text-slate-400"><b className="text-slate-100">{selectedCounts.boss}</b>/{bossLimit}</span></div>
+                      <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/8"><div className="h-full bg-amber-300 transition-all" style={{ width: `${progress.bossPct}%` }} /></div>
+                    </div>
+                  ) : null}
                 </div>
               </div>
 

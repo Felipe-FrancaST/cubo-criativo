@@ -16,6 +16,38 @@ const fmtDate = (iso) => {
   }
 };
 
+const toDateInputValue = (date) => {
+  try {
+    const d = date instanceof Date ? date : new Date(date);
+    if (Number.isNaN(d.getTime())) return "";
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  } catch {
+    return "";
+  }
+};
+
+const startOfDay = (value) => {
+  if (!value) return null;
+  const d = new Date(`${value}T00:00:00`);
+  return Number.isNaN(d.getTime()) ? null : d;
+};
+
+const endOfDay = (value) => {
+  if (!value) return null;
+  const d = new Date(`${value}T23:59:59.999`);
+  return Number.isNaN(d.getTime()) ? null : d;
+};
+
+const daysBetween = (fromIso, to = new Date()) => {
+  if (!fromIso) return null;
+  const from = new Date(fromIso);
+  if (Number.isNaN(from.getTime())) return null;
+  return Math.max(0, Math.floor((to.getTime() - from.getTime()) / 86400000));
+};
+
 const badgeBase = "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] ring-1";
 const statusBadge = (status) => {
   const s = String(status || "").toLowerCase();
@@ -1096,6 +1128,8 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
   const [filterPay, setFilterPay] = React.useState("all");
   const [filterProd, setFilterProd] = React.useState("all");
   const [filterType, setFilterType] = React.useState("all");
+  const [filterDateFrom, setFilterDateFrom] = React.useState(() => toDateInputValue(new Date(Date.now() - 29 * 86400000)));
+  const [filterDateTo, setFilterDateTo] = React.useState(() => toDateInputValue(new Date()));
 
   const [toast, setToast] = React.useState("");
   const [resendEmailBusyId, setResendEmailBusyId] = React.useState(null);
@@ -1470,7 +1504,12 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
 
   const filteredOrders = React.useMemo(() => {
     const query = String(q || "").trim().toLowerCase();
+    const fromDate = startOfDay(filterDateFrom);
+    const toDate = endOfDay(filterDateTo);
     return (orders || []).filter((o) => {
+      const createdAt = o?.created_at ? new Date(o.created_at) : null;
+      if (fromDate && createdAt && createdAt < fromDate) return false;
+      if (toDate && createdAt && createdAt > toDate) return false;
       if (filterPay !== "all" && String(o.status || "").toLowerCase() !== filterPay) return false;
       if (filterProd !== "all" && String(o.production_status || "recebido").toLowerCase() !== filterProd) return false;
       if (filterType !== "all") {
@@ -1494,10 +1533,10 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
         .toLowerCase();
       return hay.includes(query);
     });
-  }, [orders, q, filterPay, filterProd, filterType]);
+  }, [orders, q, filterPay, filterProd, filterType, filterDateFrom, filterDateTo]);
 
   const stats = React.useMemo(() => {
-    const list = orders || [];
+    const list = filteredOrders || [];
     const total = list.length;
     const paid = list.filter((o) => String(o.status || "").toLowerCase() === "paid");
     const pending = list.filter((o) => String(o.status || "").toLowerCase() !== "paid");
@@ -1505,7 +1544,31 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
     const refundReq = list.filter((o) => !!o.refund_requested).length;
     const vipCount = list.filter((o) => String(o.order_type || "").toLowerCase() === "vip").length;
     return { total, paid: paid.length, pending: pending.length, revenue, refundReq, vipCount };
-  }, [orders]);
+  }, [filteredOrders]);
+
+  const bottlenecks = React.useMemo(() => {
+    const list = filteredOrders || [];
+    const paidWaitingProduction = list.filter((o) => String(o.status || '').toLowerCase() === 'paid' && ['recebido', 'editavel'].includes(String(o.production_status || 'recebido').toLowerCase())).length;
+    const readyWithoutTracking = list.filter((o) => String(o.status || '').toLowerCase() === 'paid' && String(o.production_status || '').toLowerCase() === 'pronto' && !String(o.shipping_tracking || '').trim()).length;
+    const shippedInTransit = list.filter((o) => String(o.production_status || '').toLowerCase() === 'enviado').length;
+    const refundRequested = list.filter((o) => !!o.refund_requested).length;
+    const staleOrders = list.filter((o) => {
+      const age = daysBetween(o.updated_at || o.created_at);
+      return age !== null && age >= 7 && !['entregue', 'cancelado', 'reembolsado'].includes(String(o.production_status || '').toLowerCase());
+    }).length;
+    return { paidWaitingProduction, readyWithoutTracking, shippedInTransit, refundRequested, staleOrders };
+  }, [filteredOrders]);
+
+  const quickQueue = React.useMemo(() => {
+    return [...(filteredOrders || [])]
+      .filter((o) => {
+        const prod = String(o.production_status || 'recebido').toLowerCase();
+        const paid = String(o.status || '').toLowerCase() === 'paid';
+        return (paid && ['recebido', 'editavel', 'pronto', 'enviado'].includes(prod)) || !!o.refund_requested;
+      })
+      .sort((a, b) => new Date(a.updated_at || a.created_at || 0).getTime() - new Date(b.updated_at || b.created_at || 0).getTime())
+      .slice(0, 8);
+  }, [filteredOrders]);
 
   const activeOrder = React.useMemo(() => (orders || []).find((o) => o.id === details.orderId) || null, [orders, details.orderId]);
   const activeActionOrder = React.useMemo(() => (orders || []).find((o) => o.id === actionModal.orderId) || null, [orders, actionModal.orderId]);
@@ -1756,7 +1819,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
               />
 
               <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-3">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+                <div className="grid grid-cols-1 md:grid-cols-6 gap-2">
                   <label className="block md:col-span-2">
                     <div className="text-xs text-slate-500 mb-1">Busca</div>
                     <input
@@ -1813,7 +1876,27 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                     </select>
                   </label>
 
-                  <div className="md:col-span-3 flex flex-wrap items-end gap-2">
+                  <label className="block">
+                    <div className="text-xs text-slate-500 mb-1">De</div>
+                    <input
+                      type="date"
+                      value={filterDateFrom}
+                      onChange={(e) => setFilterDateFrom(e.target.value)}
+                      className="w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-slate-100"
+                    />
+                  </label>
+
+                  <label className="block">
+                    <div className="text-xs text-slate-500 mb-1">Até</div>
+                    <input
+                      type="date"
+                      value={filterDateTo}
+                      onChange={(e) => setFilterDateTo(e.target.value)}
+                      className="w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-slate-100"
+                    />
+                  </label>
+
+                  <div className="md:col-span-5 flex flex-wrap items-end gap-2">
                     <div className="text-xs text-slate-500">
                       Exibindo <span className="text-slate-200">{filteredOrders.length}</span> de{" "}
                       <span className="text-slate-200">{orders.length}</span>
@@ -1836,6 +1919,8 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                         setFilterPay("all");
                         setFilterProd("all");
                         setFilterType("all");
+                        setFilterDateFrom(toDateInputValue(new Date(Date.now() - 29 * 86400000)));
+                        setFilterDateTo(toDateInputValue(new Date()));
                       }}
                       className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
                     >
