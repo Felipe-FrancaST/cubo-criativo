@@ -1366,7 +1366,7 @@ React.useEffect(() => {
       return <VipRedirectPage user={user} accessToken={accessToken} onNavigate={navigate} onOpenAuth={() => setAuthOpen(true)} />;
     }
     if (route === "/planos-vip") {
-      return <VipRpgPage user={user} accessToken={accessToken} onOpenAuth={() => setAuthOpen(true)} onOpenSettings={openSettings} onOpenVipArea={() => navigate("/area-vip")} onGoHome={() => navigate("/")} />;
+      return <VipRpgPage user={user} accessToken={accessToken} onOpenAuth={() => setAuthOpen(true)} onRequireLogin={requireLogin} onOpenSettings={openSettings} onOpenVipArea={() => navigate("/area-vip")} onGoHome={() => navigate("/")} />;
     }
     if (route === "/area-vip") {
       return <VipAreaPage onGoHome={() => navigate("/")} onGoVip={() => navigate("/planos-vip")} onRequireLogin={(msg) => requireLogin(msg)} />;

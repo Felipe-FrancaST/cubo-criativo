@@ -23,6 +23,7 @@ export default function VipRpgPage({
   user,
   accessToken,
   onOpenAuth,
+  onRequireLogin,
   onOpenSettings,
   onOpenVipArea,
   onGoHome,
@@ -306,8 +307,7 @@ export default function VipRpgPage({
     setPix(null);
     if (!accessToken) {
       setSubmittingMethod('');
-      setError('Faça login para assinar');
-      onOpenAuth?.();
+      onRequireLogin?.('Faça login para assinar');
       return;
     }
     if (!(await ensureProfileComplete())) {
@@ -359,8 +359,7 @@ export default function VipRpgPage({
     setOk('');
     if (!accessToken) {
       setSubmittingMethod('');
-      setError('Faça login para assinar');
-      onOpenAuth?.();
+      onRequireLogin?.('Faça login para assinar');
       return;
     }
     if (!(await ensureProfileComplete())) {
