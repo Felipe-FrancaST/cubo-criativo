@@ -552,9 +552,9 @@ function StatusModal({ open, mode, order, onClose, onSubmit }) {
           </button>
           <button
             onClick={submit}
-            className="rounded-xl px-3 py-2 text-sm text-white bg-emerald-500/20 hover:bg-emerald-500/25 ring-1 ring-emerald-500/30"
+            className={mode === "delete" ? "rounded-xl px-3 py-2 text-sm text-red-100 bg-red-500/15 hover:bg-red-500/25 ring-1 ring-red-500/30" : "rounded-xl px-3 py-2 text-sm text-white bg-emerald-500/20 hover:bg-emerald-500/25 ring-1 ring-emerald-500/30"}
           >
-            Salvar
+            {mode === "delete" ? (busy ? "Excluindo..." : "Excluir permanentemente") : "Salvar"}
           </button>
         </div>
       </div>
@@ -584,6 +584,7 @@ function BulkActionModal({ open, mode, count, busy = false, onClose, onSubmit })
     }
     if (mode === "refund_on") return onSubmit?.({ refund_requested: true });
     if (mode === "refund_off") return onSubmit?.({ refund_requested: false });
+    if (mode === "delete") return onSubmit?.({ confirm_delete: true });
   };
 
   const title =
@@ -591,7 +592,9 @@ function BulkActionModal({ open, mode, count, busy = false, onClose, onSubmit })
       ? "Atualizar produção em lote"
       : mode === "refund_on"
       ? "Marcar reembolso em lote"
-      : "Limpar reembolso em lote";
+      : mode === "refund_off"
+      ? "Limpar reembolso em lote"
+      : "Excluir pedidos em lote";
 
   return (
     <div className="fixed inset-0 z-[10040]">
@@ -646,10 +649,12 @@ function BulkActionModal({ open, mode, count, busy = false, onClose, onSubmit })
               ) : null}
             </>
           ) : (
-            <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-4 text-sm text-slate-300">
+            <div className={mode === "delete" ? "rounded-2xl bg-red-500/10 ring-1 ring-red-500/20 p-4 text-sm text-red-100" : "rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-4 text-sm text-slate-300"}>
               {mode === "refund_on"
                 ? "Isso vai marcar os pedidos selecionados como reembolso solicitado."
-                : "Isso vai remover a marcação de reembolso solicitado dos pedidos selecionados."}
+                : mode === "refund_off"
+                ? "Isso vai remover a marcação de reembolso solicitado dos pedidos selecionados."
+                : "Tem certeza? Essa ação é permanente e vai excluir os pedidos selecionados do sistema."}
             </div>
           )}
         </div>
@@ -1437,6 +1442,40 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
     }
   }
 
+  async function bulkDeleteOrders() {
+    if (!selectedOrderIds.length || !accessToken) return;
+    try {
+      setBulkBusy(true);
+      const resp = await fetch("/api/admin?action=bulk-delete-orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ order_ids: selectedOrderIds }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data?.error || "Falha ao excluir pedidos.");
+
+      const deletedIds = Array.isArray(data?.deleted_order_ids) ? data.deleted_order_ids.map(String) : [];
+      const deletedCount = Number(data?.deleted_count || deletedIds.length || 0);
+      const failedCount = Number(data?.failed_count || 0);
+
+      if (deletedIds.length) {
+        setOrders((prev) => (prev || []).filter((o) => !deletedIds.includes(String(o.id))));
+      }
+      setSelectedOrderIds([]);
+      setBulkModal({ open: false, mode: "status" });
+      setDetails((d) => (d?.open && deletedIds.includes(String(d.orderId)) ? { open: false, orderId: null } : d));
+      showToast(failedCount ? `⚠️ ${deletedCount} pedido(s) excluídos, ${failedCount} falharam.` : `🗑️ ${deletedCount} pedido(s) excluídos.`);
+      fetchOrders();
+    } catch (e) {
+      showToast(`⚠️ ${e?.message || "Falha ao excluir em lote."}`);
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
   const filteredOrders = React.useMemo(() => Array.isArray(orders) ? orders : [], [orders]);
 
   const stats = React.useMemo(() => {
@@ -1875,6 +1914,13 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                           className="rounded-xl px-3 py-2 text-sm text-slate-100 hover:bg-white/4 ring-1 ring-white/10 disabled:opacity-50"
                         >
                           Reenviar e-mails
+                        </button>
+                        <button
+                          onClick={() => setBulkModal({ open: true, mode: "delete" })}
+                          disabled={!selectedOrderIds.length || bulkBusy}
+                          className="rounded-xl px-3 py-2 text-sm text-red-100 hover:bg-red-500/10 ring-1 ring-red-500/30 disabled:opacity-50"
+                        >
+                          Excluir pedidos
                         </button>
                         <button
                           onClick={() => setSelectedOrderIds([])}
@@ -2426,6 +2472,10 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
         busy={bulkBusy}
         onClose={() => setBulkModal({ open: false, mode: "status" })}
         onSubmit={(patch) => {
+          if (bulkModal.mode === "delete") {
+            bulkDeleteOrders();
+            return;
+          }
           const nextPatch =
             bulkModal.mode === "refund_on" && patch?.refund_requested
               ? { ...patch, refund_requested_at: new Date().toISOString() }

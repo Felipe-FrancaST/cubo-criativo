@@ -1050,6 +1050,21 @@ async function loadVipPresentRolls(sb, vipOrders) {
   return { byKey, tableAvailable: true, error: null };
 }
 
+async function deleteOrderById(sb, orderId) {
+  const id = String(orderId || "").trim();
+  if (!id) return { ok: false, error: "Missing order_id" };
+
+  try {
+    await sb.from("order_items").delete().eq("order_id", id);
+  } catch (e) {
+    // ignore (table may not exist in some deployments)
+  }
+
+  const { error: delErr } = await sb.from("orders").delete().eq("id", id);
+  if (delErr) return { ok: false, error: delErr.message || "Failed to delete order" };
+  return { ok: true, order_id: id };
+}
+
 async function handleDeleteOrder(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
@@ -1061,18 +1076,41 @@ async function handleDeleteOrder(req, res) {
   if (!orderId) return res.status(400).json({ error: "Missing order_id" });
 
   const sb = supabaseAdmin();
+  const result = await deleteOrderById(sb, orderId);
+  if (!result?.ok) return res.status(500).json({ error: result?.error || "Failed to delete order" });
 
-  // Delete children first (if table exists / FK not cascade).
-  try {
-    await sb.from("order_items").delete().eq("order_id", orderId);
-  } catch (e) {
-    // ignore (table may not exist in some deployments)
+  return res.status(200).json({ ok: true, order_id: orderId });
+}
+
+async function handleBulkDeleteOrders(req, res) {
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+
+  const auth = await requireAdmin(req);
+  if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
+
+  const body = await readJsonBody(req);
+  const orderIds = Array.isArray(body?.order_ids)
+    ? body.order_ids.map((id) => String(id || "").trim()).filter(Boolean)
+    : [];
+  if (!orderIds.length) return res.status(400).json({ error: "Missing order_ids" });
+
+  const sb = supabaseAdmin();
+  const results = [];
+  for (const orderId of orderIds) {
+    const result = await deleteOrderById(sb, orderId);
+    results.push(result);
   }
 
-  const { error: delErr } = await sb.from("orders").delete().eq("id", orderId);
-  if (delErr) return res.status(500).json({ error: delErr.message || "Failed to delete order" });
+  const deleted = results.filter((r) => r?.ok).map((r) => r.order_id);
+  const failed = results.filter((r) => !r?.ok).map((r, idx) => ({ order_id: orderIds[idx], error: r?.error || "Failed to delete order" }));
 
-  return res.status(200).json({ ok: true, order: order || null });
+  return res.status(200).json({
+    ok: failed.length === 0,
+    deleted_count: deleted.length,
+    failed_count: failed.length,
+    deleted_order_ids: deleted,
+    failed,
+  });
 }
 
 
@@ -1590,6 +1628,7 @@ export default async function handler(req, res) {
     if (action === "update-order") return await handleUpdateOrder(req, res);
     if (action === "resend-order-email") return await handleResendOrderEmail(req, res);
     if (action === "delete-order") return await handleDeleteOrder(req, res);
+    if (action === "bulk-delete-orders") return await handleBulkDeleteOrders(req, res);
     if (action === "vip-voting") return await handleVipVoting(req, res);
     if (action === "vip-close-voting") return await handleVipCloseVoting(req, res);
     if (action === "vip-start-voting") return await handleVipStartVoting(req, res);
