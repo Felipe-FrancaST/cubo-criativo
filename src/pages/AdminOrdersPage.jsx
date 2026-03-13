@@ -854,6 +854,120 @@ function StatusModal({ open, mode, order, onClose, onSubmit }) {
   );
 }
 
+
+function BulkActionModal({ open, mode, count, busy = false, onClose, onSubmit }) {
+  const [productionStatus, setProductionStatus] = React.useState("recebido");
+  const [tracking, setTracking] = React.useState("");
+
+  React.useEffect(() => {
+    if (!open) return;
+    setProductionStatus("recebido");
+    setTracking("");
+  }, [open, mode]);
+
+  if (!open) return null;
+
+  const submit = () => {
+    if (mode === "status") {
+      const patch = { production_status: String(productionStatus || "recebido").toLowerCase() };
+      if (patch.production_status === "enviado" && tracking.trim()) patch.shipping_tracking = tracking.trim();
+      onSubmit?.(patch);
+      return;
+    }
+    if (mode === "refund_on") return onSubmit?.({ refund_requested: true });
+    if (mode === "refund_off") return onSubmit?.({ refund_requested: false });
+  };
+
+  const title =
+    mode === "status"
+      ? "Atualizar produção em lote"
+      : mode === "refund_on"
+      ? "Marcar reembolso em lote"
+      : "Limpar reembolso em lote";
+
+  return (
+    <div className="fixed inset-0 z-[10040]">
+      <div className="absolute inset-0 bg-[#020b10]/72" onClick={busy ? undefined : onClose} />
+      <div className="absolute left-1/2 top-1/2 w-[92vw] max-w-[520px] -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-[#0a0f1a] ring-1 ring-white/10 p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="text-white font-semibold">{title}</div>
+            <div className="text-xs text-slate-400">{count} pedido(s) selecionado(s)</div>
+          </div>
+          <button
+            onClick={onClose}
+            className="rounded-xl px-3 py-2 text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
+            aria-label="Fechar"
+            disabled={busy}
+          >
+            <span className="material-icons text-[18px]">close</span>
+          </button>
+        </div>
+
+        <div className="mt-4 space-y-3">
+          {mode === "status" ? (
+            <>
+              <label className="block">
+                <div className="text-xs text-slate-400 mb-1">Novo status</div>
+                <select
+                  value={productionStatus}
+                  onChange={(e) => setProductionStatus(e.target.value)}
+                  className="w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-slate-100"
+                >
+                  <option value="editavel">Editável</option>
+                  <option value="recebido">Recebido</option>
+                  <option value="em_producao">Em produção</option>
+                  <option value="pronto">Pronto</option>
+                  <option value="enviado">Enviado</option>
+                  <option value="entregue">Entregue</option>
+                  <option value="cancelado">Cancelado</option>
+                  <option value="reembolsado">Reembolsado</option>
+                </select>
+              </label>
+
+              {String(productionStatus).toLowerCase() === "enviado" ? (
+                <label className="block">
+                  <div className="text-xs text-slate-400 mb-1">Rastreio comum (opcional)</div>
+                  <input
+                    value={tracking}
+                    onChange={(e) => setTracking(e.target.value)}
+                    className="w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-slate-100"
+                    placeholder="Preencha só se o mesmo rastreio servir para todos"
+                  />
+                </label>
+              ) : null}
+            </>
+          ) : (
+            <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-4 text-sm text-slate-300">
+              {mode === "refund_on"
+                ? "Isso vai marcar os pedidos selecionados como reembolso solicitado."
+                : "Isso vai remover a marcação de reembolso solicitado dos pedidos selecionados."}
+            </div>
+          )}
+        </div>
+
+        <div className="mt-4 flex items-center justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
+            disabled={busy}
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={submit}
+            disabled={busy}
+            className="rounded-xl px-3 py-2 text-sm text-white bg-emerald-500/20 hover:bg-emerald-500/25 ring-1 ring-emerald-500/30 disabled:opacity-60"
+          >
+            {busy ? "Aplicando..." : "Aplicar"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 function CloseVotingModal({ state, onClose, onConfirm, onSelectWinner }) {
   const open = !!state?.open;
   const pollPack = state?.poll;
@@ -1130,6 +1244,13 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
   const [filterType, setFilterType] = React.useState("all");
   const [filterDateFrom, setFilterDateFrom] = React.useState(() => toDateInputValue(new Date(Date.now() - 29 * 86400000)));
   const [filterDateTo, setFilterDateTo] = React.useState(() => toDateInputValue(new Date()));
+  const [page, setPage] = React.useState(1);
+  const [pageSize, setPageSize] = React.useState(25);
+  const [pagination, setPagination] = React.useState({ page: 1, pageSize: 25, totalCount: 0, totalPages: 1 });
+  const [summary, setSummary] = React.useState({ total: 0, paid: 0, pending: 0, revenue: 0, refundReq: 0, vipCount: 0, bottlenecks: { paidWaitingProduction: 0, readyWithoutTracking: 0, shippedInTransit: 0, refundRequested: 0 } });
+  const [selectedOrderIds, setSelectedOrderIds] = React.useState([]);
+  const [bulkBusy, setBulkBusy] = React.useState(false);
+  const [bulkModal, setBulkModal] = React.useState({ open: false, mode: "status" });
 
   const [toast, setToast] = React.useState("");
   const [resendEmailBusyId, setResendEmailBusyId] = React.useState(null);
@@ -1187,19 +1308,36 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
     setLoading(true);
     setError("");
     try {
-      // Use query-based admin multiplexer to avoid relying on rewrites.
-      const resp = await fetch("/api/admin?action=orders", {
+      const params = new URLSearchParams({
+        action: "orders",
+        page: String(page),
+        page_size: String(pageSize),
+        q: String(q || ""),
+        pay: String(filterPay || "all"),
+        prod: String(filterProd || "all"),
+        type: String(filterType || "all"),
+        date_from: String(filterDateFrom || ""),
+        date_to: String(filterDateTo || ""),
+      });
+      const resp = await fetch(`/api/admin?${params.toString()}`, {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
       const data = await resp.json().catch(() => ({}));
       if (!resp.ok) throw new Error(data?.error || "Não foi possível carregar pedidos.");
       setOrders(Array.isArray(data.orders) ? data.orders : []);
+      setPagination({
+        page: Number(data?.pagination?.page || page),
+        pageSize: Number(data?.pagination?.page_size || pageSize),
+        totalCount: Number(data?.pagination?.total_count || 0),
+        totalPages: Number(data?.pagination?.total_pages || 1),
+      });
+      setSummary((prev) => ({ ...prev, ...(data?.summary || {}) }));
     } catch (e) {
       setError(e?.message || "Erro ao carregar pedidos.");
     } finally {
       setLoading(false);
     }
-  }, [accessToken]);
+  }, [accessToken, page, pageSize, q, filterPay, filterProd, filterType, filterDateFrom, filterDateTo]);
 
   const fetchVipVoting = React.useCallback(async () => {
     if (!accessToken) return;
@@ -1368,8 +1506,16 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
   }
 
   React.useEffect(() => {
+    setPage(1);
+  }, [q, filterPay, filterProd, filterType, filterDateFrom, filterDateTo, pageSize]);
+
+  React.useEffect(() => {
     fetchOrders();
   }, [fetchOrders]);
+
+  React.useEffect(() => {
+    setSelectedOrderIds([]);
+  }, [orders, page, filterPay, filterProd, filterType, filterDateFrom, filterDateTo, q]);
 
   React.useEffect(() => {
     if (section === "vip") {
@@ -1502,62 +1648,111 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
     }
   }
 
-  const filteredOrders = React.useMemo(() => {
-    const query = String(q || "").trim().toLowerCase();
-    const fromDate = startOfDay(filterDateFrom);
-    const toDate = endOfDay(filterDateTo);
-    return (orders || []).filter((o) => {
-      const createdAt = o?.created_at ? new Date(o.created_at) : null;
-      if (fromDate && createdAt && createdAt < fromDate) return false;
-      if (toDate && createdAt && createdAt > toDate) return false;
-      if (filterPay !== "all" && String(o.status || "").toLowerCase() !== filterPay) return false;
-      if (filterProd !== "all" && String(o.production_status || "recebido").toLowerCase() !== filterProd) return false;
-      if (filterType !== "all") {
-        const t = String(o.order_type || "store").toLowerCase();
-        if (filterType === "vip" && t !== "vip") return false;
-        if (filterType === "store" && t === "vip") return false;
-      }
-      if (!query) return true;
-      const hay = [
-        o.id,
-        o.customer_email,
-        o.customer_name,
-        o.customer_phone,
-        o.profile?.full_name,
-        o.profile?.phone,
-        o.shipping_tracking,
-        (o.order_items || []).map((it) => it.name).join(" "),
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-      return hay.includes(query);
+
+  function toggleOrderSelection(orderId) {
+    setSelectedOrderIds((prev) =>
+      prev.includes(orderId) ? prev.filter((id) => id !== orderId) : [...prev, orderId]
+    );
+  }
+
+  function toggleSelectAllCurrentPage() {
+    setSelectedOrderIds((prev) => {
+      if (allPageSelected) return prev.filter((id) => !filteredOrders.some((o) => o.id === id));
+      const next = new Set(prev);
+      filteredOrders.forEach((o) => next.add(o.id));
+      return Array.from(next);
     });
-  }, [orders, q, filterPay, filterProd, filterType, filterDateFrom, filterDateTo]);
+  }
+
+  async function bulkUpdateOrders(patch) {
+    if (!selectedOrderIds.length || !accessToken) return;
+    try {
+      setBulkBusy(true);
+      const results = await Promise.allSettled(
+        selectedOrderIds.map((orderId) =>
+          fetch("/api/admin?action=update-order", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify({ order_id: orderId, ...patch }),
+          }).then(async (resp) => {
+            const data = await resp.json().catch(() => ({}));
+            if (!resp.ok) throw new Error(data?.error || "Falha ao atualizar pedido");
+            return data;
+          })
+        )
+      );
+      const successCount = results.filter((r) => r.status === "fulfilled").length;
+      const failCount = results.length - successCount;
+      showToast(failCount ? `⚠️ ${successCount} atualizados, ${failCount} com falha.` : `✅ ${successCount} pedido(s) atualizados.`);
+      setBulkModal({ open: false, mode: "status" });
+      setSelectedOrderIds([]);
+      fetchOrders();
+    } catch (e) {
+      showToast(`⚠️ ${e?.message || "Falha na ação em lote."}`);
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
+  async function bulkResendEmails() {
+    if (!selectedPaidOrders.length || !accessToken) return;
+    try {
+      setBulkBusy(true);
+      const results = await Promise.allSettled(
+        selectedPaidOrders.map((order) =>
+          fetch("/api/admin?action=resend-order-email", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify({ order_id: order.id }),
+          }).then(async (resp) => {
+            const data = await resp.json().catch(() => ({}));
+            if (!resp.ok) throw new Error(data?.error || "Falha ao reenviar e-mail");
+            return data;
+          })
+        )
+      );
+      const successCount = results.filter((r) => r.status === "fulfilled").length;
+      const failCount = results.length - successCount;
+      showToast(failCount ? `⚠️ ${successCount} e-mail(s) reenviados, ${failCount} falharam.` : `📨 ${successCount} e-mail(s) reenviados.`);
+      setSelectedOrderIds([]);
+      fetchOrders();
+    } catch (e) {
+      showToast(`⚠️ ${e?.message || "Falha ao reenviar em lote."}`);
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
+  const filteredOrders = React.useMemo(() => Array.isArray(orders) ? orders : [], [orders]);
 
   const stats = React.useMemo(() => {
-    const list = filteredOrders || [];
-    const total = list.length;
-    const paid = list.filter((o) => String(o.status || "").toLowerCase() === "paid");
-    const pending = list.filter((o) => String(o.status || "").toLowerCase() !== "paid");
-    const revenue = paid.reduce((acc, o) => acc + (Number(o.total) || 0), 0);
-    const refundReq = list.filter((o) => !!o.refund_requested).length;
-    const vipCount = list.filter((o) => String(o.order_type || "").toLowerCase() === "vip").length;
-    return { total, paid: paid.length, pending: pending.length, revenue, refundReq, vipCount };
-  }, [filteredOrders]);
+    const base = summary || {};
+    return {
+      total: Number(base.total || 0),
+      paid: Number(base.paid || 0),
+      pending: Number(base.pending || 0),
+      revenue: Number(base.revenue || 0),
+      refundReq: Number(base.refundReq || 0),
+      vipCount: Number(base.vipCount || 0),
+    };
+  }, [summary]);
 
   const bottlenecks = React.useMemo(() => {
-    const list = filteredOrders || [];
-    const paidWaitingProduction = list.filter((o) => String(o.status || '').toLowerCase() === 'paid' && ['recebido', 'editavel'].includes(String(o.production_status || 'recebido').toLowerCase())).length;
-    const readyWithoutTracking = list.filter((o) => String(o.status || '').toLowerCase() === 'paid' && String(o.production_status || '').toLowerCase() === 'pronto' && !String(o.shipping_tracking || '').trim()).length;
-    const shippedInTransit = list.filter((o) => String(o.production_status || '').toLowerCase() === 'enviado').length;
-    const refundRequested = list.filter((o) => !!o.refund_requested).length;
-    const staleOrders = list.filter((o) => {
-      const age = daysBetween(o.updated_at || o.created_at);
-      return age !== null && age >= 7 && !['entregue', 'cancelado', 'reembolsado'].includes(String(o.production_status || '').toLowerCase());
-    }).length;
-    return { paidWaitingProduction, readyWithoutTracking, shippedInTransit, refundRequested, staleOrders };
-  }, [filteredOrders]);
+    const source = summary?.bottlenecks || {};
+    return {
+      paidWaitingProduction: Number(source.paidWaitingProduction || 0),
+      readyWithoutTracking: Number(source.readyWithoutTracking || 0),
+      shippedInTransit: Number(source.shippedInTransit || 0),
+      refundRequested: Number(source.refundRequested || 0),
+      staleOrders: 0,
+    };
+  }, [summary]);
 
   const quickQueue = React.useMemo(() => {
     return [...(filteredOrders || [])]
@@ -1566,9 +1761,13 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
         const paid = String(o.status || '').toLowerCase() === 'paid';
         return (paid && ['recebido', 'editavel', 'pronto', 'enviado'].includes(prod)) || !!o.refund_requested;
       })
-      .sort((a, b) => new Date(a.updated_at || a.created_at || 0).getTime() - new Date(b.updated_at || b.created_at || 0).getTime())
+      .sort((a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime())
       .slice(0, 8);
   }, [filteredOrders]);
+
+  const allPageSelected = React.useMemo(() => !!filteredOrders.length && filteredOrders.every((o) => selectedOrderIds.includes(o.id)), [filteredOrders, selectedOrderIds]);
+  const selectedOrders = React.useMemo(() => filteredOrders.filter((o) => selectedOrderIds.includes(o.id)), [filteredOrders, selectedOrderIds]);
+  const selectedPaidOrders = React.useMemo(() => selectedOrders.filter((o) => String(o.status || '').toLowerCase() === 'paid'), [selectedOrders]);
 
   const activeOrder = React.useMemo(() => (orders || []).find((o) => o.id === details.orderId) || null, [orders, details.orderId]);
   const activeActionOrder = React.useMemo(() => (orders || []).find((o) => o.id === actionModal.orderId) || null, [orders, actionModal.orderId]);
@@ -1898,17 +2097,19 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
 
                   <div className="md:col-span-5 flex flex-wrap items-end gap-2">
                     <div className="text-xs text-slate-500">
-                      Exibindo <span className="text-slate-200">{filteredOrders.length}</span> de{" "}
-                      <span className="text-slate-200">{orders.length}</span>
+                      Página <span className="text-slate-200">{pagination.page}</span> de{" "}
+                      <span className="text-slate-200">{pagination.totalPages}</span> • exibindo{" "}
+                      <span className="text-slate-200">{filteredOrders.length}</span> de{" "}
+                      <span className="text-slate-200">{pagination.totalCount}</span>
                     </div>
                     <span className="rounded-full bg-white/[0.04] px-2 py-1 text-[11px] text-slate-300 ring-1 ring-white/10">
-                      Pagos: {filteredOrders.filter((o) => String(o.status || '').toLowerCase() === 'paid').length}
+                      Pagos: {stats.paid}
                     </span>
                     <span className="rounded-full bg-white/[0.04] px-2 py-1 text-[11px] text-slate-300 ring-1 ring-white/10">
-                      Em produção: {filteredOrders.filter((o) => String(o.production_status || '').toLowerCase() === 'em_producao').length}
+                      Aguardando produção: {bottlenecks.paidWaitingProduction}
                     </span>
                     <span className="rounded-full bg-white/[0.04] px-2 py-1 text-[11px] text-slate-300 ring-1 ring-white/10">
-                      Enviados: {filteredOrders.filter((o) => String(o.production_status || '').toLowerCase() === 'enviado').length}
+                      Prontos sem rastreio: {bottlenecks.readyWithoutTracking}
                     </span>
                   </div>
 
@@ -1930,109 +2131,212 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                 </div>
               </div>
 
-              <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="text-left text-slate-400 bg-black/10">
-                      <tr className="border-b border-white/10">
-                        <th className="py-3 px-3">Pedido</th>
-                        <th className="py-3 px-3">Cliente</th>
-                        <th className="py-3 px-3">Total</th>
-                        <th className="py-3 px-3">Pagamento</th>
-                        <th className="py-3 px-3">Produção</th>
-                        <th className="py-3 px-3">Rastreio</th>
-                        <th className="py-3 px-3 text-right">Ações</th>
-                      </tr>
-                    </thead>
-                    <tbody className="text-slate-200">
-                      {filteredOrders.map((o) => {
-                        const pay = statusBadge(o.status);
-                        const prod = prodStatusBadge(o.production_status);
-                        return (
-                          <tr key={o.id} className="border-b border-white/5 hover:bg-white/[0.02]">
-                            <td className="py-3 px-3 whitespace-nowrap">
-                              <button
-                                onClick={() => setDetails({ open: true, orderId: o.id })}
-                                className="text-slate-100 hover:underline"
-                              >
-                                {shortId(o.id)}
-                              </button>
-                              <div className="text-[11px] text-slate-500">{fmtDate(o.created_at)}</div>
-                            </td>
-                            <td className="py-3 px-3 min-w-[240px]">
-                              <div className="text-slate-100">{o.customer_name || o.profile?.full_name || "—"}</div>
-                              <div className="text-[11px] text-slate-500">{o.customer_email || ""}</div>
-                            </td>
-                            <td className="py-3 px-3 whitespace-nowrap">{fmtBRL(o.total)}</td>
-                            <td className="py-3 px-3 whitespace-nowrap">
-                              <span className={`${badgeBase} ${pay.cls}`}>{pay.label}</span>
-                            </td>
-                            <td className="py-3 px-3 whitespace-nowrap">
-                              <span className={`${badgeBase} ${prod.cls}`}>{prod.label}</span>
-                            </td>
-                            <td className="py-3 px-3 whitespace-nowrap">
-                              {o.shipping_tracking ? (
+              <div className="space-y-3">
+                {selectedOrderIds.length ? (
+                  <div className="rounded-2xl bg-cyan-500/10 ring-1 ring-cyan-400/20 p-4">
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                      <div>
+                        <div className="text-sm font-extrabold text-amber-100">{selectedOrderIds.length} pedido(s) selecionado(s)</div>
+                        <div className="mt-1 text-xs text-slate-300">Use ações em lote para acelerar produção, reembolso e comunicação.</div>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          onClick={() => setBulkModal({ open: true, mode: "status" })}
+                          disabled={!selectedPaidOrders.length || bulkBusy}
+                          className="rounded-xl px-3 py-2 text-sm text-slate-100 hover:bg-white/4 ring-1 ring-white/10 disabled:opacity-50"
+                        >
+                          Status em lote
+                        </button>
+                        <button
+                          onClick={() => setBulkModal({ open: true, mode: "refund_on" })}
+                          disabled={!selectedOrderIds.length || bulkBusy}
+                          className="rounded-xl px-3 py-2 text-sm text-slate-100 hover:bg-white/4 ring-1 ring-white/10 disabled:opacity-50"
+                        >
+                          Marcar reembolso
+                        </button>
+                        <button
+                          onClick={() => setBulkModal({ open: true, mode: "refund_off" })}
+                          disabled={!selectedOrderIds.length || bulkBusy}
+                          className="rounded-xl px-3 py-2 text-sm text-slate-100 hover:bg-white/4 ring-1 ring-white/10 disabled:opacity-50"
+                        >
+                          Limpar reembolso
+                        </button>
+                        <button
+                          onClick={bulkResendEmails}
+                          disabled={!selectedPaidOrders.length || bulkBusy}
+                          className="rounded-xl px-3 py-2 text-sm text-slate-100 hover:bg-white/4 ring-1 ring-white/10 disabled:opacity-50"
+                        >
+                          Reenviar e-mails
+                        </button>
+                        <button
+                          onClick={() => setSelectedOrderIds([])}
+                          className="rounded-xl px-3 py-2 text-sm text-slate-100 hover:bg-white/4 ring-1 ring-white/10"
+                        >
+                          Limpar seleção
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="text-left text-slate-400 bg-black/10">
+                        <tr className="border-b border-white/10">
+                          <th className="py-3 px-3 w-10">
+                            <input
+                              type="checkbox"
+                              checked={allPageSelected}
+                              onChange={toggleSelectAllCurrentPage}
+                              className="h-4 w-4 rounded border-white/20 bg-black/30 accent-cyan-300"
+                              aria-label="Selecionar página atual"
+                            />
+                          </th>
+                          <th className="py-3 px-3">Pedido</th>
+                          <th className="py-3 px-3">Cliente</th>
+                          <th className="py-3 px-3">Total</th>
+                          <th className="py-3 px-3">Pagamento</th>
+                          <th className="py-3 px-3">Produção</th>
+                          <th className="py-3 px-3">Rastreio</th>
+                          <th className="py-3 px-3 text-right">Ações</th>
+                        </tr>
+                      </thead>
+                      <tbody className="text-slate-200">
+                        {filteredOrders.map((o) => {
+                          const pay = statusBadge(o.status);
+                          const prod = prodStatusBadge(o.production_status);
+                          const selectedRow = selectedOrderIds.includes(o.id);
+                          return (
+                            <tr key={o.id} className={`border-b border-white/5 hover:bg-white/[0.02] ${selectedRow ? 'bg-cyan-500/5' : ''}`}>
+                              <td className="py-3 px-3 align-top">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedRow}
+                                  onChange={() => toggleOrderSelection(o.id)}
+                                  className="mt-1 h-4 w-4 rounded border-white/20 bg-black/30 accent-cyan-300"
+                                  aria-label={`Selecionar pedido ${shortId(o.id)}`}
+                                />
+                              </td>
+                              <td className="py-3 px-3 whitespace-nowrap">
                                 <button
-                                  onClick={() => {
-                                    copyToClipboard(o.shipping_tracking);
-                                    showToast("📋 Rastreio copiado!");
-                                  }}
+                                  onClick={() => setDetails({ open: true, orderId: o.id })}
                                   className="text-slate-100 hover:underline"
                                 >
-                                  {o.shipping_tracking}
+                                  {shortId(o.id)}
                                 </button>
-                              ) : (
-                                <span className="text-slate-500">—</span>
-                              )}
-                            </td>
-                            <td className="py-3 px-3 whitespace-nowrap text-right">
-                              <button
-                                onClick={() => setDetails({ open: true, orderId: o.id })}
-                                className="rounded-xl px-2 py-1 text-xs text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
-                              >
-                                Detalhes
-                              </button>
-                              <button
-                                onClick={() => setActionModal({ open: true, mode: "status", orderId: o.id })}
-                                className="ml-2 rounded-xl px-2 py-1 text-xs text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
-                                disabled={String(o.status || "").toLowerCase() !== "paid"}
-                              >
-                                Status
-                              </button>
-                              <button
-                                onClick={() => setActionModal({ open: true, mode: "tracking", orderId: o.id })}
-                                className="ml-2 rounded-xl px-2 py-1 text-xs text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
-                                disabled={String(o.status || "").toLowerCase() !== "paid"}
-                              >
-                                Rastreio
-                              </button>
+                                <div className="text-[11px] text-slate-500">{fmtDate(o.created_at)}</div>
+                              </td>
+                              <td className="py-3 px-3 min-w-[240px]">
+                                <div className="text-slate-100">{o.customer_name || o.profile?.full_name || "—"}</div>
+                                <div className="text-[11px] text-slate-500">{o.customer_email || ""}</div>
+                              </td>
+                              <td className="py-3 px-3 whitespace-nowrap">{fmtBRL(o.total)}</td>
+                              <td className="py-3 px-3 whitespace-nowrap">
+                                <span className={`${badgeBase} ${pay.cls}`}>{pay.label}</span>
+                              </td>
+                              <td className="py-3 px-3 whitespace-nowrap">
+                                <span className={`${badgeBase} ${prod.cls}`}>{prod.label}</span>
+                              </td>
+                              <td className="py-3 px-3 whitespace-nowrap">
+                                {o.shipping_tracking ? (
+                                  <button
+                                    onClick={() => {
+                                      copyToClipboard(o.shipping_tracking);
+                                      showToast("📋 Rastreio copiado!");
+                                    }}
+                                    className="text-slate-100 hover:underline"
+                                  >
+                                    {o.shipping_tracking}
+                                  </button>
+                                ) : (
+                                  <span className="text-slate-500">—</span>
+                                )}
+                              </td>
+                              <td className="py-3 px-3 whitespace-nowrap text-right">
+                                <button
+                                  onClick={() => setDetails({ open: true, orderId: o.id })}
+                                  className="rounded-xl px-2 py-1 text-xs text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
+                                >
+                                  Detalhes
+                                </button>
+                                <button
+                                  onClick={() => setActionModal({ open: true, mode: "status", orderId: o.id })}
+                                  className="ml-2 rounded-xl px-2 py-1 text-xs text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
+                                  disabled={String(o.status || "").toLowerCase() !== "paid"}
+                                >
+                                  Status
+                                </button>
+                                <button
+                                  onClick={() => setActionModal({ open: true, mode: "tracking", orderId: o.id })}
+                                  className="ml-2 rounded-xl px-2 py-1 text-xs text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
+                                  disabled={String(o.status || "").toLowerCase() !== "paid"}
+                                >
+                                  Rastreio
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {loading ? (
+                          <tr>
+                            <td colSpan={8} className="py-8 px-3 text-slate-400">
+                              Carregando...
                             </td>
                           </tr>
-                        );
-                      })}
-                      {loading ? (
-                        <tr>
-                          <td colSpan={7} className="py-8 px-3 text-slate-400">
-                            Carregando...
-                          </td>
-                        </tr>
-                      ) : null}
-                      {!loading && error ? (
-                        <tr>
-                          <td colSpan={7} className="py-8 px-3 text-red-200">
-                            {error}
-                          </td>
-                        </tr>
-                      ) : null}
-                      {!loading && !error && !filteredOrders.length ? (
-                        <tr>
-                          <td colSpan={7} className="py-8 px-3 text-slate-400">
-                            Nenhum pedido encontrado.
-                          </td>
-                        </tr>
-                      ) : null}
-                    </tbody>
-                  </table>
+                        ) : null}
+                        {!loading && error ? (
+                          <tr>
+                            <td colSpan={8} className="py-8 px-3 text-red-200">
+                              {error}
+                            </td>
+                          </tr>
+                        ) : null}
+                        {!loading && !error && !filteredOrders.length ? (
+                          <tr>
+                            <td colSpan={8} className="py-8 px-3 text-slate-400">
+                              Nenhum pedido encontrado.
+                            </td>
+                          </tr>
+                        ) : null}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-3 rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-4 md:flex-row md:items-center md:justify-between">
+                  <div className="flex items-center gap-2 text-sm text-slate-300">
+                    <span>Linhas por página</span>
+                    <select
+                      value={pageSize}
+                      onChange={(e) => setPageSize(Number(e.target.value || 25))}
+                      className="rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-slate-100"
+                    >
+                      {[10, 25, 50, 100].map((size) => (
+                        <option key={size} value={size}>{size}</option>
+                      ))}
+                    </select>
+                    <span className="text-slate-500">• {pagination.totalCount} pedido(s) no filtro atual</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      disabled={pagination.page <= 1 || loading}
+                      className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10 disabled:opacity-50"
+                    >
+                      Anterior
+                    </button>
+                    <div className="rounded-xl bg-black/20 px-3 py-2 text-sm text-slate-200 ring-1 ring-white/10">
+                      Página {pagination.page} / {pagination.totalPages}
+                    </div>
+                    <button
+                      onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))}
+                      disabled={pagination.page >= pagination.totalPages || loading}
+                      className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10 disabled:opacity-50"
+                    >
+                      Próxima
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -2404,6 +2708,23 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
           const id = activeActionOrder?.id;
           setActionModal({ open: false, mode: "status", orderId: null });
           if (id) updateOrder(id, patch);
+        }}
+      />
+
+      <BulkActionModal
+        open={bulkModal.open}
+        mode={bulkModal.mode}
+        count={selectedOrderIds.length}
+        busy={bulkBusy}
+        onClose={() => setBulkModal({ open: false, mode: "status" })}
+        onSubmit={(patch) => {
+          const nextPatch =
+            bulkModal.mode === "refund_on" && patch?.refund_requested
+              ? { ...patch, refund_requested_at: new Date().toISOString() }
+              : bulkModal.mode === "refund_off"
+              ? { ...patch, refund_requested_at: null }
+              : patch;
+          bulkUpdateOrders(nextPatch);
         }}
       />
 

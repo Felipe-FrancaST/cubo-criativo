@@ -164,6 +164,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
   const [showUpgrade, setShowUpgrade] = React.useState(false);
   const [optionsLoading, setOptionsLoading] = React.useState(false);
   const [pollLoading, setPollLoading] = React.useState(false);
+  const [pollBootstrapped, setPollBootstrapped] = React.useState(false);
 
   // Navegação (melhor experiência no mobile)
   const [tab, setTab] = React.useState('escolhas'); // 'escolhas' | 'pedido' | 'votacao' | 'upgrade' | 'presente'
@@ -283,6 +284,94 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
       complete,
     };
   }, [selectedCounts, totalLimit, miniLimit, bossLimit]);
+
+  const visibleTabs = React.useMemo(() => {
+    const tabs = [
+      {
+        k: 'escolhas',
+        label: 'Escolhas',
+        ic: 'checklist',
+        mobileLabel: 'Escolhas',
+        badge: progress.complete ? 'Fechado' : `${selectedCounts.total}/${totalLimit}`,
+        tone: progress.complete ? 'bg-emerald-500/15 text-emerald-100 ring-emerald-400/30' : 'bg-violet-500/15 text-violet-100 ring-violet-400/30',
+        visible: true,
+      },
+      {
+        k: 'pedido',
+        label: 'Pedido',
+        ic: 'local_shipping',
+        mobileLabel: 'Pedido',
+        badge: st.label,
+        tone: st.cls,
+        visible: true,
+      },
+      {
+        k: 'votacao',
+        label: 'Votação',
+        ic: 'how_to_vote',
+        mobileLabel: 'Votação',
+        badge: poll?.id ? (String(poll?.status || '').toLowerCase() === 'open' ? 'Aberta' : 'Encerrada') : 'Indisponível',
+        tone: poll?.id ? 'bg-cyan-500/15 text-cyan-100 ring-cyan-400/30' : 'bg-white/4 text-slate-300 ring-white/10',
+        visible: !!poll?.id || pollLoading || !pollBootstrapped,
+      },
+      {
+        k: 'upgrade',
+        label: 'Upgrade',
+        ic: 'upgrade',
+        mobileLabel: 'Upgrade',
+        badge: nextPlan ? 'Disponível' : upgrade?.order_id ? 'Em andamento' : 'Fechado',
+        tone: nextPlan || upgrade?.order_id ? 'bg-amber-400/15 text-amber-100 ring-amber-300/30' : 'bg-white/4 text-slate-300 ring-white/10',
+        visible: !!nextPlan || !!upgrade?.order_id || !!upgradeSuccess,
+      },
+      {
+        k: 'presente',
+        label: 'Presente',
+        ic: 'redeem',
+        mobileLabel: 'Presente',
+        badge: 'd20',
+        tone: 'bg-emerald-500/15 text-emerald-100 ring-emerald-400/30',
+        visible: true,
+      },
+    ];
+    return tabs.filter((item) => item.visible);
+  }, [progress.complete, selectedCounts.total, totalLimit, st.label, st.cls, poll?.id, poll?.status, pollLoading, pollBootstrapped, nextPlan, upgrade?.order_id, upgradeSuccess]);
+
+  const orderTimelineSteps = React.useMemo(() => {
+    const current = String(orderStatus || 'editavel').toLowerCase();
+    const map = {
+      editavel: 0,
+      recebido: 1,
+      em_producao: 2,
+      pronto: 3,
+      enviado: 4,
+      entregue: 5,
+      cancelado: 5,
+      reembolsado: 5,
+    };
+    const currentIdx = map[current] ?? 0;
+    const cancelled = current === 'cancelado' || current === 'reembolsado';
+    const labels = [
+      { key: 'editavel', title: 'Escolhas abertas', desc: 'Você ainda pode revisar o ciclo.' },
+      { key: 'recebido', title: 'Pedido recebido', desc: 'Seu ciclo entrou na fila interna.' },
+      { key: 'em_producao', title: 'Em produção', desc: 'Sua caixa está sendo preparada.' },
+      { key: 'pronto', title: 'Pronto para envio', desc: 'Falta apenas gerar o envio.' },
+      { key: 'enviado', title: 'Enviado', desc: shippingTracking ? `Rastreio ${shippingTracking}` : 'Seu código aparece aqui assim que sair.' },
+      { key: 'entregue', title: 'Entregue', desc: 'Pedido finalizado com sucesso.' },
+    ];
+    return labels.map((step, idx) => ({
+      ...step,
+      done: cancelled ? idx < currentIdx : idx <= currentIdx,
+      current: !cancelled && idx === currentIdx,
+      blocked: cancelled && idx >= currentIdx,
+      cancelled,
+    }));
+  }, [orderStatus, shippingTracking]);
+
+  React.useEffect(() => {
+    if (!visibleTabs.some((item) => item.k === tab)) {
+      setTab(visibleTabs[0]?.k || 'escolhas');
+    }
+  }, [visibleTabs, tab]);
 
   const nextAction = React.useMemo(() => {
     if (!user) return {
@@ -530,6 +619,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
       setVoteCounts({});
     } finally {
       setPollLoading(false);
+      setPollBootstrapped(true);
     }
   }
 
@@ -618,6 +708,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
       }
 
       // Carrega catálogo + votação em background
+      setPollBootstrapped(false);
       loadOptionsLite(seq);
       loadPollAsync(seq);
     } catch (e) {
@@ -648,6 +739,12 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
     }
     writeVipCache(`${cacheKey}:draft`, { selected_option_ids: selected, updatedAt: Date.now() });
   }, [cacheKey, editing, selected]);
+
+
+  React.useEffect(() => {
+    if (!isOpen || !user || !isVip || pollBootstrapped || pollLoading) return;
+    loadPollAsync();
+  }, [isOpen, user, isVip, pollBootstrapped, pollLoading]);
 
   async function refreshVoteCounts(pollId) {
     try {
@@ -979,8 +1076,8 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                         onChange={(e) => setTab(String(e.target.value || 'escolhas'))}
                         className="w-full appearance-none rounded-2xl border border-white/10 bg-slate-950/90 py-3 pl-11 pr-11 text-sm font-extrabold text-slate-100 outline-none ring-1 ring-white/10 transition focus:border-amber-300/40 focus:ring-amber-300/25"
                       >
-                        {[{k:'escolhas',label:'Escolhas'},{k:'pedido',label:'Pedido'},{k:'votacao',label:'Votação'},{k:'upgrade',label:'Upgrade'},{k:'presente',label:'Presente'}].map((t) => (
-                          <option key={t.k} value={t.k}>{t.label}</option>
+                        {visibleTabs.map((t) => (
+                          <option key={t.k} value={t.k}>{t.mobileLabel || t.label}</option>
                         ))}
                       </select>
                       <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 material-icons text-[20px] text-slate-400">expand_more</span>
@@ -988,7 +1085,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                   </div>
 
                   <div className="hidden sm:flex sticky top-0 z-20 -mx-1 gap-2 overflow-x-auto no-scrollbar bg-slate-950/85 px-1 py-2 backdrop-blur">
-                    {[{k:'escolhas',label:'Escolhas',ic:'checklist'},{k:'pedido',label:'Pedido',ic:'local_shipping'},{k:'votacao',label:'Votação',ic:'how_to_vote'},{k:'upgrade',label:'Upgrade',ic:'upgrade'},{k:'presente',label:'Presente',ic:'redeem'}].map((t) => {
+                    {visibleTabs.map((t) => {
                       const active = tab === t.k;
                       return (
                         <button
@@ -999,6 +1096,9 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                         >
                           <span className="material-icons text-[16px]">{t.ic}</span>
                           {t.label}
+                          <span className={`ml-1 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] ring-1 ${active ? 'bg-black/15 text-black ring-black/10' : t.tone}`}>
+                            {t.badge}
+                          </span>
                         </button>
                       );
                     })}
@@ -1116,7 +1216,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                         <div className="text-xs uppercase tracking-wide text-slate-400">Status do seu pedido VIP</div>
                         <div className="mt-1 text-xl font-extrabold text-slate-100">{st.label}</div>
                         <div className="mt-2 text-sm text-slate-300">
-                          {editable ? 'Você pode editar e salvar suas escolhas enquanto o status estiver em Editável.' : 'Suas escolhas podem estar bloqueadas por causa do status atual.'}
+                          {editable ? 'Você pode editar e salvar suas escolhas enquanto o status estiver em Editável.' : 'Seu pedido já avançou para a próxima etapa do ciclo.'}
                         </div>
                       </div>
                       <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs ring-1 ${st.cls}`}>
@@ -1126,7 +1226,61 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                     </div>
                   </div>
 
-                  {String(orderStatus || '').toLowerCase() === 'enviado' && shippingTracking ? (
+                  <div className="rounded-2xl bg-gradient-to-br from-cyan-500/10 via-slate-950/45 to-violet-500/10 ring-1 ring-white/10 p-5">
+                    <div className="flex items-center justify-between gap-3 flex-wrap">
+                      <div>
+                        <div className="text-xs uppercase tracking-wide text-slate-400">Timeline do ciclo</div>
+                        <div className="mt-1 text-sm text-slate-200">Veja em que etapa sua caixa VIP está agora.</div>
+                      </div>
+                      <span className="rounded-full bg-white/4 px-3 py-1 text-[11px] text-slate-200 ring-1 ring-white/10">
+                        Ciclo {cycle}
+                      </span>
+                    </div>
+
+                    <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                      {orderTimelineSteps.map((step) => (
+                        <div
+                          key={step.key}
+                          className={`rounded-2xl p-4 ring-1 transition ${
+                            step.current
+                              ? 'bg-cyan-400/12 ring-cyan-300/30'
+                              : step.done
+                              ? 'bg-emerald-500/10 ring-emerald-400/20'
+                              : 'bg-black/20 ring-white/10'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <div className="text-sm font-extrabold text-slate-100">{step.title}</div>
+                              <div className="mt-1 text-xs leading-5 text-slate-400">{step.desc}</div>
+                            </div>
+                            <span
+                              className={`material-icons text-[18px] ${
+                                step.current ? 'text-cyan-200' : step.done ? 'text-emerald-200' : 'text-slate-500'
+                              }`}
+                            >
+                              {step.current ? 'radio_button_checked' : step.done ? 'check_circle' : 'radio_button_unchecked'}
+                            </span>
+                          </div>
+                          <div className="mt-3">
+                            <span
+                              className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.18em] ring-1 ${
+                                step.current
+                                  ? 'bg-cyan-400/15 text-cyan-100 ring-cyan-300/30'
+                                  : step.done
+                                  ? 'bg-emerald-500/15 text-emerald-100 ring-emerald-300/30'
+                                  : 'bg-white/4 text-slate-400 ring-white/10'
+                              }`}
+                            >
+                              {step.current ? 'Etapa atual' : step.done ? 'Concluída' : 'Aguardando'}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {shippingTracking ? (
                     <div className="rounded-2xl bg-cyan-500/10 ring-1 ring-cyan-400/20 p-5">
                       <div className="flex items-center justify-between gap-2 flex-wrap">
                         <p className="text-sm font-extrabold text-amber-100">Código de rastreio</p>
@@ -1139,7 +1293,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                     </div>
                   ) : (
                     <div className="rounded-2xl bg-white/4 ring-1 ring-white/10 p-5 text-sm text-slate-300">
-                      Quando seu pedido for enviado, o <b>código de rastreio</b> vai aparecer aqui.
+                      Quando seu pedido avançar para envio, o <b>código de rastreio</b> vai aparecer aqui.
                     </div>
                   )}
                 </div>

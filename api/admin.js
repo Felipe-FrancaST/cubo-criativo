@@ -703,6 +703,41 @@ async function handleGameCouponMetrics(req, res) {
 }
 
 
+function applyOrderFilters(builder, filters = {}) {
+  let q = builder;
+  const queryText = String(filters.q || "").trim();
+  const pay = String(filters.pay || "all").toLowerCase();
+  const prod = String(filters.prod || "all").toLowerCase();
+  const type = String(filters.type || "all").toLowerCase();
+  const dateFrom = String(filters.dateFrom || "").trim();
+  const dateTo = String(filters.dateTo || "").trim();
+
+  if (dateFrom) q = q.gte("created_at", `${dateFrom}T00:00:00`);
+  if (dateTo) q = q.lte("created_at", `${dateTo}T23:59:59.999`);
+  if (pay !== "all") q = q.eq("status", pay);
+  if (prod !== "all") q = q.eq("production_status", prod);
+  if (type !== "all") {
+    if (type === "vip") q = q.eq("order_type", "vip");
+    if (type === "store") q = q.neq("order_type", "vip");
+  }
+  if (queryText) {
+    const safe = queryText.replace(/[%_,]/g, " ").trim();
+    if (safe) {
+      q = q.or([
+        `id.ilike.%${safe}%`,
+        `customer_email.ilike.%${safe}%`,
+        `customer_name.ilike.%${safe}%`,
+        `customer_phone.ilike.%${safe}%`,
+        `shipping_tracking.ilike.%${safe}%`,
+      ].join(","));
+    }
+  }
+  return q;
+}
+
+
+
+
 async function handleOrders(req, res) {
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
 
@@ -710,11 +745,22 @@ async function handleOrders(req, res) {
   if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
 
   const sb = supabaseAdmin();
+  const page = Math.max(1, Number.parseInt(String(req.query?.page || "1"), 10) || 1);
+  const pageSize = Math.min(100, Math.max(10, Number.parseInt(String(req.query?.page_size || "25"), 10) || 25));
+  const filters = {
+    q: req.query?.q || "",
+    pay: req.query?.pay || "all",
+    prod: req.query?.prod || "all",
+    type: req.query?.type || "all",
+    dateFrom: req.query?.date_from || "",
+    dateTo: req.query?.date_to || "",
+  };
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
 
-  // Compatibilidade: alguns bancos ainda não têm refund_requested/refund_requested_at
-  // nem as colunas de auditoria de e-mail. Vamos tentando em camadas.
   let orders = null;
   let ordersErr = null;
+  let totalCount = 0;
 
   const selectFull =
     "id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,production_status,shipping_tracking,order_type,vip_plan_id,refund_requested,refund_requested_at,last_email_type,last_email_status,last_email_sent_at,last_email_error";
@@ -723,39 +769,88 @@ async function handleOrders(req, res) {
   const selectLegacy =
     "id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,production_status,shipping_tracking,order_type,vip_plan_id";
 
-  let attemptOrders = await sb
-    .from("orders")
-    .select(selectFull)
-    .order("created_at", { ascending: false })
-    .limit(300);
+  const runOrderQuery = async (selectColumns) => {
+    let query = sb.from("orders").select(selectColumns, { count: "exact" });
+    query = applyOrderFilters(query, filters);
+    return await query.order("created_at", { ascending: false }).range(from, to);
+  };
 
+  let attemptOrders = await runOrderQuery(selectFull);
   orders = attemptOrders?.data || null;
   ordersErr = attemptOrders?.error || null;
+  totalCount = Number(attemptOrders?.count || 0);
 
   if (ordersErr && /last_email_|column/i.test(String(ordersErr.message || ""))) {
-    attemptOrders = await sb
-      .from("orders")
-      .select(selectNoEmailAudit)
-      .order("created_at", { ascending: false })
-      .limit(300);
+    attemptOrders = await runOrderQuery(selectNoEmailAudit);
     orders = attemptOrders?.data || null;
     ordersErr = attemptOrders?.error || null;
+    totalCount = Number(attemptOrders?.count || 0);
   }
 
   if (ordersErr && /refund_requested|refund_requested_at|column/i.test(String(ordersErr.message || ""))) {
-    attemptOrders = await sb
-      .from("orders")
-      .select(selectLegacy)
-      .order("created_at", { ascending: false })
-      .limit(300);
+    attemptOrders = await runOrderQuery(selectLegacy);
     orders = attemptOrders?.data || null;
     ordersErr = attemptOrders?.error || null;
+    totalCount = Number(attemptOrders?.count || 0);
   }
 
   if (ordersErr) return res.status(500).json({ error: ordersErr.message || "Failed to load orders" });
 
+  let summaryRows = [];
+  const summarySelectFull = "status,total,production_status,shipping_tracking,order_type,refund_requested,created_at";
+  const summarySelectLegacy = "status,total,production_status,shipping_tracking,order_type,created_at";
+  const runSummaryQuery = async (selectColumns) => {
+    let query = sb.from("orders").select(selectColumns);
+    query = applyOrderFilters(query, filters);
+    return await query.order("created_at", { ascending: false });
+  };
+
+  let summaryResp = await runSummaryQuery(summarySelectFull);
+  if (summaryResp?.error && /refund_requested|column/i.test(String(summaryResp.error.message || ""))) {
+    summaryResp = await runSummaryQuery(summarySelectLegacy);
+  }
+  summaryRows = Array.isArray(summaryResp?.data) ? summaryResp.data : [];
+
+  const summary = (() => {
+    const list = summaryRows || [];
+    const total = Number(totalCount || list.length || 0);
+    const paidRows = list.filter((o) => String(o?.status || "").toLowerCase() === "paid");
+    const pendingRows = list.filter((o) => String(o?.status || "").toLowerCase() !== "paid");
+    const revenue = paidRows.reduce((acc, o) => acc + (Number(o?.total) || 0), 0);
+    const refundReq = list.filter((o) => !!o?.refund_requested).length;
+    const vipCount = list.filter((o) => String(o?.order_type || "").toLowerCase() === "vip").length;
+    const paidWaitingProduction = list.filter((o) => String(o?.status || '').toLowerCase() === 'paid' && ['recebido', 'editavel'].includes(String(o?.production_status || 'recebido').toLowerCase())).length;
+    const readyWithoutTracking = list.filter((o) => String(o?.status || '').toLowerCase() === 'paid' && String(o?.production_status || '').toLowerCase() === 'pronto' && !String(o?.shipping_tracking || '').trim()).length;
+    const shippedInTransit = list.filter((o) => String(o?.production_status || '').toLowerCase() === 'enviado').length;
+    return {
+      total,
+      paid: paidRows.length,
+      pending: pendingRows.length,
+      revenue,
+      refundReq,
+      vipCount,
+      bottlenecks: {
+        paidWaitingProduction,
+        readyWithoutTracking,
+        shippedInTransit,
+        refundRequested: refundReq,
+      },
+    };
+  })();
+
   const list = Array.isArray(orders) ? orders : [];
-  if (list.length === 0) return res.status(200).json({ orders: [] });
+  if (list.length === 0) {
+    return res.status(200).json({
+      orders: [],
+      summary,
+      pagination: {
+        page,
+        page_size: pageSize,
+        total_count: Number(totalCount || 0),
+        total_pages: Math.max(1, Math.ceil(Number(totalCount || 0) / pageSize)),
+      },
+    });
+  }
 
   const orderIds = list.map((o) => o.id);
   const userIds = Array.from(new Set(list.map((o) => o.user_id).filter(Boolean)));
@@ -769,7 +864,6 @@ async function handleOrders(req, res) {
       : Promise.resolve({ data: [], error: null }),
   ]);
 
-  // Itens: tenta schema novo, depois schema antigo
   let items = [];
   let itemsErr = null;
 
@@ -817,7 +911,6 @@ async function handleOrders(req, res) {
   const profileById = new Map();
   (profiles || []).forEach((p) => profileById.set(p.id, p));
 
-  // VIP selections: map selection to the order's cycle (YYYY-MM) so old VIP orders also show their picks.
   const vipOrders = (list || []).filter((o) => String(o.order_type || "").toLowerCase() === "vip" && o.user_id);
   const vipUserIds = Array.from(new Set(vipOrders.map((o) => o.user_id).filter(Boolean)));
   const vipCycles = Array.from(
@@ -839,7 +932,6 @@ async function handleOrders(req, res) {
         .select("user_id,cycle_key,selected_option_ids,updated_at")
         .in("user_id", vipUserIds)
         .in("cycle_key", vipCycles),
-      // image_url permite mostrar as miniaturas no admin
       sb.from("vip_mini_options").select("id,title,image_url"),
     ]);
 
@@ -886,8 +978,20 @@ async function handleOrders(req, res) {
     };
   });
 
-  return res.status(200).json({ orders: merged, timeline_enabled: !!orderEventsResp.tableAvailable, vip_present_enabled: !!vipPresentResp.tableAvailable });
+  return res.status(200).json({
+    orders: merged,
+    summary,
+    pagination: {
+      page,
+      page_size: pageSize,
+      total_count: Number(totalCount || 0),
+      total_pages: Math.max(1, Math.ceil(Number(totalCount || 0) / pageSize)),
+    },
+    timeline_enabled: !!orderEventsResp.tableAvailable,
+    vip_present_enabled: !!vipPresentResp.tableAvailable,
+  });
 }
+
 
 
 
