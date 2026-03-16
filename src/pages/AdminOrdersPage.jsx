@@ -1359,6 +1359,33 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
     }
   }
 
+  async function deleteVipCycle(cycleKey) {
+    if (!accessToken || !cycleKey) return;
+    const confirmed = window.confirm(`Excluir o ciclo ${cycleKey}? Os itens serão desvinculados desse ciclo.`);
+    if (!confirmed) return;
+    try {
+      setVipCycleBusy(true);
+      setVipControlError('');
+      const resp = await fetch('/api/admin?action=vip-delete-cycle', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ cycle_key: cycleKey }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data?.error || 'Não foi possível excluir o ciclo VIP.');
+      setVipCycleEditor((prev) => String(prev?.cycle_key || '') === String(cycleKey) ? { cycle_key: nextMonthKey(), selected_ids: [], activate: true } : prev);
+      showToast('🗑️ Ciclo VIP excluído.');
+      await fetchVipControl();
+    } catch (e) {
+      setVipControlError(e?.message || 'Falha ao excluir ciclo VIP.');
+    } finally {
+      setVipCycleBusy(false);
+    }
+  }
+
 
   async function saveGameCoupon() {
     if (!accessToken) return;
@@ -2482,6 +2509,15 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                         Definir como ciclo ativo ao salvar
                       </label>
                       <div className="sm:ml-auto flex items-center gap-2">
+                        {vipCycleEditor.cycle_key ? (
+                          <button
+                            onClick={() => deleteVipCycle(vipCycleEditor.cycle_key)}
+                            disabled={vipCycleBusy}
+                            className="rounded-xl px-4 py-2 text-sm font-semibold text-red-100 bg-red-500/10 ring-1 ring-red-500/30 disabled:opacity-60"
+                          >
+                            Excluir ciclo
+                          </button>
+                        ) : null}
                         <button
                           onClick={saveVipCycle}
                           disabled={vipCycleBusy}
@@ -2574,6 +2610,13 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                               Ativar ciclo
                             </button>
                           ) : null}
+                          <button
+                            onClick={() => deleteVipCycle(cycle.cycle_key)}
+                            disabled={vipCycleBusy}
+                            className="rounded-xl px-3 py-2 text-xs font-semibold text-red-100 bg-red-500/10 hover:bg-red-500/20 ring-1 ring-red-500/30 disabled:opacity-60"
+                          >
+                            Excluir ciclo
+                          </button>
                         </div>
                       </div>
                     ))}

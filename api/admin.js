@@ -1335,6 +1335,46 @@ async function handleVipSetActiveCycle(req, res) {
   return res.status(200).json({ ok: true, active_cycle_key: cycle_key });
 }
 
+async function handleVipDeleteCycle(req, res) {
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+
+  const auth = await requireAdmin(req);
+  if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
+
+  const body = await readJsonBody(req);
+  const cycle_key = String(body?.cycle_key || "").trim();
+  if (!/^\d{4}-\d{2}$/.test(cycle_key)) {
+    return res.status(400).json({ error: "cycle_key inválido. Use formato YYYY-MM." });
+  }
+
+  const sb = supabaseAdmin();
+  const library = await fetchVipMiniLibrary(sb);
+  if (library?.error) return res.status(500).json({ error: library.error.message || "Falha ao validar ciclos." });
+  if (library.cycleColumnAvailable === false) {
+    return res.status(400).json({ error: "A coluna cycle_key ainda não existe em vip_mini_options. Rode o SQL de atualização primeiro." });
+  }
+
+  const exists = (library.items || []).some((item) => String(item?.cycle_key || "") === cycle_key);
+  if (!exists) return res.status(400).json({ error: "Esse ciclo não foi encontrado." });
+
+  const clearResp = await sb.from("vip_mini_options").update({ cycle_key: null }).eq("cycle_key", cycle_key);
+  if (clearResp?.error) return res.status(500).json({ error: clearResp.error.message || "Falha ao remover os itens do ciclo." });
+
+  const control = await fetchVipCycleControlState(sb);
+  if (String(control?.active_cycle_key || "") === cycle_key) {
+    const ctrlResp = await sb.from("vip_cycle_control").upsert({ id: "default", active_cycle_key: null }, { onConflict: "id" });
+    if (ctrlResp?.error) {
+      const msg = String(ctrlResp.error.message || "");
+      if (/relation|does not exist|not exist/i.test(msg)) {
+        return res.status(400).json({ error: "A tabela vip_cycle_control ainda não existe no Supabase. Rode o SQL de atualização primeiro." });
+      }
+      return res.status(500).json({ error: ctrlResp.error.message || "Falha ao limpar o ciclo ativo." });
+    }
+  }
+
+  return res.status(200).json({ ok: true, deleted_cycle_key: cycle_key, active_cycle_key: String(control?.active_cycle_key || "") === cycle_key ? null : control?.active_cycle_key || null });
+}
+
 async function handleVipVoting(req, res) {
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
 
@@ -1819,6 +1859,7 @@ export default async function handler(req, res) {
     if (action === "vip-control") return await handleVipControl(req, res);
     if (action === "vip-save-cycle") return await handleVipSaveCycle(req, res);
     if (action === "vip-set-active-cycle") return await handleVipSetActiveCycle(req, res);
+    if (action === "vip-delete-cycle") return await handleVipDeleteCycle(req, res);
     if (action === "vip-voting") return await handleVipVoting(req, res);
     if (action === "vip-close-voting") return await handleVipCloseVoting(req, res);
     if (action === "vip-start-voting") return await handleVipStartVoting(req, res);

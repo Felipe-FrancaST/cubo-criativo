@@ -602,7 +602,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
             if (apiResp.ok) {
               return {
                 ...(apiJson?.profile || {}),
-                vip_cycle_key: String(apiJson?.profile?.vip_cycle_key || '').trim() || cycleForLoad,
+                vip_cycle_key: String(apiJson?.profile?.vip_cycle_key || '').trim(),
               };
             }
           } catch {}
@@ -610,7 +610,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
 
         let resp = await supabase.from("profiles").select("vip_until,vip_plan").eq("id", user.id).maybeSingle();
         if (resp?.error) throw resp.error;
-        return { ...(resp?.data || {}), vip_cycle_key: cycleForLoad };
+        return { ...(resp?.data || {}), vip_cycle_key: "" };
       })();
       const [prof, { data: lastVipOrder }, { data: sel }] = await Promise.all([
         profilePromise,
@@ -630,7 +630,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
       const until = prof?.vip_until || null;
       setVipUntil(until);
       setVipPlan(prof?.vip_plan || "");
-      setVipCycleKey(String(prof?.vip_cycle_key || '').trim());
+      setVipCycleKey(String(prof?.vip_cycle_key || '').trim() || fallbackAccountCycle || '');
 
       // Atualiza cache local para evitar "piscar" no refresh.
       try {
@@ -640,6 +640,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
       // Mantém o que já estava na tela para evitar flicker no mobile durante refresh.
 
       const order = Array.isArray(lastVipOrder) ? lastVipOrder[0] : null;
+      const fallbackAccountCycle = String(order?.created_at || '').slice(0, 7);
       setOrderStatus(String(order?.production_status || "editavel").toLowerCase());
       setShippingTracking(String(order?.shipping_tracking || "").trim());
 

@@ -66,6 +66,25 @@ async function getActiveCycleKey(sb) {
   }
 }
 
+
+async function getLastVipAccountCycleKey(sb, userId) {
+  try {
+    const { data, error } = await sb
+      .from("orders")
+      .select("created_at")
+      .eq("user_id", userId)
+      .eq("order_type", "vip")
+      .in("status", ["paid", "approved"])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) return "";
+    return String(data?.created_at || "").slice(0, 7);
+  } catch {
+    return "";
+  }
+}
+
 async function loadProfileCompat(sb, userId) {
   const selectWithCycleKey = "full_name, phone, cpf, birthdate, address_line1, address_number, address_line2, neighborhood, city, state, zip, vip_until, vip_plan, vip_cycle_key, has_second_address, address2_line1, address2_number, address2_line2, address2_neighborhood, address2_city, address2_state, address2_zip";
   const selectWithoutCycleKey = "full_name, phone, cpf, birthdate, address_line1, address_number, address_line2, neighborhood, city, state, zip, vip_until, vip_plan, has_second_address, address2_line1, address2_number, address2_line2, address2_neighborhood, address2_city, address2_state, address2_zip";
@@ -82,7 +101,7 @@ async function loadProfileCompat(sb, userId) {
   const profile = { ...(resp.data || {}) };
   const vipUntil = profile?.vip_until ? new Date(String(profile.vip_until)) : null;
   if (vipUntil && Number.isFinite(vipUntil.getTime()) && vipUntil > new Date()) {
-    profile.vip_cycle_key = await getActiveCycleKey(sb);
+    profile.vip_cycle_key = await getLastVipAccountCycleKey(sb, userId);
   } else {
     profile.vip_cycle_key = "";
   }
