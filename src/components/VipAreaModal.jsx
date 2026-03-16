@@ -627,6 +627,8 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
       ]);
 
       if (seq !== loadSeqRef.current) return;
+      const order = Array.isArray(lastVipOrder) ? lastVipOrder[0] : null;
+      const fallbackAccountCycle = String(order?.created_at || '').slice(0, 7);
       const until = prof?.vip_until || null;
       setVipUntil(until);
       setVipPlan(prof?.vip_plan || "");
@@ -639,8 +641,6 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
       } catch {}
       // Mantém o que já estava na tela para evitar flicker no mobile durante refresh.
 
-      const order = Array.isArray(lastVipOrder) ? lastVipOrder[0] : null;
-      const fallbackAccountCycle = String(order?.created_at || '').slice(0, 7);
       setOrderStatus(String(order?.production_status || "editavel").toLowerCase());
       setShippingTracking(String(order?.shipping_tracking || "").trim());
 
