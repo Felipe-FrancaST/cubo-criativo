@@ -80,6 +80,25 @@ async function revokeVipFromOrder(sb, order, reason = "payment_failed") {
   }
 }
 
+
+async function loadProfileVipCompat(sb, userId) {
+  let resp = await sb.from("profiles").select("vip_until,vip_cycle_key").eq("id", userId).maybeSingle();
+  if (!resp?.error) return resp?.data || {};
+  const msg = String(resp.error?.message || "");
+  if (!/vip_cycle_key|column|schema cache/i.test(msg)) return {};
+  resp = await sb.from("profiles").select("vip_until").eq("id", userId).maybeSingle();
+  return resp?.data || {};
+}
+
+async function updateProfileVipCompat(sb, userId, patch) {
+  let resp = await sb.from("profiles").update(patch).eq("id", userId);
+  if (!resp?.error) return resp;
+  const msg = String(resp.error?.message || "");
+  if (!/vip_cycle_key|column|schema cache/i.test(msg)) return resp;
+  const safePatch = { ...patch };
+  delete safePatch.vip_cycle_key;
+  return await sb.from("profiles").update(safePatch).eq("id", userId);
+}
 async function applyVipFromOrder(sb, order, payment) {
   try {
     const orderTypeNorm = String(order?.order_type || payment?.metadata?.order_type || '').toLowerCase();
@@ -103,12 +122,12 @@ async function applyVipFromOrder(sb, order, payment) {
           status: "active",
         });
       }
-      const { data: prof } = await sb.from("profiles").select("vip_until,vip_cycle_key").eq("id", userId).maybeSingle();
+      const prof = await loadProfileVipCompat(sb, userId);
       const currentUntil = prof?.vip_until ? new Date(prof.vip_until).getTime() : 0;
       const nextUntil = Math.max(currentUntil, end.getTime());
       const profilePatch = { vip_until: new Date(nextUntil).toISOString(), vip_plan: planId };
       if (purchasedCycleKey) profilePatch.vip_cycle_key = purchasedCycleKey;
-      await sb.from("profiles").update(profilePatch).eq("id", userId);
+      await updateProfileVipCompat(sb, userId, profilePatch);
     }
 
     if (orderTypeNorm === 'vip_upgrade') {
@@ -117,7 +136,7 @@ async function applyVipFromOrder(sb, order, payment) {
       } catch {}
       const upgradePatch = { vip_plan: planId };
       if (purchasedCycleKey) upgradePatch.vip_cycle_key = purchasedCycleKey;
-      await sb.from('profiles').update(upgradePatch).eq('id', userId);
+      await updateProfileVipCompat(sb, userId, upgradePatch);
     }
 
     try {

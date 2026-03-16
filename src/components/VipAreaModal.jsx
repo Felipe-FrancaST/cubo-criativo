@@ -592,8 +592,17 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
       })();
 
       // Core (rápido): perfil + status + seleção salva
-      const [{ data: prof }, { data: lastVipOrder }, { data: sel }] = await Promise.all([
-        supabase.from("profiles").select("vip_until,vip_plan,vip_cycle_key").eq("id", user.id).maybeSingle(),
+      const profilePromise = (async () => {
+        let resp = await supabase.from("profiles").select("vip_until,vip_plan,vip_cycle_key").eq("id", user.id).maybeSingle();
+        if (!resp?.error) return resp?.data || null;
+        const msg = String(resp.error?.message || "");
+        if (!/vip_cycle_key|column|schema cache/i.test(msg)) throw resp.error;
+        resp = await supabase.from("profiles").select("vip_until,vip_plan").eq("id", user.id).maybeSingle();
+        if (resp?.error) throw resp.error;
+        return { ...(resp?.data || {}), vip_cycle_key: cycleForLoad };
+      })();
+      const [prof, { data: lastVipOrder }, { data: sel }] = await Promise.all([
+        profilePromise,
         supabase
           .from("orders")
           .select("id,production_status,shipping_tracking,created_at")

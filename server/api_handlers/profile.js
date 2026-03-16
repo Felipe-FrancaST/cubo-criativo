@@ -52,8 +52,44 @@ const ALLOWED = new Set([
   "address2_zip",
 ]);
 
+async function getActiveCycleKey(sb) {
+  try {
+    const { data, error } = await sb
+      .from("vip_cycle_control")
+      .select("active_cycle_key")
+      .eq("id", "default")
+      .maybeSingle();
+    if (error) return "";
+    return String(data?.active_cycle_key || "").trim();
+  } catch {
+    return "";
+  }
+}
+
+async function loadProfileCompat(sb, userId) {
+  const selectWithCycleKey = "full_name, phone, cpf, birthdate, address_line1, address_number, address_line2, neighborhood, city, state, zip, vip_until, vip_plan, vip_cycle_key, has_second_address, address2_line1, address2_number, address2_line2, address2_neighborhood, address2_city, address2_state, address2_zip";
+  const selectWithoutCycleKey = "full_name, phone, cpf, birthdate, address_line1, address_number, address_line2, neighborhood, city, state, zip, vip_until, vip_plan, has_second_address, address2_line1, address2_number, address2_line2, address2_neighborhood, address2_city, address2_state, address2_zip";
+
+  let resp = await sb.from("profiles").select(selectWithCycleKey).eq("id", userId).maybeSingle();
+  if (!resp?.error) return { profile: resp.data || {}, missingVipCycleKeyColumn: false };
+
+  const msg = String(resp.error?.message || "");
+  if (!/vip_cycle_key|column|schema cache/i.test(msg)) throw new Error(resp.error.message || "Failed to load profile");
+
+  resp = await sb.from("profiles").select(selectWithoutCycleKey).eq("id", userId).maybeSingle();
+  if (resp?.error) throw new Error(resp.error.message || "Failed to load profile");
+
+  const profile = { ...(resp.data || {}) };
+  const vipUntil = profile?.vip_until ? new Date(String(profile.vip_until)) : null;
+  if (vipUntil && Number.isFinite(vipUntil.getTime()) && vipUntil > new Date()) {
+    profile.vip_cycle_key = await getActiveCycleKey(sb);
+  } else {
+    profile.vip_cycle_key = "";
+  }
+  return { profile, missingVipCycleKeyColumn: true };
+}
+
 export default async function handler(req, res) {
-  
   if (!rateLimit(req, res, { key: 'api:profile', limit: 30, windowMs: 60000 })) return;
   try {
     const user = await getUserFromAuthHeader(req);
@@ -62,16 +98,8 @@ export default async function handler(req, res) {
     const sb = supabaseAdmin();
 
     if (req.method === "GET") {
-      const { data, error } = await sb
-        .from("profiles")
-        .select(
-          "full_name, phone, cpf, birthdate, address_line1, address_number, address_line2, neighborhood, city, state, zip, vip_until, vip_plan, vip_cycle_key, has_second_address, address2_line1, address2_number, address2_line2, address2_neighborhood, address2_city, address2_state, address2_zip"
-        )
-        .eq("id", user.id)
-        .maybeSingle();
-
-      if (error) return res.status(500).json({ error: error.message || "Failed to load profile" });
-      return res.status(200).json({ profile: data || {} });
+      const { profile, missingVipCycleKeyColumn } = await loadProfileCompat(sb, user.id);
+      return res.status(200).json({ profile: profile || {}, schema_compat: { missing_vip_cycle_key_column: !!missingVipCycleKeyColumn } });
     }
 
     if (req.method === "POST") {
