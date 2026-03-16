@@ -1426,7 +1426,7 @@ React.useEffect(() => {
         onGoFaq={() => navigate("/faq")}
         onGoPoliticas={() => { if (typeof window !== "undefined") window.location.href = "/privacy.html"; }}
         onGoCupom={() => navigate("/cupom")}
-        onGoSobEncomenda={() => navigate("/catalogo")}
+        onGoSobEncomenda={() => navigate("/catalogo?tipo=rpg")}
       
           onRequireLogin={(msg) => requireLogin(msg)}
         />
