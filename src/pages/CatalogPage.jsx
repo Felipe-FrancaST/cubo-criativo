@@ -21,6 +21,35 @@ function FilterChip({ active, children, onClick, tone = "default" }) {
   );
 }
 
+function normalizeText(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
+function resolveCatalogType(product) {
+  const category = normalizeText(product?.category);
+  const typeLabel = normalizeText(product?._typeLabel);
+  if (category === "rpg" || typeLabel.includes("rpg")) return "rpg";
+  if (category === "action figures" || category === "action figure" || category === "action" || typeLabel.includes("action")) return "action";
+  return "outros";
+}
+
+function isInternalTag(tag) {
+  const s = normalizeText(tag);
+  if (!s) return true;
+  if (s === "rpg") return true;
+  if (s === "action" || s === "action figure" || s === "action figures" || s === "figure action") return true;
+  if (s.startsWith("tipo:")) return true;
+  if (s.startsWith("classe:")) return true;
+  if (s.startsWith("raca:") || s.startsWith("raca:")) return true;
+  if (s.startsWith("raça:")) return true;
+  if (s.startsWith("prazo:")) return true;
+  return false;
+}
+
 export default function CatalogPage({ items, loading = false, error = "", addToCart, buyNow, openGallery, onRequireLogin }) {
   const [type, setType] = React.useState(() => readParam("tipo", "todos"));
   const [selectedTag, setSelectedTag] = React.useState(() => readParam("tag", "Todos"));
@@ -53,30 +82,27 @@ export default function CatalogPage({ items, loading = false, error = "", addToC
 
   const tagOptions = React.useMemo(() => {
     const set = new Set();
-    const isInternal = (t) => {
-      const s = String(t || "").toLowerCase().trim();
-      if (!s) return true;
-      if (s === "rpg") return true;
-      if (s === "action" || s === "action figure" || s === "figure action") return true;
-      if (s.startsWith("tipo:")) return true;
-      if (s.startsWith("classe:")) return true;
-      if (s.startsWith("raca:") || s.startsWith("raça:")) return true;
-      if (s.startsWith("prazo:")) return true;
-      return false;
-    };
     (items || []).forEach((p) => {
+      const itemType = resolveCatalogType(p);
+      const matchesSelectedType = type === "todos" || itemType === type;
+      if (!matchesSelectedType) return;
       (p.tags || []).forEach((t) => {
-        if (!isInternal(t)) set.add(String(t));
+        if (!isInternalTag(t)) set.add(String(t));
       });
     });
     return ["Todos", ...Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR"))];
-  }, [items]);
+  }, [items, type]);
+
+  React.useEffect(() => {
+    if (selectedTag === "Todos") return;
+    if (!tagOptions.includes(selectedTag)) setSelectedTag("Todos");
+  }, [selectedTag, tagOptions]);
 
   const filtered = React.useMemo(() => {
     const q = query.trim().toLowerCase();
     return (items || []).filter((p) => {
-      const t = String(p?._typeLabel || "").toLowerCase();
-      const matchType = type === "todos" || (type === "action" && t.includes("action")) || (type === "rpg" && t.includes("rpg"));
+      const itemType = resolveCatalogType(p);
+      const matchType = type === "todos" || itemType === type;
       const matchTag = selectedTag === "Todos" || (p.tags || []).includes(selectedTag);
       const name = String(p?.nome || "").toLowerCase();
       const desc = String(p?.descricao || "").toLowerCase();
