@@ -593,11 +593,22 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
 
       // Core (rápido): perfil + status + seleção salva
       const profilePromise = (async () => {
-        let resp = await supabase.from("profiles").select("vip_until,vip_plan,vip_cycle_key").eq("id", user.id).maybeSingle();
-        if (!resp?.error) return resp?.data || null;
-        const msg = String(resp.error?.message || "");
-        if (!/vip_cycle_key|column|schema cache/i.test(msg)) throw resp.error;
-        resp = await supabase.from("profiles").select("vip_until,vip_plan").eq("id", user.id).maybeSingle();
+        const sessionResp = await supabase.auth.getSession();
+        const jwt = sessionResp?.data?.session?.access_token || '';
+        if (jwt) {
+          try {
+            const apiResp = await fetch('/api/profile', { headers: { Authorization: `Bearer ${jwt}` } });
+            const apiJson = await apiResp.json().catch(() => ({}));
+            if (apiResp.ok) {
+              return {
+                ...(apiJson?.profile || {}),
+                vip_cycle_key: String(apiJson?.profile?.vip_cycle_key || '').trim() || cycleForLoad,
+              };
+            }
+          } catch {}
+        }
+
+        let resp = await supabase.from("profiles").select("vip_until,vip_plan").eq("id", user.id).maybeSingle();
         if (resp?.error) throw resp.error;
         return { ...(resp?.data || {}), vip_cycle_key: cycleForLoad };
       })();
