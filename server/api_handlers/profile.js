@@ -65,7 +65,7 @@ export default async function handler(req, res) {
       const { data, error } = await sb
         .from("profiles")
         .select(
-          "full_name, phone, cpf, birthdate, address_line1, address_number, address_line2, neighborhood, city, state, zip, vip_until, vip_plan, has_second_address, address2_line1, address2_number, address2_line2, address2_neighborhood, address2_city, address2_state, address2_zip"
+          "full_name, phone, cpf, birthdate, address_line1, address_number, address_line2, neighborhood, city, state, zip, vip_until, vip_plan, vip_cycle_key, has_second_address, address2_line1, address2_number, address2_line2, address2_neighborhood, address2_city, address2_state, address2_zip"
         )
         .eq("id", user.id)
         .maybeSingle();

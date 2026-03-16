@@ -52,6 +52,16 @@ function getQueryParam(req, key) {
   }
 }
 
+async function getActiveVipCycleKey(sb) {
+  try {
+    const { data } = await sb.from('vip_cycle_control').select('active_cycle_key').eq('id', 'default').maybeSingle();
+    const key = String(data?.active_cycle_key || '').trim();
+    return key || null;
+  } catch {
+    return null;
+  }
+}
+
 function normalizeText(v) {
   return String(v || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
 }
@@ -196,6 +206,7 @@ export default async function handler(req, res) {
       }
 
       const orderId = crypto.randomUUID();
+    const activeVipCycleKey = vipPlanId ? (await getActiveVipCycleKey(sb)) : null;
 
       const { error: orderErr } = await sb.from('orders').insert({
         id: orderId,
@@ -453,6 +464,7 @@ export default async function handler(req, res) {
           user_id: user.id,
           order_type: vipPlanId ? 'vip' : 'shop',
           vip_plan_id: vipPlanId || null,
+          vip_cycle_key: activeVipCycleKey || null,
           coupon_code: couponApplied?.code || null,
           coupon_discount: couponApplied?.discount || 0,
           items_json: serializeResolvedItems(resolvedOrderItems),

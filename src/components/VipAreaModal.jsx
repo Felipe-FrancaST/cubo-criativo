@@ -35,6 +35,8 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
   const [error, setError] = React.useState("");
   const [vipUntil, setVipUntil] = React.useState(() => (cachedVipUntil ? cachedVipUntil : null));
   const [vipPlan, setVipPlan] = React.useState("");
+  const [vipCycleKey, setVipCycleKey] = React.useState("");
+  const [activeCycleKey, setActiveCycleKey] = React.useState("");
   const [orderStatus, setOrderStatus] = React.useState("editavel");
   const [shippingTracking, setShippingTracking] = React.useState("");
   const [options, setOptions] = React.useState([]);
@@ -78,10 +80,17 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
   const [upgradePayOpen, setUpgradePayOpen] = React.useState(false);
   const [upgradePayMethod, setUpgradePayMethod] = React.useState(null); // 'pix' | 'card'
   const [upgradeSuccess, setUpgradeSuccess] = React.useState(false);
+  const [renewBusy, setRenewBusy] = React.useState(false);
+  const [renewPayOpen, setRenewPayOpen] = React.useState(false);
+  const [renewPayMethod, setRenewPayMethod] = React.useState(null);
+  const [renewPix, setRenewPix] = React.useState(null);
+  const [renewPixStatus, setRenewPixStatus] = React.useState('');
+  const [renewChecking, setRenewChecking] = React.useState(false);
 
   const [cycle, setCycle] = React.useState(() => cycleKeyUTC());
   const cacheKey = React.useMemo(() => (user?.id ? `vip_area:${user.id}:${cycle}` : ''), [user?.id, cycle]);
   const isVip = vipUntil ? new Date(vipUntil).getTime() > Date.now() : false;
+  const hasCurrentCycleAccess = !activeCycleKey || !vipCycleKey || String(activeCycleKey) === String(vipCycleKey);
   const st = statusLabel(orderStatus);
   const editable = isVip && (String(orderStatus || "").toLowerCase() === "editavel" || String(orderStatus || "").toLowerCase() === "recebido");
   const cycleDeadline = React.useMemo(() => cycleDeadlineLabel(cycle), [cycle]);
@@ -278,6 +287,13 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
       ctaLabel: 'Ver planos VIP',
       kind: 'upsell',
     };
+    if (!hasCurrentCycleAccess) return {
+      label: 'Renovar para liberar o novo ciclo',
+      hint: activeCycleKey ? `Seu acesso atual está vinculado ao ciclo ${vipCycleKey || 'anterior'}. Renove para receber as miniaturas de ${activeCycleKey}.` : 'Seu ciclo atual já fechou. Renove para continuar recebendo as novas miniaturas.',
+      tab: 'escolhas',
+      ctaLabel: 'Renovar',
+      kind: 'renew',
+    };
     if (editable && editing && !progress.complete) return {
       label: `Complete suas escolhas deste ciclo`,
       hint: progress.remaining > 0 ? `Faltam ${progress.remaining} item(ns) para fechar o mês.` : 'Ajuste miniaturas e bosses até bater o limite exato do seu plano.',
@@ -313,9 +329,10 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
       ctaLabel: 'Ver pedido',
       kind: 'order',
     };
-  }, [user, isVip, editable, editing, progress, orderStatus, shippingTracking]);
+  }, [user, isVip, editable, editing, progress, orderStatus, shippingTracking, hasCurrentCycleAccess, activeCycleKey, vipCycleKey]);
 
   function canAdd(optionId) {
+    if (!hasCurrentCycleAccess) return false;
     const t = optionTypeById.get(optionId) || 'miniature';
     if (selectedCounts.total >= totalLimit) return false;
     if (t === 'boss') return selectedCounts.boss < bossLimit;
@@ -329,6 +346,8 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
     if (!cached || typeof cached !== 'object') return;
     if (cached.vipUntil) setVipUntil(cached.vipUntil);
     if (cached.vipPlan) setVipPlan(cached.vipPlan);
+    if (cached.vipCycleKey) setVipCycleKey(String(cached.vipCycleKey));
+    if (cached.activeCycleKey) setActiveCycleKey(String(cached.activeCycleKey));
     if (cached.orderStatus) setOrderStatus(String(cached.orderStatus).toLowerCase());
     if (typeof cached.shippingTracking === 'string') setShippingTracking(cached.shippingTracking);
     if (Array.isArray(cached.savedSelected)) setSavedSelected(cached.savedSelected);
@@ -343,6 +362,8 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
     writeVipCache(cacheKey, {
       vipUntil,
       vipPlan,
+      vipCycleKey,
+      activeCycleKey,
       orderStatus,
       shippingTracking,
       savedSelected,
@@ -352,7 +373,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
       options: Array.isArray(options) ? options.slice(0, 24) : [],
       updatedAt: Date.now(),
     });
-  }, [cacheKey, user?.id, vipUntil, vipPlan, orderStatus, shippingTracking, savedSelected, selected, editing, tab, options]);
+  }, [cacheKey, user?.id, vipUntil, vipPlan, vipCycleKey, activeCycleKey, orderStatus, shippingTracking, savedSelected, selected, editing, tab, options]);
 
   function showLimitNotice(kind, anchorEl) {
     // kind: 'total' | 'mini' | 'boss'
@@ -536,9 +557,11 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
       const resp = await fetch(`/api/core?action=vip-cycle`);
       const json = await resp.json().catch(() => ({}));
       const nextCycle = String(json?.active_cycle_key || '').trim();
-      if (nextCycle) return nextCycle;
+      if (nextCycle) { setActiveCycleKey(nextCycle); return nextCycle; }
     } catch {}
-    return cycleKeyUTC();
+    const fallbackCycle = cycleKeyUTC();
+    setActiveCycleKey(fallbackCycle);
+    return fallbackCycle;
   }
 
   async function load() {
@@ -563,7 +586,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
 
       // Core (rápido): perfil + status + seleção salva
       const [{ data: prof }, { data: lastVipOrder }, { data: sel }] = await Promise.all([
-        supabase.from("profiles").select("vip_until,vip_plan").eq("id", user.id).maybeSingle(),
+        supabase.from("profiles").select("vip_until,vip_plan,vip_cycle_key").eq("id", user.id).maybeSingle(),
         supabase
           .from("orders")
           .select("id,production_status,shipping_tracking,created_at")
@@ -580,6 +603,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
       const until = prof?.vip_until || null;
       setVipUntil(until);
       setVipPlan(prof?.vip_plan || "");
+      setVipCycleKey(String(prof?.vip_cycle_key || '').trim());
 
       // Atualiza cache local para evitar "piscar" no refresh.
       try {
@@ -801,6 +825,10 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
   }, [upgrade?.order_id]);
 
   async function saveSelection() {
+    if (!hasCurrentCycleAccess) {
+      setMsg('Renove sua assinatura para liberar as escolhas do ciclo atual.');
+      return;
+    }
     if (!editable) return;
     if (!editing) return;
     if (selectedCounts.mini !== miniLimit || selectedCounts.boss !== bossLimit || selectedCounts.total !== totalLimit) {
@@ -831,6 +859,97 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
     }
   }
 
+  async function verifyRenewPix(orderId) {
+    if (!orderId || !accessToken) return false;
+    try {
+      setRenewChecking(true);
+      const res = await fetch('/api/pix-payment?action=verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ order_id: orderId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || 'Não foi possível verificar a renovação.');
+      const st = String(data?.status || data?.mp_status || '').toLowerCase();
+      setRenewPixStatus(st);
+      if (st === 'paid' || st === 'approved') {
+        setMsg('Renovação confirmada ✅ O novo ciclo foi liberado.');
+        setRenewPix(null);
+        setRenewPayOpen(false);
+        await load();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      setMsg(String(e?.message || 'Não foi possível verificar a renovação.'));
+      return false;
+    } finally {
+      setRenewChecking(false);
+    }
+  }
+
+  async function startRenewPix() {
+    if (!user || !isVip || !selectedPlan?.id) return;
+    try {
+      setRenewBusy(true);
+      setRenewPix(null);
+      setMsg('');
+      const res = await fetch('/api/create-pix-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ vip_plan_id: selectedPlan.id, description: `Renovação ${selectedPlan.id}` }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || 'Não foi possível gerar o Pix da renovação.');
+      setRenewPix({
+        order_id: data?.order_id || '',
+        qr_code: data?.qr_code || '',
+        qr_code_base64: data?.qr_code_base64 || '',
+        ticket_url: data?.ticket_url || '',
+      });
+      setRenewPixStatus(String(data?.status || '').toLowerCase());
+      setMsg('Pix de renovação gerado.');
+    } catch (e) {
+      setMsg(String(e?.message || 'Não foi possível iniciar a renovação.'));
+    } finally {
+      setRenewBusy(false);
+    }
+  }
+
+  async function startRenewCard() {
+    if (!user || !isVip || !selectedPlan?.id) return;
+    try {
+      setRenewBusy(true);
+      setMsg('');
+      const res = await fetch('/api/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ vip_plan_id: selectedPlan.id }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || 'Não foi possível iniciar a renovação.');
+      if (data?.url) {
+        window.location.href = data.url;
+        return;
+      }
+    } catch (e) {
+      setMsg(String(e?.message || 'Não foi possível iniciar a renovação.'));
+    } finally {
+      setRenewBusy(false);
+    }
+  }
+
+  React.useEffect(() => {
+    if (!renewPix?.order_id || !accessToken) return;
+    let stopped = false;
+    const t = setInterval(async () => {
+      if (stopped) return;
+      const done = await verifyRenewPix(renewPix.order_id);
+      if (done) { stopped = true; clearInterval(t); }
+    }, 5000);
+    return () => { stopped = true; clearInterval(t); };
+  }, [renewPix?.order_id, accessToken]);
+
   function handlePrimaryAction() {
     if (!user) {
       onRequireLogin?.('Entre para acessar a Área VIP.');
@@ -843,6 +962,10 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
     }
     if (nextAction.kind === 'save') {
       saveSelection();
+      return;
+    }
+    if (nextAction.kind === 'renew') {
+      setRenewPayOpen(true);
       return;
     }
     if (nextAction.tab) setTab(nextAction.tab);
@@ -863,7 +986,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                 </span>
                 <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs ring-1 ring-white/15 bg-white/4 text-slate-200">
                   <span className="material-icons text-[16px]">calendar_month</span>
-                  Ciclo: <b>{cycle}</b>
+                  Ciclo ativo: <b>{activeCycleKey || cycle}</b>
                 </span>
                 {isVip ? (
                   <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs ring-1 ring-violet-400/25 bg-violet-500/10 text-violet-100">
@@ -876,6 +999,12 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                     Não VIP
                   </span>
                 )}
+                {isVip ? (
+                  <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs ring-1 ${hasCurrentCycleAccess ? 'ring-emerald-400/25 bg-emerald-500/10 text-emerald-100' : 'ring-amber-400/25 bg-amber-500/10 text-amber-100'}`}>
+                    <span className="material-icons text-[16px]">autorenew</span>
+                    Ciclo da conta: <b>{vipCycleKey || '—'}</b>
+                  </span>
+                ) : null}
               </div>
             </div>
             {asPage ? (
@@ -1270,6 +1399,57 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                 </div>
               ) : null}
 
+              {renewPayOpen ? (
+                <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+                  <div className="absolute inset-0 bg-black/70" onClick={() => setRenewPayOpen(false)} />
+                  <div className="relative w-full max-w-md rounded-2xl bg-slate-950 ring-1 ring-white/10 p-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="text-xs uppercase tracking-wide text-slate-400">Renovação do ciclo</div>
+                        <div className="mt-1 text-xl font-extrabold text-slate-100">Liberar {activeCycleKey || cycle}</div>
+                        <div className="mt-2 text-sm text-slate-300">Seu plano atual é <b>{vipPlanLabel}</b>. Renove para receber as miniaturas do novo ciclo.</div>
+                      </div>
+                      <button onClick={() => setRenewPayOpen(false)} className="rounded-xl p-2 ring-1 ring-white/15 hover:bg-white/4" aria-label="Fechar">
+                        <span className="material-icons">close</span>
+                      </button>
+                    </div>
+                    <div className="mt-4 grid grid-cols-1 gap-2">
+                      <button disabled={renewBusy} onClick={() => { setRenewPayMethod('card'); setRenewPayOpen(false); startRenewCard(); }} className={`rounded-xl px-4 py-3 font-extrabold ring-4 transition ${renewBusy ? "bg-cyan-400/20 text-cyan-50 ring-cyan-200/15 cursor-wait" : "bg-cyan-400 text-black ring-cyan-400/20 hover:opacity-95"}`}>
+                        {renewBusy && renewPayMethod === 'card' ? 'Aguarde…' : 'Pagar com cartão'}
+                      </button>
+                      <button disabled={renewBusy} onClick={() => { setRenewPayMethod('pix'); setRenewPayOpen(false); startRenewPix(); }} className={`rounded-xl px-4 py-3 font-semibold ring-1 transition ${renewBusy ? "bg-cyan-400/20 text-cyan-50 ring-cyan-200/15 cursor-wait" : "ring-white/15 hover:bg-white/4"}`}>
+                        {renewBusy && renewPayMethod === 'pix' ? 'Aguarde…' : 'Pagar com Pix'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
+              {renewPix?.order_id ? (
+                <div className="mt-4 rounded-2xl bg-white/4 ring-1 ring-white/10 p-5">
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <div>
+                      <div className="text-sm font-extrabold text-slate-100">Pix da renovação</div>
+                      <div className="text-xs text-slate-400">Status: <b>{renewPixStatus || 'pendente'}</b></div>
+                    </div>
+                    {renewPix?.ticket_url ? <a className="text-sm font-semibold text-teal-200 hover:underline" href={renewPix.ticket_url} target="_blank" rel="noreferrer">Abrir no Mercado Pago</a> : null}
+                  </div>
+                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="rounded-2xl bg-black/30 ring-1 ring-white/10 p-4 flex items-center justify-center">
+                      {renewPix?.qr_code_base64 ? <img alt="QR Code Pix" className="w-56 h-56" src={`data:image/png;base64,${renewPix.qr_code_base64}`} /> : <div className="text-slate-300">QR Code indisponível</div>}
+                    </div>
+                    <div>
+                      <div className="text-xs uppercase tracking-wide text-slate-400">Copia e cola</div>
+                      <textarea readOnly value={renewPix?.qr_code || ''} className="mt-2 w-full h-40 rounded-xl bg-black/30 ring-1 ring-white/10 p-3 text-xs text-slate-100" />
+                      <button onClick={() => { try { navigator.clipboard.writeText(renewPix?.qr_code || ''); setMsg('Código Pix copiado ✅'); } catch {} }} className="mt-3 w-full rounded-xl px-4 py-3 font-extrabold bg-cyan-400 text-black ring-4 ring-cyan-400/20">Copiar código Pix</button>
+                      <button type="button" onClick={() => verifyRenewPix(renewPix?.order_id)} disabled={renewChecking || !renewPix?.order_id} className="mt-3 w-full rounded-xl px-4 py-3 font-semibold ring-1 ring-white/15 hover:bg-white/4 disabled:opacity-60">
+                        {renewChecking ? 'Verificando…' : 'Já paguei'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
               {showUpgrade && upgrade?.order_id ? (
                 <div className="mt-4 rounded-2xl bg-white/4 ring-1 ring-white/10 p-5">
                   <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -1408,6 +1588,19 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
 
               {tab === 'escolhas' ? (
                 <>
+                  {!hasCurrentCycleAccess ? (
+                    <div className="mt-6 rounded-2xl bg-amber-500/10 ring-1 ring-amber-400/25 p-5">
+                      <div className="flex items-start justify-between gap-3 flex-wrap">
+                        <div className="max-w-2xl">
+                          <div className="text-xs uppercase tracking-[0.24em] text-amber-200/80">Novo ciclo disponível</div>
+                          <div className="mt-2 text-xl font-extrabold text-amber-50">Renove a assinatura para receber as novas miniaturas</div>
+                          <p className="mt-3 text-sm leading-6 text-amber-50/85">Sua assinatura continua ativa até <b>{vipUntil ? new Date(vipUntil).toLocaleDateString('pt-BR') : '—'}</b>, mas as escolhas do ciclo <b>{activeCycleKey || cycle}</b> só são liberadas após a renovação. Seu último ciclo vinculado é <b>{vipCycleKey || '—'}</b>.</p>
+                        </div>
+                        <button type="button" onClick={() => setRenewPayOpen(true)} className="rounded-2xl bg-cyan-400 px-4 py-3 text-sm font-extrabold text-black ring-4 ring-cyan-400/15 transition hover:bg-cyan-300">Renovar</button>
+                      </div>
+                    </div>
+                  ) : null}
+                  {hasCurrentCycleAccess ? (
               <div className="mt-6 rounded-2xl bg-white/4 ring-1 ring-white/10 p-4">
                 <div className="flex items-center justify-between gap-3 flex-wrap">
                   <div className="text-sm text-slate-300">
@@ -1731,6 +1924,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                 </div>
               </div>
               {msg ? <div className="mt-3 text-sm text-slate-200">{msg}</div> : null}
+                  ) : null}
                 </>
               ) : null}
             </>

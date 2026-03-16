@@ -34,6 +34,17 @@ function safeBody(req) {
   return req.body;
 }
 
+
+async function getActiveVipCycleKey(sb) {
+  try {
+    const { data } = await sb.from('vip_cycle_control').select('active_cycle_key').eq('id', 'default').maybeSingle();
+    const key = String(data?.active_cycle_key || '').trim();
+    return key || null;
+  } catch {
+    return null;
+  }
+}
+
 function getBaseUrl(req) {
   // Prioriza SITE_URL para evitar inconsistências de domínio em produção
   const site = String(process.env.SITE_URL || "").trim();
@@ -280,6 +291,7 @@ export default async function handler(req, res) {
 
     const base = getBaseUrl(req);
     const orderId = crypto.randomUUID();
+    const activeVipCycleKey = vipPlanId ? (await getActiveVipCycleKey(sb)) : null;
 
     // 1) Cria pedido no Supabase
     let orderInsert = await sb.from("orders").insert({
@@ -344,6 +356,7 @@ export default async function handler(req, res) {
         user_id: user.id,
         order_type: isVipUpgrade ? 'vip_upgrade' : (vipPlanId ? 'vip' : 'shop'),
         vip_plan_id: vipPlanId || null,
+        vip_cycle_key: activeVipCycleKey || null,
         vip_upgrade_from: vipUpgradeFromPlanId || null,
         vip_upgrade_to: vipUpgradeToPlanMeta || null,
         coupon_code: couponApplied?.code || null,
