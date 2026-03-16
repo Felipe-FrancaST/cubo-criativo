@@ -99,7 +99,9 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
   const isVip = vipUntil ? new Date(vipUntil).getTime() > Date.now() : false;
   const hasCurrentCycleAccess = !activeCycleKey || !vipCycleKey || String(activeCycleKey) === String(vipCycleKey);
   const st = statusLabel(orderStatus);
-  const editable = isVip && (String(orderStatus || "").toLowerCase() === "editavel" || String(orderStatus || "").toLowerCase() === "recebido");
+  const normalizedOrderStatus = String(orderStatus || "").toLowerCase();
+  const editable = isVip && (normalizedOrderStatus === "editavel" || normalizedOrderStatus === "recebido");
+  const canShowUpgrade = isVip && ["editavel", "recebido", "em_producao"].includes(normalizedOrderStatus);
   const cycleDeadline = React.useMemo(() => cycleDeadlineLabel(cycle), [cycle]);
   const blockNotice = React.useMemo(() => vipBlockMessage(orderStatus), [orderStatus]);
 
@@ -225,9 +227,9 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
         label: 'Upgrade',
         ic: 'upgrade',
         mobileLabel: 'Upgrade',
-        badge: nextPlan ? 'Disponível' : upgrade?.order_id ? 'Em andamento' : 'Fechado',
-        tone: nextPlan || upgrade?.order_id ? 'bg-amber-400/15 text-amber-100 ring-amber-300/30' : 'bg-white/4 text-slate-300 ring-white/10',
-        visible: !!nextPlan || !!upgrade?.order_id || !!upgradeSuccess,
+        badge: canShowUpgrade && nextPlan ? 'Disponível' : upgrade?.order_id ? 'Em andamento' : 'Fechado',
+        tone: (canShowUpgrade && nextPlan) || upgrade?.order_id ? 'bg-amber-400/15 text-amber-100 ring-amber-300/30' : 'bg-white/4 text-slate-300 ring-white/10',
+        visible: canShowUpgrade && (!!nextPlan || !!upgrade?.order_id || !!upgradeSuccess),
       },
       {
         k: 'presente',
@@ -240,7 +242,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
       },
     ];
     return tabs.filter((item) => item.visible);
-  }, [progress.complete, selectedCounts.total, totalLimit, st.label, st.cls, poll?.id, poll?.status, pollLoading, pollBootstrapped, nextPlan, upgrade?.order_id, upgradeSuccess]);
+  }, [progress.complete, selectedCounts.total, totalLimit, st.label, st.cls, poll?.id, poll?.status, pollLoading, pollBootstrapped, nextPlan, upgrade?.order_id, upgradeSuccess, canShowUpgrade]);
 
   const orderTimelineSteps = React.useMemo(() => {
     const current = String(orderStatus || 'editavel').toLowerCase();
@@ -1365,7 +1367,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                 </div>
               ) : null}
 
-              {tab === 'upgrade' ? (
+              {tab === 'upgrade' && canShowUpgrade ? (
                 <div className="mt-5 space-y-4">
                   <div className="rounded-2xl bg-white/4 ring-1 ring-white/10 p-5">
                     <div className="flex items-start justify-between gap-3">
