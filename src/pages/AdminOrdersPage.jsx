@@ -1099,6 +1099,15 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
     }
   }, [accessToken]);
 
+  const nextMonthKey = React.useCallback(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() + 1);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    return `${y}-${m}`;
+  }, []);
+
+
   const fetchVipControl = React.useCallback(async () => {
     if (!accessToken) return;
     setVipControlLoading(true);
@@ -1181,14 +1190,6 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
       setGameCouponMetricsLoading(false);
     }
   }, [accessToken]);
-
-  const nextMonthKey = React.useCallback(() => {
-    const d = new Date();
-    d.setMonth(d.getMonth() + 1);
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    return `${y}-${m}`;
-  }, []);
 
   async function startVipVoting(payload) {
     if (!accessToken) return;
