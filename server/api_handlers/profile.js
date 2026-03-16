@@ -13,51 +13,6 @@
 import { getUserFromAuthHeader, supabaseAdmin } from "../supabase.js";
 import { rateLimit } from '../rateLimit.js';
 
-const PROFILE_SELECT_BASE = "full_name, phone, cpf, birthdate, address_line1, address_number, address_line2, neighborhood, city, state, zip, vip_until, vip_plan, has_second_address, address2_line1, address2_number, address2_line2, address2_neighborhood, address2_city, address2_state, address2_zip";
-const PROFILE_SELECT_WITH_CYCLE = `${PROFILE_SELECT_BASE}, vip_cycle_key`;
-
-async function getActiveVipCycleKey(sb) {
-  try {
-    const { data, error } = await sb
-      .from('vip_cycle_control')
-      .select('active_cycle_key')
-      .eq('id', 'default')
-      .maybeSingle();
-    if (error) return null;
-    return String(data?.active_cycle_key || '').trim() || null;
-  } catch {
-    return null;
-  }
-}
-
-async function loadProfileCompat(sb, userId) {
-  let resp = await sb
-    .from('profiles')
-    .select(PROFILE_SELECT_WITH_CYCLE)
-    .eq('id', userId)
-    .maybeSingle();
-
-  if (resp?.error && /vip_cycle_key|column/i.test(String(resp.error.message || ''))) {
-    resp = await sb
-      .from('profiles')
-      .select(PROFILE_SELECT_BASE)
-      .eq('id', userId)
-      .maybeSingle();
-    if (resp?.error) return resp;
-
-    const profile = { ...(resp.data || {}) };
-    const vipUntil = profile?.vip_until ? new Date(profile.vip_until) : null;
-    if (vipUntil && Number.isFinite(vipUntil.getTime()) && vipUntil > new Date()) {
-      profile.vip_cycle_key = await getActiveVipCycleKey(sb);
-    } else {
-      profile.vip_cycle_key = null;
-    }
-    return { data: profile, error: null };
-  }
-
-  return resp;
-}
-
 export const config = { runtime: "nodejs" };
 
 async function readJsonBody(req) {
@@ -107,7 +62,13 @@ export default async function handler(req, res) {
     const sb = supabaseAdmin();
 
     if (req.method === "GET") {
-      const { data, error } = await loadProfileCompat(sb, user.id);
+      const { data, error } = await sb
+        .from("profiles")
+        .select(
+          "full_name, phone, cpf, birthdate, address_line1, address_number, address_line2, neighborhood, city, state, zip, vip_until, vip_plan, vip_cycle_key, has_second_address, address2_line1, address2_number, address2_line2, address2_neighborhood, address2_city, address2_state, address2_zip"
+        )
+        .eq("id", user.id)
+        .maybeSingle();
 
       if (error) return res.status(500).json({ error: error.message || "Failed to load profile" });
       return res.status(200).json({ profile: data || {} });

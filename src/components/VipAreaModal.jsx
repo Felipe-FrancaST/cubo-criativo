@@ -66,6 +66,13 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
   const [limitNotice, setLimitNotice] = React.useState(null); // { title, text }
   const limitTimerRef = React.useRef(null);
   const loadSeqRef = React.useRef(0);
+  const handleVipImageError = React.useCallback((event) => {
+    const img = event?.currentTarget;
+    if (!img) return;
+    img.onerror = null;
+    img.src = "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 320 320\'%3E%3Crect width=\'320\' height=\'320\' fill=\'%23060b18\'/%3E%3Ctext x=\'50%25\' y=\'50%25\' dominant-baseline=\'middle\' text-anchor=\'middle\' fill=\'%2394a3b8\' font-family=\'Arial, sans-serif\' font-size=\'18\'%3EImagem indispon%C3%ADvel%3C/text%3E%3C/svg%3E";
+  }, []);
+
 
   // Votação (tema do próximo mês)
   const [poll, setPoll] = React.useState(null);
@@ -585,23 +592,8 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
       })();
 
       // Core (rápido): perfil + status + seleção salva
-      const loadProfileCompat = async () => {
-        let resp = await supabase.from("profiles").select("vip_until,vip_plan,vip_cycle_key").eq("id", user.id).maybeSingle();
-        if (resp?.error && /vip_cycle_key|column/i.test(String(resp.error.message || ''))) {
-          resp = await supabase.from("profiles").select("vip_until,vip_plan").eq("id", user.id).maybeSingle();
-          if (!resp?.error) {
-            const fallbackProfile = { ...(resp.data || {}) };
-            const untilDate = fallbackProfile?.vip_until ? new Date(fallbackProfile.vip_until) : null;
-            fallbackProfile.vip_cycle_key = untilDate && Number.isFinite(untilDate.getTime()) && untilDate > new Date()
-              ? (cycleForLoad || activeCycleKey || '')
-              : null;
-            return { data: fallbackProfile };
-          }
-        }
-        return resp;
-      };
       const [{ data: prof }, { data: lastVipOrder }, { data: sel }] = await Promise.all([
-        loadProfileCompat(),
+        supabase.from("profiles").select("vip_until,vip_plan,vip_cycle_key").eq("id", user.id).maybeSingle(),
         supabase
           .from("orders")
           .select("id,production_status,shipping_tracking,created_at")
@@ -1186,7 +1178,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                   </div>
                 </div>
 
-                <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(0,1.35fr)_minmax(280px,0.9fr)]">
+                <div className="mt-4 hidden gap-3 md:grid xl:grid-cols-[minmax(0,1.35fr)_minmax(280px,0.9fr)]">
                   <div className="rounded-[22px] bg-gradient-to-br from-violet-500/10 via-slate-950/50 to-cyan-500/10 p-4 ring-1 ring-white/10">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -1578,6 +1570,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                                 alt={o.title}
                                 className="h-48 w-full object-contain bg-black/20"
                                 loading="lazy"
+                                onError={handleVipImageError}
                               />
                             </div>
                           ) : null}
@@ -1617,7 +1610,16 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                   ) : null}
                   {hasCurrentCycleAccess ? (
                     <>
-              <div className="mt-6 rounded-2xl bg-white/4 ring-1 ring-white/10 p-4">
+              <div className="fixed right-3 top-1/2 z-30 -translate-y-1/2 md:hidden">
+                <div className="rounded-2xl bg-slate-950/92 px-3 py-2 shadow-2xl backdrop-blur ring-1 ring-cyan-300/20">
+                  <div className="flex flex-col gap-2 text-[11px] font-extrabold">
+                    <div className="flex items-center justify-between gap-3 text-slate-200"><span className="uppercase tracking-[0.18em] text-slate-400">Mini</span><span>{selectedCounts.mini}/{miniLimit}</span></div>
+                    {bossLimit ? <div className="flex items-center justify-between gap-3 text-slate-200"><span className="uppercase tracking-[0.18em] text-slate-400">Boss</span><span>{selectedCounts.boss}/{bossLimit}</span></div> : null}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 hidden rounded-2xl bg-white/4 ring-1 ring-white/10 p-4 md:block">
                 <div className="flex items-center justify-between gap-3 flex-wrap">
                   <div className="text-sm text-slate-300">
                     Escolha <b>{totalLimit}</b> item(ns) do mês ({miniLimit} miniatura(s){bossLimit ? ` + ${bossLimit} boss(es)` : ""}) entre <b>{optionsLoading ? '…' : options.length}</b> opções.
@@ -1650,7 +1652,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
               </div>
 
               {/* Miniaturas escolhidas (fixo no topo, como antes) */}
-              <div className="mt-4 rounded-2xl bg-white/4 ring-1 ring-white/10 p-4">
+              <div className="mt-4 hidden rounded-2xl bg-white/4 ring-1 ring-white/10 p-4 md:block">
                 <div className="flex items-center justify-between gap-3 flex-wrap">
                   <div>
                     <div className="text-xs uppercase tracking-wide text-slate-400">Minhas escolhas do mês</div>
@@ -1785,7 +1787,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                       >
                         <div className="aspect-square bg-[#07161d]/70 p-2">
                           {opt.image_url ? (
-                            <img src={opt.image_url} alt={opt.title} className="h-full w-full object-contain rounded-xl ring-1 ring-white/10" loading="lazy" />
+                            <img src={opt.image_url} alt={opt.title} className="h-full w-full object-contain rounded-xl ring-1 ring-white/10" loading="lazy" onError={handleVipImageError} />
                           ) : (
                             <div className="h-full w-full grid place-items-center text-slate-500 text-xs">Sem imagem</div>
                           )}
@@ -1888,12 +1890,12 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                     </div>
                     <div className="p-4 space-y-3">
                       {preview.image_url ? (
-                        <img src={preview.image_url} alt={preview.title} className="w-full aspect-square object-contain rounded-xl ring-1 ring-white/10 bg-black/25" />
+                        <img src={preview.image_url} alt={preview.title} className="w-full aspect-square object-contain rounded-xl ring-1 ring-white/10 bg-black/25" onError={handleVipImageError} />
                       ) : null}
                       {Array.isArray(preview.gallery_images) && preview.gallery_images.length ? (
                         <div className="grid grid-cols-3 gap-2">
                           {preview.gallery_images.map((url, idx) => (
-                            <img key={idx} src={url} alt={`${preview.title} ${idx + 1}`} className="w-full aspect-square object-contain rounded-lg ring-1 ring-white/10 bg-black/25" />
+                            <img key={idx} src={url} alt={`${preview.title} ${idx + 1}`} className="w-full aspect-square object-contain rounded-lg ring-1 ring-white/10 bg-black/25" onError={handleVipImageError} />
                           ))}
                         </div>
                       ) : (
