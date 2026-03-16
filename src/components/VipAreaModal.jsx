@@ -1601,6 +1601,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                     </div>
                   ) : null}
                   {hasCurrentCycleAccess ? (
+                    <>
               <div className="mt-6 rounded-2xl bg-white/4 ring-1 ring-white/10 p-4">
                 <div className="flex items-center justify-between gap-3 flex-wrap">
                   <div className="text-sm text-slate-300">
@@ -1924,6 +1925,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                 </div>
               </div>
               {msg ? <div className="mt-3 text-sm text-slate-200">{msg}</div> : null}
+                    </>
                   ) : null}
                 </>
               ) : null}
