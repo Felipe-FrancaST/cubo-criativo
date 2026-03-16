@@ -79,7 +79,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
   const [upgradePayMethod, setUpgradePayMethod] = React.useState(null); // 'pix' | 'card'
   const [upgradeSuccess, setUpgradeSuccess] = React.useState(false);
 
-  const cycle = React.useMemo(() => cycleKeyUTC(), []);
+  const [cycle, setCycle] = React.useState(() => cycleKeyUTC());
   const cacheKey = React.useMemo(() => (user?.id ? `vip_area:${user.id}:${cycle}` : ''), [user?.id, cycle]);
   const isVip = vipUntil ? new Date(vipUntil).getTime() > Date.now() : false;
   const st = statusLabel(orderStatus);
@@ -438,20 +438,17 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
     } catch {}
   }
 
-  async function loadOptionsLite(seq = loadSeqRef.current) {
+  async function loadOptionsLite(seq = loadSeqRef.current, cycleKey = cycle) {
     if (!user) return;
     setOptionsLoading(true);
-    const cacheKey = `vip_options_${cycle}`;
+    const cacheKey = `vip_options_${cycleKey}`;
     const cached = readCache(cacheKey);
     if (cached?.items?.length) setOptions(cached.items);
     try {
       // Listagem leve: deixa o grid rápido; detalhes só no preview.
-      const { data: opts } = await supabase
-        .from("vip_mini_options")
-        .select("id,title,image_url,sort_order,active,item_type")
-        .eq("active", true)
-        .order("sort_order", { ascending: true });
-      const items = Array.isArray(opts) ? opts : [];
+      const cycleResp = await fetch(`/api/core?action=vip-cycle&cycle_key=${encodeURIComponent(String(cycleKey || cycle || ""))}`);
+      const cycleJson = await cycleResp.json().catch(() => ({}));
+      const items = Array.isArray(cycleJson?.items) ? cycleJson.items : [];
       if (seq !== loadSeqRef.current) return;
       setOptions(items);
       if (items.length) writeCache(cacheKey, items);
@@ -534,6 +531,16 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
     }
   }
 
+  async function resolveActiveCycle() {
+    try {
+      const resp = await fetch(`/api/core?action=vip-cycle`);
+      const json = await resp.json().catch(() => ({}));
+      const nextCycle = String(json?.active_cycle_key || '').trim();
+      if (nextCycle) return nextCycle;
+    } catch {}
+    return cycleKeyUTC();
+  }
+
   async function load() {
     if (!user) return;
     const seq = ++loadSeqRef.current;
@@ -541,6 +548,10 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
     setError("");
     setMsg("");
     try {
+      const cycleForLoad = await resolveActiveCycle();
+      if (seq !== loadSeqRef.current) return;
+      setCycle(cycleForLoad);
+
       // Planos em background (não trava a UI)
       (async () => {
         try {
@@ -562,7 +573,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
           .order("created_at", { ascending: false })
           .limit(1),
         // saved_at ajuda a diferenciar seleção realmente salva de um registro antigo/placeholder
-        supabase.from("vip_mini_selections").select("selected_option_ids,saved_at").eq("user_id", user.id).eq("cycle_key", cycle).maybeSingle(),
+        supabase.from("vip_mini_selections").select("selected_option_ids,saved_at").eq("user_id", user.id).eq("cycle_key", cycleForLoad).maybeSingle(),
       ]);
 
       if (seq !== loadSeqRef.current) return;
@@ -599,7 +610,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
 
       // Carrega catálogo + votação em background
       setPollBootstrapped(false);
-      loadOptionsLite(seq);
+      loadOptionsLite(seq, cycleForLoad);
       loadPollAsync(seq);
     } catch (e) {
       setError(e?.message || "Não foi possível carregar a Área VIP.");
@@ -1031,7 +1042,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                   </div>
                 </div>
 
-                <div className="mt-4 hidden gap-3 xl:grid-cols-[minmax(0,1.35fr)_minmax(280px,0.9fr)] md:grid">
+                <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(0,1.35fr)_minmax(280px,0.9fr)]">
                   <div className="rounded-[22px] bg-gradient-to-br from-violet-500/10 via-slate-950/50 to-cyan-500/10 p-4 ring-1 ring-white/10">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -1397,7 +1408,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
 
               {tab === 'escolhas' ? (
                 <>
-              <div className="mt-6 hidden rounded-2xl bg-white/4 ring-1 ring-white/10 p-4 md:block">
+              <div className="mt-6 rounded-2xl bg-white/4 ring-1 ring-white/10 p-4">
                 <div className="flex items-center justify-between gap-3 flex-wrap">
                   <div className="text-sm text-slate-300">
                     Escolha <b>{totalLimit}</b> item(ns) do mês ({miniLimit} miniatura(s){bossLimit ? ` + ${bossLimit} boss(es)` : ""}) entre <b>{optionsLoading ? '…' : options.length}</b> opções.
@@ -1428,23 +1439,6 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                   ) : null}
                 </div>
               </div>
-
-              {tab === 'escolhas' ? (
-                <div className="md:hidden fixed right-3 top-1/2 z-20 -translate-y-1/2 rounded-2xl bg-slate-950/90 px-3 py-2 shadow-2xl backdrop-blur ring-1 ring-cyan-300/20">
-                  <div className="space-y-1 text-[11px] font-bold leading-tight text-slate-200">
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-slate-400">Mini</span>
-                      <span className="text-cyan-200">{selectedCounts.mini}/{miniLimit}</span>
-                    </div>
-                    {bossLimit ? (
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="text-slate-400">Boss</span>
-                        <span className="text-amber-200">{selectedCounts.boss}/{bossLimit}</span>
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-              ) : null}
 
               {/* Miniaturas escolhidas (fixo no topo, como antes) */}
               <div className="mt-4 rounded-2xl bg-white/4 ring-1 ring-white/10 p-4">

@@ -8,6 +8,7 @@ import handlePixPayment from '../server/api_handlers/pix-payment.js';
 import handleProfile from '../server/api_handlers/profile.js';
 import handleVipPlans from '../server/api_handlers/vip-plans.js';
 import handleVipPresent from '../server/api_handlers/vip-present.js';
+import handleVipCycle from '../server/api_handlers/vip-cycle.js';
 
 export const config = { runtime: 'nodejs' };
 
@@ -22,6 +23,7 @@ const ACTIONS = {
   'profile': handleProfile,
   'vip-plans': handleVipPlans,
   'vip-present': handleVipPresent,
+  'vip-cycle': handleVipCycle,
 };
 
 export default async function handler(req, res) {

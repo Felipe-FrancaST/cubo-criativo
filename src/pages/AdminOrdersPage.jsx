@@ -976,6 +976,11 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
   const [vipVotingImages, setVipVotingImages] = React.useState([]);
   const [vipVotingImagesLoading, setVipVotingImagesLoading] = React.useState(false);
   const [vipVotingImagesError, setVipVotingImagesError] = React.useState("");
+  const [vipControl, setVipControl] = React.useState({ active_cycle_key: "", cycles: [], library: [], setup_required: false, cycle_column_available: true });
+  const [vipControlLoading, setVipControlLoading] = React.useState(false);
+  const [vipControlError, setVipControlError] = React.useState("");
+  const [vipCycleEditor, setVipCycleEditor] = React.useState({ cycle_key: "", selected_ids: [], activate: true });
+  const [vipCycleBusy, setVipCycleBusy] = React.useState(false);
 
   const [gameCouponLoading, setGameCouponLoading] = React.useState(false);
   const [gameCouponError, setGameCouponError] = React.useState("");
@@ -1093,6 +1098,44 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
       setVipVotingImagesLoading(false);
     }
   }, [accessToken]);
+
+  const fetchVipControl = React.useCallback(async () => {
+    if (!accessToken) return;
+    setVipControlLoading(true);
+    setVipControlError("");
+    try {
+      const resp = await fetch("/api/admin?action=vip-control", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data?.error || "Não foi possível carregar o controle VIP.");
+      const nextState = {
+        active_cycle_key: String(data?.active_cycle_key || ""),
+        cycles: Array.isArray(data?.cycles) ? data.cycles : [],
+        library: Array.isArray(data?.library) ? data.library : [],
+        setup_required: !!data?.setup_required,
+        cycle_column_available: data?.cycle_column_available !== false,
+      };
+      setVipControl(nextState);
+      setVipCycleEditor((prev) => ({
+        cycle_key: prev?.cycle_key || nextState.active_cycle_key || nextMonthKey(),
+        selected_ids: Array.isArray(prev?.selected_ids) ? prev.selected_ids : [],
+        activate: prev?.activate !== false,
+      }));
+      if (data?.setup_required) {
+        setVipControlError("Rode o SQL de controle VIP antes de ativar ciclos pela tela.");
+      } else if (data?.cycle_column_available === false) {
+        setVipControlError("A coluna cycle_key ainda não existe em vip_mini_options. Rode o SQL de atualização.");
+      }
+    } catch (e) {
+      setVipControl((prev) => ({ ...prev, cycles: [], library: [] }));
+      setVipControlError(e?.message || "Erro ao carregar controle VIP.");
+    } finally {
+      setVipControlLoading(false);
+    }
+  }, [accessToken, nextMonthKey]);
+
+
 
   const fetchGameCoupon = React.useCallback(async () => {
     if (!accessToken) return;
@@ -1234,12 +1277,87 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
     if (section === "vip") {
       fetchVipVoting();
       fetchVipVotingImages();
+      fetchVipControl();
     }
     if (section === "coupons") {
       fetchGameCoupon();
       fetchGameCouponMetrics();
     }
-  }, [section, fetchVipVoting, fetchVipVotingImages, fetchGameCoupon, fetchGameCouponMetrics]);
+  }, [section, fetchVipVoting, fetchVipVotingImages, fetchVipControl, fetchGameCoupon, fetchGameCouponMetrics]);
+
+
+  function toggleVipCycleItem(itemId) {
+    setVipCycleEditor((prev) => {
+      const current = Array.isArray(prev?.selected_ids) ? prev.selected_ids : [];
+      const exists = current.includes(itemId);
+      return {
+        ...prev,
+        selected_ids: exists ? current.filter((id) => id !== itemId) : [...current, itemId],
+      };
+    });
+  }
+
+  function loadVipCycleIntoEditor(cycleKey) {
+    const key = String(cycleKey || "");
+    const selectedIds = (vipControl.library || [])
+      .filter((item) => String(item?.cycle_key || "") === key)
+      .map((item) => String(item.id));
+    setVipCycleEditor({ cycle_key: key, selected_ids: selectedIds, activate: key === String(vipControl.active_cycle_key || "") });
+  }
+
+  async function saveVipCycle() {
+    if (!accessToken) return;
+    try {
+      setVipCycleBusy(true);
+      setVipControlError("");
+      const payload = {
+        cycle_key: String(vipCycleEditor?.cycle_key || "").trim(),
+        option_ids: Array.isArray(vipCycleEditor?.selected_ids) ? vipCycleEditor.selected_ids : [],
+        activate: !!vipCycleEditor?.activate,
+      };
+      const resp = await fetch('/api/admin?action=vip-save-cycle', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(payload),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data?.error || 'Não foi possível salvar o ciclo VIP.');
+      showToast(payload.activate ? '✅ Ciclo VIP salvo e ativado!' : '✅ Ciclo VIP salvo!');
+      await fetchVipControl();
+    } catch (e) {
+      setVipControlError(e?.message || 'Falha ao salvar ciclo VIP.');
+    } finally {
+      setVipCycleBusy(false);
+    }
+  }
+
+  async function activateVipCycle(cycleKey) {
+    if (!accessToken || !cycleKey) return;
+    try {
+      setVipCycleBusy(true);
+      setVipControlError("");
+      const resp = await fetch('/api/admin?action=vip-set-active-cycle', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ cycle_key: cycleKey }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data?.error || 'Não foi possível ativar o ciclo VIP.');
+      showToast('✅ Ciclo ativo atualizado!');
+      await fetchVipControl();
+    } catch (e) {
+      setVipControlError(e?.message || 'Falha ao ativar ciclo VIP.');
+    } finally {
+      setVipCycleBusy(false);
+    }
+  }
+
 
   async function saveGameCoupon() {
     if (!accessToken) return;
@@ -1624,7 +1742,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
             </div>
             <div className="mt-2">
               <SidebarItem active={section === "vip"} icon="workspace_premium" onClick={() => setSection("vip")}>
-                VIP — Votação
+                VIP Controle
               </SidebarItem>
             </div>
             <div className="mt-2">
@@ -2272,8 +2390,8 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
             <div className="space-y-4">
               <SectionTitle
                 icon="workspace_premium"
-                title="VIP — Votação"
-                subtitle="Acompanhe os resultados do tema do próximo mês."
+                title="VIP Controle"
+                subtitle="Organize ciclos VIP ativos e acompanhe as votações do próximo tema."
                 right={
                   <div className="flex items-center gap-2">
                     <button
@@ -2310,15 +2428,172 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                 }
               />
 
-              <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-4">
-                {vipPollsLoading ? <div className="text-slate-400">Carregando...</div> : null}
-                {vipPollsError ? <div className="text-red-200">{vipPollsError}</div> : null}
+              <div className="grid grid-cols-1 xl:grid-cols-[1.1fr_0.9fr] gap-4">
+                <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-semibold text-white">Ciclo ativo exibido para o usuário</div>
+                      <div className="mt-1 text-sm text-slate-400">Escolha quais miniaturas/bosses entram em cada ciclo e defina qual mês está valendo na Área VIP.</div>
+                    </div>
+                    <button
+                      onClick={() => setVipCycleEditor({ cycle_key: nextMonthKey(), selected_ids: [], activate: true })}
+                      className="rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
+                    >
+                      + Novo ciclo
+                    </button>
+                  </div>
 
-                {!vipPollsLoading && !vipPollsError && !vipPolls.length ? (
-                  <div className="text-slate-400">Nenhuma votação encontrada.</div>
-                ) : null}
+                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="rounded-xl bg-black/20 ring-1 ring-white/10 p-3">
+                      <div className="text-[11px] text-slate-500 uppercase tracking-wide">Ativo agora</div>
+                      <div className="mt-1 text-lg font-semibold text-white">{vipControl.active_cycle_key || '—'}</div>
+                    </div>
+                    <div className="rounded-xl bg-black/20 ring-1 ring-white/10 p-3">
+                      <div className="text-[11px] text-slate-500 uppercase tracking-wide">Ciclos montados</div>
+                      <div className="mt-1 text-lg font-semibold text-white">{vipControl.cycles.length}</div>
+                    </div>
+                    <div className="rounded-xl bg-black/20 ring-1 ring-white/10 p-3">
+                      <div className="text-[11px] text-slate-500 uppercase tracking-wide">Itens disponíveis</div>
+                      <div className="mt-1 text-lg font-semibold text-white">{vipControl.library.length}</div>
+                    </div>
+                  </div>
 
-                <div className="space-y-4">
+                  {vipControlLoading ? <div className="mt-4 text-slate-400">Carregando controle VIP...</div> : null}
+                  {vipControlError ? <div className="mt-4 rounded-xl bg-red-500/10 ring-1 ring-red-500/30 px-3 py-2 text-sm text-red-200">{vipControlError}</div> : null}
+
+                  <div className="mt-4 rounded-2xl bg-black/20 ring-1 ring-white/10 p-4">
+                    <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+                      <label className="block sm:max-w-[180px]">
+                        <div className="text-xs text-slate-400 mb-1">Ciclo</div>
+                        <input
+                          value={vipCycleEditor.cycle_key}
+                          onChange={(e) => setVipCycleEditor((prev) => ({ ...prev, cycle_key: e.target.value }))}
+                          placeholder="YYYY-MM"
+                          className="w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-slate-100"
+                        />
+                      </label>
+                      <label className="inline-flex items-center gap-2 text-sm text-slate-200">
+                        <input
+                          type="checkbox"
+                          checked={!!vipCycleEditor.activate}
+                          onChange={(e) => setVipCycleEditor((prev) => ({ ...prev, activate: e.target.checked }))}
+                        />
+                        Definir como ciclo ativo ao salvar
+                      </label>
+                      <div className="sm:ml-auto flex items-center gap-2">
+                        <button
+                          onClick={saveVipCycle}
+                          disabled={vipCycleBusy}
+                          className="rounded-xl px-4 py-2 text-sm font-semibold bg-emerald-400 text-black ring-4 ring-emerald-400/20 disabled:opacity-60"
+                        >
+                          {vipCycleBusy ? 'Salvando...' : 'Salvar ciclo'}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {(vipControl.cycles || []).map((cycle) => (
+                        <button
+                          key={cycle.cycle_key}
+                          onClick={() => loadVipCycleIntoEditor(cycle.cycle_key)}
+                          className={[
+                            'rounded-full px-3 py-1.5 text-xs ring-1 transition',
+                            String(vipCycleEditor.cycle_key || '') === String(cycle.cycle_key)
+                              ? 'bg-cyan-400/15 text-cyan-100 ring-cyan-400/30'
+                              : 'bg-white/[0.03] text-slate-200 ring-white/10 hover:bg-white/[0.06]'
+                          ].join(' ')}
+                        >
+                          {cycle.cycle_key} • {cycle.total_items} itens
+                          {cycle.is_active ? ' • ativo' : ''}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[520px] overflow-y-auto pr-1">
+                      {(vipControl.library || []).map((item) => {
+                        const selected = (vipCycleEditor.selected_ids || []).includes(String(item.id));
+                        const assignedCycle = String(item?.cycle_key || '');
+                        const isBoss = String(item?.item_type || '').toLowerCase() === 'boss';
+                        return (
+                          <button
+                            type="button"
+                            key={item.id}
+                            onClick={() => toggleVipCycleItem(String(item.id))}
+                            className={[
+                              'text-left rounded-2xl p-3 ring-1 transition',
+                              selected ? 'bg-cyan-400/10 ring-cyan-400/30' : 'bg-white/[0.03] ring-white/10 hover:bg-white/[0.05]'
+                            ].join(' ')}
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className="h-16 w-16 rounded-xl overflow-hidden bg-black/20 ring-1 ring-white/10 shrink-0">
+                                {item.image_url ? <img src={item.image_url} alt={item.title} className="h-full w-full object-cover" loading="lazy" /> : null}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <div className="text-sm font-semibold text-slate-100 truncate">{item.title}</div>
+                                  <span className={isBoss ? 'rounded-full px-2 py-0.5 text-[10px] bg-fuchsia-500/15 text-fuchsia-200 ring-1 ring-fuchsia-500/20' : 'rounded-full px-2 py-0.5 text-[10px] bg-cyan-500/15 text-cyan-200 ring-1 ring-cyan-500/20'}>
+                                    {isBoss ? 'Boss' : 'Mini'}
+                                  </span>
+                                  {assignedCycle ? (
+                                    <span className="rounded-full px-2 py-0.5 text-[10px] bg-white/6 text-slate-300 ring-1 ring-white/10">
+                                      {assignedCycle}
+                                    </span>
+                                  ) : null}
+                                </div>
+                                {item.description ? <div className="mt-1 text-xs text-slate-500 line-clamp-2">{item.description}</div> : null}
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="mt-4 space-y-2">
+                    {(vipControl.cycles || []).map((cycle) => (
+                      <div key={cycle.cycle_key} className="rounded-xl bg-black/20 ring-1 ring-white/10 p-3 flex flex-col sm:flex-row sm:items-center gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-semibold text-slate-100">{cycle.cycle_key}</div>
+                          <div className="text-xs text-slate-400">{cycle.miniatures_count} minis • {cycle.boss_count} boss • {cycle.total_items} itens</div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {cycle.is_active ? <span className="rounded-full px-2 py-1 text-[11px] bg-emerald-500/15 text-emerald-200 ring-1 ring-emerald-400/20">Ativo</span> : null}
+                          <button
+                            onClick={() => loadVipCycleIntoEditor(cycle.cycle_key)}
+                            className="rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
+                          >
+                            Editar ciclo
+                          </button>
+                          {!cycle.is_active ? (
+                            <button
+                              onClick={() => activateVipCycle(cycle.cycle_key)}
+                              disabled={vipCycleBusy}
+                              className="rounded-xl px-3 py-2 text-xs font-semibold text-emerald-100 bg-emerald-500/10 hover:bg-emerald-500/20 ring-1 ring-emerald-500/30 disabled:opacity-60"
+                            >
+                              Ativar ciclo
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-semibold text-white">Votações do próximo tema</div>
+                      <div className="mt-1 text-sm text-slate-400">Continue criando e encerrando votações por aqui.</div>
+                    </div>
+                  </div>
+                  {vipPollsLoading ? <div className="mt-4 text-slate-400">Carregando...</div> : null}
+                  {vipPollsError ? <div className="mt-4 text-red-200">{vipPollsError}</div> : null}
+
+                  {!vipPollsLoading && !vipPollsError && !vipPolls.length ? (
+                    <div className="mt-4 text-slate-400">Nenhuma votação encontrada.</div>
+                  ) : null}
+
+                  <div className="mt-4 space-y-4">
                   {vipPolls.map((p, idx) => (
                     <div key={idx} className="rounded-2xl bg-black/20 ring-1 ring-white/10 p-3">
                       <div className="flex items-start justify-between gap-3">
@@ -2412,6 +2687,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                       </div>
                     </div>
                   ))}
+                  </div>
                 </div>
               </div>
             </div>
