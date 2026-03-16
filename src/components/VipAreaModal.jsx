@@ -585,8 +585,23 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
       })();
 
       // Core (rápido): perfil + status + seleção salva
+      const loadProfileCompat = async () => {
+        let resp = await supabase.from("profiles").select("vip_until,vip_plan,vip_cycle_key").eq("id", user.id).maybeSingle();
+        if (resp?.error && /vip_cycle_key|column/i.test(String(resp.error.message || ''))) {
+          resp = await supabase.from("profiles").select("vip_until,vip_plan").eq("id", user.id).maybeSingle();
+          if (!resp?.error) {
+            const fallbackProfile = { ...(resp.data || {}) };
+            const untilDate = fallbackProfile?.vip_until ? new Date(fallbackProfile.vip_until) : null;
+            fallbackProfile.vip_cycle_key = untilDate && Number.isFinite(untilDate.getTime()) && untilDate > new Date()
+              ? (cycleForLoad || activeCycleKey || '')
+              : null;
+            return { data: fallbackProfile };
+          }
+        }
+        return resp;
+      };
       const [{ data: prof }, { data: lastVipOrder }, { data: sel }] = await Promise.all([
-        supabase.from("profiles").select("vip_until,vip_plan,vip_cycle_key").eq("id", user.id).maybeSingle(),
+        loadProfileCompat(),
         supabase
           .from("orders")
           .select("id,production_status,shipping_tracking,created_at")
