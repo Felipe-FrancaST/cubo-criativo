@@ -64,6 +64,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
 
   // Aviso elegante quando o usuário estoura o limite do plano
   const [limitNotice, setLimitNotice] = React.useState(null); // { title, text }
+  const [savedChoicesPromptOpen, setSavedChoicesPromptOpen] = React.useState(false);
   const limitTimerRef = React.useRef(null);
   const loadSeqRef = React.useRef(0);
   const vipTopRef = React.useRef(null);
@@ -196,6 +197,21 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
   const selectedCards = React.useMemo(() => {
     return (displaySelected || []).map((id) => ({ id, opt: optionById.get(id) || null }));
   }, [displaySelected, optionById]);
+
+
+  const openEditingMode = React.useCallback(() => {
+    if (!editable) {
+      if (productionLocked) {
+        showCenteredNotice('Pedido em produção', 'Seu pedido já está em produção. Não é mais permitido fazer alterações.');
+      }
+      return;
+    }
+    setSelected(Array.isArray(savedSelected) ? savedSelected : []);
+    setEditing(true);
+    setMsg('');
+    setSavedChoicesPromptOpen(false);
+    scrollVipToTop();
+  }, [editable, productionLocked, savedSelected, scrollVipToTop]);
 
   const selectedCounts = React.useMemo(() => {
     let mini = 0;
@@ -1883,18 +1899,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                   <button
                     type="button"
                     disabled={!editable}
-                    onClick={() => {
-                      if (!editable) {
-                        if (productionLocked) {
-                          showCenteredNotice('Pedido em produção', 'Seu pedido já está em produção. Não é mais permitido fazer alterações.');
-                        }
-                        return;
-                      }
-                      setSelected(Array.isArray(savedSelected) ? savedSelected : []);
-                      setEditing(true);
-                      setMsg('');
-                      scrollVipToTop();
-                    }}
+                    onClick={openEditingMode}
                     className={`w-full rounded-2xl px-4 py-3 text-sm font-extrabold ring-1 ring-white/10 ${!editable ? "bg-slate-700/40 text-slate-300" : "bg-violet-300 text-black hover:bg-violet-200"}`}
                   >
                     Editar escolhas
@@ -1947,13 +1952,18 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                           </div>
                           <button
                             type="button"
-                            disabled={saving || (!editing && !productionLocked)}
+                            disabled={saving || productionLocked}
                             onClick={(e) => {
                               if (productionLocked) {
                                 showCenteredNotice('Pedido em produção', 'Seu pedido já está em produção. Não é mais permitido fazer alterações.');
                                 return;
                               }
-                              if (!editing) return;
+                              if (!editing) {
+                                if (editable && Array.isArray(savedSelected) && savedSelected.length) {
+                                  setSavedChoicesPromptOpen(true);
+                                }
+                                return;
+                              }
                               const anchor = e?.currentTarget || null;
                               setSelected((prev) => {
                                 const has = prev.includes(opt.id);
@@ -2020,6 +2030,40 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                 })}
               </div>
 
+              {savedChoicesPromptOpen ? (
+                <div className="fixed inset-0 z-[75] bg-black/70 backdrop-blur-sm p-4" onClick={() => setSavedChoicesPromptOpen(false)}>
+                  <div className="mx-auto mt-[18vh] max-w-sm rounded-3xl bg-slate-950/95 ring-1 ring-white/10 shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                    <div className="p-5">
+                      <div className="flex items-start gap-3">
+                        <div className="mt-0.5 grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-violet-400/15 ring-1 ring-violet-300/25 text-violet-100">
+                          <span className="material-icons text-[20px]">edit</span>
+                        </div>
+                        <div className="min-w-0">
+                          <h3 className="text-base font-extrabold text-white">Suas escolhas já foram salvas, deseja editar?</h3>
+                          <p className="mt-1 text-sm leading-relaxed text-slate-300">Ao editar, você poderá trocar miniaturas enquanto o pedido ainda estiver em status editável.</p>
+                        </div>
+                      </div>
+                      <div className="mt-5 flex gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setSavedChoicesPromptOpen(false)}
+                          className="flex-1 rounded-2xl px-4 py-3 text-sm font-extrabold text-slate-200 ring-1 ring-white/10 hover:bg-white/5"
+                        >
+                          Agora não
+                        </button>
+                        <button
+                          type="button"
+                          onClick={openEditingMode}
+                          className="flex-1 rounded-2xl bg-violet-300 px-4 py-3 text-sm font-extrabold text-black ring-1 ring-violet-200/40 hover:bg-violet-200"
+                        >
+                          Editar
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
               {preview ? (
                 <div className="fixed inset-0 z-[70] bg-black/75 backdrop-blur-sm p-4" onClick={() => setPreview(null)}>
                   <div className="mx-auto mt-4 max-w-lg rounded-2xl bg-slate-950 ring-1 ring-white/10 overflow-hidden" onClick={(e) => e.stopPropagation()}>
@@ -2085,17 +2129,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                     <button
                       type="button"
                       disabled={!editable}
-                      onClick={() => {
-                        if (!editable) {
-      if (productionLocked) {
-        showCenteredNotice('Pedido em produção', 'Seu pedido já está em produção. Não é mais permitido fazer alterações.');
-      }
-      return;
-    }
-                        setSelected(Array.isArray(savedSelected) ? savedSelected : []);
-                        setEditing(true);
-                        setMsg("");
-                      }}
+                      onClick={openEditingMode}
                       className={`min-w-[180px] rounded-xl px-4 py-3 font-extrabold ring-1 ring-white/10 ${!editable ? "bg-slate-700/40 text-slate-300" : "bg-violet-300 text-black hover:bg-violet-200"}`}
                     >
                       Editar escolhas
