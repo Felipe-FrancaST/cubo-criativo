@@ -1952,7 +1952,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                           </div>
                           <button
                             type="button"
-                            disabled={saving || productionLocked}
+                            disabled={saving}
                             onClick={(e) => {
                               if (productionLocked) {
                                 showCenteredNotice('Pedido em produção', 'Seu pedido já está em produção. Não é mais permitido fazer alterações.');
