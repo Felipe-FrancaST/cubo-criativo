@@ -130,6 +130,12 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
   const displaySelected = React.useMemo(() => (editing ? selected : savedSelected), [editing, selected, savedSelected]);
   const selectedPlan = React.useMemo(() => findPlanByProfileValue(vipPlans, vipPlan) || (Array.isArray(vipPlans) ? vipPlans[0] : null), [vipPlans, vipPlan]);
   const vipPlanLabel = React.useMemo(() => selectedPlan?.short_name || selectedPlan?.name || 'VIP', [selectedPlan]);
+  const isLevel3Plan = React.useMemo(() => {
+    const raw = [selectedPlan?.id, selectedPlan?.slug, selectedPlan?.short_name, selectedPlan?.name]
+      .map((v) => String(v || '').toLowerCase())
+      .join(' | ');
+    return raw.includes('cubo_l3') || raw.includes('level-3') || raw.includes('level 3') || raw.includes('nível 3') || raw.includes('nivel 3');
+  }, [selectedPlan]);
 
   const upgradePlans = React.useMemo(() => {
     const plans = Array.isArray(vipPlans) && vipPlans.length ? vipPlans : FALLBACK_VIP_PLANS;
@@ -197,6 +203,12 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
   const selectedCards = React.useMemo(() => {
     return (displaySelected || []).map((id) => ({ id, opt: optionById.get(id) || null }));
   }, [displaySelected, optionById]);
+  const level3AutoIds = React.useMemo(() => {
+    if (!isLevel3Plan) return [];
+    return (options || []).map((o) => o?.id).filter(Boolean);
+  }, [isLevel3Plan, options]);
+  const level3AutoSet = React.useMemo(() => new Set(level3AutoIds), [level3AutoIds]);
+  const isLevel3AutoMode = isLevel3Plan && hasCurrentCycleAccess && level3AutoIds.length > 0;
 
 
   const openEditingMode = React.useCallback(() => {
@@ -216,13 +228,14 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
   const selectedCounts = React.useMemo(() => {
     let mini = 0;
     let boss = 0;
-    for (const id of (displaySelected || [])) {
+    const sourceIds = isLevel3AutoMode ? level3AutoIds : displaySelected;
+    for (const id of (sourceIds || [])) {
       const t = optionTypeById.get(id) || 'miniature';
       if (t === 'boss') boss += 1;
       else mini += 1;
     }
     return { mini, boss, total: (mini + boss) };
-  }, [displaySelected, optionTypeById]);
+  }, [displaySelected, optionTypeById, isLevel3AutoMode, level3AutoIds]);
 
   const progress = React.useMemo(() => {
     const safePct = (value, limit) => {
@@ -754,6 +767,32 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
     }
     writeVipCache(`${cacheKey}:draft`, { selected_option_ids: selected, updatedAt: Date.now() });
   }, [cacheKey, editing, selected]);
+
+
+  React.useEffect(() => {
+    if (!isOpen || !user?.id || !isLevel3AutoMode) return;
+    const ids = level3AutoIds;
+    if (!ids.length) return;
+    setSavedSelected((prev) => {
+      const prevIds = Array.isArray(prev) ? prev : [];
+      if (prevIds.length === ids.length && prevIds.every((id) => level3AutoSet.has(id))) return prevIds;
+      return ids;
+    });
+    setSelected([]);
+    setEditing(false);
+    setMsg('');
+    let cancelled = false;
+    (async () => {
+      try {
+        const payload = { user_id: user.id, cycle_key: cycle, selected_option_ids: ids, saved_at: new Date().toISOString() };
+        const { error } = await supabase.from('vip_mini_selections').upsert(payload, { onConflict: 'user_id,cycle_key' });
+        if (error) throw error;
+      } catch (e) {
+        if (!cancelled) console.warn('vip level 3 auto selection failed', e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isOpen, user?.id, isLevel3AutoMode, level3AutoIds, level3AutoSet, cycle]);
 
 
   React.useEffect(() => {
@@ -1738,6 +1777,20 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                   ) : null}
                   {hasCurrentCycleAccess ? (
                     <>
+              {isLevel3AutoMode ? (
+                <div className="mt-6 rounded-2xl bg-emerald-500/10 ring-1 ring-emerald-400/25 p-5">
+                  <div className="flex items-start gap-3">
+                    <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-emerald-400/15 ring-1 ring-emerald-300/25 text-emerald-100">
+                      <span className="material-icons text-[20px]">workspace_premium</span>
+                    </div>
+                    <div>
+                      <div className="text-xs uppercase tracking-[0.24em] text-emerald-200/80">Level 3 ativo</div>
+                      <div className="mt-2 text-xl font-extrabold text-emerald-50">Parabéns por assinar o plano Level 3</div>
+                      <p className="mt-3 text-sm leading-6 text-emerald-50/85">Você receberá todas as miniaturas dessa coleção.</p>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
               <div className="fixed right-3 top-1/2 z-30 -translate-y-1/2 md:hidden">
                 <div className="rounded-2xl bg-slate-950/92 px-3 py-2 shadow-2xl backdrop-blur ring-1 ring-cyan-300/20">
                   <div className="flex flex-col gap-2 text-[11px] font-extrabold">
@@ -1894,7 +1947,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                 <div className="mt-4 rounded-2xl bg-white/4 ring-1 ring-white/10 p-4 text-slate-200">Carregando catálogo VIP…</div>
               ) : null}
 
-              {!editing ? (
+              {!editing && !isLevel3AutoMode ? (
                 <div className="mt-4 md:hidden">
                   <button
                     type="button"
@@ -1913,7 +1966,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                   const kind = (String(opt?.item_type || 'miniature').toLowerCase() === 'boss') ? 'boss' : 'miniature';
                   // IMPORTANTE: não desabilitar o botão quando o limite for atingido.
                   // Se desabilitar, o usuário não consegue clicar e ver a mensagem de upgrade.
-                  const addBlocked = editing && !isSel && !canAdd(opt.id);
+                  const addBlocked = !isLevel3AutoMode && editing && !isSel && !canAdd(opt.id);
                   return (
                     <div
                       key={opt.id}
@@ -1952,8 +2005,12 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                           </div>
                           <button
                             type="button"
-                            disabled={saving}
+                            disabled={saving || isLevel3AutoMode}
                             onClick={(e) => {
+                              if (isLevel3AutoMode) {
+                                showCenteredNotice('Plano Level 3 ativo', 'Parabéns por assinar o plano Level 3. Você receberá todas as miniaturas dessa coleção.');
+                                return;
+                              }
                               if (productionLocked) {
                                 showCenteredNotice('Pedido em produção', 'Seu pedido já está em produção. Não é mais permitido fazer alterações.');
                                 return;
@@ -2012,9 +2069,9 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                               });
                             }}
                             className={`shrink-0 rounded-lg p-1.5 ring-1 transition ${isSel ? "bg-violet-500/25 ring-violet-300/30 text-violet-50" : "bg-white/4 ring-white/10 text-slate-300"} ${(saving || (!editing && !productionLocked)) ? "opacity-60 cursor-not-allowed" : productionLocked ? "hover:bg-amber-500/10 hover:ring-amber-400/30" : addBlocked ? "hover:bg-rose-500/10 hover:ring-rose-400/30" : "hover:bg-white/6"}`}
-                            aria-label={isSel ? 'Remover miniatura' : 'Selecionar miniatura'}
+                            aria-label={isLevel3AutoMode ? 'Incluído no plano Level 3' : (isSel ? 'Remover miniatura' : 'Selecionar miniatura')}
                           >
-                            <span className="material-icons text-[18px]">{isSel ? "check_circle" : "add_circle"}</span>
+                            <span className="material-icons text-[18px]">{isLevel3AutoMode ? "workspace_premium" : (isSel ? "check_circle" : "add_circle")}</span>
                           </button>
                         </div>
                         <button
@@ -2094,7 +2151,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                 </div>
               ) : null}
 
-              {editing && hasCurrentCycleAccess && selectedCounts.mini === miniLimit && selectedCounts.boss === bossLimit && selectedCounts.total === totalLimit ? (
+              {editing && !isLevel3AutoMode && hasCurrentCycleAccess && selectedCounts.mini === miniLimit && selectedCounts.boss === bossLimit && selectedCounts.total === totalLimit ? (
                 <div className="fixed left-3 bottom-[calc(env(safe-area-inset-bottom,0px)+96px)] z-30 sm:hidden">
                   <button
                     type="button"
@@ -2110,7 +2167,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
               <div className="sticky bottom-0 z-20 -mx-4 sm:-mx-7 mt-5 hidden sm:block border-t border-white/10 bg-slate-950/90 px-4 sm:px-7 py-3 backdrop-blur supports-[backdrop-filter]:bg-slate-950/75">
                 <div className="flex items-center justify-between gap-3 flex-wrap">
                   <div className="text-xs text-slate-300">
-                    {editing ? (
+                    {!isLevel3AutoMode && editing ? (
                       <>Selecionadas: <b>{selectedCounts.total}</b>/{totalLimit}</>
                     ) : (
                       <>Suas escolhas deste ciclo já estão salvas.</>
@@ -2125,7 +2182,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                     >
                       {saving ? "Salvando…" : "Salvar escolhas"}
                     </button>
-                  ) : (
+                  ) : !isLevel3AutoMode ? (
                     <button
                       type="button"
                       disabled={!editable}
@@ -2134,7 +2191,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                     >
                       Editar escolhas
                     </button>
-                  )}
+                  ) : null}
                 </div>
               </div>
               {msg ? <div className="mt-3 text-sm text-slate-200">{msg}</div> : null}

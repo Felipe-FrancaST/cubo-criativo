@@ -316,6 +316,33 @@ async function loadProfileVipCompat(sb, userId) {
   return resp?.data || {};
 }
 
+
+async function isLevel3PlanId(planId) {
+  const raw = String(planId || '').toLowerCase();
+  return raw.includes('cubo_l3') || raw.includes('level-3') || raw.includes('level 3');
+}
+
+async function syncLevel3Selections(sb, { userId, cycleKey, savedAt } = {}) {
+  if (!sb || !userId || !cycleKey) return;
+  const { data: options, error } = await sb
+    .from('vip_mini_options')
+    .select('id')
+    .eq('cycle_key', cycleKey)
+    .eq('active', true)
+    .order('sort_order', { ascending: true });
+  if (error) throw error;
+  const ids = Array.isArray(options) ? options.map((row) => row?.id).filter(Boolean) : [];
+  if (!ids.length) return;
+  const payload = {
+    user_id: userId,
+    cycle_key: cycleKey,
+    selected_option_ids: ids,
+    saved_at: savedAt || new Date().toISOString(),
+  };
+  const { error: upsertError } = await sb.from('vip_mini_selections').upsert(payload, { onConflict: 'user_id,cycle_key' });
+  if (upsertError) throw upsertError;
+}
+
 async function updateProfileVipCompat(sb, userId, patch) {
   let resp = await sb.from('profiles').update(patch).eq('id', userId);
   if (!resp?.error) return resp;
@@ -358,6 +385,9 @@ async function applyVipFromOrder(sb, { order, payment }) {
       const profilePatch = { vip_until: new Date(nextUntil).toISOString(), vip_plan: planId };
       if (purchasedCycleKey) profilePatch.vip_cycle_key = purchasedCycleKey;
       await updateProfileVipCompat(sb, userId, profilePatch);
+      if (await isLevel3PlanId(planId) && purchasedCycleKey) {
+        await syncLevel3Selections(sb, { userId, cycleKey: purchasedCycleKey, savedAt: new Date().toISOString() });
+      }
     }
 
     if (orderTypeNorm === 'vip_upgrade') {
@@ -367,6 +397,9 @@ async function applyVipFromOrder(sb, { order, payment }) {
       const upgradePatch = { vip_plan: planId };
       if (purchasedCycleKey) upgradePatch.vip_cycle_key = purchasedCycleKey;
       await updateProfileVipCompat(sb, userId, upgradePatch);
+      if (await isLevel3PlanId(planId) && purchasedCycleKey) {
+        await syncLevel3Selections(sb, { userId, cycleKey: purchasedCycleKey, savedAt: new Date().toISOString() });
+      }
     }
 
     if (orderTypeNorm === 'vip') {
