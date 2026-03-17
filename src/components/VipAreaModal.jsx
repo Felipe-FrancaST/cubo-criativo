@@ -1608,7 +1608,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                             <div className="h-2 rounded-full bg-white/6 overflow-hidden">
                               <div className="h-full bg-violet-400" style={{ width: `${pct}%` }} />
                             </div>
-                            <div className="mt-2 text-xs text-slate-400">{votes} voto(s) • {pct}%</div>
+                            <div className="mt-2 text-xs text-slate-400">{pct}%</div>
                           </div>
                         </button>
                       );
