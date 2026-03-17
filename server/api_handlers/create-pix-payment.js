@@ -206,7 +206,7 @@ export default async function handler(req, res) {
       }
 
       const orderId = crypto.randomUUID();
-    const activeVipCycleKey = vipPlanId ? (await getActiveVipCycleKey(sb)) : null;
+      const activeVipCycleKey = await getActiveVipCycleKey(sb);
 
       const { error: orderErr } = await sb.from('orders').insert({
         id: orderId,
@@ -343,6 +343,7 @@ export default async function handler(req, res) {
     }
 
     const orderId = crypto.randomUUID();
+    const activeVipCycleKey = vipPlanId ? (await getActiveVipCycleKey(sb)) : null;
 
     // tenta puxar nome/telefone do profile (se existir)
     const { data: prof } = await sb
