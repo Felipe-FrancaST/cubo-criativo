@@ -101,6 +101,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
   const st = statusLabel(orderStatus);
   const normalizedOrderStatus = String(orderStatus || "").toLowerCase();
   const editable = isVip && (normalizedOrderStatus === "editavel" || normalizedOrderStatus === "recebido");
+  const productionLocked = normalizedOrderStatus === "em_producao";
   const canShowUpgrade = isVip && ["editavel", "recebido", "em_producao"].includes(normalizedOrderStatus);
   const cycleDeadline = React.useMemo(() => cycleDeadlineLabel(cycle), [cycle]);
   const blockNotice = React.useMemo(() => vipBlockMessage(orderStatus), [orderStatus]);
@@ -400,6 +401,15 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
       updatedAt: Date.now(),
     });
   }, [cacheKey, user?.id, vipUntil, vipPlan, vipCycleKey, activeCycleKey, orderStatus, shippingTracking, savedSelected, selected, editing, tab, options]);
+
+  function showCenteredNotice(title, text) {
+    if (limitTimerRef.current) {
+      clearTimeout(limitTimerRef.current);
+      limitTimerRef.current = null;
+    }
+    setLimitNotice({ title, text, center: true });
+    limitTimerRef.current = setTimeout(() => setLimitNotice(null), 3800);
+  }
 
   function showLimitNotice(kind, anchorEl) {
     // kind: 'total' | 'mini' | 'boss'
@@ -876,7 +886,12 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
       setMsg('Renove sua assinatura para liberar as escolhas do ciclo atual.');
       return;
     }
-    if (!editable) return;
+    if (!editable) {
+      if (productionLocked) {
+        showCenteredNotice('Pedido em produção', 'Seu pedido já está em produção. Não é mais permitido fazer alterações.');
+      }
+      return;
+    }
     if (!editing) return;
     if (selectedCounts.mini !== miniLimit || selectedCounts.boss !== bossLimit || selectedCounts.total !== totalLimit) {
       setMsg(`Escolha exatamente ${totalLimit} item(ns) para o seu plano (${miniLimit} miniatura(s)${bossLimit ? ` + ${bossLimit} boss(es)` : ""}).`);
@@ -893,6 +908,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
       setEditing(false);
       clearVipCache(`${cacheKey}:draft`);
       setMsg("Escolhas salvas ✅");
+      try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch {}
     } catch (e) {
       const raw = String(e?.message || "");
       // Não mostrar mensagens técnicas do Postgres na UI
@@ -1306,7 +1322,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                   </div>
 
                   <div className="rounded-2xl bg-gradient-to-br from-cyan-500/10 via-slate-950/45 to-violet-500/10 ring-1 ring-white/10 p-5">
-                    <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <div className="hidden sm:flex items-center justify-between gap-3 flex-wrap">
                       <div>
                         <div className="text-xs uppercase tracking-wide text-slate-400">Timeline do ciclo</div>
                         <div className="mt-1 text-sm text-slate-200">Veja em que etapa sua caixa VIP está agora.</div>
@@ -1448,8 +1464,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                     )}
                   </div>
                 </div>
-                );
-              })() : null}
+              ) : null}
 
               {upgradePayOpen ? (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
@@ -1484,8 +1499,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                     </div>
                   </div>
                 </div>
-                );
-              })() : null}
+              ) : null}
 
               {renewPayOpen ? (
                 <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
@@ -1511,8 +1525,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                     </div>
                   </div>
                 </div>
-                );
-              })() : null}
+              ) : null}
 
               {renewPix?.order_id ? (
                 <div className="mt-4 rounded-2xl bg-white/4 ring-1 ring-white/10 p-5">
@@ -1537,8 +1550,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                     </div>
                   </div>
                 </div>
-                );
-              })() : null}
+              ) : null}
 
               {showUpgrade && upgrade?.order_id ? (
                 <div className="mt-4 rounded-2xl bg-white/4 ring-1 ring-white/10 p-5">
@@ -1562,8 +1574,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                     <span className="material-icons text-emerald-200">verified</span>
                   </div>
                 </div>
-                );
-              })() : null}
+              ) : null}
 
                   </div>
                   <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1586,8 +1597,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                     </div>
                   </div>
                 </div>
-                );
-              })() : null}
+              ) : null}
 
               {showPoll && pollLoading ? (
                 <div className="mt-4 rounded-2xl bg-white/4 ring-1 ring-white/10 p-5 text-slate-200">Carregando votação…</div>
@@ -1677,8 +1687,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                     })}
                   </div>
                 </div>
-                );
-              })() : null}
+              ) : null}
 
               {tab === 'escolhas' ? (
                 <>
@@ -1829,12 +1838,13 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
               {/* Notificação de limite: aparece perto da ação e some em poucos segundos */}
               {limitNotice ? (() => {
                 const isMobileNotice = typeof window !== 'undefined' && window.innerWidth < 640;
+                const shouldCenterNotice = isMobileNotice || Boolean(limitNotice?.center);
                 return (
                 <div
-                  className={isMobileNotice ? "fixed inset-x-4 top-1/2 z-[9999] pointer-events-none" : "fixed z-[9999] pointer-events-none"}
-                  style={isMobileNotice ? undefined : { left: `${limitNotice.x || 0}px`, top: `${limitNotice.y || 0}px` }}
+                  className={shouldCenterNotice ? "fixed inset-x-4 top-1/2 z-[9999] pointer-events-none" : "fixed z-[9999] pointer-events-none"}
+                  style={shouldCenterNotice ? undefined : { left: `${limitNotice.x || 0}px`, top: `${limitNotice.y || 0}px` }}
                 >
-                  <div className={isMobileNotice ? "mx-auto -translate-y-1/2 w-full max-w-[360px] rounded-2xl bg-gradient-to-br from-violet-500/25 to-fuchsia-500/15 ring-1 ring-violet-400/25 px-4 py-3 shadow-xl backdrop-blur" : "-translate-x-1/2 -translate-y-[115%] w-[min(360px,calc(100vw-32px))] rounded-2xl bg-gradient-to-br from-violet-500/25 to-fuchsia-500/15 ring-1 ring-violet-400/25 px-4 py-3 shadow-xl backdrop-blur"}>
+                  <div className={shouldCenterNotice ? "mx-auto -translate-y-1/2 w-full max-w-[360px] rounded-2xl bg-gradient-to-br from-violet-500/25 to-fuchsia-500/15 ring-1 ring-violet-400/25 px-4 py-3 shadow-xl backdrop-blur" : "-translate-x-1/2 -translate-y-[115%] w-[min(360px,calc(100vw-32px))] rounded-2xl bg-gradient-to-br from-violet-500/25 to-fuchsia-500/15 ring-1 ring-violet-400/25 px-4 py-3 shadow-xl backdrop-blur"}>
                     <div className="flex items-start gap-2">
                       <span className="material-icons text-violet-200 text-[18px] mt-0.5">info</span>
                       <div className="min-w-0">
@@ -1896,8 +1906,12 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                           </div>
                           <button
                             type="button"
-                            disabled={!editable || !editing || saving}
+                            disabled={saving || (!editing && !productionLocked)}
                             onClick={(e) => {
+                              if (productionLocked) {
+                                showCenteredNotice('Pedido em produção', 'Seu pedido já está em produção. Não é mais permitido fazer alterações.');
+                                return;
+                              }
                               if (!editing) return;
                               const anchor = e?.currentTarget || null;
                               setSelected((prev) => {
@@ -1946,7 +1960,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                                 return [...prev, opt.id];
                               });
                             }}
-                            className={`shrink-0 rounded-lg p-1.5 ring-1 transition ${isSel ? "bg-violet-500/25 ring-violet-300/30 text-violet-50" : "bg-white/4 ring-white/10 text-slate-300"} ${(!editable || !editing || saving) ? "opacity-60 cursor-not-allowed" : addBlocked ? "hover:bg-rose-500/10 hover:ring-rose-400/30" : "hover:bg-white/6"}`}
+                            className={`shrink-0 rounded-lg p-1.5 ring-1 transition ${isSel ? "bg-violet-500/25 ring-violet-300/30 text-violet-50" : "bg-white/4 ring-white/10 text-slate-300"} ${(saving || (!editing && !productionLocked)) ? "opacity-60 cursor-not-allowed" : productionLocked ? "hover:bg-amber-500/10 hover:ring-amber-400/30" : addBlocked ? "hover:bg-rose-500/10 hover:ring-rose-400/30" : "hover:bg-white/6"}`}
                             aria-label={isSel ? 'Remover miniatura' : 'Selecionar miniatura'}
                           >
                             <span className="material-icons text-[18px]">{isSel ? "check_circle" : "add_circle"}</span>
@@ -1993,10 +2007,22 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                     </div>
                   </div>
                 </div>
-                );
-              })() : null}
+              ) : null}
 
-              <div className="sticky bottom-0 z-20 -mx-4 sm:-mx-7 mt-5 border-t border-white/10 bg-slate-950/90 px-4 sm:px-7 py-3 backdrop-blur supports-[backdrop-filter]:bg-slate-950/75">
+              {editing && hasCurrentCycleAccess && selectedCounts.mini === miniLimit && selectedCounts.boss === bossLimit && selectedCounts.total === totalLimit ? (
+                <div className="fixed left-3 bottom-[calc(env(safe-area-inset-bottom,0px)+96px)] z-30 sm:hidden">
+                  <button
+                    type="button"
+                    onClick={saveSelection}
+                    disabled={!editable || saving}
+                    className={`rounded-2xl px-4 py-3 text-sm font-extrabold shadow-2xl ring-1 transition ${(!editable || saving) ? 'bg-slate-700/70 text-slate-300 ring-white/10' : 'bg-emerald-300 text-black ring-emerald-200/40 hover:bg-emerald-200'}`}
+                  >
+                    {saving ? 'Salvando…' : 'Salvar escolhas'}
+                  </button>
+                </div>
+              ) : null}
+
+              <div className="sticky bottom-0 z-20 -mx-4 sm:-mx-7 mt-5 hidden sm:block border-t border-white/10 bg-slate-950/90 px-4 sm:px-7 py-3 backdrop-blur supports-[backdrop-filter]:bg-slate-950/75">
                 <div className="flex items-center justify-between gap-3 flex-wrap">
                   <div className="text-xs text-slate-300">
                     {editing ? (
@@ -2019,7 +2045,12 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                       type="button"
                       disabled={!editable}
                       onClick={() => {
-                        if (!editable) return;
+                        if (!editable) {
+      if (productionLocked) {
+        showCenteredNotice('Pedido em produção', 'Seu pedido já está em produção. Não é mais permitido fazer alterações.');
+      }
+      return;
+    }
                         setSelected(Array.isArray(savedSelected) ? savedSelected : []);
                         setEditing(true);
                         setMsg("");
