@@ -112,13 +112,19 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
   const selectedPlan = React.useMemo(() => findPlanByProfileValue(vipPlans, vipPlan) || (Array.isArray(vipPlans) ? vipPlans[0] : null), [vipPlans, vipPlan]);
   const vipPlanLabel = React.useMemo(() => selectedPlan?.short_name || selectedPlan?.name || 'VIP', [selectedPlan]);
 
-  const nextPlan = React.useMemo(() => {
+  const upgradePlans = React.useMemo(() => {
     const plans = Array.isArray(vipPlans) && vipPlans.length ? vipPlans : FALLBACK_VIP_PLANS;
     const ordered = [...plans].sort((a, b) => (Number(a?.sort_order) || 0) - (Number(b?.sort_order) || 0));
     const idx = ordered.findIndex((p) => String(p?.id) === String(selectedPlan?.id));
-    if (idx >= 0 && idx + 1 < ordered.length) return ordered[idx + 1];
-    return null;
+    if (idx >= 0 && idx + 1 < ordered.length) return ordered.slice(idx + 1);
+    return [];
   }, [vipPlans, selectedPlan?.id]);
+  const nextPlan = upgradePlans[0] || null;
+  const [selectedUpgradePlanId, setSelectedUpgradePlanId] = React.useState('');
+  const selectedUpgradePlan = React.useMemo(
+    () => upgradePlans.find((p) => String(p?.id) === String(selectedUpgradePlanId)) || nextPlan || null,
+    [upgradePlans, selectedUpgradePlanId, nextPlan]
+  );
   const miniLimit = Math.max(0, Number(selectedPlan?.miniatures_count ?? selectedPlan?.items_per_month ?? 0) || 0);
   const bossLimit = Math.max(0, Number(selectedPlan?.boss_count ?? 0) || 0);
   const totalLimit = Math.max(0, Number(selectedPlan?.items_per_month ?? (miniLimit + bossLimit)) || (miniLimit + bossLimit));
@@ -131,17 +137,28 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
     return 0;
   }, [selectedPlan]);
 
-  const nextPriceCents = React.useMemo(() => {
-    if (typeof nextPlan?.price_cents === 'number') return nextPlan.price_cents;
-    if (typeof nextPlan?.price_brl === 'number') return Math.round(nextPlan.price_brl * 100);
-    if (typeof nextPlan?.price === 'number') return Math.round(nextPlan.price * 100);
+  const selectedUpgradePriceCents = React.useMemo(() => {
+    if (typeof selectedUpgradePlan?.price_cents === 'number') return selectedUpgradePlan.price_cents;
+    if (typeof selectedUpgradePlan?.price_brl === 'number') return Math.round(selectedUpgradePlan.price_brl * 100);
+    if (typeof selectedUpgradePlan?.price === 'number') return Math.round(selectedUpgradePlan.price * 100);
     return 0;
-  }, [nextPlan]);
+  }, [selectedUpgradePlan]);
 
   const upgradeDiffCents = React.useMemo(() => {
-    const diff = Number(nextPriceCents || 0) - Number(currentPriceCents || 0);
+    const diff = Number(selectedUpgradePriceCents || 0) - Number(currentPriceCents || 0);
     return diff > 0 ? diff : 0;
-  }, [nextPriceCents, currentPriceCents]);
+  }, [selectedUpgradePriceCents, currentPriceCents]);
+
+  React.useEffect(() => {
+    if (!upgradePlans.length) {
+      setSelectedUpgradePlanId('');
+      return;
+    }
+    setSelectedUpgradePlanId((current) => {
+      const hasCurrent = upgradePlans.some((p) => String(p?.id) === String(current));
+      return hasCurrent ? current : String(upgradePlans[0]?.id || '');
+    });
+  }, [upgradePlans]);
 
   const optionTypeById = React.useMemo(() => {
     const map = new Map();
@@ -738,7 +755,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
 
   async function startUpgradePix() {
     if (!user || !isVip) return;
-    if (!nextPlan?.id) return;
+    if (!selectedUpgradePlan?.id) return;
     try {
       setUpgradeBusy(true);
       setMsg('');
@@ -753,7 +770,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
       const res = await fetch('/api/create-pix-payment?mode=vip_upgrade', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` },
-        body: JSON.stringify({ to_plan_id: nextPlan.id }),
+        body: JSON.stringify({ to_plan_id: selectedUpgradePlan.id }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || 'Não foi possível gerar o Pix do upgrade.');
@@ -774,7 +791,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
 
   async function startUpgradeCard() {
     if (!user || !isVip) return;
-    if (!nextPlan?.id) return;
+    if (!selectedUpgradePlan?.id) return;
     try {
       setUpgradeBusy(true);
       setMsg('');
@@ -788,7 +805,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
       const res = await fetch('/api/create-checkout-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` },
-        body: JSON.stringify({ mode: 'vip_upgrade', to_plan_id: nextPlan.id }),
+        body: JSON.stringify({ mode: 'vip_upgrade', to_plan_id: selectedUpgradePlan.id }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -1374,22 +1391,61 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                       <div>
                         <div className="text-xs uppercase tracking-wide text-slate-400">Upgrade de nível</div>
                         <div className="mt-1 text-xl font-extrabold text-slate-100">Mais escolhas por mês</div>
-                        <div className="mt-2 text-sm text-slate-300">Faça upgrade para liberar mais miniaturas/bosses neste ciclo.</div>
+                        <div className="mt-2 text-sm text-slate-300">Escolha para qual nível você quer subir neste ciclo.</div>
                       </div>
                       <span className="material-icons text-violet-200">upgrade</span>
                     </div>
-                    <div className="mt-4 grid gap-2">
-                      <button
-                        type="button"
-                        disabled={!nextPlan || upgradeBusy}
-                        onClick={() => { setUpgradePayOpen(true); }}
-                        className={`w-full rounded-xl px-4 py-3 font-extrabold ring-1 ring-white/10 ${(!nextPlan || upgradeBusy) ? 'bg-slate-700/40 text-slate-300' : 'bg-violet-300 text-black hover:bg-violet-200'}`}
-                      >
-                        {nextPlan ? `Fazer upgrade para ${nextPlan?.short_name || nextPlan?.name}` : 'Upgrade indisponível'}
-                        {nextPlan ? <span className="ml-2 text-xs font-semibold">({fmtBRLFromCents(upgradeDiffCents)})</span> : null}
-                      </button>
-                      {!nextPlan ? <div className="text-xs text-slate-400">Você já está no nível máximo.</div> : null}
-                    </div>
+
+                    {upgradePlans.length ? (
+                      <div className="mt-4 grid gap-3">
+                        {upgradePlans.map((plan) => {
+                          const priceCents = typeof plan?.price_cents === 'number'
+                            ? plan.price_cents
+                            : typeof plan?.price_brl === 'number'
+                              ? Math.round(plan.price_brl * 100)
+                              : typeof plan?.price === 'number'
+                                ? Math.round(plan.price * 100)
+                                : 0;
+                          const diffCents = Math.max(0, Number(priceCents || 0) - Number(currentPriceCents || 0));
+                          const isSelected = String(selectedUpgradePlanId) === String(plan?.id);
+                          const planMini = Math.max(0, Number(plan?.miniatures_count ?? plan?.items_per_month ?? 0) || 0);
+                          const planBoss = Math.max(0, Number(plan?.boss_count ?? 0) || 0);
+                          return (
+                            <button
+                              key={plan?.id}
+                              type="button"
+                              onClick={() => setSelectedUpgradePlanId(String(plan?.id || ''))}
+                              className={`w-full rounded-2xl p-4 text-left ring-1 transition ${isSelected ? 'bg-violet-300/10 ring-violet-300/50' : 'bg-white/[0.03] ring-white/10 hover:bg-white/[0.05]'}`}
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <div className="text-base font-extrabold text-slate-100">{plan?.short_name || plan?.name}</div>
+                                  <div className="mt-1 text-sm text-slate-300">
+                                    {planMini} miniatura(s){planBoss ? ` + ${planBoss} boss` : ''}
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <div className="text-xs uppercase tracking-wide text-slate-400">Diferença</div>
+                                  <div className="text-base font-extrabold text-violet-100">{fmtBRLFromCents(diffCents)}</div>
+                                </div>
+                              </div>
+                            </button>
+                          );
+                        })}
+
+                        <button
+                          type="button"
+                          disabled={!selectedUpgradePlan || upgradeBusy}
+                          onClick={() => { setUpgradePayOpen(true); }}
+                          className={`w-full rounded-xl px-4 py-3 font-extrabold ring-1 ring-white/10 ${(!selectedUpgradePlan || upgradeBusy) ? 'bg-slate-700/40 text-slate-300' : 'bg-violet-300 text-black hover:bg-violet-200'}`}
+                        >
+                          {selectedUpgradePlan ? `Fazer upgrade para ${selectedUpgradePlan?.short_name || selectedUpgradePlan?.name}` : 'Upgrade indisponível'}
+                          {selectedUpgradePlan ? <span className="ml-2 text-xs font-semibold">({fmtBRLFromCents(upgradeDiffCents)})</span> : null}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="mt-4 text-xs text-slate-400">Você já está no nível máximo.</div>
+                    )}
                   </div>
                 </div>
               ) : null}
@@ -1402,7 +1458,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                       <div>
                         <div className="text-xs uppercase tracking-wide text-slate-400">Upgrade de Nível</div>
                         <div className="mt-1 text-xl font-extrabold text-slate-100">Escolha a forma de pagamento</div>
-                        <div className="mt-2 text-sm text-slate-300">Valor: <b>{fmtBRLFromCents(upgradeDiffCents)}</b></div>
+                        <div className="mt-2 text-sm text-slate-300">Plano: <b>{selectedUpgradePlan?.short_name || selectedUpgradePlan?.name || 'Upgrade'}</b><br />Valor: <b>{fmtBRLFromCents(upgradeDiffCents)}</b></div>
                       </div>
                       <button onClick={() => setUpgradePayOpen(false)} className="rounded-xl p-2 ring-1 ring-white/15 hover:bg-white/4" aria-label="Fechar">
                         <span className="material-icons">close</span>
