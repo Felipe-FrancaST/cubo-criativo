@@ -1448,7 +1448,8 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                     )}
                   </div>
                 </div>
-              ) : null}
+                );
+              })() : null}
 
               {upgradePayOpen ? (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
@@ -1483,7 +1484,8 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                     </div>
                   </div>
                 </div>
-              ) : null}
+                );
+              })() : null}
 
               {renewPayOpen ? (
                 <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
@@ -1509,7 +1511,8 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                     </div>
                   </div>
                 </div>
-              ) : null}
+                );
+              })() : null}
 
               {renewPix?.order_id ? (
                 <div className="mt-4 rounded-2xl bg-white/4 ring-1 ring-white/10 p-5">
@@ -1534,7 +1537,8 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                     </div>
                   </div>
                 </div>
-              ) : null}
+                );
+              })() : null}
 
               {showUpgrade && upgrade?.order_id ? (
                 <div className="mt-4 rounded-2xl bg-white/4 ring-1 ring-white/10 p-5">
@@ -1558,7 +1562,8 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                     <span className="material-icons text-emerald-200">verified</span>
                   </div>
                 </div>
-              ) : null}
+                );
+              })() : null}
 
                   </div>
                   <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1581,7 +1586,8 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                     </div>
                   </div>
                 </div>
-              ) : null}
+                );
+              })() : null}
 
               {showPoll && pollLoading ? (
                 <div className="mt-4 rounded-2xl bg-white/4 ring-1 ring-white/10 p-5 text-slate-200">Carregando votação…</div>
@@ -1671,7 +1677,8 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                     })}
                   </div>
                 </div>
-              ) : null}
+                );
+              })() : null}
 
               {tab === 'escolhas' ? (
                 <>
@@ -1820,12 +1827,14 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
               </div>
 
               {/* Notificação de limite: aparece perto da ação e some em poucos segundos */}
-              {limitNotice ? (
+              {limitNotice ? (() => {
+                const isMobileNotice = typeof window !== 'undefined' && window.innerWidth < 640;
+                return (
                 <div
-                  className="fixed z-[9999] pointer-events-none"
-                  style={{ left: `${limitNotice.x || 0}px`, top: `${limitNotice.y || 0}px` }}
+                  className={isMobileNotice ? "fixed inset-x-4 top-1/2 z-[9999] pointer-events-none" : "fixed z-[9999] pointer-events-none"}
+                  style={isMobileNotice ? undefined : { left: `${limitNotice.x || 0}px`, top: `${limitNotice.y || 0}px` }}
                 >
-                  <div className="-translate-x-1/2 -translate-y-[115%] w-[min(360px,calc(100vw-32px))] rounded-2xl bg-gradient-to-br from-violet-500/25 to-fuchsia-500/15 ring-1 ring-violet-400/25 px-4 py-3 shadow-xl backdrop-blur">
+                  <div className={isMobileNotice ? "mx-auto -translate-y-1/2 w-full max-w-[360px] rounded-2xl bg-gradient-to-br from-violet-500/25 to-fuchsia-500/15 ring-1 ring-violet-400/25 px-4 py-3 shadow-xl backdrop-blur" : "-translate-x-1/2 -translate-y-[115%] w-[min(360px,calc(100vw-32px))] rounded-2xl bg-gradient-to-br from-violet-500/25 to-fuchsia-500/15 ring-1 ring-violet-400/25 px-4 py-3 shadow-xl backdrop-blur"}>
                     <div className="flex items-start gap-2">
                       <span className="material-icons text-violet-200 text-[18px] mt-0.5">info</span>
                       <div className="min-w-0">
@@ -1835,7 +1844,8 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                     </div>
                   </div>
                 </div>
-              ) : null}
+                );
+              })() : null}
 
               {optionsLoading && !options.length ? (
                 <div className="mt-4 rounded-2xl bg-white/4 ring-1 ring-white/10 p-4 text-slate-200">Carregando catálogo VIP…</div>
@@ -1983,7 +1993,8 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                     </div>
                   </div>
                 </div>
-              ) : null}
+                );
+              })() : null}
 
               <div className="sticky bottom-0 z-20 -mx-4 sm:-mx-7 mt-5 border-t border-white/10 bg-slate-950/90 px-4 sm:px-7 py-3 backdrop-blur supports-[backdrop-filter]:bg-slate-950/75">
                 <div className="flex items-center justify-between gap-3 flex-wrap">
