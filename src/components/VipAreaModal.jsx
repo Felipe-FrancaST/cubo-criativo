@@ -66,6 +66,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
   const [limitNotice, setLimitNotice] = React.useState(null); // { title, text }
   const limitTimerRef = React.useRef(null);
   const loadSeqRef = React.useRef(0);
+  const vipTopRef = React.useRef(null);
   const handleVipImageError = React.useCallback((event) => {
     const img = event?.currentTarget;
     if (!img) return;
@@ -73,6 +74,22 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
     img.src = "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 320 320\'%3E%3Crect width=\'320\' height=\'320\' fill=\'%23060b18\'/%3E%3Ctext x=\'50%25\' y=\'50%25\' dominant-baseline=\'middle\' text-anchor=\'middle\' fill=\'%2394a3b8\' font-family=\'Arial, sans-serif\' font-size=\'18\'%3EImagem indispon%C3%ADvel%3C/text%3E%3C/svg%3E";
   }, []);
 
+  const scrollVipToTop = React.useCallback(() => {
+    try {
+      vipTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch {}
+    try {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch {}
+    try {
+      const modalScroll = vipTopRef.current?.closest('[data-modal-scroll]');
+      if (modalScroll) modalScroll.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch {}
+    try {
+      const pageScroll = document.scrollingElement || document.documentElement || document.body;
+      pageScroll?.scrollTo?.({ top: 0, behavior: 'smooth' });
+    } catch {}
+  }, []);
 
   // Votação (tema do próximo mês)
   const [poll, setPoll] = React.useState(null);
@@ -908,7 +925,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
       setEditing(false);
       clearVipCache(`${cacheKey}:draft`);
       setMsg("Escolhas salvas ✅");
-      try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch {}
+      scrollVipToTop();
     } catch (e) {
       const raw = String(e?.message || "");
       // Não mostrar mensagens técnicas do Postgres na UI
@@ -1859,6 +1876,30 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
 
               {optionsLoading && !options.length ? (
                 <div className="mt-4 rounded-2xl bg-white/4 ring-1 ring-white/10 p-4 text-slate-200">Carregando catálogo VIP…</div>
+              ) : null}
+
+              {!editing ? (
+                <div className="mt-4 md:hidden">
+                  <button
+                    type="button"
+                    disabled={!editable}
+                    onClick={() => {
+                      if (!editable) {
+                        if (productionLocked) {
+                          showCenteredNotice('Pedido em produção', 'Seu pedido já está em produção. Não é mais permitido fazer alterações.');
+                        }
+                        return;
+                      }
+                      setSelected(Array.isArray(savedSelected) ? savedSelected : []);
+                      setEditing(true);
+                      setMsg('');
+                      scrollVipToTop();
+                    }}
+                    className={`w-full rounded-2xl px-4 py-3 text-sm font-extrabold ring-1 ring-white/10 ${!editable ? "bg-slate-700/40 text-slate-300" : "bg-violet-300 text-black hover:bg-violet-200"}`}
+                  >
+                    Editar escolhas
+                  </button>
+                </div>
               ) : null}
 
               <div className="mt-4 grid grid-cols-1 min-[420px]:grid-cols-2 sm:grid-cols-3 gap-3">
