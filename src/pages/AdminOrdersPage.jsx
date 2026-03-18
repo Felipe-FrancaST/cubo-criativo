@@ -48,7 +48,10 @@ function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTrack
             <div className="mt-3 grid grid-cols-2 gap-3">
               <div>
                 <div className="text-[11px] text-slate-500">Total</div>
-                <div className="text-lg font-semibold text-white">{fmtBRL(order?.total)}</div>
+                <div className="text-lg font-semibold text-white">{fmtBRL(order?.effective_total ?? order?.total)}</div>
+                {Number(order?.upgrade_total || 0) > 0 ? (
+                  <div className="text-[11px] text-violet-200/80">Inclui upgrade{Number(order?.related_upgrades_count || 0) > 1 ? 's' : ''} de {fmtBRL(order?.upgrade_total)}</div>
+                ) : null}
               </div>
               <div>
                 <div className="text-[11px] text-slate-500">Pagamento</div>
@@ -240,6 +243,41 @@ function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTrack
               </div>
             ) : null}
           </div>
+
+          {Array.isArray(order?.related_upgrades) && order.related_upgrades.length ? (
+            <div className="mt-4 rounded-2xl bg-violet-500/10 ring-1 ring-violet-300/20 p-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-sm font-semibold text-white">Upgrade vinculado ao pedido</div>
+                  <div className="text-xs text-violet-100/80">Os upgrades não aparecem mais como pedido separado. Eles ficam agrupados aqui.</div>
+                </div>
+                <div className="rounded-full bg-black/25 px-3 py-1 text-[11px] font-semibold text-violet-100 ring-1 ring-white/10">
+                  {order.related_upgrades.length} upgrade{order.related_upgrades.length === 1 ? '' : 's'}
+                </div>
+              </div>
+              <div className="mt-3 space-y-3">
+                {order.related_upgrades.map((up) => (
+                  <div key={up.id} className="rounded-2xl bg-black/20 ring-1 ring-white/10 p-3">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <div className="text-sm font-bold text-white">Plano atualizado para {up.plan_label || up.vip_plan_id || 'VIP'}</div>
+                        <div className="mt-1 text-xs text-slate-300">Upgrade em {fmtDate(up.created_at)} • pedido {shortId(up.id)}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-extrabold text-violet-100">{fmtBRL(up.total)}</div>
+                        <div className="mt-1 inline-flex rounded-full px-2 py-1 text-[11px] ring-1 ring-white/10 text-slate-200 bg-white/5">{String(up.status || 'pending').toLowerCase() === 'paid' ? 'Pago' : String(up.status || 'pending')}</div>
+                      </div>
+                    </div>
+                    {Array.isArray(up.order_items) && up.order_items.length ? (
+                      <div className="mt-2 text-xs text-slate-300">
+                        {up.order_items.map((it) => `${it.name}${Number(it.qty || 1) > 1 ? ` ×${it.qty}` : ''}`).join(' • ')}
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
 
           <div className="mt-4 rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-3">
             <div className="text-sm font-semibold text-white">Ações</div>
@@ -1855,6 +1893,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                             <td className="py-2 pr-3 min-w-[220px]">
                               <div className="text-slate-100">{o.customer_name || o.profile?.full_name || "—"}</div>
                               <div className="text-[11px] text-slate-500">{o.customer_email || ""}</div>
+                              {Number(o.related_upgrades_count || 0) > 0 ? <div className="text-[11px] text-violet-200/80">Upgrade VIP vinculado</div> : null}
                             </td>
                             <td className="py-2 pr-3 whitespace-nowrap">{fmtBRL(o.total)}</td>
                             <td className="py-2 pr-3 whitespace-nowrap">

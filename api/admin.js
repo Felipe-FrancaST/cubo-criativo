@@ -51,6 +51,11 @@ async function readJsonBody(req) {
 // Shared helpers (update-order)
 // -----------------------------
 
+
+const UPGRADE_ORDER_TYPES = new Set(["vip_upgrade", "vip-upgrade", "upgrade_vip", "upgrade"]);
+const normalizeOrderType = (value) => String(value || "").trim().toLowerCase();
+const isUpgradeOrderType = (value) => UPGRADE_ORDER_TYPES.has(normalizeOrderType(value));
+
 const ALLOWED_PROD_STATUS = new Set([
   "editavel",
   "recebido",
@@ -705,6 +710,7 @@ async function handleGameCouponMetrics(req, res) {
 
 function applyOrderFilters(builder, filters = {}) {
   let q = builder;
+  q = q.not("order_type", "in", '("vip_upgrade","vip-upgrade","upgrade_vip","upgrade")');
   const queryText = String(filters.q || "").trim();
   const pay = String(filters.pay || "all").toLowerCase();
   const prod = String(filters.prod || "all").toLowerCase();
@@ -852,8 +858,34 @@ async function handleOrders(req, res) {
     });
   }
 
-  const orderIds = list.map((o) => o.id);
-  const userIds = Array.from(new Set(list.map((o) => o.user_id).filter(Boolean)));
+  const vipOrders = list.filter((o) => normalizeOrderType(o.order_type) === "vip" && o.user_id);
+  const vipUserIds = Array.from(new Set(vipOrders.map((o) => o.user_id).filter(Boolean)));
+
+  const upgradeSelectFull = selectFull;
+  const upgradeSelectNoEmailAudit = selectNoEmailAudit;
+  const upgradeSelectLegacy = selectLegacy;
+  let relatedUpgrades = [];
+  if (vipUserIds.length) {
+    const runUpgradeQuery = async (selectColumns) => {
+      return await sb
+        .from("orders")
+        .select(selectColumns)
+        .in("user_id", vipUserIds)
+        .in("order_type", Array.from(UPGRADE_ORDER_TYPES))
+        .order("created_at", { ascending: false });
+    };
+    let upgradeResp = await runUpgradeQuery(upgradeSelectFull);
+    if (upgradeResp?.error && /last_email_|column/i.test(String(upgradeResp.error.message || ""))) {
+      upgradeResp = await runUpgradeQuery(upgradeSelectNoEmailAudit);
+    }
+    if (upgradeResp?.error && /refund_requested|refund_requested_at|column/i.test(String(upgradeResp.error.message || ""))) {
+      upgradeResp = await runUpgradeQuery(upgradeSelectLegacy);
+    }
+    relatedUpgrades = Array.isArray(upgradeResp?.data) ? upgradeResp.data : [];
+  }
+
+  const orderIds = Array.from(new Set([...list.map((o) => o.id), ...relatedUpgrades.map((o) => o.id)]));
+  const userIds = Array.from(new Set([...list.map((o) => o.user_id), ...relatedUpgrades.map((o) => o.user_id)].filter(Boolean)));
 
   const [{ data: profiles, error: profErr }] = await Promise.all([
     userIds.length
@@ -911,8 +943,6 @@ async function handleOrders(req, res) {
   const profileById = new Map();
   (profiles || []).forEach((p) => profileById.set(p.id, p));
 
-  const vipOrders = (list || []).filter((o) => String(o.order_type || "").toLowerCase() === "vip" && o.user_id);
-  const vipUserIds = Array.from(new Set(vipOrders.map((o) => o.user_id).filter(Boolean)));
   const vipCycles = Array.from(
     new Set(
       vipOrders
@@ -955,24 +985,108 @@ async function handleOrders(req, res) {
     });
   }
 
+  const vipPlanIds = Array.from(new Set([...list, ...relatedUpgrades].map((o) => String(o?.vip_plan_id || '').trim()).filter(Boolean)));
+  let vipPlanById = new Map();
+  if (vipPlanIds.length) {
+    const plansResp = await sb.from('vip_plans').select('id,name,short_name').in('id', vipPlanIds);
+    if (!plansResp?.error) {
+      vipPlanById = new Map((plansResp.data || []).map((row) => [String(row.id), row]));
+    }
+  }
+  const planLabel = (planId) => {
+    const key = String(planId || '').trim();
+    if (!key) return 'VIP';
+    const row = vipPlanById.get(key);
+    return row?.short_name || row?.name || key;
+  };
+
   const orderEventsResp = await loadOrderEvents(sb, orderIds);
   const vipPresentResp = await loadVipPresentRolls(sb, vipOrders);
+
+  const upgradeCardsByBase = new Map();
+  if (relatedUpgrades.length && vipOrders.length) {
+    const vipOrdersByUser = new Map();
+    vipOrders.forEach((order) => {
+      const userKey = String(order.user_id || '');
+      if (!userKey) return;
+      if (!vipOrdersByUser.has(userKey)) vipOrdersByUser.set(userKey, []);
+      vipOrdersByUser.get(userKey).push(order);
+    });
+    vipOrdersByUser.forEach((rows) => rows.sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0)));
+
+    relatedUpgrades.forEach((upgrade) => {
+      const userKey = String(upgrade.user_id || '');
+      const baseCandidates = vipOrdersByUser.get(userKey) || [];
+      if (!baseCandidates.length) return;
+      const upgradeTime = new Date(upgrade.created_at || 0).getTime();
+      let baseOrder = null;
+      for (const candidate of baseCandidates) {
+        const candidateTime = new Date(candidate.created_at || 0).getTime();
+        if (candidateTime <= upgradeTime) baseOrder = candidate;
+      }
+      if (!baseOrder) baseOrder = baseCandidates[baseCandidates.length - 1];
+      if (!baseOrder) return;
+
+      const upgradeId = String(upgrade.id);
+      const dbEvents = orderEventsResp.byOrder.get(upgradeId) || [];
+      const timeline = dbEvents.length ? dbEvents : synthesizeOrderTimeline(upgrade);
+      const card = {
+        ...upgrade,
+        order_items: itemsByOrder.get(upgrade.id) || [],
+        timeline,
+        timeline_source: dbEvents.length ? 'order_events' : 'synthetic',
+        plan_label: planLabel(upgrade.vip_plan_id),
+      };
+      const baseKey = String(baseOrder.id);
+      if (!upgradeCardsByBase.has(baseKey)) upgradeCardsByBase.set(baseKey, []);
+      upgradeCardsByBase.get(baseKey).push(card);
+    });
+    upgradeCardsByBase.forEach((rows) => rows.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)));
+  }
+
   const merged = list.map((o) => {
     const dbEvents = orderEventsResp.byOrder.get(String(o.id)) || [];
-    const timeline = dbEvents.length ? dbEvents : synthesizeOrderTimeline(o);
+    let timeline = dbEvents.length ? dbEvents : synthesizeOrderTimeline(o);
     const cycleKey = String(o.created_at || "").slice(0, 7);
+    const relatedUpgradesForOrder = upgradeCardsByBase.get(String(o.id)) || [];
+    const latestPaidUpgrade = relatedUpgradesForOrder.find((up) => String(up?.status || '').toLowerCase() === 'paid') || null;
+    const upgradeTotal = relatedUpgradesForOrder
+      .filter((up) => String(up?.status || '').toLowerCase() === 'paid')
+      .reduce((acc, up) => acc + (Number(up?.total) || 0), 0);
+
+    if (relatedUpgradesForOrder.length) {
+      const upgradeEvents = relatedUpgradesForOrder.map((up) => ({
+        id: `upgrade-${up.id}`,
+        order_id: o.id,
+        event_type: 'vip_upgrade',
+        title: `Upgrade para ${up.plan_label}`,
+        description: `${String(up.status || '').toLowerCase() === 'paid' ? 'Upgrade confirmado' : 'Upgrade em andamento'}${Number(up.total) ? ` • ${Number(up.total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}` : ''}`,
+        actor_label: 'Sistema',
+        created_at: up.created_at || up.updated_at || null,
+        metadata: { upgrade_order_id: up.id, to_plan_id: up.vip_plan_id, status: up.status || null },
+        synthetic: true,
+      }));
+      timeline = [...upgradeEvents, ...timeline].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+    }
+
     return {
       ...o,
+      vip_plan_id: latestPaidUpgrade?.vip_plan_id || o.vip_plan_id,
+      vip_plan_label: planLabel(latestPaidUpgrade?.vip_plan_id || o.vip_plan_id),
       profile: o.user_id ? profileById.get(o.user_id) || null : null,
       order_items: itemsByOrder.get(o.id) || [],
       vip_selection:
-        String(o.order_type || "").toLowerCase() === "vip" && o.user_id
+        normalizeOrderType(o.order_type) === "vip" && o.user_id
           ? vipSelByUserCycle.get(`${o.user_id}:${cycleKey}`) || null
           : null,
       vip_present_roll:
-        String(o.order_type || "").toLowerCase() === "vip" && o.user_id
+        normalizeOrderType(o.order_type) === "vip" && o.user_id
           ? vipPresentResp.byKey.get(`${o.user_id}:${cycleKey}`) || null
           : null,
+      related_upgrades: relatedUpgradesForOrder,
+      related_upgrades_count: relatedUpgradesForOrder.length,
+      upgrade_total,
+      effective_total: Number(o.total || 0) + upgradeTotal,
       timeline,
       timeline_source: dbEvents.length ? 'order_events' : 'synthetic',
     };
@@ -990,7 +1104,6 @@ async function handleOrders(req, res) {
     timeline_enabled: !!orderEventsResp.tableAvailable,
     vip_present_enabled: !!vipPresentResp.tableAvailable,
   });
-}
 
 
 
