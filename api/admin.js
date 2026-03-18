@@ -1085,7 +1085,7 @@ async function handleOrders(req, res) {
           : null,
       related_upgrades: relatedUpgradesForOrder,
       related_upgrades_count: relatedUpgradesForOrder.length,
-      upgrade_total,
+      upgrade_total: upgradeTotal,
       effective_total: Number(o.total || 0) + upgradeTotal,
       timeline,
       timeline_source: dbEvents.length ? 'order_events' : 'synthetic',
