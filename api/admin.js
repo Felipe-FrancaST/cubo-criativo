@@ -763,51 +763,80 @@ async function handleOrders(req, res) {
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
-  const selectFull =
-    "id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,updated_at,production_status,shipping_tracking,tracking_code,tracking_url,order_type,vip_plan_id,refund_requested,refund_requested_at,last_email_type,last_email_status,last_email_sent_at,last_email_error";
-  const selectNoEmailAudit =
-    "id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,updated_at,production_status,shipping_tracking,tracking_code,tracking_url,order_type,vip_plan_id,refund_requested,refund_requested_at";
-  const selectLegacy =
-    "id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,updated_at,production_status,shipping_tracking,tracking_code,tracking_url,order_type,vip_plan_id";
+  try {
 
-  const runOrderQuery = async (selectColumns, withCount = false) => {
-    let query = sb.from("orders").select(selectColumns, withCount ? { count: "exact" } : undefined);
+  let orders = null;
+  let ordersErr = null;
+  let totalCount = 0;
+
+  const selectFull =
+    "id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,production_status,shipping_tracking,order_type,vip_plan_id,refund_requested,refund_requested_at,last_email_type,last_email_status,last_email_sent_at,last_email_error";
+  const selectNoEmailAudit =
+    "id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,production_status,shipping_tracking,order_type,vip_plan_id,refund_requested,refund_requested_at";
+  const selectLegacy =
+    "id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,production_status,shipping_tracking,order_type,vip_plan_id";
+
+  const runOrderQuery = async (selectColumns) => {
+    let query = sb.from("orders").select(selectColumns, { count: "exact" });
     query = applyOrderFilters(query, filters);
-    query = query.order("created_at", { ascending: false });
-    if (withCount) query = query.range(from, to);
-    return await query;
+    return await query.order("created_at", { ascending: false }).range(from, to);
   };
 
-  try {
-    let ordersResp = await runOrderQuery(selectFull, true);
-    if (ordersResp?.error && /last_email_|column/i.test(String(ordersResp.error.message || ""))) {
-      ordersResp = await runOrderQuery(selectNoEmailAudit, true);
-    }
-    if (ordersResp?.error && /refund_requested|refund_requested_at|column/i.test(String(ordersResp.error.message || ""))) {
-      ordersResp = await runOrderQuery(selectLegacy, true);
-    }
-    if (ordersResp?.error) throw ordersResp.error;
+  let attemptOrders = await runOrderQuery(selectFull);
+  orders = attemptOrders?.data || null;
+  ordersErr = attemptOrders?.error || null;
+  totalCount = Number(attemptOrders?.count || 0);
 
-    let summaryResp = await runOrderQuery("status,total,production_status,shipping_tracking,order_type,refund_requested,created_at", false);
-    if (summaryResp?.error && /refund_requested|column/i.test(String(summaryResp.error.message || ""))) {
-      summaryResp = await runOrderQuery("status,total,production_status,shipping_tracking,order_type,created_at", false);
-    }
-    if (summaryResp?.error) throw summaryResp.error;
+  if (ordersErr && /last_email_|column/i.test(String(ordersErr.message || ""))) {
+    attemptOrders = await runOrderQuery(selectNoEmailAudit);
+    orders = attemptOrders?.data || null;
+    ordersErr = attemptOrders?.error || null;
+    totalCount = Number(attemptOrders?.count || 0);
+  }
 
-    const pagedOrders = (Array.isArray(ordersResp?.data) ? ordersResp.data : []).filter((o) => !isUpgradeOrderType(o?.order_type));
-    const summaryRows = (Array.isArray(summaryResp?.data) ? summaryResp.data : []).filter((o) => !isUpgradeOrderType(o?.order_type));
-    const totalCount = summaryRows.length;
+  if (ordersErr && /refund_requested|refund_requested_at|column/i.test(String(ordersErr.message || ""))) {
+    attemptOrders = await runOrderQuery(selectLegacy);
+    orders = attemptOrders?.data || null;
+    ordersErr = attemptOrders?.error || null;
+    totalCount = Number(attemptOrders?.count || 0);
+  }
 
-    const paidRows = summaryRows.filter((o) => String(o?.status || "").toLowerCase() === "paid");
-    const pendingRows = summaryRows.filter((o) => String(o?.status || "").toLowerCase() !== "paid");
-    const revenue = paidRows.reduce((acc, o) => acc + (Number(o?.total) || 0), 0);
-    const refundReq = summaryRows.filter((o) => !!o?.refund_requested).length;
-    const vipCount = summaryRows.filter((o) => normalizeOrderType(o?.order_type) === 'vip').length;
-    const paidWaitingProduction = summaryRows.filter((o) => String(o?.status || '').toLowerCase() === 'paid' && ['recebido', 'editavel'].includes(String(o?.production_status || 'recebido').toLowerCase())).length;
-    const readyWithoutTracking = summaryRows.filter((o) => String(o?.status || '').toLowerCase() === 'paid' && String(o?.production_status || '').toLowerCase() === 'pronto' && !String(o?.shipping_tracking || '').trim()).length;
-    const shippedInTransit = summaryRows.filter((o) => String(o?.production_status || '').toLowerCase() === 'enviado').length;
-    const summary = {
-      total: totalCount,
+  if (ordersErr) return res.status(500).json({ error: ordersErr.message || "Failed to load orders" });
+
+  let summaryRows = [];
+  let summaryRowsAll = [];
+  const summarySelectFull = "status,total,production_status,shipping_tracking,order_type,refund_requested,created_at";
+  const summarySelectLegacy = "status,total,production_status,shipping_tracking,order_type,created_at";
+  const runSummaryQuery = async (selectColumns) => {
+    let query = sb.from("orders").select(selectColumns);
+    query = applyOrderFilters(query, filters);
+    return await query.order("created_at", { ascending: false });
+  };
+
+  let summaryResp = await runSummaryQuery(summarySelectFull);
+  if (summaryResp?.error && /refund_requested|column/i.test(String(summaryResp.error.message || ""))) {
+    summaryResp = await runSummaryQuery(summarySelectLegacy);
+  }
+  summaryRowsAll = Array.isArray(summaryResp?.data) ? summaryResp.data : [];
+  summaryRows = summaryRowsAll.filter((o) => !isUpgradeOrderType(o?.order_type));
+  const summaryUpgradeRows = summaryRowsAll.filter((o) => isUpgradeOrderType(o?.order_type));
+  totalCount = summaryRows.length;
+  orders = (Array.isArray(orders) ? orders : []).filter((o) => !isUpgradeOrderType(o?.order_type));
+
+  const summary = (() => {
+    const list = summaryRows || [];
+    const total = Number(totalCount || list.length || 0);
+    const paidRows = list.filter((o) => String(o?.status || "").toLowerCase() === "paid");
+    const pendingRows = list.filter((o) => String(o?.status || "").toLowerCase() !== "paid");
+    const paidUpgradeRows = summaryUpgradeRows.filter((o) => String(o?.status || "").toLowerCase() === "paid");
+    const revenue = paidRows.reduce((acc, o) => acc + (Number(o?.total) || 0), 0) + paidUpgradeRows.reduce((acc, o) => acc + (Number(o?.total) || 0), 0);
+    const refundReq = list.filter((o) => !!o?.refund_requested).length;
+    const vipCount = list.filter((o) => String(o?.order_type || "").toLowerCase() === "vip").length;
+    const paidWaitingProduction = list.filter((o) => String(o?.status || '').toLowerCase() === 'paid' && ['recebido', 'editavel'].includes(String(o?.production_status || 'recebido').toLowerCase())).length;
+    const readyWithoutTracking = list.filter((o) => String(o?.status || '').toLowerCase() === 'paid' && String(o?.production_status || '').toLowerCase() === 'pronto' && !String(o?.shipping_tracking || '').trim()).length;
+    const shippedInTransit = list.filter((o) => String(o?.production_status || '').toLowerCase() === 'enviado').length;
+    return {
+      total,
       paid: paidRows.length,
       pending: pendingRows.length,
       revenue,
@@ -820,47 +849,305 @@ async function handleOrders(req, res) {
         refundRequested: refundReq,
       },
     };
+  })();
 
-    if (!pagedOrders.length) {
-      return res.status(200).json({
-        orders: [],
-        summary,
-        pagination: {
-          page,
-          page_size: pageSize,
-          total_count: Number(totalCount || 0),
-          total_pages: Math.max(1, Math.ceil(Number(totalCount || 0) / pageSize)),
-        },
-        timeline_enabled: false,
-        vip_present_enabled: false,
-      });
+  const list = Array.isArray(orders) ? orders : [];
+  if (list.length === 0) {
+    return res.status(200).json({
+      orders: [],
+      summary,
+      pagination: {
+        page,
+        page_size: pageSize,
+        total_count: Number(totalCount || 0),
+        total_pages: Math.max(1, Math.ceil(Number(totalCount || 0) / pageSize)),
+      },
+    });
+  }
+
+  try {
+    const vipOrders = list.filter((o) => normalizeOrderType(o.order_type) === "vip" && o.user_id);
+    const vipUserIds = Array.from(new Set(vipOrders.map((o) => o.user_id).filter(Boolean)));
+
+    const upgradeSelectFull = selectFull;
+    const upgradeSelectNoEmailAudit = selectNoEmailAudit;
+    const upgradeSelectLegacy = selectLegacy;
+    let relatedUpgrades = [];
+    if (vipUserIds.length) {
+      const runUpgradeQuery = async (selectColumns) => {
+        return await sb
+          .from("orders")
+          .select(selectColumns)
+          .in("user_id", vipUserIds)
+          .eq("order_type", "vip_upgrade")
+          .order("created_at", { ascending: false });
+      };
+      let upgradeResp = await runUpgradeQuery(upgradeSelectFull);
+      if (upgradeResp?.error && /last_email_|column/i.test(String(upgradeResp.error.message || ""))) {
+        upgradeResp = await runUpgradeQuery(upgradeSelectNoEmailAudit);
+      }
+      if (upgradeResp?.error && /refund_requested|refund_requested_at|column/i.test(String(upgradeResp.error.message || ""))) {
+        upgradeResp = await runUpgradeQuery(upgradeSelectLegacy);
+      }
+      relatedUpgrades = Array.isArray(upgradeResp?.data) ? upgradeResp.data : [];
     }
 
-    const orderIds = Array.from(new Set(pagedOrders.map((o) => o.id).filter(Boolean)));
-    const userIds = Array.from(new Set(pagedOrders.map((o) => o.user_id).filter(Boolean)));
+    const orderIds = Array.from(new Set([...list.map((o) => o.id), ...relatedUpgrades.map((o) => o.id)]));
+    const userIds = Array.from(new Set([...list.map((o) => o.user_id), ...relatedUpgrades.map((o) => o.user_id)].filter(Boolean)));
 
-    const [profilesResp, itemsNewResp] = await Promise.all([
+    const [{ data: profiles, error: profErr }] = await Promise.all([
       userIds.length
-        ? sb.from("profiles").select("id,full_name,phone,address_line1,address_line2,neighborhood,city,state,zip").in("id", userIds)
-        : Promise.resolve({ data: [], error: null }),
-      orderIds.length
-        ? sb.from("order_items").select("order_id,product_name,qty,unit_price_cents,scale,product_image_url").in("order_id", orderIds)
+        ? sb
+            .from("profiles")
+            .select("id,full_name,phone,address_line1,address_line2,neighborhood,city,state,zip")
+            .in("id", userIds)
         : Promise.resolve({ data: [], error: null }),
     ]);
 
+    let items = [];
+    let itemsErr = null;
+
+    const attemptItemsNew = await sb
+      .from("order_items")
+      .select("order_id,product_name,qty,unit_price_cents,scale,product_image_url")
+      .in("order_id", orderIds);
+
+    if (attemptItemsNew?.error) {
+      const attemptItemsOld = await sb
+        .from("order_items")
+        .select("order_id,name,qty,unit_price,scale,img")
+        .in("order_id", orderIds);
+
+      items = attemptItemsOld?.data || [];
+      itemsErr = attemptItemsOld?.error || null;
+    } else {
+      items = attemptItemsNew?.data || [];
+      itemsErr = null;
+    }
+
+    if (itemsErr) return res.status(500).json({ error: itemsErr.message || "Failed to load order items" });
+    if (profErr) return res.status(500).json({ error: profErr.message || "Failed to load profiles" });
+
+    const itemsByOrder = new Map();
+    (items || []).forEach((it) => {
+      const k = it.order_id;
+      if (!itemsByOrder.has(k)) itemsByOrder.set(k, []);
+
+      itemsByOrder.get(k).push({
+        order_id: it.order_id,
+        name: it.product_name || it.name,
+        qty: it.qty,
+        scale: it.scale,
+        img: it.product_image_url || it.img,
+        unit_price:
+          typeof it.unit_price === "number"
+            ? it.unit_price
+            : typeof it.unit_price_cents === "number"
+            ? it.unit_price_cents / 100
+            : null,
+      });
+    });
+
+    const profileById = new Map();
+    (profiles || []).forEach((p) => profileById.set(p.id, p));
+
+    const vipCycles = Array.from(
+      new Set(
+        vipOrders
+          .map((o) => {
+            const c = String(o.created_at || "");
+            return c && c.length >= 7 ? c.slice(0, 7) : null;
+          })
+          .filter(Boolean)
+      )
+    );
+
+    const vipSelByUserCycle = new Map();
+    if (vipUserIds.length && vipCycles.length) {
+      const [{ data: sels }, { data: opts }] = await Promise.all([
+        sb
+          .from("vip_mini_selections")
+          .select("user_id,cycle_key,selected_option_ids,updated_at")
+          .in("user_id", vipUserIds)
+          .in("cycle_key", vipCycles),
+        sb.from("vip_mini_options").select("id,title,image_url"),
+      ]);
+
+      const optById = new Map((opts || []).map((o) => [String(o.id), o]));
+      (sels || []).forEach((sel) => {
+        const ids = Array.isArray(sel.selected_option_ids) ? sel.selected_option_ids : [];
+        const selectedOptions = ids
+          .map((id) => {
+            const o = optById.get(String(id));
+            if (!o) return null;
+            return { id: o.id, title: o.title, image_url: o.image_url || null };
+          })
+          .filter(Boolean);
+
+        vipSelByUserCycle.set(`${sel.user_id}:${sel.cycle_key}`, {
+          cycle_key: sel.cycle_key,
+          updated_at: sel.updated_at || null,
+          selected_titles: selectedOptions.map((x) => x.title).filter(Boolean),
+          selected_options: selectedOptions,
+        });
+      });
+    }
+
+    const vipPlanIds = Array.from(new Set([...list, ...relatedUpgrades].map((o) => String(o?.vip_plan_id || '').trim()).filter(Boolean)));
+    let vipPlanById = new Map();
+    if (vipPlanIds.length) {
+      const plansResp = await sb.from('vip_plans').select('id,name,short_name').in('id', vipPlanIds);
+      if (!plansResp?.error) {
+        vipPlanById = new Map((plansResp.data || []).map((row) => [String(row.id), row]));
+      }
+    }
+    const planLabel = (planId) => {
+      const key = String(planId || '').trim();
+      if (!key) return 'VIP';
+      const row = vipPlanById.get(key);
+      return row?.short_name || row?.name || key;
+    };
+
+    const orderEventsResp = await loadOrderEvents(sb, orderIds);
+    const vipPresentResp = await loadVipPresentRolls(sb, vipOrders);
+
+    const upgradeCardsByBase = new Map();
+    if (relatedUpgrades.length && vipOrders.length) {
+      const vipOrdersByUser = new Map();
+      vipOrders.forEach((order) => {
+        const userKey = String(order.user_id || '');
+        if (!userKey) return;
+        if (!vipOrdersByUser.has(userKey)) vipOrdersByUser.set(userKey, []);
+        vipOrdersByUser.get(userKey).push(order);
+      });
+      vipOrdersByUser.forEach((rows) => rows.sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0)));
+
+      relatedUpgrades.forEach((upgrade) => {
+        const userKey = String(upgrade.user_id || '');
+        const baseCandidates = vipOrdersByUser.get(userKey) || [];
+        if (!baseCandidates.length) return;
+        const upgradeTime = new Date(upgrade.created_at || 0).getTime();
+        let baseOrder = null;
+        for (const candidate of baseCandidates) {
+          const candidateTime = new Date(candidate.created_at || 0).getTime();
+          if (candidateTime <= upgradeTime) baseOrder = candidate;
+        }
+        if (!baseOrder) baseOrder = baseCandidates[baseCandidates.length - 1];
+        if (!baseOrder) return;
+
+        const upgradeId = String(upgrade.id);
+        const dbEvents = orderEventsResp.byOrder.get(upgradeId) || [];
+        const timeline = dbEvents.length ? dbEvents : synthesizeOrderTimeline(upgrade);
+        const card = {
+          ...upgrade,
+          order_items: itemsByOrder.get(upgrade.id) || [],
+          timeline,
+          timeline_source: dbEvents.length ? 'order_events' : 'synthetic',
+          plan_label: planLabel(upgrade.vip_plan_id),
+        };
+        const baseKey = String(baseOrder.id);
+        if (!upgradeCardsByBase.has(baseKey)) upgradeCardsByBase.set(baseKey, []);
+        upgradeCardsByBase.get(baseKey).push(card);
+      });
+      upgradeCardsByBase.forEach((rows) => rows.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)));
+    }
+
+    const merged = list.map((o) => {
+      const dbEvents = orderEventsResp.byOrder.get(String(o.id)) || [];
+      let timeline = dbEvents.length ? dbEvents : synthesizeOrderTimeline(o);
+      const cycleKey = String(o.created_at || "").slice(0, 7);
+      const relatedUpgradesForOrder = upgradeCardsByBase.get(String(o.id)) || [];
+      const latestPaidUpgrade = relatedUpgradesForOrder.find((up) => String(up?.status || '').toLowerCase() === 'paid') || null;
+      const upgradeTotal = relatedUpgradesForOrder
+        .filter((up) => String(up?.status || '').toLowerCase() === 'paid')
+        .reduce((acc, up) => acc + (Number(up?.total) || 0), 0);
+
+      if (relatedUpgradesForOrder.length) {
+        const upgradeEvents = relatedUpgradesForOrder.map((up) => ({
+          id: `upgrade-${up.id}`,
+          order_id: o.id,
+          event_type: 'vip_upgrade',
+          title: `Upgrade para ${up.plan_label}`,
+          description: `${String(up.status || '').toLowerCase() === 'paid' ? 'Upgrade confirmado' : 'Upgrade em andamento'}${Number(up.total) ? ` • ${Number(up.total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}` : ''}`,
+          actor_label: 'Sistema',
+          created_at: up.created_at || up.updated_at || null,
+          metadata: { upgrade_order_id: up.id, to_plan_id: up.vip_plan_id, status: up.status || null },
+          synthetic: true,
+        }));
+        timeline = [...upgradeEvents, ...timeline].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+      }
+
+      return {
+        ...o,
+        vip_plan_id: latestPaidUpgrade?.vip_plan_id || o.vip_plan_id,
+        vip_plan_label: planLabel(latestPaidUpgrade?.vip_plan_id || o.vip_plan_id),
+        profile: o.user_id ? profileById.get(o.user_id) || null : null,
+        order_items: itemsByOrder.get(o.id) || [],
+        vip_selection:
+          normalizeOrderType(o.order_type) === "vip" && o.user_id
+            ? vipSelByUserCycle.get(`${o.user_id}:${cycleKey}`) || null
+            : null,
+        vip_present_roll:
+          normalizeOrderType(o.order_type) === "vip" && o.user_id
+            ? vipPresentResp.byKey.get(`${o.user_id}:${cycleKey}`) || null
+            : null,
+        related_upgrades: relatedUpgradesForOrder,
+        related_upgrades_count: relatedUpgradesForOrder.length,
+        upgrade_total: upgradeTotal,
+        effective_total: Number(o.total || 0) + upgradeTotal,
+        timeline,
+        timeline_source: dbEvents.length ? 'order_events' : 'synthetic',
+      };
+    });
+
+    return res.status(200).json({
+      orders: merged,
+      summary,
+      pagination: {
+        page,
+        page_size: pageSize,
+        total_count: Number(totalCount || 0),
+        total_pages: Math.max(1, Math.ceil(Number(totalCount || 0) / pageSize)),
+      },
+      timeline_enabled: !!orderEventsResp.tableAvailable,
+      vip_present_enabled: !!vipPresentResp.tableAvailable,
+    });
+  } catch (error) {
+    console.error('[admin/orders] fallback after enrichment error:', error);
+
+    const userIds = Array.from(new Set(list.map((o) => o.user_id).filter(Boolean)));
+    const orderIds = Array.from(new Set(list.map((o) => o.id).filter(Boolean)));
+
+    const [profilesResp, itemsNewResp] = await Promise.all([
+      userIds.length
+        ? sb
+            .from("profiles")
+            .select("id,full_name,phone,address_line1,address_line2,neighborhood,city,state,zip")
+            .in("id", userIds)
+        : Promise.resolve({ data: [], error: null }),
+      orderIds.length
+        ? sb
+            .from("order_items")
+            .select("order_id,product_name,qty,unit_price_cents,scale,product_image_url")
+            .in("order_id", orderIds)
+        : Promise.resolve({ data: [], error: null }),
+    ]);
+
+    const profiles = Array.isArray(profilesResp?.data) ? profilesResp.data : [];
     let items = Array.isArray(itemsNewResp?.data) ? itemsNewResp.data : [];
     if (itemsNewResp?.error) {
       const itemsOldResp = orderIds.length
-        ? await sb.from("order_items").select("order_id,name,qty,unit_price,scale,img").in("order_id", orderIds)
+        ? await sb
+            .from("order_items")
+            .select("order_id,name,qty,unit_price,scale,img")
+            .in("order_id", orderIds)
         : { data: [], error: null };
-      if (itemsOldResp?.error) throw itemsOldResp.error;
       items = Array.isArray(itemsOldResp?.data) ? itemsOldResp.data : [];
     }
-    if (profilesResp?.error) throw profilesResp.error;
 
-    const profileById = new Map((profilesResp?.data || []).map((p) => [p.id, p]));
+    const profileById = new Map((profiles || []).map((p) => [p.id, p]));
     const itemsByOrder = new Map();
-    items.forEach((it) => {
+    (items || []).forEach((it) => {
       const k = it.order_id;
       if (!itemsByOrder.has(k)) itemsByOrder.set(k, []);
       itemsByOrder.get(k).push({
@@ -869,73 +1156,27 @@ async function handleOrders(req, res) {
         qty: it.qty,
         scale: it.scale,
         img: it.product_image_url || it.img,
-        unit_price: typeof it.unit_price === 'number' ? it.unit_price : (typeof it.unit_price_cents === 'number' ? it.unit_price_cents / 100 : null),
+        unit_price:
+          typeof it.unit_price === "number"
+            ? it.unit_price
+            : typeof it.unit_price_cents === "number"
+            ? it.unit_price_cents / 100
+            : null,
       });
-    });
-
-    let relatedUpgrades = [];
-    try {
-      const vipOrders = pagedOrders.filter((o) => normalizeOrderType(o?.order_type) === 'vip' && o.user_id);
-      const vipUserIds = Array.from(new Set(vipOrders.map((o) => o.user_id).filter(Boolean)));
-      if (vipUserIds.length) {
-        let upgradeResp = await sb.from('orders').select(selectLegacy).in('user_id', vipUserIds).eq('order_type', 'vip_upgrade').order('created_at', { ascending: false });
-        if (upgradeResp?.error) {
-          upgradeResp = await sb.from('orders').select(selectLegacy).in('user_id', vipUserIds).eq('order_type', 'upgrade').order('created_at', { ascending: false });
-        }
-        relatedUpgrades = Array.isArray(upgradeResp?.data) ? upgradeResp.data : [];
-      }
-    } catch (upgradeError) {
-      console.error('[admin/orders] upgrade enrichment skipped:', upgradeError);
-      relatedUpgrades = [];
-    }
-
-    const upgradesByBase = new Map();
-    if (relatedUpgrades.length) {
-      const vipOrdersByUser = new Map();
-      pagedOrders.filter((o) => normalizeOrderType(o?.order_type) === 'vip' && o.user_id).forEach((order) => {
-        const key = String(order.user_id);
-        if (!vipOrdersByUser.has(key)) vipOrdersByUser.set(key, []);
-        vipOrdersByUser.get(key).push(order);
-      });
-      vipOrdersByUser.forEach((rows) => rows.sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0)));
-      relatedUpgrades.forEach((upgrade) => {
-        const rows = vipOrdersByUser.get(String(upgrade.user_id || '')) || [];
-        if (!rows.length) return;
-        const upgradeTime = new Date(upgrade.created_at || 0).getTime();
-        let base = null;
-        for (const row of rows) {
-          const rowTime = new Date(row.created_at || 0).getTime();
-          if (rowTime <= upgradeTime) base = row;
-        }
-        if (!base) base = rows[rows.length - 1];
-        if (!base) return;
-        const baseKey = String(base.id);
-        if (!upgradesByBase.has(baseKey)) upgradesByBase.set(baseKey, []);
-        upgradesByBase.get(baseKey).push(upgrade);
-      });
-    }
-
-    const orders = pagedOrders.map((o) => {
-      const related = (upgradesByBase.get(String(o.id)) || []).sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
-      const paidUpgrades = related.filter((up) => String(up?.status || '').toLowerCase() === 'paid');
-      const upgradeTotal = paidUpgrades.reduce((acc, up) => acc + (Number(up?.total) || 0), 0);
-      const latestPaidUpgrade = paidUpgrades[0] || null;
-      return {
-        ...o,
-        vip_plan_id: latestPaidUpgrade?.vip_plan_id || o.vip_plan_id,
-        profile: o.user_id ? profileById.get(o.user_id) || null : null,
-        order_items: itemsByOrder.get(o.id) || [],
-        related_upgrades: related,
-        related_upgrades_count: related.length,
-        upgrade_total: upgradeTotal,
-        effective_total: Number(o.total || 0) + upgradeTotal,
-        timeline: synthesizeOrderTimeline(o),
-        timeline_source: 'synthetic',
-      };
     });
 
     return res.status(200).json({
-      orders,
+      orders: list.map((o) => ({
+        ...o,
+        profile: o.user_id ? profileById.get(o.user_id) || null : null,
+        order_items: itemsByOrder.get(o.id) || [],
+        related_upgrades: [],
+        related_upgrades_count: 0,
+        upgrade_total: 0,
+        effective_total: Number(o.total || 0),
+        timeline: synthesizeOrderTimeline(o),
+        timeline_source: 'synthetic',
+      })),
       summary,
       pagination: {
         page,
@@ -945,10 +1186,71 @@ async function handleOrders(req, res) {
       },
       timeline_enabled: false,
       vip_present_enabled: false,
+      degraded: true,
     });
-  } catch (error) {
-    console.error('[admin/orders] fatal error:', error);
-    return res.status(500).json({ error: error.message || 'Failed to load orders' });
+  }
+  } catch (fatalError) {
+    console.error('[admin/orders] fatal fallback error:', fatalError);
+    try {
+      const legacySelect = "id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,production_status,shipping_tracking,order_type,vip_plan_id";
+      let legacyQuery = sb.from("orders").select(legacySelect, { count: "exact" });
+      legacyQuery = applyOrderFilters(legacyQuery, filters);
+      const legacyResp = await legacyQuery.order("created_at", { ascending: false }).range(from, to);
+      if (legacyResp?.error) {
+        return res.status(500).json({ error: legacyResp.error.message || "Failed to load orders" });
+      }
+      const legacyAllResp = await applyOrderFilters(sb.from("orders").select("status,total,production_status,shipping_tracking,order_type,created_at"), filters).order("created_at", { ascending: false });
+      const legacyAllRows = Array.isArray(legacyAllResp?.data) ? legacyAllResp.data : [];
+      const baseRows = (Array.isArray(legacyResp?.data) ? legacyResp.data : []).filter((o) => !isUpgradeOrderType(o?.order_type));
+      const summaryRows = legacyAllRows.filter((o) => !isUpgradeOrderType(o?.order_type));
+      const summaryUpgradeRows = legacyAllRows.filter((o) => isUpgradeOrderType(o?.order_type));
+      const totalCount = summaryRows.length;
+      const summary = (() => {
+        const list = summaryRows || [];
+        const paidRows = list.filter((o) => String(o?.status || "").toLowerCase() === "paid");
+        const pendingRows = list.filter((o) => String(o?.status || "").toLowerCase() !== "paid");
+        const paidUpgradeRows = summaryUpgradeRows.filter((o) => String(o?.status || "").toLowerCase() === "paid");
+        const revenue = paidRows.reduce((acc, o) => acc + (Number(o?.total) || 0), 0) + paidUpgradeRows.reduce((acc, o) => acc + (Number(o?.total) || 0), 0);
+        const refundReq = 0;
+        const vipCount = list.filter((o) => String(o?.order_type || "").toLowerCase() === "vip").length;
+        const paidWaitingProduction = list.filter((o) => String(o?.status || '').toLowerCase() === 'paid' && ['recebido', 'editavel'].includes(String(o?.production_status || 'recebido').toLowerCase())).length;
+        const readyWithoutTracking = list.filter((o) => String(o?.status || '').toLowerCase() === 'paid' && String(o?.production_status || '').toLowerCase() === 'pronto' && !String(o?.shipping_tracking || '').trim()).length;
+        const shippedInTransit = list.filter((o) => String(o?.production_status || '').toLowerCase() === 'enviado').length;
+        return {
+          total: totalCount,
+          paid: paidRows.length,
+          pending: pendingRows.length,
+          revenue,
+          refundReq,
+          vipCount,
+          bottlenecks: { paidWaitingProduction, readyWithoutTracking, shippedInTransit, refundRequested: refundReq },
+        };
+      })();
+      return res.status(200).json({
+        orders: baseRows.map((o) => ({
+          ...o,
+          related_upgrades: [],
+          related_upgrades_count: 0,
+          upgrade_total: 0,
+          effective_total: Number(o.total || 0),
+          timeline: synthesizeOrderTimeline(o),
+          timeline_source: 'synthetic',
+        })),
+        summary,
+        pagination: {
+          page,
+          page_size: pageSize,
+          total_count: Number(totalCount || 0),
+          total_pages: Math.max(1, Math.ceil(Number(totalCount || 0) / pageSize)),
+        },
+        timeline_enabled: false,
+        vip_present_enabled: false,
+        degraded: true,
+      });
+    } catch (legacyFatalError) {
+      console.error('[admin/orders] legacy fatal fallback error:', legacyFatalError);
+      return res.status(500).json({ error: legacyFatalError.message || fatalError.message || 'Failed to load orders' });
+    }
   }
 }
 
