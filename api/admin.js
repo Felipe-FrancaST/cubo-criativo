@@ -710,7 +710,6 @@ async function handleGameCouponMetrics(req, res) {
 
 function applyOrderFilters(builder, filters = {}) {
   let q = builder;
-  q = q.not("order_type", "in", '("vip_upgrade","vip-upgrade","upgrade_vip","upgrade")');
   const queryText = String(filters.q || "").trim();
   const pay = String(filters.pay || "all").toLowerCase();
   const prod = String(filters.prod || "all").toLowerCase();
@@ -815,7 +814,9 @@ async function handleOrders(req, res) {
   if (summaryResp?.error && /refund_requested|column/i.test(String(summaryResp.error.message || ""))) {
     summaryResp = await runSummaryQuery(summarySelectLegacy);
   }
-  summaryRows = Array.isArray(summaryResp?.data) ? summaryResp.data : [];
+  summaryRows = (Array.isArray(summaryResp?.data) ? summaryResp.data : []).filter((o) => !isUpgradeOrderType(o?.order_type));
+  totalCount = summaryRows.length;
+  orders = (Array.isArray(orders) ? orders : []).filter((o) => !isUpgradeOrderType(o?.order_type));
 
   const summary = (() => {
     const list = summaryRows || [];
