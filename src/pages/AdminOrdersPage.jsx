@@ -1544,6 +1544,22 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
     }
   }, [section, fetchVipVoting, fetchVipVotingImages, fetchVipControl, fetchGameCoupon, fetchGameCouponMetrics]);
 
+  React.useEffect(() => {
+    if (section !== "clients" || !accessToken) return;
+    const timer = window.setTimeout(() => {
+      fetchClients();
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [section, accessToken, clientsQ, fetchClients]);
+
+  React.useEffect(() => {
+    setClientEditor((current) => {
+      if (!current?.id) return current;
+      const next = (clients || []).find((item) => String(item?.id) === String(current.id));
+      return next || current;
+    });
+  }, [clients]);
+
 
   function toggleVipCycleItem(itemId) {
     setVipCycleEditor((prev) => {
