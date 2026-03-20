@@ -2365,7 +2365,7 @@ async function handleClients(req, res) {
 
   const ordersResp = await sb
     .from('orders')
-    .select('id,user_id,status,total,created_at,order_type,customer_name,customer_email')
+    .select('id,user_id,status,total,created_at,order_type,customer_name,customer_email,production_status,shipping_tracking,refund_requested')
     .order('created_at', { ascending: false })
     .limit(5000);
   if (ordersResp?.error) return res.status(500).json({ error: ordersResp.error.message || 'Falha ao carregar pedidos para clientes.' });
@@ -2417,6 +2417,20 @@ async function handleClients(req, res) {
     const email = String(authUser?.email || profile?.email || lastOrder?.customer_email || '').trim();
     const fullName = String(profile?.full_name || meta.full_name || meta.name || lastOrder?.customer_name || '').trim();
     const vipActive = !!profile?.vip_until && new Date(profile.vip_until).getTime() > Date.now();
+    const lastPaidOrder = paidOrders.slice().sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))[0] || null;
+    const recentOrders = userOrders
+      .slice()
+      .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
+      .slice(0, 6)
+      .map((order) => ({
+        id: order.id,
+        created_at: order.created_at,
+        status: order.status,
+        total: Number(order.total || 0),
+        production_status: order.production_status || 'recebido',
+        shipping_tracking: order.shipping_tracking || null,
+        refund_requested: !!order.refund_requested,
+      }));
     return {
       ...profile,
       id: uid,
@@ -2427,8 +2441,10 @@ async function handleClients(req, res) {
       total_spent: spent,
       last_order_at: lastOrder?.created_at || null,
       last_order_id: lastOrder?.id || null,
+      last_paid_at: lastPaidOrder?.created_at || null,
       vip_active: vipActive,
-      tags: [userOrders.length >= 2 ? 'cliente recorrente' : '', spent >= 1000 ? 'alto valor' : '', vipActive ? 'vip ativo' : ''].filter(Boolean),
+      recent_orders: recentOrders,
+      tags: [userOrders.length >= 2 ? 'cliente recorrente' : '', spent >= 1000 ? 'alto valor' : '', vipActive ? 'vip ativo' : '', paidOrders.length >= 1 ? 'já comprou' : 'sem compra paga'].filter(Boolean),
     };
   });
 

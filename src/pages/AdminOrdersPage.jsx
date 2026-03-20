@@ -43,6 +43,25 @@ function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTrack
             </div>
           ) : null}
 
+          <div className="mb-4 rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-4">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <div className="text-sm font-semibold text-white">Busca global do admin</div>
+                <div className="text-xs text-slate-400">Encontre pedido, cliente, e-mail, CPF ou rastreio e abra a área mais provável.</div>
+              </div>
+              <div className="flex w-full max-w-3xl gap-2">
+                <input
+                  value={adminQuickSearch}
+                  onChange={(e) => setAdminQuickSearch(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') runAdminQuickSearch(); }}
+                  placeholder="Ex: cliente@email.com, CPF, código do pedido, rastreio..."
+                  className="w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-slate-100"
+                />
+                <button onClick={runAdminQuickSearch} className="rounded-xl px-3 py-2 text-sm font-semibold bg-cyan-300 text-black ring-4 ring-cyan-300/20">Buscar</button>
+              </div>
+            </div>
+          </div>
+
           <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-3">
             <OrderBadgeCluster order={order} />
 
@@ -1249,6 +1268,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
   const [clientsError, setClientsError] = React.useState('');
   const [clientsQ, setClientsQ] = React.useState('');
   const [clientEditor, setClientEditor] = React.useState(null);
+  const [adminQuickSearch, setAdminQuickSearch] = React.useState('');
 
   const showToast = (msg) => {
     setToast(msg);
@@ -1992,6 +2012,41 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
       .slice(0, 8);
   }, [filteredOrders]);
 
+  const financeHighlights = React.useMemo(() => {
+    const paidOrders = (filteredOrders || []).filter((o) => String(o.status || '').toLowerCase() === 'paid');
+    const shippingRevenue = paidOrders
+      .flatMap((o) => Array.isArray(o.order_items) ? o.order_items : [])
+      .filter((it) => /pagamento de frete/i.test(String(it?.name || '')))
+      .reduce((sum, it) => sum + Number(it?.unit_price || it?.unit_price_brl || 0) * Number(it?.qty || 1), 0);
+    const pendingRevenue = (filteredOrders || [])
+      .filter((o) => String(o.status || '').toLowerCase() === 'pending')
+      .reduce((sum, o) => sum + Number(o.effective_total ?? o.total || 0), 0);
+    const deliveredCount = paidOrders.filter((o) => String(o.production_status || '').toLowerCase() === 'entregue').length;
+    return {
+      shippingRevenue,
+      pendingRevenue,
+      deliveredCount,
+      paidCount: paidOrders.length,
+    };
+  }, [filteredOrders]);
+
+  const orderQuickPresets = React.useMemo(() => ([
+    { key: 'paid_waiting', label: 'Pagos sem produção', apply: () => { setFilterPay('paid'); setFilterProd('recebido'); setFilterType('all'); setPage(1); } },
+    { key: 'ready_track', label: 'Prontos sem rastreio', apply: () => { setFilterPay('paid'); setFilterProd('pronto'); setFilterType('all'); setPage(1); } },
+    { key: 'overdue', label: 'Atrasados', apply: () => { setFilterPay('paid'); setFilterProd('all'); setQ(''); setPage(1); } },
+    { key: 'vip', label: 'Somente VIP', apply: () => { setFilterType('vip'); setFilterPay('all'); setFilterProd('all'); setPage(1); } },
+  ]), []);
+
+  const runAdminQuickSearch = React.useCallback(() => {
+    const next = String(adminQuickSearch || '').trim();
+    setQ(next);
+    setClientsQ(next);
+    setPage(1);
+    if (next) {
+      setSection(/@|cpf|pedido|rastreio|track|#|\d{4}/i.test(next) ? 'orders' : 'clients');
+    }
+  }, [adminQuickSearch]);
+
   const allPageSelected = React.useMemo(() => !!filteredOrders.length && filteredOrders.every((o) => selectedOrderIds.includes(o.id)), [filteredOrders, selectedOrderIds]);
   const selectedOrders = React.useMemo(() => filteredOrders.filter((o) => selectedOrderIds.includes(o.id)), [filteredOrders, selectedOrderIds]);
   const selectedPaidOrders = React.useMemo(() => selectedOrders.filter((o) => String(o.status || '').toLowerCase() === 'paid'), [selectedOrders]);
@@ -2220,7 +2275,6 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                               </button>
                               <div className="text-[11px] text-slate-500">{fmtDate(o.created_at)}</div>
                               {o.timeline?.[0]?.title ? <div className="text-[11px] text-slate-500">{o.timeline[0].title}</div> : null}
-                              {o.timeline?.[0]?.title ? <div className="text-[11px] text-slate-500">{o.timeline[0].title}</div> : null}
                             </td>
                             <td className="py-2 pr-3 min-w-[220px]">
                               <div className="text-slate-100">{o.customer_name || o.profile?.full_name || "—"}</div>
@@ -2395,6 +2449,18 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                 </div>
               </div>
 
+              <div className="flex flex-wrap gap-2">
+                {orderQuickPresets.map((preset) => (
+                  <button
+                    key={preset.key}
+                    onClick={preset.apply}
+                    className="rounded-full bg-white/[0.04] px-3 py-2 text-xs text-slate-200 ring-1 ring-white/10 hover:bg-white/[0.07]"
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+
               <div className="space-y-3">
                 {selectedOrderIds.length ? (
                   <div className="rounded-2xl bg-cyan-500/10 ring-1 ring-cyan-400/20 p-4">
@@ -2501,6 +2567,10 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                               <td className="py-3 px-3 min-w-[240px]">
                                 <div className="text-slate-100">{o.customer_name || o.profile?.full_name || "—"}</div>
                                 <div className="text-[11px] text-slate-500">{o.customer_email || ""}</div>
+                                <div className="mt-1 flex flex-wrap gap-2">
+                                  <span className="rounded-full bg-white/5 px-2 py-1 text-[10px] text-slate-300 ring-1 ring-white/10">{Number(o.days_open || 0)} dia(s) aberto</span>
+                                  {o.is_overdue ? <span className="rounded-full bg-red-500/10 px-2 py-1 text-[10px] text-red-200 ring-1 ring-red-500/30">Atrasado</span> : null}
+                                </div>
                               </td>
                               <td className="py-3 px-3 whitespace-nowrap">{fmtBRL(o.effective_total ?? o.total)}</td>
                               <td className="py-3 px-3 whitespace-nowrap">
@@ -2651,17 +2721,21 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
           ) : section === "finance" ? (
             <div className="space-y-4">
               <SectionTitle icon="payments" title="Centro financeiro" subtitle="Receita, upgrades e visão de caixa operacional." />
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-3">
                 <KpiCard label="Faturamento total" value={fmtBRL(stats.revenue)} hint="Pedidos pagos + upgrades" />
                 <KpiCard label="Receita do mês" value={fmtBRL(stats.paidMonth)} hint="Pagamentos aprovados" />
                 <KpiCard label="Receita hoje" value={fmtBRL(stats.paidToday)} hint="Movimento diário" />
                 <KpiCard label="Upgrades pagos" value={fmtBRL(stats.upgradeRevenue)} hint="Receita incremental VIP" />
+                <KpiCard label="Frete pago" value={fmtBRL(financeHighlights.shippingRevenue)} hint="No filtro atual" />
+                <KpiCard label="Entregues" value={financeHighlights.deliveredCount} hint="Pedidos pagos concluídos" />
               </div>
               <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-4">
                 <div className="text-sm font-semibold text-white">Resumo financeiro</div>
-                <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                <div className="mt-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 text-sm">
                   <div className="rounded-xl bg-black/20 ring-1 ring-white/10 p-4 text-slate-200">Ticket médio: <b>{fmtBRL(stats.averageTicket)}</b></div>
                   <div className="rounded-xl bg-black/20 ring-1 ring-white/10 p-4 text-slate-200">Reembolsos solicitados: <b>{stats.refundReq}</b></div>
+                  <div className="rounded-xl bg-black/20 ring-1 ring-white/10 p-4 text-slate-200">Receita pendente: <b>{fmtBRL(financeHighlights.pendingRevenue)}</b></div>
+                  <div className="rounded-xl bg-black/20 ring-1 ring-white/10 p-4 text-slate-200">Pedidos pagos no filtro: <b>{financeHighlights.paidCount}</b></div>
                 </div>
               </div>
             </div>
@@ -2671,13 +2745,16 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
               <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-4">
                 <input value={clientsQ} onChange={(e)=>setClientsQ(e.target.value)} placeholder="Buscar por nome, e-mail, CPF, cidade ou último pedido" className="w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" />
               </div>
-              <div className="grid grid-cols-1 xl:grid-cols-[1.1fr_0.9fr] gap-4">
+              <div className="grid grid-cols-1 xl:grid-cols-[1.05fr_0.95fr] gap-4">
                 <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-4">
-                  {clientsLoading ? <div className="text-slate-400">Carregando clientes...</div> : null}
-                  {clientsError ? <div className="text-red-200">{clientsError}</div> : null}
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div className="text-xs text-slate-500">{clientsLoading ? 'Carregando clientes...' : `${(clients || []).length} cliente(s) no resultado`}</div>
+                    {clientsQ ? <button onClick={() => setClientsQ('')} className="rounded-xl px-2 py-1 text-xs text-slate-200 hover:bg-white/4 ring-1 ring-white/10">Limpar busca</button> : null}
+                  </div>
+                  {clientsError ? <div className="mb-3 text-red-200">{clientsError}</div> : null}
                   <div className="space-y-2">
                     {(clients || []).map((client) => (
-                      <button key={client.id} onClick={()=>setClientEditor(client)} className="w-full text-left rounded-xl bg-black/20 ring-1 ring-white/10 p-3 hover:bg-black/30">
+                      <button key={client.id} onClick={()=>setClientEditor(client)} className={`w-full text-left rounded-xl p-3 ring-1 transition ${String(clientEditor?.id || '') === String(client.id) ? 'bg-cyan-400/10 ring-cyan-300/30' : 'bg-black/20 ring-white/10 hover:bg-black/30'}`}>
                         <div className="flex flex-wrap items-start justify-between gap-3">
                           <div className="min-w-0">
                             <div className="text-sm font-semibold text-slate-100 truncate">{client.full_name || client.email || client.id}</div>
@@ -2696,8 +2773,25 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                 </div>
                 <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-4">
                   {clientEditor ? (
-                    <div className="space-y-3">
-                      <div className="text-sm font-semibold text-white">Editar cliente</div>
+                    <div className="space-y-4">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <div className="text-sm font-semibold text-white">{clientEditor.full_name || clientEditor.email || 'Cliente'}</div>
+                          <div className="text-xs text-slate-400">ID {shortId(clientEditor.id)} • último pedido {fmtDate(clientEditor.last_order_at)}</div>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {clientEditor.email ? <button onClick={() => copyToClipboard(clientEditor.email)} className="rounded-xl px-2 py-1 text-xs text-slate-200 hover:bg-white/4 ring-1 ring-white/10">Copiar e-mail</button> : null}
+                          {onlyDigits(clientEditor.phone) ? <a href={`https://wa.me/55${onlyDigits(clientEditor.phone)}?text=${encodeURIComponent(`Olá ${clientEditor.full_name || ''}!`)}`} target="_blank" rel="noreferrer" className="rounded-xl px-2 py-1 text-xs text-slate-200 hover:bg-white/4 ring-1 ring-white/10">WhatsApp</a> : null}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="rounded-xl bg-black/20 ring-1 ring-white/10 p-3 text-sm text-slate-300">Total gasto<br /><b className="text-white">{fmtBRL(clientEditor.total_spent)}</b></div>
+                        <div className="rounded-xl bg-black/20 ring-1 ring-white/10 p-3 text-sm text-slate-300">Pedidos pagos<br /><b className="text-white">{clientEditor.paid_orders_count || 0}</b></div>
+                        <div className="rounded-xl bg-black/20 ring-1 ring-white/10 p-3 text-sm text-slate-300">Pedidos totais<br /><b className="text-white">{clientEditor.orders_count || 0}</b></div>
+                        <div className="rounded-xl bg-black/20 ring-1 ring-white/10 p-3 text-sm text-slate-300">VIP<br /><b className="text-white">{clientEditor.vip_active ? 'Ativo' : 'Não'}</b></div>
+                      </div>
+
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <label className="text-sm text-slate-300">Nome<input value={clientEditor.full_name || ''} onChange={(e)=>setClientEditor((p)=>({...p, full_name:e.target.value}))} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
                         <label className="text-sm text-slate-300">Email<input value={clientEditor.email || ''} onChange={(e)=>setClientEditor((p)=>({...p, email:e.target.value}))} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
@@ -2711,10 +2805,41 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                         <label className="text-sm text-slate-300">UF<input value={clientEditor.state || ''} onChange={(e)=>setClientEditor((p)=>({...p, state:e.target.value}))} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
                         <label className="text-sm text-slate-300">CEP<input value={clientEditor.zip || ''} onChange={(e)=>setClientEditor((p)=>({...p, zip:e.target.value}))} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
                       </div>
-                      <div className="rounded-xl bg-black/20 ring-1 ring-white/10 p-3 text-sm text-slate-300">Total gasto: <b>{fmtBRL(clientEditor.total_spent)}</b> • Pedidos: <b>{clientEditor.orders_count}</b> • VIP: <b>{clientEditor.vip_active ? 'Ativo' : 'Não'}</b></div>
-                      <div className="flex items-center justify-end gap-2"><button onClick={()=>deleteClient(clientEditor)} className="rounded-xl px-3 py-2 text-sm text-red-100 bg-red-500/10 ring-1 ring-red-500/30">Excluir cliente</button><button onClick={saveClientEdits} className="rounded-xl px-3 py-2 text-sm font-semibold bg-emerald-400 text-black ring-4 ring-emerald-400/20">Salvar alterações</button></div>
+
+                      <div className="rounded-2xl bg-black/20 ring-1 ring-white/10 p-3">
+                        <div className="text-sm font-semibold text-white">Histórico recente de pedidos</div>
+                        <div className="mt-3 space-y-2">
+                          {(clientEditor.recent_orders || []).length ? clientEditor.recent_orders.map((order) => {
+                            const pay = statusBadge(order.status);
+                            const prod = prodStatusBadge(order.production_status);
+                            return (
+                              <button key={order.id} onClick={() => { setSection('orders'); setDetails({ open: true, orderId: order.id }); }} className="w-full rounded-xl bg-white/[0.03] p-3 text-left ring-1 ring-white/10 hover:bg-white/[0.05]">
+                                <div className="flex flex-wrap items-start justify-between gap-3">
+                                  <div>
+                                    <div className="text-sm font-semibold text-slate-100">Pedido {shortId(order.id)}</div>
+                                    <div className="text-[11px] text-slate-500">{fmtDate(order.created_at)}</div>
+                                  </div>
+                                  <div className="text-right">
+                                    <div className="text-sm font-semibold text-white">{fmtBRL(order.total)}</div>
+                                    <div className="mt-1 flex flex-wrap justify-end gap-2">
+                                      <span className={`${badgeBase} ${pay.cls}`}>{pay.label}</span>
+                                      <span className={`${badgeBase} ${prod.cls}`}>{prod.label}</span>
+                                      {order.refund_requested ? <span className="rounded-full bg-red-500/10 px-2 py-1 text-[10px] text-red-200 ring-1 ring-red-500/30">Reembolso</span> : null}
+                                    </div>
+                                  </div>
+                                </div>
+                              </button>
+                            );
+                          }) : <div className="text-sm text-slate-500">Nenhum pedido recente deste cliente.</div>}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-end gap-2">
+                        <button onClick={()=>{ const confirmation = window.prompt('Digite EXCLUIR para remover este cliente.'); if (confirmation !== 'EXCLUIR') return; deleteClient(clientEditor); }} className="rounded-xl px-3 py-2 text-sm text-red-100 bg-red-500/10 ring-1 ring-red-500/30">Excluir cliente</button>
+                        <button onClick={saveClientEdits} className="rounded-xl px-3 py-2 text-sm font-semibold bg-emerald-400 text-black ring-4 ring-emerald-400/20">Salvar alterações</button>
+                      </div>
                     </div>
-                  ) : <div className="text-slate-500">Selecione um cliente para editar o cadastro.</div>}
+                  ) : <div className="text-slate-500">Selecione um cliente para editar o cadastro e ver o histórico recente.</div>}
                 </div>
               </div>
             </div>
