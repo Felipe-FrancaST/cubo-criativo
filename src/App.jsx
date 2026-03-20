@@ -33,6 +33,7 @@ const VipRpgPage = lazy(() => import("./pages/VipRpgPage.jsx"));
 const VipRedirectPage = lazy(() => import("./pages/VipRedirectPage.jsx"));
 const VipAreaPage = lazy(() => import("./pages/VipAreaPage.jsx"));
 const PasswordResetPage = lazy(() => import("./pages/PasswordResetPage.jsx"));
+const ManualOrderPaymentPage = lazy(() => import("./pages/ManualOrderPaymentPage.jsx"));
 import { fetchAdminStatus } from "./lib/admin.js";
 import { applySeo, setJsonLd, clearJsonLd } from "./lib/seo.js";
 import { trackEvent } from "./lib/analytics.js";
@@ -1373,6 +1374,9 @@ React.useEffect(() => {
     }
     if (route === "/redefinir-senha") {
       return <PasswordResetPage onGoHome={() => navigate("/")} onGoLogin={() => setAuthOpen(true)} />;
+    }
+    if (route === "/pagamento-pedido") {
+      return <ManualOrderPaymentPage onGoHome={() => navigate("/")} />;
     }
     if (route === "/configuracoes" || route === "/perfil") {
       const initialTab = route === "/configuracoes" ? "settings" : "profile";

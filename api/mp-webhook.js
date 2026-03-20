@@ -711,6 +711,9 @@ export default async function handler(req, res) {
       await applyVipFromOrder(sb, { order, payment });
       await consumeCouponForPaidOrder(sb, { order, payment });
       await applyStockDeductionIfNeeded(sb, order);
+      if (String(payment?.metadata?.source || '').trim().toLowerCase() === 'admin_manual_order' && String(order?.production_status || '').toLowerCase() !== 'recebido') {
+        try { await sb.from('orders').update({ production_status: 'recebido' }).eq('id', order.id); order.production_status = 'recebido'; } catch (e) { console.error('manual order production_status update error', e); }
+      }
     }
 
     // Idempotência: preferimos confiar no nosso banco.

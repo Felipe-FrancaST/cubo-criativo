@@ -981,6 +981,174 @@ function StartVotingModal({ state, imageLibrary, imageLibraryLoading, imageLibra
   );
 }
 
+
+function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast }) {
+  const [loadingProducts, setLoadingProducts] = React.useState(false);
+  const [products, setProducts] = React.useState([]);
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState('');
+  const [result, setResult] = React.useState(null);
+  const [form, setForm] = React.useState({
+    name: '', cpf: '', email: '', phone: '', address_line1: '', address_number: '', address_line2: '', neighborhood: '', city: '', state: '', zip: '',
+  });
+  const [items, setItems] = React.useState([]);
+
+  React.useEffect(() => {
+    if (!open || !accessToken) return;
+    let active = true;
+    setLoadingProducts(true);
+    fetch('/api/admin?action=manual-order-products', { headers: { Authorization: `Bearer ${accessToken}` } })
+      .then((r) => r.json().catch(() => ({})).then((json) => ({ ok: r.ok, json })))
+      .then(({ ok, json }) => {
+        if (!active) return;
+        if (!ok) throw new Error(json?.error || 'Não foi possível carregar os produtos.');
+        setProducts(Array.isArray(json?.products) ? json.products : []);
+      })
+      .catch((e) => { if (active) setError(e?.message || 'Erro ao carregar produtos.'); })
+      .finally(() => active && setLoadingProducts(false));
+    return () => { active = false; };
+  }, [open, accessToken]);
+
+  function updateForm(key, value) { setForm((p) => ({ ...p, [key]: value })); }
+  function addRegisteredProduct() { setItems((p) => [...p, { id: crypto?.randomUUID?.() || String(Date.now()+Math.random()), mode: 'product', product_id: '', qty: 1, scale: '' }]); }
+  function addCustomItem() { setItems((p) => [...p, { id: crypto?.randomUUID?.() || String(Date.now()+Math.random()), mode: 'custom', name: '', price: '', scale: '', qty: 1, notes: '' }]); }
+  function updateItem(id, patch) { setItems((p) => p.map((it) => it.id === id ? { ...it, ...patch } : it)); }
+  function removeItem(id) { setItems((p) => p.filter((it) => it.id !== id)); }
+
+  const total = React.useMemo(() => items.reduce((sum, it) => {
+    if (it.mode === 'product') {
+      const prod = products.find((p) => String(p.id) === String(it.product_id));
+      const basePrice = Number(prod?.price || 0);
+      return sum + basePrice * Number(it.qty || 1);
+    }
+    return sum + Number(it.price || 0) * Number(it.qty || 1);
+  }, 0), [items, products]);
+
+  async function handleSubmit() {
+    setBusy(true);
+    setError('');
+    try {
+      const payload = {
+        customer: form,
+        items: items.map((it) => it.mode === 'product'
+          ? { mode: 'product', product_id: it.product_id, qty: Number(it.qty || 1), scale: it.scale || '' }
+          : { mode: 'custom', name: it.name, price: Number(it.price || 0), scale: it.scale || '', qty: Number(it.qty || 1), notes: it.notes || '' }),
+      };
+      const resp = await fetch('/api/admin?action=manual-order-create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify(payload),
+      });
+      const json = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(json?.error || 'Não foi possível criar o pedido.');
+      setResult(json);
+      showToast?.('Pedido criado com sucesso.');
+      onCreated?.();
+    } catch (e) {
+      setError(e?.message || 'Erro ao criar pedido.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-[10000]">
+      <div className="absolute inset-0 bg-[#020b10]/80" onClick={busy ? undefined : onClose} />
+      <div className="absolute inset-x-0 top-4 mx-auto w-[min(1100px,calc(100vw-24px))] max-h-[92vh] overflow-y-auto rounded-[28px] bg-[#0a0f1a] ring-1 ring-white/10 p-4 sm:p-6">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="text-2xl font-bold text-white">Novo pedido</div>
+            <div className="text-sm text-slate-400">Crie o pedido, gere o link de pagamento e lance tudo no sistema.</div>
+          </div>
+          <button onClick={onClose} className="rounded-xl px-3 py-2 text-slate-200 hover:bg-white/4 ring-1 ring-white/10">Fechar</button>
+        </div>
+
+        {error ? <div className="mt-4 rounded-2xl bg-red-500/10 ring-1 ring-red-500/20 px-4 py-3 text-red-100">{error}</div> : null}
+
+        {result ? (
+          <div className="mt-5 grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4 items-start">
+            <div className="rounded-3xl bg-emerald-500/10 ring-1 ring-emerald-400/20 p-5">
+              <div className="text-emerald-100 text-xl font-extrabold">Pedido criado</div>
+              <div className="mt-2 text-sm text-emerald-50/90">Compartilhe o link abaixo com o cliente para ele pagar com Pix ou cartão.</div>
+              <div className="mt-4 rounded-2xl bg-black/20 ring-1 ring-white/10 p-4 break-all text-sm text-slate-100">{result?.payment_link}</div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button onClick={() => navigator.clipboard?.writeText(result?.payment_link || '')} className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10">Copiar link</button>
+                <a href={result?.payment_link} target="_blank" rel="noreferrer" className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10">Abrir página</a>
+              </div>
+              <div className="mt-4 rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-4 text-sm text-slate-200">
+                <div><b>Conta criada:</b> {result?.account?.email}</div>
+                <div className="mt-1"><b>Senha inicial:</b> CPF do cliente</div>
+              </div>
+            </div>
+            <div className="rounded-3xl bg-white/[0.03] ring-1 ring-white/10 p-4 min-w-[240px]">
+              <div className="text-sm text-slate-400">Pedido</div>
+              <div className="mt-2 text-white font-bold">#{result?.order?.order_number}</div>
+              <div className="mt-1 text-slate-300">{fmtBRL(result?.order?.total || 0)}</div>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-5 grid grid-cols-1 xl:grid-cols-[0.95fr_1.05fr] gap-5">
+            <div className="space-y-4">
+              <div className="rounded-3xl bg-white/[0.03] ring-1 ring-white/10 p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label className="text-sm text-slate-300">Nome<input value={form.name} onChange={(e)=>updateForm('name', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+                <label className="text-sm text-slate-300">CPF<input value={form.cpf} onChange={(e)=>updateForm('cpf', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+                <label className="text-sm text-slate-300">E-mail<input value={form.email} onChange={(e)=>updateForm('email', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+                <label className="text-sm text-slate-300">Telefone<input value={form.phone} onChange={(e)=>updateForm('phone', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+                <label className="text-sm text-slate-300 sm:col-span-2">Rua<input value={form.address_line1} onChange={(e)=>updateForm('address_line1', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+                <label className="text-sm text-slate-300">Número<input value={form.address_number} onChange={(e)=>updateForm('address_number', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+                <label className="text-sm text-slate-300">Complemento<input value={form.address_line2} onChange={(e)=>updateForm('address_line2', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+                <label className="text-sm text-slate-300">Bairro<input value={form.neighborhood} onChange={(e)=>updateForm('neighborhood', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+                <label className="text-sm text-slate-300">Cidade<input value={form.city} onChange={(e)=>updateForm('city', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+                <label className="text-sm text-slate-300">Estado<input value={form.state} onChange={(e)=>updateForm('state', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+                <label className="text-sm text-slate-300">CEP<input value={form.zip} onChange={(e)=>updateForm('zip', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+              </div>
+            </div>
+            <div className="space-y-4">
+              <div className="rounded-3xl bg-white/[0.03] ring-1 ring-white/10 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <div className="text-white font-bold">Itens do pedido</div>
+                    <div className="text-sm text-slate-400">Adicione produtos cadastrados ou orçamento personalizado.</div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button onClick={addRegisteredProduct} className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10">Produto cadastrado</button>
+                    <button onClick={addCustomItem} className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10">Orçamento personalizado</button>
+                  </div>
+                </div>
+                <div className="mt-4 space-y-3">
+                  {items.map((it, idx) => it.mode === 'product' ? (
+                    <div key={it.id} className="rounded-2xl bg-black/20 ring-1 ring-white/10 p-3 grid grid-cols-1 sm:grid-cols-[1fr_120px_110px_auto] gap-3 items-end">
+                      <label className="text-sm text-slate-300">Produto<select value={it.product_id} onChange={(e)=>updateItem(it.id, { product_id: e.target.value, scale: '' })} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white"><option value="">Selecione</option>{products.map((p)=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
+                      <label className="text-sm text-slate-300">Quantidade<input type="number" min="1" value={it.qty} onChange={(e)=>updateItem(it.id, { qty: e.target.value })} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+                      <label className="text-sm text-slate-300">Escala<input value={it.scale} onChange={(e)=>updateItem(it.id, { scale: e.target.value })} placeholder="Opcional" className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+                      <button onClick={()=>removeItem(it.id)} className="rounded-xl px-3 py-2 text-sm text-red-200 hover:bg-red-500/10 ring-1 ring-red-500/30">Remover</button>
+                    </div>
+                  ) : (
+                    <div key={it.id} className="rounded-2xl bg-black/20 ring-1 ring-white/10 p-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <label className="text-sm text-slate-300">Nome do produto<input value={it.name} onChange={(e)=>updateItem(it.id, { name: e.target.value })} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+                      <label className="text-sm text-slate-300">Valor<input type="number" min="0" step="0.01" value={it.price} onChange={(e)=>updateItem(it.id, { price: e.target.value })} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+                      <label className="text-sm text-slate-300">Escala<input value={it.scale} onChange={(e)=>updateItem(it.id, { scale: e.target.value })} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+                      <label className="text-sm text-slate-300">Quantidade<input type="number" min="1" value={it.qty} onChange={(e)=>updateItem(it.id, { qty: e.target.value })} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+                      <label className="text-sm text-slate-300 sm:col-span-2">Observações<textarea value={it.notes} onChange={(e)=>updateItem(it.id, { notes: e.target.value })} className="mt-1 h-20 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+                      <div className="sm:col-span-2 flex justify-end"><button onClick={()=>removeItem(it.id)} className="rounded-xl px-3 py-2 text-sm text-red-200 hover:bg-red-500/10 ring-1 ring-red-500/30">Remover</button></div>
+                    </div>
+                  ))}
+                  {!items.length ? <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-4 text-sm text-slate-400">Nenhum item adicionado ainda.</div> : null}
+                </div>
+                <div className="mt-4 flex items-center justify-between gap-3 border-t border-white/10 pt-4">
+                  <div className="text-lg font-extrabold text-white">Total: {fmtBRL(total)}</div>
+                  <button onClick={handleSubmit} disabled={busy || loadingProducts} className="rounded-2xl bg-cyan-400 text-[#031116] font-black px-5 py-3 disabled:opacity-60">{busy ? 'Criando…' : 'Finalizar pedido'}</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoading = false, onNavigateHome, onRequireLogin }) {
   const { loading: authLoading } = useAuth();
   const [section, setSection] = React.useState("dashboard");
@@ -1047,6 +1215,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
   const [closeVote, setCloseVote] = React.useState({ open: false, poll: null, winnerId: null, busy: false, error: "" });
   const [startVote, setStartVote] = React.useState({ open: false, data: null, busy: false, error: "" });
   const [deleteVote, setDeleteVote] = React.useState({ open: false, poll: null, busy: false, error: "" });
+  const [newOrderOpen, setNewOrderOpen] = React.useState(false);
 
   const showToast = (msg) => {
     setToast(msg);
@@ -1750,6 +1919,13 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
           >
             <span className="material-icons text-[18px] align-middle mr-1">refresh</span>
             Atualizar
+          </button>
+          <button
+            onClick={() => setNewOrderOpen(true)}
+            className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
+          >
+            <span className="material-icons text-[18px] align-middle mr-1">add_box</span>
+            Novo pedido
           </button>
           <button
             onClick={() => onNavigateHome?.()}
@@ -2844,6 +3020,8 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
           bulkUpdateOrders(nextPatch);
         }}
       />
+
+      <NewManualOrderModal open={newOrderOpen} accessToken={accessToken} onClose={() => setNewOrderOpen(false)} onCreated={() => { fetchOrders(); }} showToast={showToast} />
 
       <CloseVotingModal
         state={closeVote}

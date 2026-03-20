@@ -12,11 +12,13 @@
  * - /api/admin/vip-start-voting -> /api/admin?action=vip-start-voting
  */
 
+import crypto from "crypto";
 import { supabaseAdmin } from "../server/supabase.js";
 import { requireAdmin } from "../server/admin/adminAuth.js";
 import { renderOrderStatusEmail } from "../server/emailTemplates.js";
 import { rateLimit } from '../server/rateLimit.js';
 import { formatRewardLabel } from '../server/couponGame.js';
+import { buildControlNumber, buildManualPaymentLink, ensureManualOrderCustomerAccount, normalizeCpf } from '../server/manualOrder.js';
 
 export const config = { runtime: "nodejs" };
 
@@ -51,6 +53,163 @@ async function readJsonBody(req) {
 // Shared helpers (update-order)
 // -----------------------------
 
+
+
+function getBaseUrl(req) {
+  const site = String(process.env.SITE_URL || process.env.APP_URL || '').trim();
+  if (site) return site.replace(/\/$/, '');
+  const origin = req.headers?.origin;
+  if (origin) return origin;
+  const proto = req.headers?.['x-forwarded-proto'] || 'https';
+  const host = req.headers?.['x-forwarded-host'] || req.headers?.host;
+  return `${proto}://${host}`;
+}
+
+function normalizeEmail(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function normalizeZip(value) {
+  return String(value || '').replace(/\D/g, '').slice(0, 8);
+}
+
+function buildManualOrderItemFromCustom(item = {}) {
+  const qty = Math.max(1, Number(item.qty || item.quantity || 1) || 1);
+  const unitPrice = Number(item.unit_price ?? item.price ?? item.valor ?? 0);
+  if (!Number.isFinite(unitPrice) || unitPrice <= 0) throw new Error('Valor inválido no item personalizado.');
+  const name = String(item.name || item.nome || '').trim();
+  if (!name) throw new Error('Nome obrigatório no item personalizado.');
+  return {
+    product_id: null,
+    name: String(item.notes || item.observacoes || '').trim() ? `${name} — Obs: ${String(item.notes || item.observacoes || '').trim()}` : name,
+    qty,
+    scale: String(item.scale || item.escala || '').trim(),
+    unit_price: Number(unitPrice.toFixed(2)),
+    img: '',
+    notes: String(item.notes || item.observacoes || '').trim(),
+  };
+}
+
+async function handleManualOrderProducts(req, res) {
+  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+  const auth = await requireAdmin(req);
+  if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
+  const sb = supabaseAdmin();
+  const { data, error } = await sb.from('products').select('id,name,image_url,images,category,variants,default_variant,price_cents,original_price_cents,promo,active').eq('active', true).order('name');
+  if (error) return res.status(500).json({ error: error.message || 'Failed to load products' });
+  const items = (data || []).map((row) => {
+    const promo = !!row?.promo;
+    const priceCents = Number(row?.price_cents || 0);
+    const originalCents = Number(row?.original_price_cents || 0);
+    const baseCents = promo ? (priceCents > 0 ? priceCents : originalCents) : (originalCents > 0 ? originalCents : priceCents);
+    return {
+      id: row.id,
+      name: row.name,
+      image_url: row.image_url || (Array.isArray(row.images) ? row.images[0] : '') || '',
+      category: row.category || '',
+      price: Number((baseCents / 100).toFixed(2)),
+      variants: Array.isArray(row.variants) ? row.variants : [],
+      default_variant: row.default_variant || '',
+    };
+  });
+  return res.status(200).json({ ok: true, products: items });
+}
+
+async function handleManualOrderCreate(req, res) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  const auth = await requireAdmin(req);
+  if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
+  const body = await readJsonBody(req);
+  const customer = body?.customer || {};
+  const itemsRaw = Array.isArray(body?.items) ? body.items : [];
+  const email = normalizeEmail(customer.email);
+  const cpf = normalizeCpf(customer.cpf);
+  const fullName = String(customer.name || customer.full_name || '').trim();
+  const phone = String(customer.phone || '').trim();
+  if (!fullName) return res.status(400).json({ error: 'Nome obrigatório.' });
+  if (!email) return res.status(400).json({ error: 'E-mail obrigatório.' });
+  if (cpf.length !== 11) return res.status(400).json({ error: 'CPF inválido.' });
+  if (!itemsRaw.length) return res.status(400).json({ error: 'Adicione pelo menos um produto ao pedido.' });
+
+  const address = {
+    address_line1: String(customer.address_line1 || '').trim(),
+    address_number: String(customer.address_number || '').trim(),
+    address_line2: String(customer.address_line2 || '').trim(),
+    neighborhood: String(customer.neighborhood || '').trim(),
+    city: String(customer.city || '').trim(),
+    state: String(customer.state || '').trim(),
+    zip: normalizeZip(customer.zip),
+  };
+  if (!address.address_line1 || !address.address_number || !address.neighborhood || !address.city || !address.state || !address.zip) {
+    return res.status(400).json({ error: 'Preencha o endereço completo do cliente.' });
+  }
+
+  const sb = supabaseAdmin();
+  let resolvedItems = [];
+  for (const item of itemsRaw) {
+    const mode = String(item.mode || item.type || '').trim().toLowerCase();
+    if (mode === 'product') {
+      const productId = String(item.product_id || item.id || '').trim();
+      if (!productId) return res.status(400).json({ error: 'Produto cadastrado inválido.' });
+      const { data: row, error } = await sb.from('products').select('id,name,price_cents,original_price_cents,promo,variants,default_variant,image_url,images').eq('id', productId).maybeSingle();
+      if (error || !row) return res.status(400).json({ error: 'Produto cadastrado não encontrado.' });
+      const qty = Math.max(1, Number(item.qty || item.quantity || 1) || 1);
+      const chosenScale = String(item.scale || item.escala || row.default_variant || '').trim();
+      let unitPrice = 0;
+      if (chosenScale && Array.isArray(row.variants) && row.variants.length) {
+        const variant = row.variants.find((v) => String(v?.label || '').trim() === chosenScale) || row.variants[0];
+        unitPrice = Number(((Number(variant?.price_cents || 0)) / 100).toFixed(2));
+      } else {
+        const priceCents = !!row.promo ? (Number(row.price_cents || 0) || Number(row.original_price_cents || 0)) : (Number(row.original_price_cents || 0) || Number(row.price_cents || 0));
+        unitPrice = Number((priceCents / 100).toFixed(2));
+      }
+      if (!(unitPrice > 0)) return res.status(400).json({ error: `Preço inválido para ${row.name}.` });
+      resolvedItems.push({ product_id: row.id, name: row.name, qty, scale: chosenScale, unit_price: unitPrice, img: row.image_url || (Array.isArray(row.images) ? row.images[0] : '') || '' });
+    } else {
+      resolvedItems.push(buildManualOrderItemFromCustom(item));
+    }
+  }
+
+  const total = Number(resolvedItems.reduce((sum, it) => sum + Number(it.unit_price || 0) * Number(it.qty || 1), 0).toFixed(2));
+  if (!(total > 0)) return res.status(400).json({ error: 'Total inválido.' });
+
+  const account = await ensureManualOrderCustomerAccount({ email, cpf, fullName, phone, address });
+  const orderId = crypto.randomUUID();
+  const orderPayload = {
+    id: orderId,
+    user_id: account.userId,
+    status: 'pending',
+    currency: 'BRL',
+    total,
+    payment_provider: 'mercado_pago',
+    production_status: 'editavel',
+    order_type: 'shop',
+    customer_email: email,
+    customer_name: fullName,
+    customer_phone: phone || null,
+  };
+  const { error: orderErr } = await sb.from('orders').insert(orderPayload);
+  if (orderErr) return res.status(500).json({ error: orderErr.message || 'Não foi possível criar o pedido.' });
+
+  const itemRows = resolvedItems.map((it) => ({
+    order_id: orderId,
+    product_id: it.product_id || null,
+    name: it.name,
+    qty: Number(it.qty || 1),
+    scale: it.scale || '',
+    unit_price: Number(it.unit_price || 0),
+  }));
+  const { error: itemsErr } = await sb.from('order_items').insert(itemRows);
+  if (itemsErr) return res.status(500).json({ error: itemsErr.message || 'Não foi possível salvar os itens do pedido.' });
+
+  const paymentLink = buildManualPaymentLink({ baseUrl: getBaseUrl(req), orderId });
+  return res.status(200).json({
+    ok: true,
+    order: { id: orderId, order_number: buildControlNumber(orderId), total, customer_name: fullName, customer_email: email },
+    payment_link: paymentLink,
+    account: { email, password: cpf },
+  });
+}
 
 const UPGRADE_ORDER_TYPES = new Set(["vip_upgrade", "vip-upgrade", "upgrade_vip", "upgrade"]);
 const normalizeOrderType = (value) => String(value || "").trim().toLowerCase();
@@ -2124,6 +2283,8 @@ export default async function handler(req, res) {
     if (action === "vip-start-voting") return await handleVipStartVoting(req, res);
     if (action === "vip-voting-image-library") return await handleVipVotingImageLibrary(req, res);
     if (action === "vip-delete-voting") return await handleVipDeleteVoting(req, res);
+    if (action === "manual-order-products") return await handleManualOrderProducts(req, res);
+    if (action === "manual-order-create") return await handleManualOrderCreate(req, res);
     if (action === "game-coupon") return await handleGetGameCoupon(req, res);
     if (action === "save-game-coupon") return await handleSaveGameCoupon(req, res);
     if (action === "game-coupon-metrics") return await handleGameCouponMetrics(req, res);
