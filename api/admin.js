@@ -79,16 +79,14 @@ function buildManualOrderItemFromCustom(item = {}) {
   if (!Number.isFinite(unitPrice) || unitPrice <= 0) throw new Error('Valor inválido no item personalizado.');
   const name = String(item.name || item.nome || '').trim();
   if (!name) throw new Error('Nome obrigatório no item personalizado.');
-  const notes = String(item.notes || item.observacoes || '').trim();
-  const customProductId = String(item.product_id || '').trim() || `custom:${crypto.randomUUID()}`;
   return {
-    product_id: customProductId,
-    name: notes ? `${name} — Obs: ${notes}` : name,
+    product_id: null,
+    name: String(item.notes || item.observacoes || '').trim() ? `${name} — Obs: ${String(item.notes || item.observacoes || '').trim()}` : name,
     qty,
     scale: String(item.scale || item.escala || '').trim(),
     unit_price: Number(unitPrice.toFixed(2)),
     img: '',
-    notes,
+    notes: String(item.notes || item.observacoes || '').trim(),
   };
 }
 
