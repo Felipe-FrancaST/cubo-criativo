@@ -68,8 +68,31 @@ async function loadManualOrder({ orderId, sig }) {
     err.status = 404;
     throw err;
   }
-  const { data: items } = await sb.from('order_items').select('id,product_id,name,qty,scale,unit_price').eq('order_id', orderId).order('id');
-  return { sb, order, items: Array.isArray(items) ? items : [] };
+  let items = [];
+  const newResp = await sb.from('order_items').select('id,product_id,product_name,qty,scale,unit_price_cents,product_image_url').eq('order_id', orderId).order('id');
+  if (!newResp?.error && Array.isArray(newResp.data)) {
+    items = newResp.data.map((it) => ({
+      id: it.id,
+      product_id: it.product_id || null,
+      name: it.product_name || 'Item',
+      qty: Number(it.qty || 1),
+      scale: it.scale || '',
+      unit_price: typeof it.unit_price_cents === 'number' ? Number((it.unit_price_cents / 100).toFixed(2)) : 0,
+      img: it.product_image_url || null,
+    }));
+  } else {
+    const oldResp = await sb.from('order_items').select('id,product_id,name,qty,scale,unit_price,img').eq('order_id', orderId).order('id');
+    items = Array.isArray(oldResp?.data) ? oldResp.data.map((it) => ({
+      id: it.id,
+      product_id: it.product_id || null,
+      name: it.name || 'Item',
+      qty: Number(it.qty || 1),
+      scale: it.scale || '',
+      unit_price: Number(it.unit_price || 0),
+      img: it.img || null,
+    })) : [];
+  }
+  return { sb, order, items };
 }
 
 function serializePublic(order, items, baseUrl) {
@@ -88,6 +111,7 @@ function serializePublic(order, items, baseUrl) {
       qty: Number(it.qty || 1),
       scale: it.scale || '',
       unit_price: Number(it.unit_price || 0),
+      img: it.img || null,
     })),
   };
 }

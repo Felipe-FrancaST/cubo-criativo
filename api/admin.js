@@ -191,16 +191,41 @@ async function handleManualOrderCreate(req, res) {
   const { error: orderErr } = await sb.from('orders').insert(orderPayload);
   if (orderErr) return res.status(500).json({ error: orderErr.message || 'Não foi possível criar o pedido.' });
 
-  const itemRows = resolvedItems.map((it) => ({
-    order_id: orderId,
-    product_id: it.product_id || null,
-    name: it.name,
-    qty: Number(it.qty || 1),
-    scale: it.scale || '',
-    unit_price: Number(it.unit_price || 0),
+  const cleanedItems = resolvedItems.map((it) => ({
+    product_id: String(it.product_id || '').trim() || null,
+    name: String(it.name || 'Item').trim(),
+    qty: Number(it.qty || 1) || 1,
+    scale: String(it.scale || '').trim() || null,
+    img: String(it.img || '').trim() || null,
+    unit_price_brl: Number(Number(it.unit_price || 0).toFixed(2)),
+    unit_price_cents: Math.round((Number(it.unit_price || 0) || 0) * 100),
   }));
-  const { error: itemsErr } = await sb.from('order_items').insert(itemRows);
-  if (itemsErr) return res.status(500).json({ error: itemsErr.message || 'Não foi possível salvar os itens do pedido.' });
+
+  const payloadNew = cleanedItems.map((it) => ({
+    order_id: orderId,
+    product_id: it.product_id,
+    product_name: it.name,
+    scale: it.scale,
+    qty: it.qty,
+    unit_price_cents: it.unit_price_cents,
+    product_image_url: it.img,
+  }));
+  const attemptNew = await sb.from('order_items').insert(payloadNew);
+  if (attemptNew?.error) {
+    const payloadOld = cleanedItems.map((it) => ({
+      order_id: orderId,
+      product_id: it.product_id,
+      name: it.name,
+      scale: it.scale,
+      qty: it.qty,
+      unit_price: it.unit_price_brl,
+      img: it.img,
+    }));
+    const attemptOld = await sb.from('order_items').insert(payloadOld);
+    if (attemptOld?.error) {
+      return res.status(500).json({ error: attemptOld.error.message || attemptNew.error.message || 'Não foi possível salvar os itens do pedido.' });
+    }
+  }
 
   const paymentLink = buildManualPaymentLink({ baseUrl: getBaseUrl(req), orderId });
   return res.status(200).json({
