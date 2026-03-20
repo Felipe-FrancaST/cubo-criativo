@@ -2020,7 +2020,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
       .reduce((sum, it) => sum + Number(it?.unit_price || it?.unit_price_brl || 0) * Number(it?.qty || 1), 0);
     const pendingRevenue = (filteredOrders || [])
       .filter((o) => String(o.status || '').toLowerCase() === 'pending')
-      .reduce((sum, o) => sum + Number(o.effective_total ?? o.total || 0), 0);
+      .reduce((sum, o) => sum + Number((o.effective_total ?? o.total) || 0), 0);
     const deliveredCount = paidOrders.filter((o) => String(o.production_status || '').toLowerCase() === 'entregue').length;
     return {
       shippingRevenue,
