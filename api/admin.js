@@ -18,7 +18,7 @@ import { requireAdmin } from "../server/admin/adminAuth.js";
 import { renderOrderStatusEmail } from "../server/emailTemplates.js";
 import { rateLimit } from '../server/rateLimit.js';
 import { formatRewardLabel } from '../server/couponGame.js';
-import { buildControlNumber, buildManualPaymentLink, ensureManualOrderCustomerAccount, normalizeCpf, loadManualOrderCustomer, updateManualOrderCustomerProfile } from '../server/manualOrder.js';
+import { buildControlNumber, buildManualPaymentLink, ensureManualOrderCustomerAccount, normalizeCpf } from '../server/manualOrder.js';
 
 export const config = { runtime: "nodejs" };
 
@@ -73,91 +73,34 @@ function normalizeZip(value) {
   return String(value || '').replace(/\D/g, '').slice(0, 8);
 }
 
-
-function formatAddressInline(address = {}) {
-  return [
-    [address.address_line1, address.address_number].filter(Boolean).join(', '),
-    address.address_line2,
-    address.neighborhood,
-    [address.city, address.state].filter(Boolean).join(' - '),
-    address.zip,
-  ].filter(Boolean).join(' • ');
+function normalizeDateKey(value) {
+  const d = value ? new Date(value) : null;
+  if (!d || Number.isNaN(d.getTime())) return '';
+  return d.toISOString().slice(0, 10);
 }
 
-async function listAdminClients(sb) {
-  let page = 1;
-  const perPage = 200;
-  const users = [];
-  while (page <= 20) {
-    const resp = await sb.auth.admin.listUsers({ page, perPage });
-    if (resp?.error) throw resp.error;
-    const batch = Array.isArray(resp?.data?.users) ? resp.data.users : [];
-    users.push(...batch);
-    if (batch.length < perPage) break;
-    page += 1;
-  }
-  const ids = users.map((u) => u.id).filter(Boolean);
-  let profiles = [];
-  if (ids.length) {
-    const pr = await sb.from('profiles').select('id,full_name,phone,cpf,address_line1,address_number,address_line2,neighborhood,city,state,zip').in('id', ids);
-    profiles = Array.isArray(pr?.data) ? pr.data : [];
-  }
-  const profileById = new Map((profiles || []).map((row) => [String(row.id), row]));
-  return users.map((u) => {
-    const prof = profileById.get(String(u.id)) || {};
-    return {
-      id: u.id,
-      email: String(u.email || '').trim(),
-      created_at: u.created_at || null,
-      full_name: prof.full_name || u.user_metadata?.full_name || '',
-      phone: prof.phone || '',
-      cpf: prof.cpf || '',
-      address_line1: prof.address_line1 || '',
-      address_number: prof.address_number || '',
-      address_line2: prof.address_line2 || '',
-      neighborhood: prof.neighborhood || '',
-      city: prof.city || '',
-      state: prof.state || '',
-      zip: prof.zip || '',
-    };
-  }).sort((a,b) => String(a.full_name || a.email).localeCompare(String(b.full_name || b.email), 'pt-BR'));
+function daysOpenSince(value) {
+  const d = value ? new Date(value) : null;
+  if (!d || Number.isNaN(d.getTime())) return 0;
+  return Math.max(0, Math.floor((Date.now() - d.getTime()) / 86400000));
 }
 
-async function handleClients(req, res) {
-  const auth = await requireAdmin(req);
-  if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
-  const sb = supabaseAdmin();
-  if (req.method === 'GET') {
-    const clients = await listAdminClients(sb);
-    return res.status(200).json({ ok: true, clients });
+function isTerminalProductionStatus(value) {
+  return ['entregue', 'cancelado', 'reembolsado'].includes(String(value || '').toLowerCase());
+}
+
+async function fetchProfilesForAdmin(sb, ids = []) {
+  const wanted = Array.from(new Set((ids || []).filter(Boolean)));
+  if (!wanted.length) return { data: [], error: null, hasCpf: false };
+  const full = 'id,full_name,phone,cpf,address_line1,address_number,address_line2,neighborhood,city,state,zip,vip_until,vip_plan,vip_cycle_key';
+  const fallback = 'id,full_name,phone,address_line1,address_line2,neighborhood,city,state,zip,vip_until,vip_plan';
+  let resp = await sb.from('profiles').select(full).in('id', wanted);
+  let hasCpf = true;
+  if (resp?.error && /cpf|address_number|vip_cycle_key|column/i.test(String(resp.error.message || ''))) {
+    hasCpf = false;
+    resp = await sb.from('profiles').select(fallback).in('id', wanted);
   }
-  const body = await readJsonBody(req);
-  const id = String(body?.id || '').trim();
-  if (!id) return res.status(400).json({ error: 'Cliente inválido.' });
-  if (req.method === 'POST') {
-    const fullName = String(body.full_name || '').trim();
-    const email = normalizeEmail(body.email);
-    const cpf = normalizeCpf(body.cpf);
-    const phone = String(body.phone || '').trim();
-    const address = {
-      address_line1: String(body.address_line1 || '').trim(),
-      address_number: String(body.address_number || '').trim(),
-      address_line2: String(body.address_line2 || '').trim(),
-      neighborhood: String(body.neighborhood || '').trim(),
-      city: String(body.city || '').trim(),
-      state: String(body.state || '').trim(),
-      zip: normalizeZip(body.zip),
-    };
-    await updateManualOrderCustomerProfile({ userId: id, email, cpf, fullName, phone, address });
-    return res.status(200).json({ ok: true });
-  }
-  if (req.method === 'DELETE') {
-    await sb.from('profiles').delete().eq('id', id);
-    const del = await sb.auth.admin.deleteUser(id);
-    if (del?.error) return res.status(500).json({ error: del.error.message || 'Não foi possível excluir o cliente.' });
-    return res.status(200).json({ ok: true });
-  }
-  return res.status(405).json({ error: 'Method not allowed' });
+  return { data: resp?.data || [], error: resp?.error || null, hasCpf };
 }
 
 function buildManualOrderItemFromCustom(item = {}) {
@@ -210,55 +153,33 @@ async function handleManualOrderCreate(req, res) {
   if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
   const body = await readJsonBody(req);
   const customer = body?.customer || {};
+  const existingUserId = String(body?.existing_user_id || customer.existing_user_id || '').trim();
+  const accountMode = String(body?.account_mode || customer.account_mode || (existingUserId ? 'existing' : 'new')).trim().toLowerCase();
   const itemsRaw = Array.isArray(body?.items) ? body.items : [];
-  const existingUserId = String(body?.existing_customer_id || customer.existing_user_id || '').trim();
-  const sb = supabaseAdmin();
+  const email = normalizeEmail(customer.email);
+  const cpf = normalizeCpf(customer.cpf);
+  const fullName = String(customer.name || customer.full_name || '').trim();
+  const phone = String(customer.phone || '').trim();
+  if (!fullName) return res.status(400).json({ error: 'Nome obrigatório.' });
+  if (!email) return res.status(400).json({ error: 'E-mail obrigatório.' });
+  if (cpf.length !== 11) return res.status(400).json({ error: 'CPF inválido.' });
+  if (!itemsRaw.length) return res.status(400).json({ error: 'Adicione pelo menos um produto ao pedido.' });
 
-  let customerData = {
-    email: normalizeEmail(customer.email),
-    cpf: normalizeCpf(customer.cpf),
-    fullName: String(customer.name || customer.full_name || '').trim(),
-    phone: String(customer.phone || '').trim(),
-    address: {
-      address_line1: String(customer.address_line1 || '').trim(),
-      address_number: String(customer.address_number || '').trim(),
-      address_line2: String(customer.address_line2 || '').trim(),
-      neighborhood: String(customer.neighborhood || '').trim(),
-      city: String(customer.city || '').trim(),
-      state: String(customer.state || '').trim(),
-      zip: normalizeZip(customer.zip),
-    },
+  const address = {
+    address_line1: String(customer.address_line1 || '').trim(),
+    address_number: String(customer.address_number || '').trim(),
+    address_line2: String(customer.address_line2 || '').trim(),
+    neighborhood: String(customer.neighborhood || '').trim(),
+    city: String(customer.city || '').trim(),
+    state: String(customer.state || '').trim(),
+    zip: normalizeZip(customer.zip),
   };
-
-  if (existingUserId) {
-    const existing = await loadManualOrderCustomer(sb, existingUserId);
-    customerData = {
-      email: customerData.email || existing.email,
-      cpf: customerData.cpf || existing.cpf,
-      fullName: customerData.fullName || existing.fullName,
-      phone: customerData.phone || existing.phone,
-      address: {
-        address_line1: customerData.address.address_line1 || existing.address.address_line1,
-        address_number: customerData.address.address_number || existing.address.address_number,
-        address_line2: customerData.address.address_line2 || existing.address.address_line2,
-        neighborhood: customerData.address.neighborhood || existing.address.neighborhood,
-        city: customerData.address.city || existing.address.city,
-        state: customerData.address.state || existing.address.state,
-        zip: customerData.address.zip || existing.address.zip,
-      },
-    };
-  }
-
-  if (!customerData.fullName) return res.status(400).json({ error: 'Nome obrigatório.' });
-  if (!customerData.email) return res.status(400).json({ error: 'E-mail obrigatório.' });
-  if (!itemsRaw.length) return res.status(400).json({ error: 'Adicione pelo menos um item ao pedido.' });
-  const address = customerData.address;
   if (!address.address_line1 || !address.address_number || !address.neighborhood || !address.city || !address.state || !address.zip) {
     return res.status(400).json({ error: 'Preencha o endereço completo do cliente.' });
   }
 
+  const sb = supabaseAdmin();
   let resolvedItems = [];
-  let hasFreightItem = false;
   for (const item of itemsRaw) {
     const mode = String(item.mode || item.type || '').trim().toLowerCase();
     if (mode === 'product') {
@@ -278,19 +199,11 @@ async function handleManualOrderCreate(req, res) {
       }
       if (!(unitPrice > 0)) return res.status(400).json({ error: `Preço inválido para ${row.name}.` });
       resolvedItems.push({ product_id: row.id, name: row.name, qty, scale: chosenScale, unit_price: unitPrice, img: row.image_url || (Array.isArray(row.images) ? row.images[0] : '') || '' });
-    } else if (mode === 'freight') {
-      const freightValue = Number(item.price ?? item.valor ?? item.freight_value ?? 0);
-      if (!(freightValue > 0)) return res.status(400).json({ error: 'Valor de frete inválido.' });
-      hasFreightItem = true
-      resolvedItems.push({
-        product_id: `freight:${crypto.randomUUID()}`,
-        name: 'Pagamento de frete',
-        qty: 1,
-        scale: '',
-        unit_price: Number(freightValue.toFixed(2)),
-        img: '',
-        notes: `Enviar para: ${formatAddressInline(address)}`,
-      });
+    } else if (mode === 'freight' || mode === 'shipping' || mode === 'frete') {
+      const freightValue = Number(item.unit_price ?? item.price ?? item.valor ?? item.shipping_price ?? 0);
+      if (!Number.isFinite(freightValue) || freightValue <= 0) return res.status(400).json({ error: 'Valor de frete inválido.' });
+      const freightLabel = `Pagamento de frete — ${address.address_line1}, ${address.address_number}${address.address_line2 ? `, ${address.address_line2}` : ''} — ${address.neighborhood} — ${address.city}/${address.state} — CEP ${address.zip}`;
+      resolvedItems.push({ product_id: `freight:${crypto.randomUUID()}`, name: freightLabel, qty: 1, scale: '', unit_price: Number(freightValue.toFixed(2)), img: '' });
     } else {
       resolvedItems.push(buildManualOrderItemFromCustom(item));
     }
@@ -299,14 +212,25 @@ async function handleManualOrderCreate(req, res) {
   const total = Number(resolvedItems.reduce((sum, it) => sum + Number(it.unit_price || 0) * Number(it.qty || 1), 0).toFixed(2));
   if (!(total > 0)) return res.status(400).json({ error: 'Total inválido.' });
 
-  let account;
-  if (existingUserId) {
-    account = await updateManualOrderCustomerProfile({ userId: existingUserId, email: customerData.email, cpf: customerData.cpf, fullName: customerData.fullName, phone: customerData.phone, address });
+  let account = null;
+  if (accountMode === 'existing' && existingUserId) {
+    account = { userId: existingUserId, email, password: null, existing: true };
+    await sb.from('profiles').upsert({
+      id: existingUserId,
+      full_name: fullName || null,
+      phone: phone || null,
+      cpf: cpf || null,
+      address_line1: address.address_line1 || null,
+      address_number: address.address_number || null,
+      address_line2: address.address_line2 || null,
+      neighborhood: address.neighborhood || null,
+      city: address.city || null,
+      state: address.state || null,
+      zip: address.zip || null,
+    }, { onConflict: 'id' });
   } else {
-    if (customerData.cpf.length !== 11) return res.status(400).json({ error: 'CPF inválido.' });
-    account = await ensureManualOrderCustomerAccount({ email: customerData.email, cpf: customerData.cpf, fullName: customerData.fullName, phone: customerData.phone, address });
+    account = await ensureManualOrderCustomerAccount({ email, cpf, fullName, phone, address });
   }
-
   const orderId = crypto.randomUUID();
   const orderPayload = {
     id: orderId,
@@ -316,17 +240,17 @@ async function handleManualOrderCreate(req, res) {
     total,
     payment_provider: 'mercado_pago',
     production_status: 'editavel',
-    order_type: hasFreightItem && resolvedItems.length === 1 ? 'shipping_fee' : 'shop',
-    customer_email: customerData.email,
-    customer_name: customerData.fullName,
-    customer_phone: customerData.phone || null,
+    order_type: resolvedItems.some((it) => String(it.product_id || '').startsWith('freight:')) ? 'shipping_payment' : 'shop',
+    customer_email: email,
+    customer_name: fullName,
+    customer_phone: phone || null,
   };
   const { error: orderErr } = await sb.from('orders').insert(orderPayload);
   if (orderErr) return res.status(500).json({ error: orderErr.message || 'Não foi possível criar o pedido.' });
 
   const cleanedItems = resolvedItems.map((it) => ({
     product_id: String(it.product_id || '').trim() || null,
-    name: String(it.notes ? `${it.name} — ${it.notes}` : (it.name || 'Item')).trim(),
+    name: String(it.name || 'Item').trim(),
     qty: Number(it.qty || 1) || 1,
     scale: String(it.scale || '').trim() || null,
     img: String(it.img || '').trim() || null,
@@ -334,10 +258,26 @@ async function handleManualOrderCreate(req, res) {
     unit_price_cents: Math.round((Number(it.unit_price || 0) || 0) * 100),
   }));
 
-  const payloadNew = cleanedItems.map((it) => ({ order_id: orderId, product_id: it.product_id, product_name: it.name, scale: it.scale, qty: it.qty, unit_price_cents: it.unit_price_cents, product_image_url: it.img }));
+  const payloadNew = cleanedItems.map((it) => ({
+    order_id: orderId,
+    product_id: it.product_id,
+    product_name: it.name,
+    scale: it.scale,
+    qty: it.qty,
+    unit_price_cents: it.unit_price_cents,
+    product_image_url: it.img,
+  }));
   const attemptNew = await sb.from('order_items').insert(payloadNew);
   if (attemptNew?.error) {
-    const payloadOld = cleanedItems.map((it) => ({ order_id: orderId, product_id: it.product_id, name: it.name, scale: it.scale, qty: it.qty, unit_price: it.unit_price_brl, img: it.img }));
+    const payloadOld = cleanedItems.map((it) => ({
+      order_id: orderId,
+      product_id: it.product_id,
+      name: it.name,
+      scale: it.scale,
+      qty: it.qty,
+      unit_price: it.unit_price_brl,
+      img: it.img,
+    }));
     const attemptOld = await sb.from('order_items').insert(payloadOld);
     if (attemptOld?.error) {
       return res.status(500).json({ error: attemptOld.error.message || attemptNew.error.message || 'Não foi possível salvar os itens do pedido.' });
@@ -345,11 +285,19 @@ async function handleManualOrderCreate(req, res) {
   }
 
   const paymentLink = buildManualPaymentLink({ baseUrl: getBaseUrl(req), orderId });
+  await recordOrderEvent(sb, {
+    order_id: orderId,
+    event_type: 'order_created',
+    title: 'Pedido criado pelo admin',
+    description: account?.existing ? 'Pedido lançado para cliente já cadastrado.' : 'Pedido manual criado com conta automática para o cliente.',
+    actor_label: 'Admin',
+    metadata: { account_mode: account?.existing ? 'existing' : 'new', total, items_count: cleanedItems.length },
+  });
   return res.status(200).json({
     ok: true,
-    order: { id: orderId, order_number: buildControlNumber(orderId), total, customer_name: customerData.fullName, customer_email: customerData.email },
+    order: { id: orderId, order_number: buildControlNumber(orderId), total, customer_name: fullName, customer_email: email },
     payment_link: paymentLink,
-    account: existingUserId ? { email: customerData.email, existing: true } : { email: customerData.email, password: customerData.cpf },
+    account: account?.existing ? { email, existing: true } : { email, password: cpf },
   });
 }
 
@@ -1035,6 +983,8 @@ function applyOrderFilters(builder, filters = {}) {
         `customer_name.ilike.%${safe}%`,
         `customer_phone.ilike.%${safe}%`,
         `shipping_tracking.ilike.%${safe}%`,
+        `provider_payment_id.ilike.%${safe}%`,
+        `tracking_code.ilike.%${safe}%`,
       ].join(","));
     }
   }
@@ -1136,6 +1086,14 @@ async function handleOrders(req, res) {
     const paidWaitingProduction = list.filter((o) => String(o?.status || '').toLowerCase() === 'paid' && ['recebido', 'editavel'].includes(String(o?.production_status || 'recebido').toLowerCase())).length;
     const readyWithoutTracking = list.filter((o) => String(o?.status || '').toLowerCase() === 'paid' && String(o?.production_status || '').toLowerCase() === 'pronto' && !String(o?.shipping_tracking || '').trim()).length;
     const shippedInTransit = list.filter((o) => String(o?.production_status || '').toLowerCase() === 'enviado').length;
+    const overdueCount = list.filter((o) => !isTerminalProductionStatus(o?.production_status) && daysOpenSince(o?.created_at) > 10).length;
+    const staleOrders = list.filter((o) => !isTerminalProductionStatus(o?.production_status) && daysOpenSince(o?.created_at) > 5).length;
+    const awaitingShipment = list.filter((o) => String(o?.status || '').toLowerCase() === 'paid' && ['pronto', 'em_producao'].includes(String(o?.production_status || '').toLowerCase())).length;
+    const now = new Date();
+    const todayKey = now.toISOString().slice(0,10);
+    const monthKey = now.toISOString().slice(0,7);
+    const paidToday = paidRows.filter((o) => normalizeDateKey(o?.created_at) === todayKey).reduce((acc,o)=>acc+(Number(o?.total)||0),0);
+    const paidMonth = paidRows.filter((o) => String(o?.created_at || '').slice(0,7) === monthKey).reduce((acc,o)=>acc+(Number(o?.total)||0),0);
     return {
       total,
       paid: paidRows.length,
@@ -1143,11 +1101,21 @@ async function handleOrders(req, res) {
       revenue,
       refundReq,
       vipCount,
+      overdueCount,
+      finance: {
+        paidToday,
+        paidMonth,
+        upgradeRevenue: paidUpgradeRows.reduce((acc, o) => acc + (Number(o?.total) || 0), 0),
+        averageTicket: paidRows.length ? revenue / paidRows.length : 0,
+      },
       bottlenecks: {
         paidWaitingProduction,
         readyWithoutTracking,
         shippedInTransit,
         refundRequested: refundReq,
+        staleOrders,
+        overdueCount,
+        awaitingShipment,
       },
     };
   })();
@@ -1196,13 +1164,8 @@ async function handleOrders(req, res) {
     const orderIds = Array.from(new Set([...list.map((o) => o.id), ...relatedUpgrades.map((o) => o.id)]));
     const userIds = Array.from(new Set([...list.map((o) => o.user_id), ...relatedUpgrades.map((o) => o.user_id)].filter(Boolean)));
 
-    const [{ data: profiles, error: profErr }] = await Promise.all([
-      userIds.length
-        ? sb
-            .from("profiles")
-            .select("id,full_name,phone,address_line1,address_line2,neighborhood,city,state,zip")
-            .in("id", userIds)
-        : Promise.resolve({ data: [], error: null }),
+    const [{ data: profiles, error: profErr, hasCpf: profilesHaveCpf }] = await Promise.all([
+      fetchProfilesForAdmin(sb, userIds),
     ]);
 
     let items = [];
@@ -1378,6 +1341,7 @@ async function handleOrders(req, res) {
         timeline = [...upgradeEvents, ...timeline].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
       }
 
+      const latestAdminNote = timeline.find((evt) => String(evt?.event_type || '').toLowerCase() === 'admin_note') || null;
       return {
         ...o,
         vip_plan_id: latestPaidUpgrade?.vip_plan_id || o.vip_plan_id,
@@ -1396,6 +1360,9 @@ async function handleOrders(req, res) {
         related_upgrades_count: relatedUpgradesForOrder.length,
         upgrade_total: upgradeTotal,
         effective_total: Number(o.total || 0) + upgradeTotal,
+        days_open: daysOpenSince(o.created_at),
+        is_overdue: !isTerminalProductionStatus(o.production_status) && daysOpenSince(o.created_at) > 10,
+        latest_admin_note: latestAdminNote?.description || '',
         timeline,
         timeline_source: dbEvents.length ? 'order_events' : 'synthetic',
       };
@@ -1804,12 +1771,32 @@ async function handleVipControl(req, res) {
   const activeCycleKey = control?.active_cycle_key || null;
   const cycles = groupVipCyclesFromLibrary(library.items || [], activeCycleKey);
 
+  let vipSummary = { activeSubscribers: 0, byCycle: [] };
+  try {
+    const profilesResp = await fetchProfilesForAdmin(sb, []);
+  } catch {}
+  try {
+    let profResp = await sb.from('profiles').select('id,vip_until,vip_plan,vip_cycle_key');
+    if (profResp?.error && /vip_cycle_key|column/i.test(String(profResp.error.message || ''))) {
+      profResp = await sb.from('profiles').select('id,vip_until,vip_plan');
+    }
+    const rows = Array.isArray(profResp?.data) ? profResp.data : [];
+    const activeRows = rows.filter((r) => r?.vip_until && new Date(r.vip_until).getTime() > Date.now());
+    const byCycleMap = new Map();
+    activeRows.forEach((row) => {
+      const key = String(row?.vip_cycle_key || activeCycleKey || '').trim();
+      if (!key) return;
+      byCycleMap.set(key, (byCycleMap.get(key) || 0) + 1);
+    });
+    vipSummary = { activeSubscribers: activeRows.length, byCycle: Array.from(byCycleMap.entries()).map(([cycle_key,count])=>({cycle_key,count})) };
+  } catch {}
   return res.status(200).json({
     active_cycle_key: activeCycleKey,
     setup_required: !!control?.setup_required,
     cycle_column_available: library.cycleColumnAvailable !== false,
     cycles,
     library: library.items || [],
+    vip_summary: vipSummary,
   });
 }
 
@@ -2368,6 +2355,129 @@ async function handleUpdateOrder(req, res) {
   return res.status(200).json({ ok: true });
 }
 
+
+async function handleClients(req, res) {
+  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+  const auth = await requireAdmin(req);
+  if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
+  const sb = supabaseAdmin();
+  const q = String(req.query?.q || '').trim().toLowerCase();
+  const ordersResp = await sb.from('orders').select('id,user_id,status,total,created_at,order_type').order('created_at', { ascending: false }).limit(5000);
+  if (ordersResp?.error) return res.status(500).json({ error: ordersResp.error.message || 'Falha ao carregar pedidos para clientes.' });
+  const orders = Array.isArray(ordersResp.data) ? ordersResp.data : [];
+  const userIds = Array.from(new Set(orders.map((o) => o.user_id).filter(Boolean)));
+  const profilesResp = await fetchProfilesForAdmin(sb, userIds);
+  if (profilesResp.error) return res.status(500).json({ error: profilesResp.error.message || 'Falha ao carregar clientes.' });
+  const profiles = Array.isArray(profilesResp.data) ? profilesResp.data : [];
+  const authMap = new Map();
+  let page = 1;
+  while (page <= 20) {
+    const authResp = await sb.auth.admin.listUsers({ page, perPage: 200 });
+    if (authResp.error) break;
+    const users = Array.isArray(authResp.data?.users) ? authResp.data.users : [];
+    users.forEach((u) => authMap.set(String(u.id), u));
+    if (users.length < 200) break;
+    page += 1;
+  }
+  const ordersByUser = new Map();
+  orders.forEach((order) => {
+    const key = String(order.user_id || '');
+    if (!key) return;
+    if (!ordersByUser.has(key)) ordersByUser.set(key, []);
+    ordersByUser.get(key).push(order);
+  });
+  let rows = profiles.map((profile) => {
+    const uid = String(profile.id);
+    const userOrders = (ordersByUser.get(uid) || []).filter((o) => !isUpgradeOrderType(o.order_type));
+    const paidOrders = userOrders.filter((o) => String(o.status || '').toLowerCase() === 'paid');
+    const spent = paidOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
+    const lastOrder = userOrders.slice().sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0))[0] || null;
+    const authUser = authMap.get(uid);
+    return {
+      ...profile,
+      email: String(authUser?.email || '').trim(),
+      orders_count: userOrders.length,
+      paid_orders_count: paidOrders.length,
+      total_spent: spent,
+      last_order_at: lastOrder?.created_at || null,
+      last_order_id: lastOrder?.id || null,
+      vip_active: !!profile?.vip_until && new Date(profile.vip_until).getTime() > Date.now(),
+      tags: [userOrders.length >= 2 ? 'cliente recorrente' : '', spent >= 1000 ? 'alto valor' : '', !!profile?.vip_until && new Date(profile.vip_until).getTime() > Date.now() ? 'vip ativo' : ''].filter(Boolean),
+    };
+  });
+  if (q) {
+    rows = rows.filter((row) => {
+      const hay = [row.full_name, row.email, row.phone, row.cpf, row.city, row.state, row.last_order_id].map((x) => String(x || '').toLowerCase()).join(' | ');
+      return hay.includes(q);
+    });
+  }
+  rows.sort((a,b)=> new Date(b.last_order_at||0)-new Date(a.last_order_at||0));
+  return res.status(200).json({ ok: true, clients: rows });
+}
+
+async function handleUpdateClient(req, res) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  const auth = await requireAdmin(req);
+  if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
+  const body = await readJsonBody(req);
+  const clientId = String(body?.client_id || '').trim();
+  if (!clientId) return res.status(400).json({ error: 'client_id obrigatório.' });
+  const sb = supabaseAdmin();
+  const profilePatch = {
+    id: clientId,
+    full_name: String(body?.full_name || '').trim() || null,
+    phone: String(body?.phone || '').trim() || null,
+    cpf: normalizeCpf(body?.cpf || '') || null,
+    address_line1: String(body?.address_line1 || '').trim() || null,
+    address_number: String(body?.address_number || '').trim() || null,
+    address_line2: String(body?.address_line2 || '').trim() || null,
+    neighborhood: String(body?.neighborhood || '').trim() || null,
+    city: String(body?.city || '').trim() || null,
+    state: String(body?.state || '').trim() || null,
+    zip: normalizeZip(body?.zip || '') || null,
+  };
+  let upsert = await sb.from('profiles').upsert(profilePatch, { onConflict: 'id' });
+  if (upsert?.error && /cpf|address_number|column/i.test(String(upsert.error.message || ''))) {
+    delete profilePatch.cpf;
+    delete profilePatch.address_number;
+    upsert = await sb.from('profiles').upsert(profilePatch, { onConflict: 'id' });
+  }
+  if (upsert?.error) return res.status(500).json({ error: upsert.error.message || 'Falha ao atualizar cliente.' });
+  const nextEmail = normalizeEmail(body?.email || '');
+  if (nextEmail) {
+    try { await sb.auth.admin.updateUserById(clientId, { email: nextEmail, email_confirm: true }); } catch {}
+  }
+  return res.status(200).json({ ok: true });
+}
+
+async function handleDeleteClient(req, res) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  const auth = await requireAdmin(req);
+  if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
+  const body = await readJsonBody(req);
+  const clientId = String(body?.client_id || '').trim();
+  if (!clientId) return res.status(400).json({ error: 'client_id obrigatório.' });
+  const sb = supabaseAdmin();
+  await sb.from('profiles').delete().eq('id', clientId);
+  try { await sb.auth.admin.deleteUser(clientId); } catch {}
+  return res.status(200).json({ ok: true });
+}
+
+async function handleAddOrderNote(req, res) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  const auth = await requireAdmin(req);
+  if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
+  const body = await readJsonBody(req);
+  const order_id = String(body?.order_id || '').trim();
+  const note = String(body?.note || '').trim();
+  if (!order_id) return res.status(400).json({ error: 'order_id obrigatório.' });
+  if (!note) return res.status(400).json({ error: 'Escreva a nota interna.' });
+  const sb = supabaseAdmin();
+  const result = await recordOrderEvent(sb, { order_id, event_type: 'admin_note', title: 'Nota interna do admin', description: note, actor_label: 'Admin', metadata: { note } });
+  if (result?.error) return res.status(500).json({ error: result.error.message || 'Falha ao salvar nota.' });
+  return res.status(200).json({ ok: true });
+}
+
 async function handleResendOrderEmail(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
@@ -2428,6 +2538,9 @@ export default async function handler(req, res) {
     if (action === "manual-order-products") return await handleManualOrderProducts(req, res);
     if (action === "manual-order-create") return await handleManualOrderCreate(req, res);
     if (action === "clients") return await handleClients(req, res);
+    if (action === "update-client") return await handleUpdateClient(req, res);
+    if (action === "delete-client") return await handleDeleteClient(req, res);
+    if (action === "add-order-note") return await handleAddOrderNote(req, res);
     if (action === "game-coupon") return await handleGetGameCoupon(req, res);
     if (action === "save-game-coupon") return await handleSaveGameCoupon(req, res);
     if (action === "game-coupon-metrics") return await handleGameCouponMetrics(req, res);

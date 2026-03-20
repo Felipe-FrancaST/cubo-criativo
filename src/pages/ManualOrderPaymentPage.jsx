@@ -13,16 +13,15 @@ function parseParams() {
 }
 
 function PaymentSuccessNotice({ order }) {
-  const existing = !!order?.existing_account;
   return (
     <div className="rounded-3xl bg-emerald-500/10 ring-1 ring-emerald-400/20 p-5 text-emerald-100">
       <div className="text-xl font-extrabold">Pagamento efetivado</div>
       <div className="mt-2 text-sm text-emerald-50/90">
-        {existing ? (<>Seu pagamento foi confirmado. O pedido já foi vinculado à sua conta existente para acompanhar em <b>Meus pedidos</b>.</>) : (<>Seu pagamento foi confirmado. Criamos uma conta automaticamente para acompanhar este pedido em <b>Meus pedidos</b>.</>)}
+        Seu pagamento foi confirmado. Criamos uma conta automaticamente para acompanhar este pedido em <b>Meus pedidos</b>.
       </div>
       <div className="mt-3 rounded-2xl bg-black/20 p-4 ring-1 ring-white/10 text-sm text-slate-100">
         <div><b>E-mail de acesso:</b> {order?.customer_email || '—'}</div>
-        <div className="mt-1"><b>{existing ? 'Senha:' : 'Senha inicial:'}</b> CPF do cliente</div>
+        <div className="mt-1"><b>Senha inicial:</b> CPF do cliente</div>
       </div>
     </div>
   );
@@ -194,15 +193,6 @@ export default function ManualOrderPaymentPage({ onGoHome }) {
                 </div>
                 <div className="rounded-full px-3 py-1 text-xs ring-1 ring-white/10 bg-white/5 text-slate-100">{String(data.status || 'pending').toLowerCase() === 'paid' ? 'Pago' : 'Aguardando pagamento'}</div>
               </div>
-              {String(data.order_type || '') === 'shipping_fee' ? (
-                <div className="mt-4 rounded-2xl bg-cyan-500/10 ring-1 ring-cyan-400/20 p-4 text-sm text-cyan-50">
-                  <div className="font-semibold text-cyan-100">Pagamento de frete</div>
-                  <div className="mt-1">Este pagamento é referente ao frete para o endereço abaixo.</div>
-                  <div className="mt-2 text-cyan-100/90"><b>Endereço:</b> {data.shipping_address_summary || 'Endereço não informado'}</div>
-                  <div className="mt-1 text-cyan-100/90"><b>Valor do frete:</b> {fmtBRL(data.total)}</div>
-                </div>
-              ) : null}
-
               <div className="mt-4 space-y-3">
                 {(data.items || []).map((it) => (
                   <div key={it.id || `${it.name}-${it.scale}`} className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-3 flex items-center justify-between gap-3">
