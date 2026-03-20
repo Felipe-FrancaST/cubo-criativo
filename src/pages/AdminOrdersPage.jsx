@@ -983,44 +983,70 @@ function StartVotingModal({ state, imageLibrary, imageLibraryLoading, imageLibra
 
 
 function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast }) {
+  const emptyForm = React.useMemo(() => ({ name: '', cpf: '', email: '', phone: '', address_line1: '', address_number: '', address_line2: '', neighborhood: '', city: '', state: '', zip: '' }), []);
   const [loadingProducts, setLoadingProducts] = React.useState(false);
+  const [loadingClients, setLoadingClients] = React.useState(false);
   const [products, setProducts] = React.useState([]);
+  const [clients, setClients] = React.useState([]);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState('');
   const [result, setResult] = React.useState(null);
-  const [form, setForm] = React.useState({
-    name: '', cpf: '', email: '', phone: '', address_line1: '', address_number: '', address_line2: '', neighborhood: '', city: '', state: '', zip: '',
-  });
+  const [customerMode, setCustomerMode] = React.useState('new');
+  const [selectedClientId, setSelectedClientId] = React.useState('');
+  const [form, setForm] = React.useState(emptyForm);
   const [items, setItems] = React.useState([]);
 
   React.useEffect(() => {
     if (!open || !accessToken) return;
     let active = true;
     setLoadingProducts(true);
-    fetch('/api/admin?action=manual-order-products', { headers: { Authorization: `Bearer ${accessToken}` } })
-      .then((r) => r.json().catch(() => ({})).then((json) => ({ ok: r.ok, json })))
-      .then(({ ok, json }) => {
+    setLoadingClients(true);
+    setError('');
+    Promise.all([
+      fetch('/api/admin?action=manual-order-products', { headers: { Authorization: `Bearer ${accessToken}` } }).then((r) => r.json().catch(() => ({})).then((json) => ({ ok: r.ok, json }))),
+      fetch('/api/admin?action=clients', { headers: { Authorization: `Bearer ${accessToken}` } }).then((r) => r.json().catch(() => ({})).then((json) => ({ ok: r.ok, json }))),
+    ])
+      .then(([prodResp, clientResp]) => {
         if (!active) return;
-        if (!ok) throw new Error(json?.error || 'Não foi possível carregar os produtos.');
-        setProducts(Array.isArray(json?.products) ? json.products : []);
+        if (!prodResp.ok) throw new Error(prodResp.json?.error || 'Não foi possível carregar os produtos.');
+        if (!clientResp.ok) throw new Error(clientResp.json?.error || 'Não foi possível carregar os clientes.');
+        setProducts(Array.isArray(prodResp.json?.products) ? prodResp.json.products : []);
+        setClients(Array.isArray(clientResp.json?.clients) ? clientResp.json.clients : []);
       })
-      .catch((e) => { if (active) setError(e?.message || 'Erro ao carregar produtos.'); })
-      .finally(() => active && setLoadingProducts(false));
+      .catch((e) => { if (active) setError(e?.message || 'Erro ao carregar dados.'); })
+      .finally(() => { if (active) { setLoadingProducts(false); setLoadingClients(false); } });
     return () => { active = false; };
   }, [open, accessToken]);
 
+  React.useEffect(() => {
+    if (!open) return;
+    if (customerMode !== 'existing') {
+      setSelectedClientId('');
+      return;
+    }
+    const client = clients.find((c) => String(c.id) === String(selectedClientId));
+    if (!client) return;
+    setForm({
+      name: client.full_name || '', cpf: client.cpf || '', email: client.email || '', phone: client.phone || '',
+      address_line1: client.address_line1 || '', address_number: client.address_number || '', address_line2: client.address_line2 || '',
+      neighborhood: client.neighborhood || '', city: client.city || '', state: client.state || '', zip: client.zip || '',
+    });
+  }, [customerMode, selectedClientId, clients, open]);
+
   function updateForm(key, value) { setForm((p) => ({ ...p, [key]: value })); }
-  function addRegisteredProduct() { setItems((p) => [...p, { id: crypto?.randomUUID?.() || String(Date.now()+Math.random()), mode: 'product', product_id: '', qty: 1, scale: '' }]); }
-  function addCustomItem() { setItems((p) => [...p, { id: crypto?.randomUUID?.() || String(Date.now()+Math.random()), mode: 'custom', name: '', price: '', scale: '', qty: 1, notes: '' }]); }
+  function newId() { return crypto?.randomUUID?.() || String(Date.now() + Math.random()); }
+  function addRegisteredProduct() { setItems((p) => [...p, { id: newId(), mode: 'product', product_id: '', qty: 1, scale: '' }]); }
+  function addCustomItem() { setItems((p) => [...p, { id: newId(), mode: 'custom', name: '', price: '', scale: '', qty: 1, notes: '' }]); }
+  function addFreightItem() { setItems((p) => [...p, { id: newId(), mode: 'freight', price: '', notes: '' }]); }
   function updateItem(id, patch) { setItems((p) => p.map((it) => it.id === id ? { ...it, ...patch } : it)); }
   function removeItem(id) { setItems((p) => p.filter((it) => it.id !== id)); }
 
   const total = React.useMemo(() => items.reduce((sum, it) => {
     if (it.mode === 'product') {
       const prod = products.find((p) => String(p.id) === String(it.product_id));
-      const basePrice = Number(prod?.price || 0);
-      return sum + basePrice * Number(it.qty || 1);
+      return sum + Number(prod?.price || 0) * Number(it.qty || 1);
     }
+    if (it.mode === 'freight') return sum + Number(it.price || 0);
     return sum + Number(it.price || 0) * Number(it.qty || 1);
   }, 0), [items, products]);
 
@@ -1029,10 +1055,13 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
     setError('');
     try {
       const payload = {
+        existing_customer_id: customerMode === 'existing' ? selectedClientId : '',
         customer: form,
-        items: items.map((it) => it.mode === 'product'
-          ? { mode: 'product', product_id: it.product_id, qty: Number(it.qty || 1), scale: it.scale || '' }
-          : { mode: 'custom', name: it.name, price: Number(it.price || 0), scale: it.scale || '', qty: Number(it.qty || 1), notes: it.notes || '' }),
+        items: items.map((it) => {
+          if (it.mode === 'product') return { mode: 'product', product_id: it.product_id, qty: Number(it.qty || 1), scale: it.scale || '' };
+          if (it.mode === 'freight') return { mode: 'freight', price: Number(it.price || 0), notes: it.notes || '' };
+          return { mode: 'custom', name: it.name, price: Number(it.price || 0), scale: it.scale || '', qty: Number(it.qty || 1), notes: it.notes || '' };
+        }),
       };
       const resp = await fetch('/api/admin?action=manual-order-create', {
         method: 'POST',
@@ -1046,26 +1075,22 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
       onCreated?.();
     } catch (e) {
       setError(e?.message || 'Erro ao criar pedido.');
-    } finally {
-      setBusy(false);
-    }
+    } finally { setBusy(false); }
   }
 
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-[10000]">
       <div className="absolute inset-0 bg-[#020b10]/80" onClick={busy ? undefined : onClose} />
-      <div className="absolute inset-x-0 top-4 mx-auto w-[min(1100px,calc(100vw-24px))] max-h-[92vh] overflow-y-auto rounded-[28px] bg-[#0a0f1a] ring-1 ring-white/10 p-4 sm:p-6">
+      <div className="absolute inset-x-0 top-4 mx-auto w-[min(1180px,calc(100vw-24px))] max-h-[92vh] overflow-y-auto rounded-[28px] bg-[#0a0f1a] ring-1 ring-white/10 p-4 sm:p-6">
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="text-2xl font-bold text-white">Novo pedido</div>
-            <div className="text-sm text-slate-400">Crie o pedido, gere o link de pagamento e lance tudo no sistema.</div>
+            <div className="text-sm text-slate-400">Crie o pedido, gere o link de pagamento e vincule ao cliente certo.</div>
           </div>
           <button onClick={onClose} className="rounded-xl px-3 py-2 text-slate-200 hover:bg-white/4 ring-1 ring-white/10">Fechar</button>
         </div>
-
         {error ? <div className="mt-4 rounded-2xl bg-red-500/10 ring-1 ring-red-500/20 px-4 py-3 text-red-100">{error}</div> : null}
-
         {result ? (
           <div className="mt-5 grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4 items-start">
             <div className="rounded-3xl bg-emerald-500/10 ring-1 ring-emerald-400/20 p-5">
@@ -1077,8 +1102,8 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
                 <a href={result?.payment_link} target="_blank" rel="noreferrer" className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10">Abrir página</a>
               </div>
               <div className="mt-4 rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-4 text-sm text-slate-200">
-                <div><b>Conta criada:</b> {result?.account?.email}</div>
-                <div className="mt-1"><b>Senha inicial:</b> CPF do cliente</div>
+                <div><b>Conta:</b> {result?.account?.email}</div>
+                <div className="mt-1"><b>{result?.account?.existing ? 'Acesso:' : 'Senha inicial:'}</b> CPF do cliente</div>
               </div>
             </div>
             <div className="rounded-3xl bg-white/[0.03] ring-1 ring-white/10 p-4 min-w-[240px]">
@@ -1090,6 +1115,21 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
         ) : (
           <div className="mt-5 grid grid-cols-1 xl:grid-cols-[0.95fr_1.05fr] gap-5">
             <div className="space-y-4">
+              <div className="rounded-3xl bg-white/[0.03] ring-1 ring-white/10 p-4">
+                <div className="text-sm font-semibold text-white">Cliente</div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button onClick={() => { setCustomerMode('new'); setForm(emptyForm); }} className={["rounded-xl px-3 py-2 text-sm ring-1", customerMode === 'new' ? 'bg-cyan-400 text-[#031116] ring-cyan-300/30' : 'text-slate-200 ring-white/10 hover:bg-white/4'].join(' ')}>Novo cliente</button>
+                  <button onClick={() => setCustomerMode('existing')} className={["rounded-xl px-3 py-2 text-sm ring-1", customerMode === 'existing' ? 'bg-cyan-400 text-[#031116] ring-cyan-300/30' : 'text-slate-200 ring-white/10 hover:bg-white/4'].join(' ')}>Cliente já cadastrado</button>
+                </div>
+                {customerMode === 'existing' ? (
+                  <label className="mt-4 block text-sm text-slate-300">Selecionar cliente
+                    <select value={selectedClientId} onChange={(e) => setSelectedClientId(e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" disabled={loadingClients}>
+                      <option value="">Selecione um cliente</option>
+                      {clients.map((c) => <option key={c.id} value={c.id}>{c.full_name || c.email} — {c.email}</option>)}
+                    </select>
+                  </label>
+                ) : null}
+              </div>
               <div className="rounded-3xl bg-white/[0.03] ring-1 ring-white/10 p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <label className="text-sm text-slate-300">Nome<input value={form.name} onChange={(e)=>updateForm('name', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
                 <label className="text-sm text-slate-300">CPF<input value={form.cpf} onChange={(e)=>updateForm('cpf', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
@@ -1109,20 +1149,28 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <div className="text-white font-bold">Itens do pedido</div>
-                    <div className="text-sm text-slate-400">Adicione produtos cadastrados ou orçamento personalizado.</div>
+                    <div className="text-sm text-slate-400">Use produto cadastrado, orçamento personalizado ou pagamento de frete.</div>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <button onClick={addRegisteredProduct} className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10">Produto cadastrado</button>
                     <button onClick={addCustomItem} className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10">Orçamento personalizado</button>
+                    <button onClick={addFreightItem} className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10">Pagamento de frete</button>
                   </div>
                 </div>
                 <div className="mt-4 space-y-3">
-                  {items.map((it, idx) => it.mode === 'product' ? (
+                  {items.map((it) => it.mode === 'product' ? (
                     <div key={it.id} className="rounded-2xl bg-black/20 ring-1 ring-white/10 p-3 grid grid-cols-1 sm:grid-cols-[1fr_120px_110px_auto] gap-3 items-end">
                       <label className="text-sm text-slate-300">Produto<select value={it.product_id} onChange={(e)=>updateItem(it.id, { product_id: e.target.value, scale: '' })} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white"><option value="">Selecione</option>{products.map((p)=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
                       <label className="text-sm text-slate-300">Quantidade<input type="number" min="1" value={it.qty} onChange={(e)=>updateItem(it.id, { qty: e.target.value })} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
                       <label className="text-sm text-slate-300">Escala<input value={it.scale} onChange={(e)=>updateItem(it.id, { scale: e.target.value })} placeholder="Opcional" className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
                       <button onClick={()=>removeItem(it.id)} className="rounded-xl px-3 py-2 text-sm text-red-200 hover:bg-red-500/10 ring-1 ring-red-500/30">Remover</button>
+                    </div>
+                  ) : it.mode === 'freight' ? (
+                    <div key={it.id} className="rounded-2xl bg-black/20 ring-1 ring-white/10 p-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <label className="text-sm text-slate-300">Valor do frete<input type="number" min="0" step="0.01" value={it.price} onChange={(e)=>updateItem(it.id, { price: e.target.value })} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+                      <label className="text-sm text-slate-300">Observações<textarea value={it.notes} onChange={(e)=>updateItem(it.id, { notes: e.target.value })} className="mt-1 h-20 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+                      <div className="sm:col-span-2 rounded-xl bg-cyan-500/10 ring-1 ring-cyan-400/20 px-3 py-2 text-sm text-cyan-50">Na página de pagamento o cliente verá o endereço de envio e o valor do frete.</div>
+                      <div className="sm:col-span-2 flex justify-end"><button onClick={()=>removeItem(it.id)} className="rounded-xl px-3 py-2 text-sm text-red-200 hover:bg-red-500/10 ring-1 ring-red-500/30">Remover</button></div>
                     </div>
                   ) : (
                     <div key={it.id} className="rounded-2xl bg-black/20 ring-1 ring-white/10 p-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1138,12 +1186,67 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
                 </div>
                 <div className="mt-4 flex items-center justify-between gap-3 border-t border-white/10 pt-4">
                   <div className="text-lg font-extrabold text-white">Total: {fmtBRL(total)}</div>
-                  <button onClick={handleSubmit} disabled={busy || loadingProducts} className="rounded-2xl bg-cyan-400 text-[#031116] font-black px-5 py-3 disabled:opacity-60">{busy ? 'Criando…' : 'Finalizar pedido'}</button>
+                  <button onClick={handleSubmit} disabled={busy || loadingProducts || loadingClients} className="rounded-2xl bg-cyan-400 text-[#031116] font-black px-5 py-3 disabled:opacity-60">{busy ? 'Criando…' : 'Finalizar pedido'}</button>
                 </div>
               </div>
             </div>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function ClientEditModal({ open, client, accessToken, onClose, onSaved, showToast }) {
+  const [form, setForm] = React.useState(client || null);
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState('');
+  React.useEffect(() => { setForm(client || null); setError(''); }, [client, open]);
+  if (!open || !form) return null;
+  const update = (key, value) => setForm((p) => ({ ...p, [key]: value }));
+  async function save() {
+    setBusy(true); setError('');
+    try {
+      const resp = await fetch('/api/admin?action=clients', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` }, body: JSON.stringify(form) });
+      const json = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(json?.error || 'Não foi possível salvar.');
+      showToast?.('Cliente atualizado.');
+      onSaved?.();
+      onClose?.();
+    } catch (e) { setError(e?.message || 'Erro ao salvar.'); } finally { setBusy(false); }
+  }
+  async function remove() {
+    if (!window.confirm(`Excluir o cliente ${form.full_name || form.email}?`)) return;
+    setBusy(true); setError('');
+    try {
+      const resp = await fetch('/api/admin?action=clients', { method: 'DELETE', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` }, body: JSON.stringify({ id: form.id }) });
+      const json = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(json?.error || 'Não foi possível excluir.');
+      showToast?.('Cliente excluído.');
+      onSaved?.();
+      onClose?.();
+    } catch (e) { setError(e?.message || 'Erro ao excluir.'); } finally { setBusy(false); }
+  }
+  return (
+    <div className="fixed inset-0 z-[10001]">
+      <div className="absolute inset-0 bg-black/70" onClick={busy ? undefined : onClose} />
+      <div className="absolute inset-x-0 top-6 mx-auto w-[min(760px,calc(100vw-24px))] rounded-[28px] bg-[#0a0f1a] ring-1 ring-white/10 p-5 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-start justify-between gap-3"><div><div className="text-2xl font-bold text-white">Editar cliente</div><div className="text-sm text-slate-400">Altere cadastro, contato e endereço.</div></div><button onClick={onClose} className="rounded-xl px-3 py-2 text-slate-200 hover:bg-white/4 ring-1 ring-white/10">Fechar</button></div>
+        {error ? <div className="mt-4 rounded-2xl bg-red-500/10 ring-1 ring-red-500/20 px-4 py-3 text-red-100">{error}</div> : null}
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <label className="text-sm text-slate-300">Nome<input value={form.full_name || ''} onChange={(e)=>update('full_name', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+          <label className="text-sm text-slate-300">CPF<input value={form.cpf || ''} onChange={(e)=>update('cpf', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+          <label className="text-sm text-slate-300">E-mail<input value={form.email || ''} onChange={(e)=>update('email', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+          <label className="text-sm text-slate-300">Telefone<input value={form.phone || ''} onChange={(e)=>update('phone', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+          <label className="text-sm text-slate-300 sm:col-span-2">Rua<input value={form.address_line1 || ''} onChange={(e)=>update('address_line1', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+          <label className="text-sm text-slate-300">Número<input value={form.address_number || ''} onChange={(e)=>update('address_number', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+          <label className="text-sm text-slate-300">Complemento<input value={form.address_line2 || ''} onChange={(e)=>update('address_line2', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+          <label className="text-sm text-slate-300">Bairro<input value={form.neighborhood || ''} onChange={(e)=>update('neighborhood', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+          <label className="text-sm text-slate-300">Cidade<input value={form.city || ''} onChange={(e)=>update('city', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+          <label className="text-sm text-slate-300">Estado<input value={form.state || ''} onChange={(e)=>update('state', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+          <label className="text-sm text-slate-300">CEP<input value={form.zip || ''} onChange={(e)=>update('zip', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+        </div>
+        <div className="mt-5 flex items-center justify-between gap-3"><button onClick={remove} disabled={busy} className="rounded-xl px-4 py-2 text-sm text-red-200 hover:bg-red-500/10 ring-1 ring-red-500/30">Excluir cliente</button><div className="flex gap-2"><button onClick={onClose} className="rounded-xl px-4 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10">Cancelar</button><button onClick={save} disabled={busy} className="rounded-xl px-4 py-2 text-sm font-semibold bg-emerald-400 text-black ring-4 ring-emerald-400/20 disabled:opacity-50">{busy ? 'Salvando…' : 'Salvar'}</button></div></div>
       </div>
     </div>
   );
@@ -1216,6 +1319,11 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
   const [startVote, setStartVote] = React.useState({ open: false, data: null, busy: false, error: "" });
   const [deleteVote, setDeleteVote] = React.useState({ open: false, poll: null, busy: false, error: "" });
   const [newOrderOpen, setNewOrderOpen] = React.useState(false);
+  const [clients, setClients] = React.useState([]);
+  const [clientsLoading, setClientsLoading] = React.useState(false);
+  const [clientsError, setClientsError] = React.useState('');
+  const [clientEditor, setClientEditor] = React.useState({ open: false, client: null });
+  const [clientSearch, setClientSearch] = React.useState('');
 
   const showToast = (msg) => {
     setToast(msg);
@@ -1263,6 +1371,22 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
       setLoading(false);
     }
   }, [accessToken, page, pageSize, q, filterPay, filterProd, filterType, filterDateFrom, filterDateTo]);
+
+  const fetchClients = React.useCallback(async () => {
+    if (!accessToken) return;
+    setClientsLoading(true);
+    setClientsError('');
+    try {
+      const resp = await fetch('/api/admin?action=clients', { headers: { Authorization: `Bearer ${accessToken}` } });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data?.error || 'Não foi possível carregar os clientes.');
+      setClients(Array.isArray(data.clients) ? data.clients : []);
+    } catch (e) {
+      setClientsError(e?.message || 'Erro ao carregar clientes.');
+    } finally {
+      setClientsLoading(false);
+    }
+  }, [accessToken]);
 
   const fetchVipVoting = React.useCallback(async () => {
     if (!accessToken) return;
@@ -1871,6 +1995,16 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
 
   const activeOrder = React.useMemo(() => (orders || []).find((o) => o.id === details.orderId) || null, [orders, details.orderId]);
   const activeActionOrder = React.useMemo(() => (orders || []).find((o) => o.id === actionModal.orderId) || null, [orders, actionModal.orderId]);
+  const filteredClients = React.useMemo(() => {
+    const qn = String(clientSearch || '').trim().toLowerCase();
+    if (!qn) return clients || [];
+    return (clients || []).filter((c) => [c.full_name, c.email, c.cpf, c.phone, c.city].some((v) => String(v || '').toLowerCase().includes(qn)));
+  }, [clients, clientSearch]);
+
+  React.useEffect(() => {
+    if (section === 'clients') fetchClients();
+  }, [section, fetchClients]);
+
 
   if (authLoading || isAdminLoading) {
     return (
@@ -1942,6 +2076,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
         {[
           ["dashboard", "space_dashboard", "Dashboard"],
           ["orders", "inventory_2", "Pedidos"],
+          ["clients", "groups", "Clientes"],
           ["coupons", "sell", "Cupons"],
           ["vip", "workspace_premium", "VIP"],
           ["help", "help", "Atalhos"],
@@ -1975,6 +2110,11 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                 onClick={() => setSection("orders")}
               >
                 Pedidos
+              </SidebarItem>
+            </div>
+            <div className="mt-2">
+              <SidebarItem active={section === "clients"} icon="groups" onClick={() => setSection("clients")}>
+                Clientes
               </SidebarItem>
             </div>
             <div className="mt-2">
@@ -2452,6 +2592,53 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                       Próxima
                     </button>
                   </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+
+
+          {section === "clients" ? (
+            <div className="space-y-4">
+              <SectionTitle
+                icon="groups"
+                title="Clientes"
+                subtitle="Gerencie cadastros, endereços e acesso dos usuários."
+                right={
+                  <div className="flex items-center gap-2">
+                    <input value={clientSearch} onChange={(e) => setClientSearch(e.target.value)} placeholder="Buscar por nome, e-mail, CPF..." className="rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-sm text-white min-w-[260px]" />
+                    <button onClick={() => fetchClients()} className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10">Atualizar</button>
+                  </div>
+                }
+              />
+              {clientsError ? <div className="rounded-2xl bg-red-500/10 ring-1 ring-red-500/20 px-4 py-3 text-red-100">{clientsError}</div> : null}
+              <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="text-left text-slate-400 bg-white/[0.02]">
+                      <tr className="border-b border-white/10">
+                        <th className="py-3 px-4">Cliente</th>
+                        <th className="py-3 px-4">Contato</th>
+                        <th className="py-3 px-4">CPF</th>
+                        <th className="py-3 px-4">Cidade</th>
+                        <th className="py-3 px-4">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody className="text-slate-200">
+                      {clientsLoading ? <tr><td colSpan={5} className="px-4 py-6 text-slate-400">Carregando clientes…</td></tr> : null}
+                      {!clientsLoading && !filteredClients.length ? <tr><td colSpan={5} className="px-4 py-6 text-slate-400">Nenhum cliente encontrado.</td></tr> : null}
+                      {!clientsLoading && filteredClients.map((c) => (
+                        <tr key={c.id} className="border-b border-white/5">
+                          <td className="px-4 py-3"><div className="font-semibold text-white">{c.full_name || '—'}</div><div className="text-[11px] text-slate-500">{shortId(c.id)}</div></td>
+                          <td className="px-4 py-3"><div>{c.email || '—'}</div><div className="text-[11px] text-slate-500">{c.phone || '—'}</div></td>
+                          <td className="px-4 py-3">{c.cpf || '—'}</td>
+                          <td className="px-4 py-3">{[c.city, c.state].filter(Boolean).join(' / ') || '—'}</td>
+                          <td className="px-4 py-3"><button onClick={() => setClientEditor({ open: true, client: c })} className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10">Editar</button></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </div>
@@ -3021,7 +3208,16 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
         }}
       />
 
-      <NewManualOrderModal open={newOrderOpen} accessToken={accessToken} onClose={() => setNewOrderOpen(false)} onCreated={() => { fetchOrders(); }} showToast={showToast} />
+      <ClientEditModal
+        open={clientEditor.open}
+        client={clientEditor.client}
+        accessToken={accessToken}
+        onClose={() => setClientEditor({ open: false, client: null })}
+        onSaved={() => fetchClients()}
+        showToast={showToast}
+      />
+
+      <NewManualOrderModal open={newOrderOpen} accessToken={accessToken} onClose={() => setNewOrderOpen(false)} onCreated={() => { fetchOrders(); fetchClients(); }} showToast={showToast} />
 
       <CloseVotingModal
         state={closeVote}

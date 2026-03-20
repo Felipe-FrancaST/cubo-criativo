@@ -18,7 +18,7 @@ import { requireAdmin } from "../server/admin/adminAuth.js";
 import { renderOrderStatusEmail } from "../server/emailTemplates.js";
 import { rateLimit } from '../server/rateLimit.js';
 import { formatRewardLabel } from '../server/couponGame.js';
-import { buildControlNumber, buildManualPaymentLink, ensureManualOrderCustomerAccount, normalizeCpf } from '../server/manualOrder.js';
+import { buildControlNumber, buildManualPaymentLink, ensureManualOrderCustomerAccount, normalizeCpf, loadManualOrderCustomer, updateManualOrderCustomerProfile } from '../server/manualOrder.js';
 
 export const config = { runtime: "nodejs" };
 
@@ -73,6 +73,93 @@ function normalizeZip(value) {
   return String(value || '').replace(/\D/g, '').slice(0, 8);
 }
 
+
+function formatAddressInline(address = {}) {
+  return [
+    [address.address_line1, address.address_number].filter(Boolean).join(', '),
+    address.address_line2,
+    address.neighborhood,
+    [address.city, address.state].filter(Boolean).join(' - '),
+    address.zip,
+  ].filter(Boolean).join(' • ');
+}
+
+async function listAdminClients(sb) {
+  let page = 1;
+  const perPage = 200;
+  const users = [];
+  while (page <= 20) {
+    const resp = await sb.auth.admin.listUsers({ page, perPage });
+    if (resp?.error) throw resp.error;
+    const batch = Array.isArray(resp?.data?.users) ? resp.data.users : [];
+    users.push(...batch);
+    if (batch.length < perPage) break;
+    page += 1;
+  }
+  const ids = users.map((u) => u.id).filter(Boolean);
+  let profiles = [];
+  if (ids.length) {
+    const pr = await sb.from('profiles').select('id,full_name,phone,cpf,address_line1,address_number,address_line2,neighborhood,city,state,zip').in('id', ids);
+    profiles = Array.isArray(pr?.data) ? pr.data : [];
+  }
+  const profileById = new Map((profiles || []).map((row) => [String(row.id), row]));
+  return users.map((u) => {
+    const prof = profileById.get(String(u.id)) || {};
+    return {
+      id: u.id,
+      email: String(u.email || '').trim(),
+      created_at: u.created_at || null,
+      full_name: prof.full_name || u.user_metadata?.full_name || '',
+      phone: prof.phone || '',
+      cpf: prof.cpf || '',
+      address_line1: prof.address_line1 || '',
+      address_number: prof.address_number || '',
+      address_line2: prof.address_line2 || '',
+      neighborhood: prof.neighborhood || '',
+      city: prof.city || '',
+      state: prof.state || '',
+      zip: prof.zip || '',
+    };
+  }).sort((a,b) => String(a.full_name || a.email).localeCompare(String(b.full_name || b.email), 'pt-BR'));
+}
+
+async function handleClients(req, res) {
+  const auth = await requireAdmin(req);
+  if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
+  const sb = supabaseAdmin();
+  if (req.method === 'GET') {
+    const clients = await listAdminClients(sb);
+    return res.status(200).json({ ok: true, clients });
+  }
+  const body = await readJsonBody(req);
+  const id = String(body?.id || '').trim();
+  if (!id) return res.status(400).json({ error: 'Cliente inválido.' });
+  if (req.method === 'POST') {
+    const fullName = String(body.full_name || '').trim();
+    const email = normalizeEmail(body.email);
+    const cpf = normalizeCpf(body.cpf);
+    const phone = String(body.phone || '').trim();
+    const address = {
+      address_line1: String(body.address_line1 || '').trim(),
+      address_number: String(body.address_number || '').trim(),
+      address_line2: String(body.address_line2 || '').trim(),
+      neighborhood: String(body.neighborhood || '').trim(),
+      city: String(body.city || '').trim(),
+      state: String(body.state || '').trim(),
+      zip: normalizeZip(body.zip),
+    };
+    await updateManualOrderCustomerProfile({ userId: id, email, cpf, fullName, phone, address });
+    return res.status(200).json({ ok: true });
+  }
+  if (req.method === 'DELETE') {
+    await sb.from('profiles').delete().eq('id', id);
+    const del = await sb.auth.admin.deleteUser(id);
+    if (del?.error) return res.status(500).json({ error: del.error.message || 'Não foi possível excluir o cliente.' });
+    return res.status(200).json({ ok: true });
+  }
+  return res.status(405).json({ error: 'Method not allowed' });
+}
+
 function buildManualOrderItemFromCustom(item = {}) {
   const qty = Math.max(1, Number(item.qty || item.quantity || 1) || 1);
   const unitPrice = Number(item.unit_price ?? item.price ?? item.valor ?? 0);
@@ -124,30 +211,54 @@ async function handleManualOrderCreate(req, res) {
   const body = await readJsonBody(req);
   const customer = body?.customer || {};
   const itemsRaw = Array.isArray(body?.items) ? body.items : [];
-  const email = normalizeEmail(customer.email);
-  const cpf = normalizeCpf(customer.cpf);
-  const fullName = String(customer.name || customer.full_name || '').trim();
-  const phone = String(customer.phone || '').trim();
-  if (!fullName) return res.status(400).json({ error: 'Nome obrigatório.' });
-  if (!email) return res.status(400).json({ error: 'E-mail obrigatório.' });
-  if (cpf.length !== 11) return res.status(400).json({ error: 'CPF inválido.' });
-  if (!itemsRaw.length) return res.status(400).json({ error: 'Adicione pelo menos um produto ao pedido.' });
+  const existingUserId = String(body?.existing_customer_id || customer.existing_user_id || '').trim();
+  const sb = supabaseAdmin();
 
-  const address = {
-    address_line1: String(customer.address_line1 || '').trim(),
-    address_number: String(customer.address_number || '').trim(),
-    address_line2: String(customer.address_line2 || '').trim(),
-    neighborhood: String(customer.neighborhood || '').trim(),
-    city: String(customer.city || '').trim(),
-    state: String(customer.state || '').trim(),
-    zip: normalizeZip(customer.zip),
+  let customerData = {
+    email: normalizeEmail(customer.email),
+    cpf: normalizeCpf(customer.cpf),
+    fullName: String(customer.name || customer.full_name || '').trim(),
+    phone: String(customer.phone || '').trim(),
+    address: {
+      address_line1: String(customer.address_line1 || '').trim(),
+      address_number: String(customer.address_number || '').trim(),
+      address_line2: String(customer.address_line2 || '').trim(),
+      neighborhood: String(customer.neighborhood || '').trim(),
+      city: String(customer.city || '').trim(),
+      state: String(customer.state || '').trim(),
+      zip: normalizeZip(customer.zip),
+    },
   };
+
+  if (existingUserId) {
+    const existing = await loadManualOrderCustomer(sb, existingUserId);
+    customerData = {
+      email: customerData.email || existing.email,
+      cpf: customerData.cpf || existing.cpf,
+      fullName: customerData.fullName || existing.fullName,
+      phone: customerData.phone || existing.phone,
+      address: {
+        address_line1: customerData.address.address_line1 || existing.address.address_line1,
+        address_number: customerData.address.address_number || existing.address.address_number,
+        address_line2: customerData.address.address_line2 || existing.address.address_line2,
+        neighborhood: customerData.address.neighborhood || existing.address.neighborhood,
+        city: customerData.address.city || existing.address.city,
+        state: customerData.address.state || existing.address.state,
+        zip: customerData.address.zip || existing.address.zip,
+      },
+    };
+  }
+
+  if (!customerData.fullName) return res.status(400).json({ error: 'Nome obrigatório.' });
+  if (!customerData.email) return res.status(400).json({ error: 'E-mail obrigatório.' });
+  if (!itemsRaw.length) return res.status(400).json({ error: 'Adicione pelo menos um item ao pedido.' });
+  const address = customerData.address;
   if (!address.address_line1 || !address.address_number || !address.neighborhood || !address.city || !address.state || !address.zip) {
     return res.status(400).json({ error: 'Preencha o endereço completo do cliente.' });
   }
 
-  const sb = supabaseAdmin();
   let resolvedItems = [];
+  let hasFreightItem = false;
   for (const item of itemsRaw) {
     const mode = String(item.mode || item.type || '').trim().toLowerCase();
     if (mode === 'product') {
@@ -167,6 +278,19 @@ async function handleManualOrderCreate(req, res) {
       }
       if (!(unitPrice > 0)) return res.status(400).json({ error: `Preço inválido para ${row.name}.` });
       resolvedItems.push({ product_id: row.id, name: row.name, qty, scale: chosenScale, unit_price: unitPrice, img: row.image_url || (Array.isArray(row.images) ? row.images[0] : '') || '' });
+    } else if (mode === 'freight') {
+      const freightValue = Number(item.price ?? item.valor ?? item.freight_value ?? 0);
+      if (!(freightValue > 0)) return res.status(400).json({ error: 'Valor de frete inválido.' });
+      hasFreightItem = true
+      resolvedItems.push({
+        product_id: `freight:${crypto.randomUUID()}`,
+        name: 'Pagamento de frete',
+        qty: 1,
+        scale: '',
+        unit_price: Number(freightValue.toFixed(2)),
+        img: '',
+        notes: `Enviar para: ${formatAddressInline(address)}`,
+      });
     } else {
       resolvedItems.push(buildManualOrderItemFromCustom(item));
     }
@@ -175,7 +299,14 @@ async function handleManualOrderCreate(req, res) {
   const total = Number(resolvedItems.reduce((sum, it) => sum + Number(it.unit_price || 0) * Number(it.qty || 1), 0).toFixed(2));
   if (!(total > 0)) return res.status(400).json({ error: 'Total inválido.' });
 
-  const account = await ensureManualOrderCustomerAccount({ email, cpf, fullName, phone, address });
+  let account;
+  if (existingUserId) {
+    account = await updateManualOrderCustomerProfile({ userId: existingUserId, email: customerData.email, cpf: customerData.cpf, fullName: customerData.fullName, phone: customerData.phone, address });
+  } else {
+    if (customerData.cpf.length !== 11) return res.status(400).json({ error: 'CPF inválido.' });
+    account = await ensureManualOrderCustomerAccount({ email: customerData.email, cpf: customerData.cpf, fullName: customerData.fullName, phone: customerData.phone, address });
+  }
+
   const orderId = crypto.randomUUID();
   const orderPayload = {
     id: orderId,
@@ -185,17 +316,17 @@ async function handleManualOrderCreate(req, res) {
     total,
     payment_provider: 'mercado_pago',
     production_status: 'editavel',
-    order_type: 'shop',
-    customer_email: email,
-    customer_name: fullName,
-    customer_phone: phone || null,
+    order_type: hasFreightItem && resolvedItems.length === 1 ? 'shipping_fee' : 'shop',
+    customer_email: customerData.email,
+    customer_name: customerData.fullName,
+    customer_phone: customerData.phone || null,
   };
   const { error: orderErr } = await sb.from('orders').insert(orderPayload);
   if (orderErr) return res.status(500).json({ error: orderErr.message || 'Não foi possível criar o pedido.' });
 
   const cleanedItems = resolvedItems.map((it) => ({
     product_id: String(it.product_id || '').trim() || null,
-    name: String(it.name || 'Item').trim(),
+    name: String(it.notes ? `${it.name} — ${it.notes}` : (it.name || 'Item')).trim(),
     qty: Number(it.qty || 1) || 1,
     scale: String(it.scale || '').trim() || null,
     img: String(it.img || '').trim() || null,
@@ -203,26 +334,10 @@ async function handleManualOrderCreate(req, res) {
     unit_price_cents: Math.round((Number(it.unit_price || 0) || 0) * 100),
   }));
 
-  const payloadNew = cleanedItems.map((it) => ({
-    order_id: orderId,
-    product_id: it.product_id,
-    product_name: it.name,
-    scale: it.scale,
-    qty: it.qty,
-    unit_price_cents: it.unit_price_cents,
-    product_image_url: it.img,
-  }));
+  const payloadNew = cleanedItems.map((it) => ({ order_id: orderId, product_id: it.product_id, product_name: it.name, scale: it.scale, qty: it.qty, unit_price_cents: it.unit_price_cents, product_image_url: it.img }));
   const attemptNew = await sb.from('order_items').insert(payloadNew);
   if (attemptNew?.error) {
-    const payloadOld = cleanedItems.map((it) => ({
-      order_id: orderId,
-      product_id: it.product_id,
-      name: it.name,
-      scale: it.scale,
-      qty: it.qty,
-      unit_price: it.unit_price_brl,
-      img: it.img,
-    }));
+    const payloadOld = cleanedItems.map((it) => ({ order_id: orderId, product_id: it.product_id, name: it.name, scale: it.scale, qty: it.qty, unit_price: it.unit_price_brl, img: it.img }));
     const attemptOld = await sb.from('order_items').insert(payloadOld);
     if (attemptOld?.error) {
       return res.status(500).json({ error: attemptOld.error.message || attemptNew.error.message || 'Não foi possível salvar os itens do pedido.' });
@@ -232,9 +347,9 @@ async function handleManualOrderCreate(req, res) {
   const paymentLink = buildManualPaymentLink({ baseUrl: getBaseUrl(req), orderId });
   return res.status(200).json({
     ok: true,
-    order: { id: orderId, order_number: buildControlNumber(orderId), total, customer_name: fullName, customer_email: email },
+    order: { id: orderId, order_number: buildControlNumber(orderId), total, customer_name: customerData.fullName, customer_email: customerData.email },
     payment_link: paymentLink,
-    account: { email, password: cpf },
+    account: existingUserId ? { email: customerData.email, existing: true } : { email: customerData.email, password: customerData.cpf },
   });
 }
 
@@ -2312,6 +2427,7 @@ export default async function handler(req, res) {
     if (action === "vip-delete-voting") return await handleVipDeleteVoting(req, res);
     if (action === "manual-order-products") return await handleManualOrderProducts(req, res);
     if (action === "manual-order-create") return await handleManualOrderCreate(req, res);
+    if (action === "clients") return await handleClients(req, res);
     if (action === "game-coupon") return await handleGetGameCoupon(req, res);
     if (action === "save-game-coupon") return await handleSaveGameCoupon(req, res);
     if (action === "game-coupon-metrics") return await handleGameCouponMetrics(req, res);

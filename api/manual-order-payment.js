@@ -47,10 +47,20 @@ async function mpFetch(token, url, opts = {}) {
 
 function mapOrderStatus(mpStatus) {
   const s = String(mpStatus || '').toLowerCase();
-  if (['approved','authorized'].includes(s)) return 'paid';
-  if (['pending','in_process','in_mediation'].includes(s)) return 'pending';
-  if (['rejected','cancelled','refunded','charged_back'].includes(s)) return 'failed';
+  if (['approved', 'authorized'].includes(s)) return 'paid';
+  if (['pending', 'in_process', 'in_mediation'].includes(s)) return 'pending';
+  if (['rejected', 'cancelled', 'refunded', 'charged_back'].includes(s)) return 'failed';
   return 'pending';
+}
+
+function formatAddressInline(profile = {}) {
+  return [
+    [profile.address_line1, profile.address_number].filter(Boolean).join(', '),
+    profile.address_line2,
+    profile.neighborhood,
+    [profile.city, profile.state].filter(Boolean).join(' - '),
+    profile.zip,
+  ].filter(Boolean).join(' • ');
 }
 
 async function loadManualOrder({ orderId, sig }) {
@@ -61,13 +71,18 @@ async function loadManualOrder({ orderId, sig }) {
     throw err;
   }
   const sb = supabaseAdmin();
-  const { data: order, error } = await sb.from('orders').select('id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,production_status,order_type').eq('id', orderId).maybeSingle();
+  const { data: order, error } = await sb
+    .from('orders')
+    .select('id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,production_status,order_type')
+    .eq('id', orderId)
+    .maybeSingle();
   if (error) throw error;
   if (!order) {
     const err = new Error('Pedido não encontrado.');
     err.status = 404;
     throw err;
   }
+
   let items = [];
   const newResp = await sb.from('order_items').select('id,product_id,product_name,qty,scale,unit_price_cents,product_image_url').eq('order_id', orderId).order('id');
   if (!newResp?.error && Array.isArray(newResp.data)) {
@@ -82,29 +97,42 @@ async function loadManualOrder({ orderId, sig }) {
     }));
   } else {
     const oldResp = await sb.from('order_items').select('id,product_id,name,qty,scale,unit_price,img').eq('order_id', orderId).order('id');
-    items = Array.isArray(oldResp?.data) ? oldResp.data.map((it) => ({
-      id: it.id,
-      product_id: it.product_id || null,
-      name: it.name || 'Item',
-      qty: Number(it.qty || 1),
-      scale: it.scale || '',
-      unit_price: Number(it.unit_price || 0),
-      img: it.img || null,
-    })) : [];
+    items = Array.isArray(oldResp?.data)
+      ? oldResp.data.map((it) => ({
+          id: it.id,
+          product_id: it.product_id || null,
+          name: it.name || 'Item',
+          qty: Number(it.qty || 1),
+          scale: it.scale || '',
+          unit_price: Number(it.unit_price || 0),
+          img: it.img || null,
+        }))
+      : [];
   }
-  return { sb, order, items };
+
+  let profile = null;
+  if (order.user_id) {
+    const { data } = await sb.from('profiles').select('address_line1,address_number,address_line2,neighborhood,city,state,zip').eq('id', order.user_id).maybeSingle();
+    profile = data || null;
+  }
+
+  return { sb, order, items, profile };
 }
 
-function serializePublic(order, items, baseUrl) {
+function serializePublic(order, items, baseUrl, profile = null) {
+  const existingAccount = !!order?.user_id;
   return {
     order_id: order.id,
     order_number: buildControlNumber(order.id),
     status: order.status,
     production_status: order.production_status,
+    order_type: order.order_type || 'shop',
     total: Number(order.total || 0),
     customer_name: order.customer_name || '',
     customer_email: order.customer_email || '',
     payment_link: buildManualPaymentLink({ baseUrl, orderId: order.id }),
+    shipping_address_summary: formatAddressInline(profile || {}),
+    existing_account: existingAccount,
     items: (items || []).map((it) => ({
       id: it.id,
       name: it.name || 'Item',
@@ -120,12 +148,12 @@ async function handleGet(req, res) {
   try {
     const orderId = String(req.query?.order || '').trim();
     const sig = String(req.query?.sig || '').trim();
-    const { order, items } = await loadManualOrder({ orderId, sig });
+    const { order, items, profile } = await loadManualOrder({ orderId, sig });
     if (String(order.status || '').toLowerCase() === 'paid' && String(order.production_status || '').toLowerCase() !== 'recebido') {
       await supabaseAdmin().from('orders').update({ production_status: 'recebido' }).eq('id', order.id);
       order.production_status = 'recebido';
     }
-    return res.status(200).json({ ok: true, order: serializePublic(order, items, getBaseUrl(req)), account_email: order.customer_email || '', account_password_hint: 'CPF do cliente' });
+    return res.status(200).json({ ok: true, order: serializePublic(order, items, getBaseUrl(req), profile), account_email: order.customer_email || '', account_password_hint: 'CPF do cliente' });
   } catch (e) {
     return res.status(e.status || 500).json({ error: e.message || String(e) });
   }
@@ -138,10 +166,8 @@ async function createPixPayment(req, res) {
   const token = String(process.env.MP_ACCESS_TOKEN || '').trim();
   if (!token) return res.status(500).json({ error: 'Missing MP_ACCESS_TOKEN' });
   try {
-    const { sb, order, items } = await loadManualOrder({ orderId, sig });
-    if (String(order.status || '').toLowerCase() === 'paid') {
-      return res.status(200).json({ ok: true, already_paid: true, status: 'paid' });
-    }
+    const { sb, order, items, profile } = await loadManualOrder({ orderId, sig });
+    if (String(order.status || '').toLowerCase() === 'paid') return res.status(200).json({ ok: true, already_paid: true, status: 'paid' });
     const paymentResp = await mpFetch(token, 'https://api.mercadopago.com/v1/payments', {
       method: 'POST',
       headers: { 'X-Idempotency-Key': crypto.randomUUID() },
@@ -151,11 +177,7 @@ async function createPixPayment(req, res) {
         payment_method_id: 'pix',
         payer: { email: String(order.customer_email || '').trim() },
         external_reference: order.id,
-        metadata: {
-          order_id: order.id,
-          order_type: order.order_type || 'shop',
-          source: 'admin_manual_order',
-        },
+        metadata: { order_id: order.id, order_type: order.order_type || 'shop', source: 'admin_manual_order' },
         notification_url: `${getBaseUrl(req)}/api/mp-webhook`,
       }),
     });
@@ -163,7 +185,7 @@ async function createPixPayment(req, res) {
     const mp = paymentResp.data || {};
     const tx = mp.point_of_interaction?.transaction_data || {};
     await sb.from('orders').update({ status: mapOrderStatus(mp.status), payment_provider: 'mercado_pago', provider_payment_id: String(mp.id || '') }).eq('id', order.id);
-    return res.status(200).json({ ok: true, order: serializePublic(order, items, getBaseUrl(req)), provider_payment_id: String(mp.id || ''), qr_code: tx.qr_code || null, qr_code_base64: tx.qr_code_base64 || null, ticket_url: tx.ticket_url || null, status: mapOrderStatus(mp.status) });
+    return res.status(200).json({ ok: true, order: serializePublic(order, items, getBaseUrl(req), profile), provider_payment_id: String(mp.id || ''), qr_code: tx.qr_code || null, qr_code_base64: tx.qr_code_base64 || null, ticket_url: tx.ticket_url || null, status: mapOrderStatus(mp.status) });
   } catch (e) {
     return res.status(e.status || 500).json({ error: e.message || String(e) });
   }
@@ -176,21 +198,13 @@ async function createCardCheckout(req, res) {
   const token = String(process.env.MP_ACCESS_TOKEN || '').trim();
   if (!token) return res.status(500).json({ error: 'Missing MP_ACCESS_TOKEN' });
   try {
-    const { sb, order, items } = await loadManualOrder({ orderId, sig });
-    if (String(order.status || '').toLowerCase() === 'paid') {
-      return res.status(200).json({ ok: true, already_paid: true, status: 'paid' });
-    }
+    const { sb, order, items, profile } = await loadManualOrder({ orderId, sig });
+    if (String(order.status || '').toLowerCase() === 'paid') return res.status(200).json({ ok: true, already_paid: true, status: 'paid' });
     const baseUrl = getBaseUrl(req);
     const prefResp = await mpFetch(token, 'https://api.mercadopago.com/checkout/preferences', {
       method: 'POST',
       body: JSON.stringify({
-        items: [{
-          id: order.id,
-          title: `Pedido Cubo Criativo #${buildControlNumber(order.id)}`,
-          quantity: 1,
-          unit_price: Number(order.total || 0),
-          currency_id: 'BRL',
-        }],
+        items: [{ id: order.id, title: `Pedido Cubo Criativo #${buildControlNumber(order.id)}`, quantity: 1, unit_price: Number(order.total || 0), currency_id: 'BRL' }],
         payer: { email: String(order.customer_email || '').trim(), name: String(order.customer_name || '').trim() || undefined },
         external_reference: order.id,
         notification_url: `${baseUrl}/api/mp-webhook`,
@@ -200,17 +214,13 @@ async function createCardCheckout(req, res) {
           failure: `${baseUrl}/pagamento-pedido?order=${encodeURIComponent(order.id)}&sig=${encodeURIComponent(sig)}&payment=cancel`,
         },
         auto_return: 'approved',
-        metadata: {
-          order_id: order.id,
-          order_type: order.order_type || 'shop',
-          source: 'admin_manual_order',
-        },
+        metadata: { order_id: order.id, order_type: order.order_type || 'shop', source: 'admin_manual_order' },
       }),
     });
     if (!prefResp.ok) return res.status(prefResp.status || 500).json({ error: prefResp.data || { message: 'Mercado Pago error' } });
     const pref = prefResp.data || {};
     await sb.from('orders').update({ status: 'pending', payment_provider: 'mercado_pago', provider_payment_id: String(pref.id || '') }).eq('id', order.id);
-    return res.status(200).json({ ok: true, init_point: pref.init_point || pref.sandbox_init_point || null, order: serializePublic(order, items, baseUrl) });
+    return res.status(200).json({ ok: true, init_point: pref.init_point || pref.sandbox_init_point || null, order: serializePublic(order, items, baseUrl, profile) });
   } catch (e) {
     return res.status(e.status || 500).json({ error: e.message || String(e) });
   }
@@ -223,7 +233,7 @@ async function verifyStatus(req, res) {
   const token = String(process.env.MP_ACCESS_TOKEN || '').trim();
   if (!token) return res.status(500).json({ error: 'Missing MP_ACCESS_TOKEN' });
   try {
-    const { sb, order, items } = await loadManualOrder({ orderId, sig });
+    const { sb, order, items, profile } = await loadManualOrder({ orderId, sig });
     const paymentId = String(order.provider_payment_id || '').trim();
     if (paymentId) {
       const paymentResp = await mpFetch(token, `https://api.mercadopago.com/v1/payments/${encodeURIComponent(paymentId)}`);
@@ -237,7 +247,7 @@ async function verifyStatus(req, res) {
         if (patch.production_status) order.production_status = patch.production_status;
       }
     }
-    return res.status(200).json({ ok: true, status: order.status, order: serializePublic(order, items, getBaseUrl(req)), paid: String(order.status || '').toLowerCase() === 'paid', account_email: order.customer_email || '', account_password_hint: 'CPF do cliente' });
+    return res.status(200).json({ ok: true, status: order.status, order: serializePublic(order, items, getBaseUrl(req), profile), paid: String(order.status || '').toLowerCase() === 'paid', account_email: order.customer_email || '', account_password_hint: 'CPF do cliente' });
   } catch (e) {
     return res.status(e.status || 500).json({ error: e.message || String(e) });
   }
