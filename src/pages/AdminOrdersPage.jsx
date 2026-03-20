@@ -3,7 +3,7 @@ import { useAuth } from "../auth/AuthProvider.jsx";
 import { DetailRow, KpiCard, OrderBadgeCluster, SectionTitle, SidebarItem, TimelineList } from "./admin/orders/AdminOrdersComponents.jsx";
 import { badgeBase, copyToClipboard, daysBetween, emailAuditBadge, endOfDay, exportCsv, fmtAddress, fmtBRL, fmtDate, onlyDigits, prodStatusBadge, shortId, startOfDay, statusBadge, toDateInputValue } from "./admin/orders/adminOrdersUtils.js";
 
-function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTracking, onRequestRefund, onDeleteOrder, onResendEmail, onAddNote, resendBusy, toast }) {
+function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTracking, onRequestRefund, onDeleteOrder, onResendEmail, onAddNote, resendBusy, toast, adminQuickSearch, setAdminQuickSearch, runAdminQuickSearch }) {
   if (!open) return null;
   const p = order?.profile || null;
   const address = fmtAddress(p);
@@ -512,6 +512,65 @@ function ConfirmDeleteVotingModal({ state, onClose, onConfirm }) {
             className="rounded-xl px-4 py-2 text-sm font-semibold text-red-100 bg-red-500/15 hover:bg-red-500/25 ring-1 ring-red-500/30 disabled:opacity-60"
           >
             {busy ? "Excluindo..." : "Excluir permanentemente"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+function ConfirmDangerModal({ open, title, message, details, confirmLabel = "Confirmar", cancelLabel = "Cancelar", busy = false, error = "", keyword = "", keywordValue = "", onKeywordChange, onClose, onConfirm }) {
+  if (!open) return null;
+  const needsKeyword = !!keyword;
+  const keywordOk = !needsKeyword || String(keywordValue || '').trim().toUpperCase() === String(keyword).trim().toUpperCase();
+
+  return (
+    <div className="fixed inset-0 z-[10030] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={busy ? undefined : onClose} />
+      <div className="relative w-full max-w-lg rounded-3xl bg-[#0b0f18] ring-1 ring-white/10 shadow-2xl overflow-hidden">
+        <div className="p-5 border-b border-white/10">
+          <p className="text-sm font-semibold text-slate-100">{title}</p>
+          <p className="text-xs text-slate-400 mt-1">{message}</p>
+        </div>
+
+        <div className="p-5 space-y-3">
+          {details ? (
+            <div className="rounded-2xl bg-white/4 ring-1 ring-white/10 p-4 text-sm text-slate-100">
+              {details}
+            </div>
+          ) : null}
+
+          {needsKeyword ? (
+            <label className="block">
+              <div className="text-xs text-slate-400 mb-1">Digite <span className="font-semibold text-red-200">{keyword}</span> para confirmar</div>
+              <input
+                value={keywordValue}
+                onChange={(e) => onKeywordChange?.(e.target.value)}
+                className="w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-slate-100"
+                placeholder={keyword}
+                autoFocus
+              />
+            </label>
+          ) : null}
+
+          {error ? <div className="rounded-xl bg-red-500/10 ring-1 ring-red-500/30 p-3 text-sm text-red-200">{error}</div> : null}
+        </div>
+
+        <div className="p-5 flex items-center justify-end gap-2 border-t border-white/10">
+          <button
+            onClick={onClose}
+            disabled={busy}
+            className="rounded-xl px-4 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10 disabled:opacity-60"
+          >
+            {cancelLabel}
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={busy || !keywordOk}
+            className="rounded-xl px-4 py-2 text-sm font-semibold text-red-100 bg-red-500/15 hover:bg-red-500/25 ring-1 ring-red-500/30 disabled:opacity-60"
+          >
+            {busy ? 'Processando...' : confirmLabel}
           </button>
         </div>
       </div>
@@ -1269,6 +1328,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
   const [clientsQ, setClientsQ] = React.useState('');
   const [clientEditor, setClientEditor] = React.useState(null);
   const [adminQuickSearch, setAdminQuickSearch] = React.useState('');
+  const [confirmAction, setConfirmAction] = React.useState({ open: false, type: '', payload: null, busy: false, error: '', keywordValue: '' });
 
   const showToast = (msg) => {
     setToast(msg);
@@ -1838,21 +1898,16 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
 
   async function deleteClient(client) {
     if (!client?.id || !accessToken) return;
-    if (!window.confirm(`Excluir o cliente ${client.full_name || client.email || client.id}?`)) return;
-    try {
-      const resp = await fetch('/api/admin?action=delete-client', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ client_id: client.id }),
-      });
-      const data = await resp.json().catch(() => ({}));
-      if (!resp.ok) throw new Error(data?.error || 'Não foi possível excluir o cliente.');
-      showToast('🗑️ Cliente excluído.');
-      setClientEditor(null);
-      fetchClients();
-    } catch (e) {
-      showToast(`⚠️ ${e?.message || 'Falha ao excluir cliente.'}`);
-    }
+    const resp = await fetch('/api/admin?action=delete-client', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({ client_id: client.id }),
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) throw new Error(data?.error || 'Não foi possível excluir o cliente.');
+    showToast('🗑️ Cliente excluído.');
+    setClientEditor(null);
+    fetchClients();
   }
 
   function toggleOrderSelection(orderId) {
@@ -2036,6 +2091,45 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
     { key: 'overdue', label: 'Atrasados', apply: () => { setFilterPay('paid'); setFilterProd('all'); setQ(''); setPage(1); } },
     { key: 'vip', label: 'Somente VIP', apply: () => { setFilterType('vip'); setFilterPay('all'); setFilterProd('all'); setPage(1); } },
   ]), []);
+
+  const openDeleteClientConfirm = React.useCallback((client) => {
+    if (!client?.id) return;
+    setConfirmAction({
+      open: true,
+      type: 'client',
+      payload: client,
+      busy: false,
+      error: '',
+      keywordValue: '',
+    });
+  }, []);
+
+  const openDeleteVipCycleConfirm = React.useCallback((cycleKey) => {
+    if (!cycleKey) return;
+    setConfirmAction({
+      open: true,
+      type: 'vip_cycle',
+      payload: { cycle_key: cycleKey },
+      busy: false,
+      error: '',
+      keywordValue: '',
+    });
+  }, []);
+
+  const handleConfirmAction = React.useCallback(async () => {
+    if (!confirmAction?.open || confirmAction?.busy) return;
+    try {
+      setConfirmAction((prev) => ({ ...prev, busy: true, error: '' }));
+      if (confirmAction.type === 'client') {
+        await deleteClient(confirmAction.payload);
+      } else if (confirmAction.type === 'vip_cycle') {
+        await deleteVipCycle(confirmAction.payload?.cycle_key);
+      }
+      setConfirmAction({ open: false, type: '', payload: null, busy: false, error: '', keywordValue: '' });
+    } catch (e) {
+      setConfirmAction((prev) => ({ ...prev, busy: false, error: e?.message || 'Não foi possível concluir a ação.' }));
+    }
+  }, [confirmAction, deleteClient, deleteVipCycle]);
 
   const runAdminQuickSearch = React.useCallback(() => {
     const next = String(adminQuickSearch || '').trim();
@@ -2835,7 +2929,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                       </div>
 
                       <div className="flex items-center justify-end gap-2">
-                        <button onClick={()=>{ const confirmation = window.prompt('Digite EXCLUIR para remover este cliente.'); if (confirmation !== 'EXCLUIR') return; deleteClient(clientEditor); }} className="rounded-xl px-3 py-2 text-sm text-red-100 bg-red-500/10 ring-1 ring-red-500/30">Excluir cliente</button>
+                        <button onClick={() => openDeleteClientConfirm(clientEditor)} className="rounded-xl px-3 py-2 text-sm text-red-100 bg-red-500/10 ring-1 ring-red-500/30">Excluir cliente</button>
                         <button onClick={saveClientEdits} className="rounded-xl px-3 py-2 text-sm font-semibold bg-emerald-400 text-black ring-4 ring-emerald-400/20">Salvar alterações</button>
                       </div>
                     </div>
@@ -3116,7 +3210,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                       <div className="sm:ml-auto flex items-center gap-2">
                         {vipCycleEditor.cycle_key ? (
                           <button
-                            onClick={() => deleteVipCycle(vipCycleEditor.cycle_key)}
+                            onClick={() => openDeleteVipCycleConfirm(vipCycleEditor.cycle_key)}
                             disabled={vipCycleBusy}
                             className="rounded-xl px-4 py-2 text-sm font-semibold text-red-100 bg-red-500/10 ring-1 ring-red-500/30 disabled:opacity-60"
                           >
@@ -3227,7 +3321,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                             </button>
                           ) : null}
                           <button
-                            onClick={() => deleteVipCycle(cycle.cycle_key)}
+                            onClick={() => openDeleteVipCycleConfirm(cycle.cycle_key)}
                             disabled={vipCycleBusy}
                             className="rounded-xl px-3 py-2 text-xs font-semibold text-red-100 bg-red-500/10 hover:bg-red-500/20 ring-1 ring-red-500/30 disabled:opacity-60"
                           >
@@ -3387,6 +3481,9 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
         onResendEmail={(o) => resendOrderEmail(o?.id || o?.order_id)}
         resendBusy={resendEmailBusyId && String(resendEmailBusyId) === String(activeOrder?.id)}
         toast={toast}
+        adminQuickSearch={adminQuickSearch}
+        setAdminQuickSearch={setAdminQuickSearch}
+        runAdminQuickSearch={runAdminQuickSearch}
       />
 
       <StatusModal
@@ -3445,6 +3542,25 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
         state={deleteVote}
         onClose={() => setDeleteVote({ open: false, poll: null, busy: false, error: "" })}
         onConfirm={() => deleteVipVoting(deleteVote.poll)}
+      />
+
+      <ConfirmDangerModal
+        open={confirmAction.open}
+        title={confirmAction.type === 'client' ? 'Excluir cliente' : 'Excluir ciclo VIP'}
+        message={confirmAction.type === 'client'
+          ? 'Essa ação remove o cliente do sistema. Use apenas quando tiver certeza.'
+          : 'Essa ação remove o ciclo VIP e desvincula os itens desse ciclo.'}
+        details={confirmAction.type === 'client'
+          ? `${confirmAction.payload?.full_name || confirmAction.payload?.email || confirmAction.payload?.id || 'Cliente'}`
+          : `Ciclo ${confirmAction.payload?.cycle_key || '—'}`}
+        confirmLabel={confirmAction.type === 'client' ? 'Excluir cliente' : 'Excluir ciclo'}
+        busy={confirmAction.busy}
+        error={confirmAction.error}
+        keyword={confirmAction.type === 'client' ? 'EXCLUIR' : ''}
+        keywordValue={confirmAction.keywordValue}
+        onKeywordChange={(value) => setConfirmAction((prev) => ({ ...prev, keywordValue: value }))}
+        onClose={() => setConfirmAction({ open: false, type: '', payload: null, busy: false, error: '', keywordValue: '' })}
+        onConfirm={handleConfirmAction}
       />
     </div>
   );
