@@ -34,6 +34,7 @@ export default function ManualOrderPaymentPage({ onGoHome }) {
   const [error, setError] = React.useState('');
   const [data, setData] = React.useState(null);
   const [pix, setPix] = React.useState({ qr_code: '', qr_code_base64: '', ticket_url: '' });
+  const [copyMsg, setCopyMsg] = React.useState('');
 
   const loadOrder = React.useCallback(async () => {
     if (!order || !sig) return;
@@ -86,6 +87,39 @@ export default function ManualOrderPaymentPage({ onGoHome }) {
       }).catch(() => {});
     }
   }, [payment, order, sig]);
+
+
+  React.useEffect(() => {
+    if (!copyMsg) return undefined;
+    const t = window.setTimeout(() => setCopyMsg(''), 2200);
+    return () => window.clearTimeout(t);
+  }, [copyMsg]);
+
+  async function copyPixCode() {
+    const code = String(pix?.qr_code || '').trim();
+    if (!code) {
+      setCopyMsg('Código Pix indisponível.');
+      return;
+    }
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(code);
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = code;
+        ta.setAttribute('readonly', 'readonly');
+        ta.style.position = 'absolute';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      setCopyMsg('Código Pix copiado.');
+    } catch {
+      setCopyMsg('Não foi possível copiar o código Pix.');
+    }
+  }
 
   async function handlePix() {
     setBusy(true);
@@ -196,7 +230,11 @@ export default function ManualOrderPaymentPage({ onGoHome }) {
                       <div className="mt-2 text-sm text-slate-300">Depois que o pagamento for aprovado, este QR Code some e sua conta ficará pronta.</div>
                       <img src={`data:image/png;base64,${pix.qr_code_base64}`} alt="QR Code Pix" className="mt-4 mx-auto w-56 h-56 rounded-2xl bg-white p-3" />
                       {pix.qr_code ? <textarea readOnly value={pix.qr_code} className="mt-4 h-24 w-full rounded-2xl bg-black/30 ring-1 ring-white/10 p-3 text-xs text-slate-200" /> : null}
-                      {pix.ticket_url ? <a href={pix.ticket_url} target="_blank" rel="noreferrer" className="mt-3 inline-flex rounded-xl px-3 py-2 text-sm text-cyan-200 hover:bg-white/4 ring-1 ring-white/10">Abrir link do Pix</a> : null}
+                      {copyMsg ? <div className={`mt-3 rounded-xl px-3 py-2 text-sm ring-1 ${copyMsg.includes('copiado') ? 'bg-emerald-500/10 text-emerald-100 ring-emerald-400/20' : 'bg-red-500/10 text-red-100 ring-red-400/20'}`}>{copyMsg}</div> : null}
+                      <div className="mt-3 flex flex-wrap gap-3">
+                        {pix.qr_code ? <button type="button" onClick={copyPixCode} className="inline-flex rounded-xl px-3 py-2 text-sm text-white hover:bg-white/8 ring-1 ring-white/10">Copiar código Pix</button> : null}
+                        {pix.ticket_url ? <a href={pix.ticket_url} target="_blank" rel="noreferrer" className="inline-flex rounded-xl px-3 py-2 text-sm text-cyan-200 hover:bg-white/4 ring-1 ring-white/10">Abrir link do Pix</a> : null}
+                      </div>
                     </div>
                   ) : null}
                 </>
