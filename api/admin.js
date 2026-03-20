@@ -2362,23 +2362,42 @@ async function handleClients(req, res) {
   if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
   const sb = supabaseAdmin();
   const q = String(req.query?.q || '').trim().toLowerCase();
-  const ordersResp = await sb.from('orders').select('id,user_id,status,total,created_at,order_type').order('created_at', { ascending: false }).limit(5000);
+
+  const ordersResp = await sb
+    .from('orders')
+    .select('id,user_id,status,total,created_at,order_type,customer_name,customer_email')
+    .order('created_at', { ascending: false })
+    .limit(5000);
   if (ordersResp?.error) return res.status(500).json({ error: ordersResp.error.message || 'Falha ao carregar pedidos para clientes.' });
   const orders = Array.isArray(ordersResp.data) ? ordersResp.data : [];
-  const userIds = Array.from(new Set(orders.map((o) => o.user_id).filter(Boolean)));
-  const profilesResp = await fetchProfilesForAdmin(sb, userIds);
-  if (profilesResp.error) return res.status(500).json({ error: profilesResp.error.message || 'Falha ao carregar clientes.' });
-  const profiles = Array.isArray(profilesResp.data) ? profilesResp.data : [];
+
+  const authUsers = [];
   const authMap = new Map();
   let page = 1;
   while (page <= 20) {
     const authResp = await sb.auth.admin.listUsers({ page, perPage: 200 });
-    if (authResp.error) break;
+    if (authResp.error) {
+      return res.status(500).json({ error: authResp.error.message || 'Falha ao carregar usuários autenticados.' });
+    }
     const users = Array.isArray(authResp.data?.users) ? authResp.data.users : [];
-    users.forEach((u) => authMap.set(String(u.id), u));
+    users.forEach((u) => {
+      const uid = String(u?.id || '');
+      if (!uid) return;
+      authMap.set(uid, u);
+      authUsers.push(u);
+    });
     if (users.length < 200) break;
     page += 1;
   }
+
+  const authUserIds = Array.from(new Set(authUsers.map((u) => String(u?.id || '')).filter(Boolean)));
+  const orderUserIds = Array.from(new Set(orders.map((o) => String(o?.user_id || '')).filter(Boolean)));
+  const wantedIds = Array.from(new Set([...authUserIds, ...orderUserIds]));
+  const profilesResp = await fetchProfilesForAdmin(sb, wantedIds);
+  if (profilesResp.error) return res.status(500).json({ error: profilesResp.error.message || 'Falha ao carregar clientes.' });
+  const profiles = Array.isArray(profilesResp.data) ? profilesResp.data : [];
+  const profileMap = new Map(profiles.map((p) => [String(p.id), p]));
+
   const ordersByUser = new Map();
   orders.forEach((order) => {
     const key = String(order.user_id || '');
@@ -2386,32 +2405,48 @@ async function handleClients(req, res) {
     if (!ordersByUser.has(key)) ordersByUser.set(key, []);
     ordersByUser.get(key).push(order);
   });
-  let rows = profiles.map((profile) => {
-    const uid = String(profile.id);
+
+  let rows = wantedIds.map((uid) => {
+    const profile = profileMap.get(uid) || { id: uid };
     const userOrders = (ordersByUser.get(uid) || []).filter((o) => !isUpgradeOrderType(o.order_type));
     const paidOrders = userOrders.filter((o) => String(o.status || '').toLowerCase() === 'paid');
     const spent = paidOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
-    const lastOrder = userOrders.slice().sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0))[0] || null;
+    const lastOrder = userOrders.slice().sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))[0] || null;
     const authUser = authMap.get(uid);
+    const meta = authUser?.user_metadata && typeof authUser.user_metadata === 'object' ? authUser.user_metadata : {};
+    const email = String(authUser?.email || profile?.email || lastOrder?.customer_email || '').trim();
+    const fullName = String(profile?.full_name || meta.full_name || meta.name || lastOrder?.customer_name || '').trim();
+    const vipActive = !!profile?.vip_until && new Date(profile.vip_until).getTime() > Date.now();
     return {
       ...profile,
-      email: String(authUser?.email || '').trim(),
+      id: uid,
+      full_name: fullName,
+      email,
       orders_count: userOrders.length,
       paid_orders_count: paidOrders.length,
       total_spent: spent,
       last_order_at: lastOrder?.created_at || null,
       last_order_id: lastOrder?.id || null,
-      vip_active: !!profile?.vip_until && new Date(profile.vip_until).getTime() > Date.now(),
-      tags: [userOrders.length >= 2 ? 'cliente recorrente' : '', spent >= 1000 ? 'alto valor' : '', !!profile?.vip_until && new Date(profile.vip_until).getTime() > Date.now() ? 'vip ativo' : ''].filter(Boolean),
+      vip_active: vipActive,
+      tags: [userOrders.length >= 2 ? 'cliente recorrente' : '', spent >= 1000 ? 'alto valor' : '', vipActive ? 'vip ativo' : ''].filter(Boolean),
     };
   });
+
   if (q) {
     rows = rows.filter((row) => {
-      const hay = [row.full_name, row.email, row.phone, row.cpf, row.city, row.state, row.last_order_id].map((x) => String(x || '').toLowerCase()).join(' | ');
+      const hay = [row.full_name, row.email, row.phone, row.cpf, row.city, row.state, row.last_order_id]
+        .map((x) => String(x || '').toLowerCase())
+        .join(' | ');
       return hay.includes(q);
     });
   }
-  rows.sort((a,b)=> new Date(b.last_order_at||0)-new Date(a.last_order_at||0));
+
+  rows.sort((a, b) => {
+    const dateDiff = new Date(b.last_order_at || 0) - new Date(a.last_order_at || 0);
+    if (dateDiff !== 0) return dateDiff;
+    return String(a.full_name || a.email || '').localeCompare(String(b.full_name || b.email || ''), 'pt-BR');
+  });
+
   return res.status(200).json({ ok: true, clients: rows });
 }
 
