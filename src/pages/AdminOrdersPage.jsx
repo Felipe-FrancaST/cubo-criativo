@@ -3328,21 +3328,45 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                             {vipControl.cycles.length} ciclo(s)
                           </div>
                         </div>
-                        <div className="mt-4 flex flex-wrap gap-2">
-                          {(vipControl.cycles || []).map((cycle) => (
-                            <button
-                              key={cycle.cycle_key}
-                              onClick={() => loadVipCycleIntoEditor(cycle.cycle_key)}
-                              className={[
-                                'rounded-full px-3 py-2 text-xs ring-1 transition',
-                                String(vipCycleEditor.cycle_key || '') === String(cycle.cycle_key)
-                                  ? 'bg-cyan-400/15 text-cyan-100 ring-cyan-400/30'
-                                  : 'bg-white/[0.03] text-slate-200 ring-white/10 hover:bg-white/[0.06]'
-                              ].join(' ')}
-                            >
-                              {cycle.cycle_key}{cycle.is_active ? ' • ativo' : ''}
-                            </button>
-                          ))}
+                        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                          {(vipControl.cycles || []).map((cycle) => {
+                            const isCurrentCycle = String(vipCycleEditor.cycle_key || '') === String(cycle.cycle_key);
+                            return (
+                              <button
+                                key={cycle.cycle_key}
+                                type="button"
+                                onClick={() => loadVipCycleIntoEditor(cycle.cycle_key)}
+                                className={[
+                                  'min-w-0 rounded-2xl px-4 py-3 text-left ring-1 transition-all duration-200',
+                                  'bg-white/[0.03] hover:bg-white/[0.05] hover:-translate-y-[1px]',
+                                  isCurrentCycle
+                                    ? 'ring-cyan-400/35 bg-cyan-400/10 shadow-[0_10px_30px_rgba(34,211,238,0.12)]'
+                                    : 'ring-white/10'
+                                ].join(' ')}
+                              >
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <div className="text-sm font-semibold text-white truncate">{cycle.cycle_key}</div>
+                                    <div className="mt-1 text-[11px] text-slate-400 truncate">
+                                      {cycle.is_active ? 'Ciclo ativo para assinantes' : 'Clique para carregar no editor'}
+                                    </div>
+                                  </div>
+                                  <div className="shrink-0 flex flex-col items-end gap-1.5">
+                                    {cycle.is_active ? (
+                                      <span className="rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-wide bg-emerald-500/15 text-emerald-200 ring-1 ring-emerald-500/20">
+                                        Ativo
+                                      </span>
+                                    ) : null}
+                                    {isCurrentCycle ? (
+                                      <span className="rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-wide bg-cyan-500/15 text-cyan-200 ring-1 ring-cyan-500/20">
+                                        No editor
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                </div>
+                              </button>
+                            );
+                          })}
                         </div>
 
                         <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[620px] overflow-y-auto pr-1">
