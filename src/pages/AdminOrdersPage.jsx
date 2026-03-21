@@ -3227,7 +3227,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                 {vipControlLoading ? <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 px-4 py-3 text-slate-400">Carregando controle VIP...</div> : null}
                 {vipControlError ? <div className="rounded-2xl bg-red-500/10 ring-1 ring-red-500/30 px-4 py-3 text-sm text-red-200">{vipControlError}</div> : null}
 
-                <div className="grid grid-cols-1 xl:grid-cols-[1.2fr_0.8fr] gap-4">
+                <div className="grid grid-cols-1 min-[1600px]:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)] gap-4">
                   <div className="rounded-3xl bg-white/[0.03] ring-1 ring-white/10 p-4 md:p-5">
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                       <div>
@@ -3262,7 +3262,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                       </div>
                     </div>
 
-                    <div className="mt-5 grid grid-cols-1 lg:grid-cols-[minmax(0,260px)_minmax(0,1fr)] gap-4">
+                    <div className="mt-5 grid grid-cols-1 min-[1350px]:grid-cols-[minmax(0,280px)_minmax(0,1fr)] gap-4">
                       <div className="space-y-4">
                         <div className="rounded-2xl bg-black/20 ring-1 ring-white/10 p-4">
                           <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Configuração do ciclo</div>
@@ -3328,7 +3328,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                             {vipControl.cycles.length} ciclo(s)
                           </div>
                         </div>
-                        <div className="mt-4 grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-3">
+                        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 min-[1500px]:grid-cols-1 min-[1750px]:grid-cols-2 gap-3">
                           {(vipControl.cycles || []).map((cycle) => {
                             const isCurrentCycle = String(vipCycleEditor.cycle_key || '') === String(cycle.cycle_key);
                             return (
@@ -3379,7 +3379,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                               {(vipControl.library || []).length} item(ns)
                             </div>
                           </div>
-                          <div className="mt-4 grid grid-cols-1 2xl:grid-cols-2 gap-3 max-h-[620px] overflow-y-auto pr-1">
+                          <div className="mt-4 grid grid-cols-1 min-[1900px]:grid-cols-2 gap-3 max-h-[620px] overflow-y-auto pr-1">
                           {(vipControl.library || []).map((item) => {
                             const selected = (vipCycleEditor.selected_ids || []).includes(String(item.id));
                             const assignedCycle = String(item?.cycle_key || '');
