@@ -2025,6 +2025,25 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
     }
   }
 
+  const orderMatchesInlineSearch = React.useCallback((order, rawQuery) => {
+    const needle = String(rawQuery || '').trim().toLowerCase();
+    if (!needle) return true;
+    const short = String(shortId(order?.id || '')).replace(/…/g, '').toLowerCase();
+    const fields = [
+      order?.id,
+      short,
+      order?.customer_name,
+      order?.profile?.full_name,
+      order?.customer_email,
+      order?.customer_phone,
+      order?.shipping_tracking,
+      order?.provider_payment_id,
+    ]
+      .map((value) => String(value || '').toLowerCase())
+      .filter(Boolean);
+    return fields.some((value) => value.includes(needle));
+  }, []);
+
   const filteredOrders = React.useMemo(() => (Array.isArray(orders) ? orders : []).filter((order) => orderMatchesInlineSearch(order, qInput)), [orders, qInput, orderMatchesInlineSearch]);
 
   const stats = React.useMemo(() => {
@@ -2157,25 +2176,6 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
     setFilterDateFrom(toDateInputValue(new Date(Date.now() - 29 * 86400000)));
     setFilterDateTo(toDateInputValue(new Date()));
     setPage(1);
-  }, []);
-
-  const orderMatchesInlineSearch = React.useCallback((order, rawQuery) => {
-    const needle = String(rawQuery || '').trim().toLowerCase();
-    if (!needle) return true;
-    const short = String(shortId(order?.id || '')).replace(/…/g, '').toLowerCase();
-    const fields = [
-      order?.id,
-      short,
-      order?.customer_name,
-      order?.profile?.full_name,
-      order?.customer_email,
-      order?.customer_phone,
-      order?.shipping_tracking,
-      order?.provider_payment_id,
-    ]
-      .map((value) => String(value || '').toLowerCase())
-      .filter(Boolean);
-    return fields.some((value) => value.includes(needle));
   }, []);
 
   const allPageSelected = React.useMemo(() => !!filteredOrders.length && filteredOrders.every((o) => selectedOrderIds.includes(o.id)), [filteredOrders, selectedOrderIds]);
