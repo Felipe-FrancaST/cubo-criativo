@@ -345,8 +345,6 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
     }
   }, [visibleTabs, tab]);
 
-  const currentTabMeta = React.useMemo(() => visibleTabs.find((item) => item.k === tab) || visibleTabs[0] || null, [visibleTabs, tab]);
-
   const nextAction = React.useMemo(() => {
     if (!user) return {
       label: 'Entrar para acessar a Área VIP',
@@ -1108,61 +1106,49 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
     if (nextAction.tab) setTab(nextAction.tab);
   }
 
-  const primaryActionDisabled = React.useMemo(() => {
-    if (!user) return false;
-    if (!isVip) return false;
-    if (nextAction.kind === 'save') {
-      return !editable || saving || selectedCounts.mini !== miniLimit || selectedCounts.boss !== bossLimit || selectedCounts.total !== totalLimit;
-    }
-    if (nextAction.kind === 'renew') return renewBusy;
-    if (nextAction.kind === 'choices') return false;
-    return false;
-  }, [user, isVip, nextAction.kind, editable, saving, selectedCounts, miniLimit, bossLimit, totalLimit, renewBusy]);
-
   const body = (
       <div className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-slate-950 via-slate-950 to-black ring-1 ring-white/10 shadow-2xl shadow-black/30">
         <div className="absolute inset-0 opacity-35 pointer-events-none" style={{ backgroundImage: "radial-gradient(circle at 20% 10%, rgba(168,85,247,.35), transparent 45%), radial-gradient(circle at 80% 20%, rgba(34,197,94,.22), transparent 55%), radial-gradient(circle at 50% 90%, rgba(56,189,248,.18), transparent 55%)" }} />
         <div className="relative p-4 sm:p-7 pb-[calc(env(safe-area-inset-bottom,0px)+96px)] sm:pb-7">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0 flex-1">
-              <p className="text-[11px] uppercase tracking-[0.28em] text-slate-400">Área VIP</p>
-              <h2 className="mt-1 text-[1.7rem] leading-tight sm:text-3xl font-extrabold">{vipPlan || "Clube VIP"}</h2>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">Escolha suas miniaturas, acompanhe o pedido e resolva tudo do ciclo em um painel mais rápido no celular.</p>
-              <div className="mt-3 grid grid-cols-1 gap-2 min-[460px]:grid-cols-2 xl:grid-cols-4">
-                <div className={`inline-flex min-w-0 items-center gap-2 rounded-2xl px-3 py-2.5 text-xs ring-1 ${st.cls}`}>
-                  <span className="material-icons text-[16px] shrink-0">flag</span>
-                  <span className="min-w-0 truncate">Status: <b>{st.label}</b></span>
-                </div>
-                <div className="inline-flex min-w-0 items-center gap-2 rounded-2xl px-3 py-2.5 text-xs ring-1 ring-white/15 bg-white/4 text-slate-200">
-                  <span className="material-icons text-[16px] shrink-0">calendar_month</span>
-                  <span className="min-w-0 truncate">Ciclo ativo: <b>{activeCycleKey || cycle}</b></span>
-                </div>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs uppercase tracking-wide text-slate-400">Área VIP</p>
+              <h2 className="mt-1 text-2xl sm:text-3xl font-extrabold">{vipPlan || "Clube VIP"}</h2>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs ring-1 ${st.cls}`}>
+                  <span className="material-icons text-[16px]">flag</span>
+                  Status: <b>{st.label}</b>
+                </span>
+                <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs ring-1 ring-white/15 bg-white/4 text-slate-200">
+                  <span className="material-icons text-[16px]">calendar_month</span>
+                  Ciclo ativo: <b>{activeCycleKey || cycle}</b>
+                </span>
                 {isVip ? (
-                  <div className="inline-flex min-w-0 items-center gap-2 rounded-2xl px-3 py-2.5 text-xs ring-1 ring-violet-400/25 bg-violet-500/10 text-violet-100">
-                    <span className="material-icons text-[16px] shrink-0">stars</span>
-                    <span className="min-w-0 truncate">VIP ativo até <b>{new Date(vipUntil).toLocaleDateString("pt-BR")}</b></span>
-                  </div>
+                  <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs ring-1 ring-violet-400/25 bg-violet-500/10 text-violet-100">
+                    <span className="material-icons text-[16px]">stars</span>
+                    VIP ativo • expira em <b>{new Date(vipUntil).toLocaleDateString("pt-BR")}</b>
+                  </span>
                 ) : (
-                  <div className="inline-flex min-w-0 items-center gap-2 rounded-2xl px-3 py-2.5 text-xs ring-1 ring-white/15 bg-white/4 text-slate-200">
-                    <span className="material-icons text-[16px] shrink-0">lock</span>
-                    <span>Não VIP</span>
-                  </div>
+                  <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs ring-1 ring-white/15 bg-white/4 text-slate-200">
+                    <span className="material-icons text-[16px]">lock</span>
+                    Não VIP
+                  </span>
                 )}
                 {isVip ? (
-                  <div className={`inline-flex min-w-0 items-center gap-2 rounded-2xl px-3 py-2.5 text-xs ring-1 ${hasCurrentCycleAccess ? 'ring-emerald-400/25 bg-emerald-500/10 text-emerald-100' : 'ring-amber-400/25 bg-amber-500/10 text-amber-100'}`}>
-                    <span className="material-icons text-[16px] shrink-0">autorenew</span>
-                    <span className="min-w-0 truncate">Ciclo da conta: <b>{vipCycleKey || '—'}</b></span>
-                  </div>
+                  <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs ring-1 ${hasCurrentCycleAccess ? 'ring-emerald-400/25 bg-emerald-500/10 text-emerald-100' : 'ring-amber-400/25 bg-amber-500/10 text-amber-100'}`}>
+                    <span className="material-icons text-[16px]">autorenew</span>
+                    Ciclo da conta: <b>{vipCycleKey || '—'}</b>
+                  </span>
                 ) : null}
               </div>
             </div>
-            <div className="flex items-center gap-2 self-end sm:self-start">
-              {asPage ? (
-                onGoHome ? (
+            {asPage ? (
+              <div className="flex items-center gap-2">
+                {onGoHome ? (
                   <button
                     type="button"
                     onClick={onGoHome}
-                    className="rounded-2xl px-3 py-2.5 text-xs font-semibold ring-1 ring-white/15 hover:bg-white/4 transition"
+                    className="rounded-xl px-3 py-2 text-xs font-semibold ring-1 ring-white/15 hover:bg-white/4 transition"
                     title="Voltar"
                   >
                     <span className="inline-flex items-center gap-2">
@@ -1170,13 +1156,13 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                       Voltar
                     </span>
                   </button>
-                ) : null
-              ) : (
-                <button onClick={onClose} className="rounded-2xl p-2.5 ring-1 ring-white/15 hover:bg-white/4" aria-label="Fechar">
-                  <span className="material-icons">close</span>
-                </button>
-              )}
-            </div>
+                ) : null}
+              </div>
+            ) : (
+              <button onClick={onClose} className="rounded-xl p-2 ring-1 ring-white/15 hover:bg-white/4" aria-label="Fechar">
+                <span className="material-icons">close</span>
+              </button>
+            )}
           </div>
 
           {!user ? (
@@ -1285,74 +1271,6 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                 </div>
               </div>
 
-              <div className="mt-4 grid gap-3 md:hidden">
-                <div className="rounded-[24px] bg-gradient-to-br from-violet-500/10 via-slate-950/60 to-cyan-500/10 p-4 ring-1 ring-white/10">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="text-[11px] font-extrabold uppercase tracking-[0.24em] text-slate-400">Próxima ação</div>
-                      <div className="mt-2 text-base font-extrabold text-white leading-snug">{nextAction.label}</div>
-                      <p className="mt-2 text-sm leading-6 text-slate-300">{nextAction.hint}</p>
-                    </div>
-                    <span className="material-icons text-cyan-200 shrink-0">bolt</span>
-                  </div>
-                  <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
-                    <div className="rounded-2xl bg-black/20 px-3 py-3 ring-1 ring-white/10">
-                      <div className="text-[10px] uppercase tracking-[0.18em] text-slate-500">Plano</div>
-                      <div className="mt-1 font-extrabold text-slate-100">{vipPlanLabel}</div>
-                    </div>
-                    <div className="rounded-2xl bg-black/20 px-3 py-3 ring-1 ring-white/10">
-                      <div className="text-[10px] uppercase tracking-[0.18em] text-slate-500">Prazo</div>
-                      <div className="mt-1 font-extrabold text-slate-100">{cycleDeadline}</div>
-                    </div>
-                    <div className="rounded-2xl bg-black/20 px-3 py-3 ring-1 ring-white/10">
-                      <div className="text-[10px] uppercase tracking-[0.18em] text-slate-500">Selecionadas</div>
-                      <div className="mt-1 font-extrabold text-slate-100">{selectedCounts.total}/{totalLimit}</div>
-                    </div>
-                    <div className="rounded-2xl bg-black/20 px-3 py-3 ring-1 ring-white/10">
-                      <div className="text-[10px] uppercase tracking-[0.18em] text-slate-500">Modo</div>
-                      <div className="mt-1 font-extrabold text-slate-100">{editing ? 'Editando' : 'Salvo'}</div>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handlePrimaryAction}
-                    disabled={primaryActionDisabled}
-                    className={`mt-4 w-full rounded-2xl px-4 py-3.5 text-sm font-extrabold ring-1 ring-white/10 transition ${primaryActionDisabled ? 'bg-slate-700/50 text-slate-300' : 'bg-cyan-400 text-black hover:bg-cyan-300'}`}
-                  >
-                    {nextAction.ctaLabel}
-                  </button>
-                </div>
-
-                <div className="rounded-[24px] bg-black/20 p-4 ring-1 ring-white/10">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <div className="text-[11px] font-extrabold uppercase tracking-[0.24em] text-slate-400">Progresso do ciclo</div>
-                      <div className="mt-1 text-sm text-slate-300">Veja rápido o que falta para fechar o mês.</div>
-                    </div>
-                    <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-extrabold ring-1 ${progress.complete ? 'bg-emerald-500/15 text-emerald-100 ring-emerald-400/25' : 'bg-white/4 text-slate-200 ring-white/10'}`}>
-                      {progress.complete ? 'Completo' : 'Em andamento'}
-                    </span>
-                  </div>
-                  <div className="mt-4 space-y-3">
-                    {[
-                      ['Total', selectedCounts.total, totalLimit, progress.totalPct, progress.remaining ? `${progress.remaining} restante(s)` : 'Fechado'],
-                      ['Miniaturas', selectedCounts.mini, miniLimit, progress.miniPct, progress.missingMini ? `${progress.missingMini} restante(s)` : 'Concluído'],
-                      ...(bossLimit ? [['Bosses', selectedCounts.boss, bossLimit, progress.bossPct, progress.missingBoss ? `${progress.missingBoss} restante(s)` : 'Concluído']] : []),
-                    ].map(([label, value, limit, pct, tail]) => (
-                      <div key={label}>
-                        <div className="mb-1 flex items-center justify-between gap-3 text-xs">
-                          <span className="font-semibold text-slate-200">{label}</span>
-                          <span className="text-slate-400"><b className="text-slate-100">{value}</b>/{limit} • {tail}</span>
-                        </div>
-                        <div className="h-2.5 overflow-hidden rounded-full bg-white/8">
-                          <div className="h-full rounded-full bg-cyan-300 transition-all" style={{ width: `${pct}%` }} />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
               <div className="mt-4 rounded-[24px] bg-white/4 ring-1 ring-white/10 p-3 sm:p-4">
                 <div className="flex items-start gap-3 justify-between">
                   <div className="min-w-0">
@@ -1380,7 +1298,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                       <span className="material-icons">tips_and_updates</span>
                     </button>
                     {helpOpen ? (
-                      <div className="absolute left-0 right-0 top-[calc(100%+12px)] z-30 w-full sm:left-auto sm:right-0 sm:w-[min(88vw,380px)] rounded-[20px] bg-gradient-to-br from-cyan-400/10 via-sky-300/5 to-slate-950/95 p-4 shadow-2xl backdrop-blur ring-1 ring-cyan-300/20">
+                      <div className="absolute right-0 top-[calc(100%+12px)] z-30 w-[min(88vw,380px)] rounded-[20px] bg-gradient-to-br from-cyan-400/10 via-sky-300/5 to-slate-950/95 p-4 shadow-2xl backdrop-blur ring-1 ring-cyan-300/20">
                         <div className="text-xs font-extrabold uppercase tracking-[0.24em] text-slate-300">{help.title}</div>
                         <p className="mt-2 text-sm leading-6 text-slate-200/90">{help.body}</p>
                       </div>
@@ -1533,7 +1451,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                     <div className="rounded-2xl bg-cyan-500/10 ring-1 ring-cyan-400/20 p-5">
                       <div className="flex items-center justify-between gap-2 flex-wrap">
                         <p className="text-sm font-extrabold text-amber-100">Código de rastreio</p>
-                        <a href={`https://rastreamento.correios.com.br/app/index.php?objetos=${encodeURIComponent(shippingTracking)}`} target="_blank" rel="noreferrer" className="w-full sm:w-auto text-center rounded-lg px-3 py-3 text-xs font-extrabold bg-cyan-400 text-black hover:bg-amber-200">Rastrear</a>
+                        <a href={`https://rastreamento.correios.com.br/app/index.php?objetos=${encodeURIComponent(shippingTracking)}`} target="_blank" rel="noreferrer" className="rounded-lg px-3 py-2 text-xs font-extrabold bg-cyan-400 text-black hover:bg-amber-200">Rastrear</a>
                       </div>
                       <div className="mt-3 flex flex-col gap-2">
                         <code className="rounded-lg bg-black/30 px-3 py-3 text-xs text-cyan-50 ring-1 ring-amber-200/10 break-all">{shippingTracking}</code>
@@ -1873,16 +1791,11 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                   </div>
                 </div>
               ) : null}
-              <div className="mt-4 rounded-2xl bg-white/4 ring-1 ring-white/10 p-4 md:hidden">
-                <div className="flex items-center justify-between gap-3 flex-wrap">
-                  <div className="text-sm text-slate-300">
-                    Escolha <b>{totalLimit}</b> item(ns) do mês ({miniLimit} miniatura(s){bossLimit ? ` + ${bossLimit} boss(es)` : ""}).
-                    {!editable ? <span className="ml-2 text-slate-400">Bloqueado em {st.label}.</span> : null}
-                  </div>
-                  <div className="flex flex-wrap gap-2 text-xs text-slate-200">
-                    <span className="rounded-full bg-black/20 px-3 py-1.5 ring-1 ring-white/10">Total <b>{selectedCounts.total}</b>/{totalLimit}</span>
-                    <span className="rounded-full bg-black/20 px-3 py-1.5 ring-1 ring-white/10">Mini <b>{selectedCounts.mini}</b>/{miniLimit}</span>
-                    {bossLimit ? <span className="rounded-full bg-black/20 px-3 py-1.5 ring-1 ring-white/10">Boss <b>{selectedCounts.boss}</b>/{bossLimit}</span> : null}
+              <div className="fixed right-3 top-1/2 z-30 -translate-y-1/2 md:hidden">
+                <div className="rounded-2xl bg-slate-950/92 px-3 py-2 shadow-2xl backdrop-blur ring-1 ring-cyan-300/20">
+                  <div className="flex flex-col gap-2 text-[11px] font-extrabold">
+                    <div className="flex items-center justify-between gap-3 text-slate-200"><span className="uppercase tracking-[0.18em] text-slate-400">Mini</span><span>{selectedCounts.mini}/{miniLimit}</span></div>
+                    {bossLimit ? <div className="flex items-center justify-between gap-3 text-slate-200"><span className="uppercase tracking-[0.18em] text-slate-400">Boss</span><span>{selectedCounts.boss}/{bossLimit}</span></div> : null}
                   </div>
                 </div>
               </div>
@@ -2238,49 +2151,18 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                 </div>
               ) : null}
 
-              <div className="fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-slate-950/95 px-3 pb-[calc(env(safe-area-inset-bottom,0px)+12px)] pt-3 backdrop-blur supports-[backdrop-filter]:bg-slate-950/80 sm:hidden">
-                <div className="mx-auto max-w-xl space-y-3">
-                  <div className="flex items-center justify-between gap-3 text-xs text-slate-300">
-                    <div className="min-w-0 truncate">{currentTabMeta ? `${currentTabMeta.label} • ${currentTabMeta.badge}` : 'Área VIP'}</div>
-                    <div className="shrink-0">{editing && !isLevel3AutoMode ? <>Selecionadas <b>{selectedCounts.total}</b>/{totalLimit}</> : <>Ciclo <b>{cycle}</b></>}</div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    {visibleTabs.slice(0, 4).map((item) => {
-                      const active = tab === item.k;
-                      return (
-                        <button
-                          key={item.k}
-                          type="button"
-                          onClick={() => setTab(item.k)}
-                          className={`inline-flex items-center justify-center gap-2 rounded-2xl px-3 py-3 text-xs font-extrabold ring-1 transition ${active ? 'bg-violet-400 text-black ring-violet-200/30' : 'bg-white/4 text-slate-200 ring-white/10 hover:bg-white/6'}`}
-                        >
-                          <span className="material-icons text-[16px]">{item.ic}</span>
-                          <span className="truncate">{item.mobileLabel || item.label}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                  {editing ? (
-                    <button
-                      type="button"
-                      disabled={!editable || saving || (nextAction.kind === 'save' && (selectedCounts.mini !== miniLimit || selectedCounts.boss !== bossLimit || selectedCounts.total !== totalLimit))}
-                      onClick={nextAction.kind === 'save' ? saveSelection : handlePrimaryAction}
-                      className={`w-full rounded-2xl px-4 py-3.5 text-sm font-extrabold ring-1 ring-white/10 ${(!editable || saving || (nextAction.kind === 'save' && (selectedCounts.mini !== miniLimit || selectedCounts.boss !== bossLimit || selectedCounts.total !== totalLimit))) ? 'bg-slate-700/50 text-slate-300' : (nextAction.kind === 'save' ? 'bg-emerald-300 text-black hover:bg-emerald-200' : 'bg-cyan-400 text-black hover:bg-cyan-300')}`}
-                    >
-                      {nextAction.kind === 'save' ? (saving ? 'Salvando…' : 'Salvar escolhas') : nextAction.ctaLabel}
-                    </button>
-                  ) : !isLevel3AutoMode ? (
-                    <button
-                      type="button"
-                      disabled={!editable}
-                      onClick={openEditingMode}
-                      className={`w-full rounded-2xl px-4 py-3.5 text-sm font-extrabold ring-1 ring-white/10 ${!editable ? 'bg-slate-700/50 text-slate-300' : 'bg-violet-300 text-black hover:bg-violet-200'}`}
-                    >
-                      Editar escolhas
-                    </button>
-                  ) : null}
+              {editing && !isLevel3AutoMode && hasCurrentCycleAccess && selectedCounts.mini === miniLimit && selectedCounts.boss === bossLimit && selectedCounts.total === totalLimit ? (
+                <div className="fixed left-3 bottom-[calc(env(safe-area-inset-bottom,0px)+96px)] z-30 sm:hidden">
+                  <button
+                    type="button"
+                    onClick={saveSelection}
+                    disabled={!editable || saving}
+                    className={`rounded-2xl px-4 py-3 text-sm font-extrabold shadow-2xl ring-1 transition ${(!editable || saving) ? 'bg-slate-700/70 text-slate-300 ring-white/10' : 'bg-emerald-300 text-black ring-emerald-200/40 hover:bg-emerald-200'}`}
+                  >
+                    {saving ? 'Salvando…' : 'Salvar escolhas'}
+                  </button>
                 </div>
-              </div>
+              ) : null}
 
               <div className="sticky bottom-0 z-20 -mx-4 sm:-mx-7 mt-5 hidden sm:block border-t border-white/10 bg-slate-950/90 px-4 sm:px-7 py-3 backdrop-blur supports-[backdrop-filter]:bg-slate-950/75">
                 <div className="flex items-center justify-between gap-3 flex-wrap">
