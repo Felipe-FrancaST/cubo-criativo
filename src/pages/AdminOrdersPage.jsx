@@ -83,14 +83,14 @@ function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTrack
             <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
               <button
                 onClick={() => onUpdateStatus?.(order)}
-                className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
+                className="rounded-2xl bg-white/[0.04] px-4 py-3 text-sm font-semibold text-slate-100 ring-1 ring-white/10 transition hover:bg-white/[0.08] hover:-translate-y-0.5"
               >
                 <span className="material-icons text-[16px] align-middle mr-1">sync_alt</span>
                 Alterar status
               </button>
               <button
                 onClick={() => onUpdateTracking?.(order)}
-                className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
+                className="rounded-2xl bg-white/[0.04] px-4 py-3 text-sm font-semibold text-slate-100 ring-1 ring-white/10 transition hover:bg-white/[0.08] hover:-translate-y-0.5"
               >
                 <span className="material-icons text-[16px] align-middle mr-1">local_shipping</span>
                 Atualizar rastreio
@@ -105,7 +105,7 @@ function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTrack
               </button>
               <button
                 onClick={() => copyToClipboard(order?.customer_email || '')}
-                className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
+                className="rounded-2xl bg-white/[0.04] px-4 py-3 text-sm font-semibold text-slate-100 ring-1 ring-white/10 transition hover:bg-white/[0.08] hover:-translate-y-0.5"
               >
                 <span className="material-icons text-[16px] align-middle mr-1">content_copy</span>
                 Copiar e-mail
@@ -1264,6 +1264,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
   const [error, setError] = React.useState("");
 
   const [q, setQ] = React.useState("");
+  const [qInput, setQInput] = React.useState("");
   const [filterPay, setFilterPay] = React.useState("all");
   const [filterProd, setFilterProd] = React.useState("all");
   const [filterType, setFilterType] = React.useState("all");
@@ -2024,7 +2025,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
     }
   }
 
-  const filteredOrders = React.useMemo(() => Array.isArray(orders) ? orders : [], [orders]);
+  const filteredOrders = React.useMemo(() => (Array.isArray(orders) ? orders : []).filter((order) => orderMatchesInlineSearch(order, qInput)), [orders, qInput, orderMatchesInlineSearch]);
 
   const stats = React.useMemo(() => {
     const base = summary || {};
@@ -2133,6 +2134,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
 
   const runAdminQuickSearch = React.useCallback(() => {
     const next = String(adminQuickSearch || '').trim();
+    setQInput(next);
     setQ(next);
     setClientsQ(next);
     setPage(1);
@@ -2140,6 +2142,41 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
       setSection(/@|cpf|pedido|rastreio|track|#|\d{4}/i.test(next) ? 'orders' : 'clients');
     }
   }, [adminQuickSearch]);
+
+  const applyOrderSearch = React.useCallback(() => {
+    setPage(1);
+    setQ(String(qInput || '').trim());
+  }, [qInput]);
+
+  const clearOrderSearchAndFilters = React.useCallback(() => {
+    setQ("");
+    setQInput("");
+    setFilterPay("all");
+    setFilterProd("all");
+    setFilterType("all");
+    setFilterDateFrom(toDateInputValue(new Date(Date.now() - 29 * 86400000)));
+    setFilterDateTo(toDateInputValue(new Date()));
+    setPage(1);
+  }, []);
+
+  const orderMatchesInlineSearch = React.useCallback((order, rawQuery) => {
+    const needle = String(rawQuery || '').trim().toLowerCase();
+    if (!needle) return true;
+    const short = String(shortId(order?.id || '')).replace(/…/g, '').toLowerCase();
+    const fields = [
+      order?.id,
+      short,
+      order?.customer_name,
+      order?.profile?.full_name,
+      order?.customer_email,
+      order?.customer_phone,
+      order?.shipping_tracking,
+      order?.provider_payment_id,
+    ]
+      .map((value) => String(value || '').toLowerCase())
+      .filter(Boolean);
+    return fields.some((value) => value.includes(needle));
+  }, []);
 
   const allPageSelected = React.useMemo(() => !!filteredOrders.length && filteredOrders.every((o) => selectedOrderIds.includes(o.id)), [filteredOrders, selectedOrderIds]);
   const selectedOrders = React.useMemo(() => filteredOrders.filter((o) => selectedOrderIds.includes(o.id)), [filteredOrders, selectedOrderIds]);
@@ -2429,15 +2466,38 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                 }
               />
 
-              <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-3">
-                <div className="grid grid-cols-1 md:grid-cols-6 gap-2">
+              <div className="rounded-[28px] bg-gradient-to-br from-white/[0.06] to-white/[0.025] ring-1 ring-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.25)] backdrop-blur-sm p-4 md:p-5">
+                <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+                  <div>
+                    <div className="text-sm font-semibold text-white">Busca e filtros</div>
+                    <div className="text-xs text-slate-400">Busque por nome do cliente ou número do pedido e refine pelos filtros abaixo.</div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={applyOrderSearch}
+                      className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-300 to-teal-300 px-4 py-3 text-sm font-bold text-slate-950 shadow-[0_12px_30px_rgba(103,232,249,0.18)] transition hover:-translate-y-0.5"
+                    >
+                      <span className="material-icons text-[18px]">search</span>
+                      Buscar
+                    </button>
+                    <button
+                      onClick={clearOrderSearchAndFilters}
+                      className="inline-flex items-center gap-2 rounded-2xl bg-white/[0.04] px-4 py-3 text-sm font-semibold text-slate-100 ring-1 ring-white/10 transition hover:bg-white/[0.07]"
+                    >
+                      <span className="material-icons text-[18px]">restart_alt</span>
+                      Limpar
+                    </button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
                   <label className="block md:col-span-2">
                     <div className="text-xs text-slate-500 mb-1">Busca</div>
                     <input
-                      value={q}
-                      onChange={(e) => setQ(e.target.value)}
-                      placeholder="ID, email, nome, telefone, item, rastreio..."
-                      className="w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-slate-100"
+                      value={qInput}
+                      onChange={(e) => setQInput(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") applyOrderSearch(); }}
+                      placeholder="Nome do cliente ou número do pedido"
+                      className="w-full rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-slate-100 placeholder:text-slate-500 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]"
                     />
                   </label>
 
@@ -2525,21 +2585,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                     </span>
                   </div>
 
-                  <div className="flex items-end justify-end">
-                    <button
-                      onClick={() => {
-                        setQ("");
-                        setFilterPay("all");
-                        setFilterProd("all");
-                        setFilterType("all");
-                        setFilterDateFrom(toDateInputValue(new Date(Date.now() - 29 * 86400000)));
-                        setFilterDateTo(toDateInputValue(new Date()));
-                      }}
-                      className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
-                    >
-                      Limpar filtros
-                    </button>
-                  </div>
+                  <div className="flex items-end justify-end" />
                 </div>
               </div>
 

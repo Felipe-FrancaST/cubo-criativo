@@ -41,7 +41,7 @@ export function TimelineList({ events, compact = false }) {
 
 export function KpiCard({ label, value, hint }) {
   return (
-    <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-4">
+    <div className="rounded-[26px] bg-gradient-to-br from-white/[0.06] to-white/[0.02] ring-1 ring-white/10 p-4 shadow-[0_18px_50px_rgba(0,0,0,0.22)] backdrop-blur-sm">
       <div className="text-xs text-slate-400">{label}</div>
       <div className="mt-1 text-2xl font-semibold text-white">{value}</div>
       {hint ? <div className="mt-1 text-xs text-slate-500">{hint}</div> : null}
@@ -69,8 +69,8 @@ export function SidebarItem({ active, icon, children, onClick, badge }) {
     <button
       onClick={onClick}
       className={[
-        "w-full flex items-center justify-between gap-3 rounded-xl px-3 py-2 text-left transition ring-1",
-        active ? "bg-white/[0.06] ring-white/15" : "bg-transparent ring-white/10 hover:bg-white/[0.04]",
+        "w-full flex items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left transition ring-1 shadow-[0_10px_28px_rgba(0,0,0,0.12)]",
+        active ? "bg-gradient-to-r from-cyan-400/20 to-teal-300/10 ring-cyan-300/20" : "bg-transparent ring-white/10 hover:bg-white/[0.05] hover:-translate-y-0.5",
       ].join(" ")}
     >
       <span className="flex items-center gap-3 min-w-0">
