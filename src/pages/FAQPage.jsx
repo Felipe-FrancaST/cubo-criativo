@@ -19,7 +19,7 @@ const faqs = [
   },
   {
     q: 'Quais formas de pagamento vocês aceitam?',
-    a: 'Pagamento pelo checkout do site (Mercado Pago) e também atendimento para finalização via WhatsApp.',
+    a: 'Pagamento pelo checkout do site (Pix ou Cartão) e também atendimento para finalização via WhatsApp.',
   },
   {
     q: 'Como acompanho meu pedido?',
