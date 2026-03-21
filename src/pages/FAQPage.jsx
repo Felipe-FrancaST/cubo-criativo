@@ -3,11 +3,11 @@ import React from 'react';
 const faqs = [
   {
     q: 'Qual é o prazo de produção?',
-    a: 'Peças em estoque são enviadas mais rápido. Peças sob encomenda costumam levar de 3 a 7 dias úteis de produção, variando por tamanho, acabamento e fila atual.',
+    a: 'Peças em estoque são enviadas mais rápido. Peças sob encomenda costumam levar de 15 a 30 dias úteis de produção, variando por tamanho, acabamento e fila atual.',
   },
   {
     q: 'Vocês enviam para todo o Brasil?',
-    a: 'Sim. Enviamos com embalagem reforçada e rastreio. O prazo de entrega depende da transportadora/Correios e do CEP.',
+    a: 'Sim. Enviamos com embalagem reforçada e rastreio. O prazo de entrega depende da transportadora e do CEP.',
   },
   {
     q: 'As peças são frágeis?',
