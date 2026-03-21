@@ -341,7 +341,7 @@ export function renderCustomerOrderEmail(payload) {
   const intro = `
     <div style="color:#cbd5e1;font-size:13px;line-height:1.6;">
       Olá <b style="color:#e2e8f0;">${esc(customer?.name || "cliente")}</b>! ✅<br/>
-      Recebemos o seu pagamento e o seu pedido foi confirmado.
+      Recebemos o seu pedido com sucesso. Assim que ele entrar em produção, você será notificado por email.
     </div>
   `;
 
@@ -380,6 +380,7 @@ export function renderCustomerOrderEmail(payload) {
     ${meta}
     ${delivery}
     ${itemsTable}
+    <div style="margin-top:14px;padding:12px 14px;border-radius:14px;background:rgba(6,182,212,.08);border:1px solid rgba(6,182,212,.18);color:#cffafe;font-size:12px;line-height:1.55;">Você pode acompanhar o andamento do pedido pela aba <b style="color:#e2e8f0;">Meus pedidos</b> no site.</div>
     ${help}
   `;
 
@@ -613,6 +614,136 @@ export function renderOrderStatusEmail(payload) {
   };
 }
 
+
+
+
+export function renderOwnerVipWelcomeEmail(payload) {
+  const p = payload || {};
+  const brandName = p.brandName || 'Cubo Criativo';
+  const customer = p.customer || {};
+  const orderId = p.orderId || '';
+  const shortId = String(orderId || '').slice(0, 8) || 'VIP';
+  const createdAt = p.createdAt;
+  const paymentMethod = p.paymentMethod || 'Pagamento aprovado';
+  const total = Number.isFinite(Number(p.total)) ? Number(p.total) : null;
+  const planName = p.planName || 'Plano VIP';
+  const planDescription = p.planDescription || '';
+  const recurrenceLabel = p.recurrenceLabel || 'Mensal';
+  const miniaturesCount = Number(p.miniaturesCount || 0) || 0;
+  const bossCount = Number(p.bossCount || 0) || 0;
+  const scale = p.scale || '';
+  const { date, time } = formatDateTimeBR(createdAt);
+
+  const meta = renderMetaPills([
+    { label: 'VIP', value: 'Novo assinante' },
+    { label: 'Plano', value: planName },
+    ...(total != null ? [{ label: 'Valor', value: fmtBRL(total) }] : []),
+  ]);
+
+  const details = renderKeyValueCard('Detalhes da assinatura', [
+    { label: 'Pedido', value: shortId },
+    { label: 'Plano', value: planName },
+    { label: 'Recorrência', value: recurrenceLabel },
+    ...(total != null ? [{ label: 'Valor', value: fmtBRL(total) }] : []),
+    ...(miniaturesCount ? [{ label: 'Miniaturas incluídas', value: String(miniaturesCount) }] : []),
+    ...(bossCount ? [{ label: 'Boss inclusos', value: String(bossCount) }] : []),
+    ...(scale ? [{ label: 'Escala', value: scale }] : []),
+    { label: 'Pagamento', value: paymentMethod },
+    { label: 'Data', value: date },
+    { label: 'Hora', value: time },
+  ]);
+
+  const customerCard = renderKeyValueCard('Cliente', [
+    { label: 'Nome', value: customer?.name || '' },
+    { label: 'Email', value: customer?.email || '' },
+    { label: 'Telefone', value: customer?.phone || '' },
+    { label: 'Endereço', value: customer?.address || '' },
+  ]);
+
+  const contentHtml = `
+    ${renderEmailSummaryBanner({ eyebrow: 'Controle interno', title: 'Nova assinatura VIP confirmada', description: `Plano assinado: ${planName}.` })}
+    ${meta}
+    <div style="color:#cbd5e1;font-size:13px;line-height:1.6;">Uma nova assinatura VIP foi confirmada. Abaixo estão os dados do cliente e do plano para controle interno.</div>
+    ${details}
+    ${planDescription ? `<div style="margin-top:14px;padding:12px 14px;border-radius:14px;background:rgba(168,85,247,.08);border:1px solid rgba(168,85,247,.18);color:#f5d0fe;font-size:12px;line-height:1.55;"><b>Descrição do plano:</b><br/>${esc(planDescription)}</div>` : ''}
+    ${customerCard}
+  `;
+
+  return {
+    subject: withBrandSubject(brandName, `Nova assinatura VIP — ${planName} — ${total != null ? fmtBRL(total) : shortId}`),
+    html: renderLayout({
+      title: 'Nova assinatura VIP',
+      preheader: `${planName} • Pedido ${shortId}`,
+      brandName,
+      contentHtml,
+      footerNote: 'Email interno de controle de assinatura VIP.',
+    }),
+  };
+}
+
+export function renderOwnerVipUpgradeEmail(payload) {
+  const p = payload || {};
+  const brandName = p.brandName || 'Cubo Criativo';
+  const customer = p.customer || {};
+  const orderId = p.orderId || '';
+  const shortId = String(orderId || '').slice(0, 8) || 'UPGRADE';
+  const createdAt = p.createdAt;
+  const paymentMethod = p.paymentMethod || 'Pagamento aprovado';
+  const amountCharged = Number.isFinite(Number(p.amountCharged)) ? Number(p.amountCharged) : null;
+  const fromPlanName = p.fromPlanName || 'Plano atual';
+  const toPlanName = p.toPlanName || 'Novo plano VIP';
+  const recurrenceLabel = p.recurrenceLabel || 'Mensal';
+  const miniaturesCount = Number(p.miniaturesCount || 0) || 0;
+  const bossCount = Number(p.bossCount || 0) || 0;
+  const scale = p.scale || '';
+  const { date, time } = formatDateTimeBR(createdAt);
+
+  const meta = renderMetaPills([
+    { label: 'VIP', value: 'Upgrade' },
+    { label: 'De', value: fromPlanName },
+    { label: 'Para', value: toPlanName },
+    ...(amountCharged != null ? [{ label: 'Cobrado', value: fmtBRL(amountCharged) }] : []),
+  ]);
+
+  const details = renderKeyValueCard('Detalhes do upgrade', [
+    { label: 'Pedido', value: shortId },
+    { label: 'Upgrade', value: `${fromPlanName} → ${toPlanName}` },
+    { label: 'Recorrência', value: recurrenceLabel },
+    ...(amountCharged != null ? [{ label: 'Valor cobrado', value: fmtBRL(amountCharged) }] : []),
+    ...(miniaturesCount ? [{ label: 'Miniaturas incluídas', value: String(miniaturesCount) }] : []),
+    ...(bossCount ? [{ label: 'Boss inclusos', value: String(bossCount) }] : []),
+    ...(scale ? [{ label: 'Escala', value: scale }] : []),
+    { label: 'Pagamento', value: paymentMethod },
+    { label: 'Data', value: date },
+    { label: 'Hora', value: time },
+  ]);
+
+  const customerCard = renderKeyValueCard('Cliente', [
+    { label: 'Nome', value: customer?.name || '' },
+    { label: 'Email', value: customer?.email || '' },
+    { label: 'Telefone', value: customer?.phone || '' },
+    { label: 'Endereço', value: customer?.address || '' },
+  ]);
+
+  const contentHtml = `
+    ${renderEmailSummaryBanner({ eyebrow: 'Controle interno', title: 'Upgrade VIP confirmado', description: `${fromPlanName} → ${toPlanName}` })}
+    ${meta}
+    <div style="color:#cbd5e1;font-size:13px;line-height:1.6;">Um cliente realizou upgrade de assinatura VIP. Confira abaixo os detalhes para controle interno.</div>
+    ${details}
+    ${customerCard}
+  `;
+
+  return {
+    subject: withBrandSubject(brandName, `Upgrade VIP — ${fromPlanName} → ${toPlanName}`),
+    html: renderLayout({
+      title: 'Upgrade VIP',
+      preheader: `${fromPlanName} → ${toPlanName} • Pedido ${shortId}`,
+      brandName,
+      contentHtml,
+      footerNote: 'Email interno de controle de upgrade VIP.',
+    }),
+  };
+}
 
 export function renderVipUpgradeEmail(payload) {
   const p = payload || {};

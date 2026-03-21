@@ -1,4 +1,4 @@
-import { renderVipWelcomeEmail, renderVipUpgradeEmail } from "../server/emailTemplates.js";
+import { renderOwnerOrderEmail, renderCustomerOrderEmail, renderOwnerVipWelcomeEmail, renderOwnerVipUpgradeEmail, renderVipWelcomeEmail, renderVipUpgradeEmail } from "../server/emailTemplates.js";
 import { getVipPlanById } from "../server/vipPlans.js";
 import { applyStockDeductionWithClaim } from "../server/inventory.js";
 /**
@@ -829,89 +829,76 @@ export default async function handler(req, res) {
       .filter(Boolean);
     const addressText = addressLines.join("\n");
 
-    const itemsTable = renderItemsTable(normalizedItems);
+    const customerPayload = {
+      brandName: 'Cubo Criativo',
+      orderId: orderCode,
+      createdAt: order?.created_at || payment?.date_approved || new Date().toISOString(),
+      paymentMethod: 'Pix (Mercado Pago)',
+      total: totalBRL,
+      customer: {
+        name: customerName,
+        email: customerEmail || customerEmailRaw || '',
+        phone: customerPhone,
+        address: addressText,
+      },
+      items: normalizedItems.map((it) => ({
+        name: it?.name || it?.nome || 'Item',
+        qty: Number(it?.qty ?? it?.quantity ?? 1) || 1,
+        price: Number(it?.unit_price_brl ?? it?.unit_price ?? it?.price ?? 0) || 0,
+        scale: it?.scale || '',
+        img: it?.img || it?.image_url || '',
+      })),
+      supportEmail: process.env.SUPPORT_EMAIL || process.env.ORDER_EMAIL_TO || '',
+      whatsapp: process.env.WHATSAPP_NUMBER || '',
+    };
 
-    const ownerContent = `
-      <div style="display:grid;grid-template-columns:1fr;gap:12px;">
-        <div style="background:rgba(0,0,0,0.15);border:1px solid rgba(255,255,255,0.10);border-radius:14px;padding:14px;">
-          <div style="color:#94a3b8;font-size:12px;font-weight:700;margin-bottom:6px;">Cliente</div>
-          <div style="color:#f8fafc;font-size:14px;font-weight:800;">${escapeHtml(customerName || "(sem nome)")}</div>
-          <div style="color:#cbd5e1;font-size:13px;margin-top:4px;">${escapeHtml(customerEmail || "(sem email)")}${customerPhone ? ` • ${escapeHtml(customerPhone)}` : ""}</div>
-          ${addressText ? `<pre style="margin:10px 0 0 0;white-space:pre-wrap;color:#e2e8f0;font-size:13px;line-height:1.35;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:10px;">${escapeHtml(addressText)}</pre>` : ""}
-        </div>
+    let ownerMail;
+    if (orderTypeNorm === 'vip_upgrade') {
+      const vipPlanId = String(order?.vip_plan_id || payment?.metadata?.vip_plan_id || '').trim();
+      const fromPlanId = String(payment?.metadata?.vip_upgrade_from || '').trim();
+      const [fromPlan, toPlan] = await Promise.all([
+        fromPlanId ? getVipPlanById(sb, fromPlanId) : Promise.resolve(null),
+        vipPlanId ? getVipPlanById(sb, vipPlanId) : Promise.resolve(null),
+      ]);
+      ownerMail = renderOwnerVipUpgradeEmail({
+        brandName: 'Cubo Criativo',
+        orderId: orderCode,
+        createdAt: order?.created_at || payment?.date_approved || new Date().toISOString(),
+        paymentMethod: 'Pix (Mercado Pago)',
+        amountCharged: totalBRL,
+        fromPlanName: fromPlan?.name || fromPlan?.short_name || fromPlanId || 'Plano anterior',
+        toPlanName: toPlan?.name || toPlan?.short_name || vipPlanId || 'Novo plano VIP',
+        recurrenceLabel: 'Mensal',
+        miniaturesCount: Number(toPlan?.miniatures_count || 0) || 0,
+        bossCount: Number(toPlan?.boss_count || 0) || 0,
+        scale: toPlan?.scale || '',
+        customer: customerPayload.customer,
+      });
+    } else if (isVipOrder) {
+      const vipPlanId = String(order?.vip_plan_id || payment?.metadata?.vip_plan_id || '').trim();
+      const vipPlan = vipPlanId ? await getVipPlanById(sb, vipPlanId) : null;
+      ownerMail = renderOwnerVipWelcomeEmail({
+        brandName: 'Cubo Criativo',
+        orderId: orderCode,
+        createdAt: order?.created_at || payment?.date_approved || new Date().toISOString(),
+        paymentMethod: 'Pix (Mercado Pago)',
+        total: totalBRL,
+        planName: vipPlan?.name || vipPlan?.short_name || vipPlanId || 'Plano VIP',
+        planDescription: vipPlan?.description || '',
+        recurrenceLabel: 'Mensal',
+        miniaturesCount: Number(vipPlan?.miniatures_count || 0) || 0,
+        bossCount: Number(vipPlan?.boss_count || 0) || 0,
+        scale: vipPlan?.scale || '',
+        customer: customerPayload.customer,
+      });
+    } else {
+      ownerMail = renderOwnerOrderEmail({
+        ...customerPayload,
+        orderStatus: order?.status || payment?.status || 'paid',
+      });
+    }
 
-        <div style="display:flex;flex-wrap:wrap;gap:10px;">
-          <div style="flex:1;min-width:220px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.10);border-radius:14px;padding:12px;">
-            <div style="color:#94a3b8;font-size:12px;font-weight:700;">Pedido</div>
-            <div style="color:#f8fafc;font-size:14px;font-weight:900;margin-top:2px;">${escapeHtml(orderCode)}</div>
-            <div style="color:#94a3b8;font-size:12px;margin-top:6px;">Pagamento: Pix (Mercado Pago)</div>
-          </div>
-          <div style="flex:1;min-width:220px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.10);border-radius:14px;padding:12px;text-align:right;">
-            <div style="color:#94a3b8;font-size:12px;font-weight:700;">Total</div>
-            <div style="color:#f8fafc;font-size:20px;font-weight:900;margin-top:2px;">${escapeHtml(fmtBRL(totalBRL))}</div>
-            <div style="color:#94a3b8;font-size:12px;margin-top:6px;">Status: ${escapeHtml(order?.status || payment?.status || "approved")}</div>
-          </div>
-        </div>
-
-        <div>
-          <div style="color:#94a3b8;font-size:12px;font-weight:700;margin-bottom:8px;">${isVipOrder ? 'Assinatura / detalhes' : 'Itens do pedido'}</div>
-          ${isVipOrder
-            ? `<div style="background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.20);border-radius:12px;padding:12px;color:#e9d5ff;font-size:13px;line-height:1.5;">
-                <div style="font-weight:900;color:#f5f3ff;">Assinatura VIP • ${escapeHtml(String(order?.vip_plan_id || payment?.metadata?.vip_plan_id || 'CUBO_L1_RPG').replaceAll('_',' '))}</div>
-                <div style="margin-top:6px;color:#ddd6fe;">Plano Cubo Level 1 RPG (mensalidade)</div>
-                <ul style="margin:8px 0 0 18px;padding:0;">
-                  <li>3 miniaturas 32mm em resina premium por mês</li>
-                  <li>Cubo Game liberado diariamente</li>
-                  <li>Cliente deve escolher 3 miniaturas na Área VIP</li>
-                </ul>
-              </div>`
-            : itemsTable}
-        </div>
-      </div>
-    `;
-
-    const customerContent = `
-      <div style="color:#cbd5e1;font-size:14px;line-height:1.5;">
-        <p style="margin:0 0 10px 0;">Olá${customerName ? ` ${escapeHtml(customerName)}` : ""}! Seu pedido foi confirmado ✅</p>
-        <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.10);border-radius:14px;padding:12px;">
-          <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;">
-            <div>
-              <div style="color:#94a3b8;font-size:12px;font-weight:700;">Pedido</div>
-              <div style="color:#f8fafc;font-size:14px;font-weight:900;">${escapeHtml(orderCode)}</div>
-              <div style="color:#94a3b8;font-size:12px;margin-top:6px;">Status: ${escapeHtml(order?.production_status || "recebido")}</div>
-            </div>
-            <div style="text-align:right;">
-              <div style="color:#94a3b8;font-size:12px;font-weight:700;">Total</div>
-              <div style="color:#f8fafc;font-size:18px;font-weight:900;">${escapeHtml(fmtBRL(totalBRL))}</div>
-            </div>
-          </div>
-        </div>
-
-        <div style="margin-top:14px;">
-          <div style="color:#94a3b8;font-size:12px;font-weight:700;margin-bottom:8px;">Itens</div>
-          ${itemsTable}
-        </div>
-
-        <p style="margin:14px 0 0 0;color:#94a3b8;font-size:12px;">Você pode acompanhar o status em “Meus pedidos” no site.</p>
-      </div>
-    `;
-
-    const ownerSubject = isVipOrder ? `Nova adesão VIP aprovada — ${escapeHtml(fmtBRL(totalBRL))} — ${customerEmail || "(sem email)"}` : `Novo pedido aprovado — ${escapeHtml(fmtBRL(totalBRL))} — ${customerEmail || "(sem email)"}`;
-    const customerSubject = `Pedido confirmado — Cubo Criativo (${String(orderCode).slice(0, 8)})`;
-
-    const ownerHtml = renderEmailLayout({
-      title: isVipOrder ? "Nova adesão VIP confirmada" : "Novo pedido confirmado",
-      subtitle: isVipOrder ? "Controle interno • Assinaturas" : "Controle interno • Produção",
-      badgeText: isVipOrder ? "VIP PAGO" : "PAGO",
-      contentHtml: ownerContent,
-    });
-
-    const customerHtml = renderEmailLayout({
-      title: "Pedido confirmado",
-      subtitle: "Obrigado pela compra!",
-      badgeText: "CONFIRMADO",
-      contentHtml: customerContent,
-    });
+    const customerMail = renderCustomerOrderEmail(customerPayload);
 
     const ownerTo = parseEmailList(to);
     let ownerResp = { ok: false, status: 0, data: { error: "not_sent" } };
@@ -921,7 +908,7 @@ export default async function handler(req, res) {
 
     // Envia para você (admin) SEM depender do email do cliente
     try {
-      ownerResp = await sendResendEmail({ apiKey, from, to: ownerTo, subject: ownerSubject, html: ownerHtml });
+      ownerResp = await sendResendEmail({ apiKey, from, to: ownerTo, subject: ownerMail.subject, html: ownerMail.html });
       if (!ownerResp.ok) ownerErr = `resend_${ownerResp.status}`;
     } catch (e) {
       ownerErr = e?.message || String(e);
@@ -942,7 +929,7 @@ export default async function handler(req, res) {
       }
     } else if (customerEmailOk) {
       try {
-        customerResp = await sendResendEmail({ apiKey, from, to: [customerEmailRaw], subject: customerSubject, html: customerHtml });
+        customerResp = await sendResendEmail({ apiKey, from, to: [customerEmailRaw], subject: customerMail.subject, html: customerMail.html });
         if (!customerResp.ok) customerErr = `resend_${customerResp.status}`;
       } catch (e) {
         customerErr = e?.message || String(e);
