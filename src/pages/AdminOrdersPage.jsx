@@ -2170,6 +2170,25 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
   const selectedOrders = React.useMemo(() => filteredOrders.filter((o) => selectedOrderIds.includes(o.id)), [filteredOrders, selectedOrderIds]);
   const selectedPaidOrders = React.useMemo(() => selectedOrders.filter((o) => String(o.status || '').toLowerCase() === 'paid'), [selectedOrders]);
 
+  const vipSelectedItems = React.useMemo(() => {
+    const selectedSet = new Set((vipCycleEditor?.selected_ids || []).map((id) => String(id)));
+    return (vipControl?.library || []).filter((item) => selectedSet.has(String(item?.id)));
+  }, [vipControl, vipCycleEditor]);
+
+  const vipSelectedSummary = React.useMemo(() => {
+    return vipSelectedItems.reduce((acc, item) => {
+      if (String(item?.item_type || '').toLowerCase() === 'boss') acc.boss += 1;
+      else acc.mini += 1;
+      return acc;
+    }, { mini: 0, boss: 0 });
+  }, [vipSelectedItems]);
+
+  const vipActiveCycle = React.useMemo(() => {
+    return (vipControl?.cycles || []).find((cycle) => cycle.is_active) || null;
+  }, [vipControl]);
+
+  const vipCycleAudience = React.useMemo(() => Array.isArray(vipControl?.vip_summary?.byCycle) ? vipControl.vip_summary.byCycle : [], [vipControl]);
+
   const activeOrder = React.useMemo(() => (orders || []).find((o) => o.id === details.orderId) || null, [orders, details.orderId]);
   const activeActionOrder = React.useMemo(() => (orders || []).find((o) => o.id === actionModal.orderId) || null, [orders, actionModal.orderId]);
 
@@ -3181,72 +3200,47 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                 }
               />
 
-              <div className="grid grid-cols-1 xl:grid-cols-[1.1fr_0.9fr] gap-4">
-                <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="text-sm font-semibold text-white">Ciclo ativo exibido para o usuário</div>
-                      <div className="mt-1 text-sm text-slate-400">Escolha quais miniaturas/bosses entram em cada ciclo e defina qual mês está valendo na Área VIP.</div>
-                    </div>
-                    <button
-                      onClick={() => setVipCycleEditor({ cycle_key: nextMonthKey(), selected_ids: [], activate: true })}
-                      className="rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
-                    >
-                      + Novo ciclo
-                    </button>
+              <div className="grid grid-cols-1 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+                  <div className="rounded-3xl bg-gradient-to-br from-cyan-500/15 via-cyan-400/8 to-transparent ring-1 ring-cyan-400/20 p-4 shadow-[0_12px_40px_rgba(6,182,212,0.08)]">
+                    <div className="text-[11px] uppercase tracking-[0.18em] text-cyan-200/80">Ciclo ativo</div>
+                    <div className="mt-2 text-2xl font-black text-white">{vipControl.active_cycle_key || '—'}</div>
+                    <div className="mt-2 text-sm text-slate-300">Esse é o mês exibido agora para os assinantes VIP.</div>
                   </div>
-
-                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-4 gap-3">
-                    <div className="rounded-xl bg-black/20 ring-1 ring-white/10 p-3">
-                      <div className="text-[11px] text-slate-500 uppercase tracking-wide">Ativo agora</div>
-                      <div className="mt-1 text-lg font-semibold text-white">{vipControl.active_cycle_key || '—'}</div>
-                    </div>
-                    <div className="rounded-xl bg-black/20 ring-1 ring-white/10 p-3">
-                      <div className="text-[11px] text-slate-500 uppercase tracking-wide">Ciclos montados</div>
-                      <div className="mt-1 text-lg font-semibold text-white">{vipControl.cycles.length}</div>
-                    </div>
-                    <div className="rounded-xl bg-black/20 ring-1 ring-white/10 p-3">
-                      <div className="text-[11px] text-slate-500 uppercase tracking-wide">Itens disponíveis</div>
-                      <div className="mt-1 text-lg font-semibold text-white">{vipControl.library.length}</div>
-                    </div>
-                    <div className="rounded-xl bg-black/20 ring-1 ring-white/10 p-3">
-                      <div className="text-[11px] text-slate-500 uppercase tracking-wide">Assinantes ativos</div>
-                      <div className="mt-1 text-lg font-semibold text-white">{Number(vipControl?.vip_summary?.activeSubscribers || 0)}</div>
-                    </div>
+                  <div className="rounded-3xl bg-gradient-to-br from-violet-500/15 via-violet-400/8 to-transparent ring-1 ring-violet-400/20 p-4 shadow-[0_12px_40px_rgba(139,92,246,0.08)]">
+                    <div className="text-[11px] uppercase tracking-[0.18em] text-violet-200/80">Assinantes ativos</div>
+                    <div className="mt-2 text-2xl font-black text-white">{Number(vipControl?.vip_summary?.activeSubscribers || 0)}</div>
+                    <div className="mt-2 text-sm text-slate-300">Base atual apta a visualizar ciclos e participar das votações.</div>
                   </div>
+                  <div className="rounded-3xl bg-gradient-to-br from-emerald-500/15 via-emerald-400/8 to-transparent ring-1 ring-emerald-400/20 p-4 shadow-[0_12px_40px_rgba(16,185,129,0.08)]">
+                    <div className="text-[11px] uppercase tracking-[0.18em] text-emerald-200/80">Ciclos montados</div>
+                    <div className="mt-2 text-2xl font-black text-white">{vipControl.cycles.length}</div>
+                    <div className="mt-2 text-sm text-slate-300">Meses prontos para ativar, editar ou duplicar rapidamente.</div>
+                  </div>
+                  <div className="rounded-3xl bg-gradient-to-br from-amber-500/15 via-amber-400/8 to-transparent ring-1 ring-amber-400/20 p-4 shadow-[0_12px_40px_rgba(245,158,11,0.08)]">
+                    <div className="text-[11px] uppercase tracking-[0.18em] text-amber-200/80">Biblioteca VIP</div>
+                    <div className="mt-2 text-2xl font-black text-white">{vipControl.library.length}</div>
+                    <div className="mt-2 text-sm text-slate-300">Miniaturas e bosses disponíveis para montar os próximos ciclos.</div>
+                  </div>
+                </div>
 
-                  {vipControlLoading ? <div className="mt-4 text-slate-400">Carregando controle VIP...</div> : null}
-                  {vipControlError ? <div className="mt-4 rounded-xl bg-red-500/10 ring-1 ring-red-500/30 px-3 py-2 text-sm text-red-200">{vipControlError}</div> : null}
+                {vipControlLoading ? <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 px-4 py-3 text-slate-400">Carregando controle VIP...</div> : null}
+                {vipControlError ? <div className="rounded-2xl bg-red-500/10 ring-1 ring-red-500/30 px-4 py-3 text-sm text-red-200">{vipControlError}</div> : null}
 
-                  <div className="mt-4 rounded-2xl bg-black/20 ring-1 ring-white/10 p-4">
-                    <div className="flex flex-col sm:flex-row sm:items-end gap-3">
-                      <label className="block sm:max-w-[180px]">
-                        <div className="text-xs text-slate-400 mb-1">Ciclo</div>
-                        <input
-                          value={vipCycleEditor.cycle_key}
-                          onChange={(e) => setVipCycleEditor((prev) => ({ ...prev, cycle_key: e.target.value }))}
-                          placeholder="YYYY-MM"
-                          className="w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-slate-100"
-                        />
-                      </label>
-                      <label className="inline-flex items-center gap-2 text-sm text-slate-200">
-                        <input
-                          type="checkbox"
-                          checked={!!vipCycleEditor.activate}
-                          onChange={(e) => setVipCycleEditor((prev) => ({ ...prev, activate: e.target.checked }))}
-                        />
-                        Definir como ciclo ativo ao salvar
-                      </label>
-                      <div className="sm:ml-auto flex items-center gap-2">
-                        {vipCycleEditor.cycle_key ? (
-                          <button
-                            onClick={() => openDeleteVipCycleConfirm(vipCycleEditor.cycle_key)}
-                            disabled={vipCycleBusy}
-                            className="rounded-xl px-4 py-2 text-sm font-semibold text-red-100 bg-red-500/10 ring-1 ring-red-500/30 disabled:opacity-60"
-                          >
-                            Excluir ciclo
-                          </button>
-                        ) : null}
+                <div className="grid grid-cols-1 xl:grid-cols-[1.2fr_0.8fr] gap-4">
+                  <div className="rounded-3xl bg-white/[0.03] ring-1 ring-white/10 p-4 md:p-5">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                      <div>
+                        <div className="text-lg font-bold text-white">Montagem do ciclo VIP</div>
+                        <div className="mt-1 text-sm text-slate-400">Monte o mês, selecione as minis e deixe claro qual ciclo está ativo. Tudo fica concentrado aqui.</div>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          onClick={() => setVipCycleEditor({ cycle_key: nextMonthKey(), selected_ids: [], activate: true })}
+                          className="rounded-2xl px-4 py-2.5 text-sm font-semibold text-slate-100 bg-white/[0.04] hover:bg-white/[0.08] ring-1 ring-white/10"
+                        >
+                          + Novo ciclo
+                        </button>
                         <button
                           onClick={() => {
                             const active = (vipControl.cycles || []).find((cycle) => cycle.is_active) || (vipControl.cycles || [])[0];
@@ -3254,223 +3248,353 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                             setVipCycleEditor({ cycle_key: nextMonthKey(), selected_ids: (active.items || []).map((item) => String(item.id)), activate: true });
                           }}
                           disabled={vipCycleBusy || !(vipControl.cycles || []).length}
-                          className="rounded-xl px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-white/4 ring-1 ring-white/10 disabled:opacity-60"
+                          className="rounded-2xl px-4 py-2.5 text-sm font-semibold text-slate-100 bg-white/[0.04] hover:bg-white/[0.08] ring-1 ring-white/10 disabled:opacity-60"
                         >
-                          Duplicar ciclo
+                          Duplicar ativo
                         </button>
                         <button
                           onClick={saveVipCycle}
                           disabled={vipCycleBusy}
-                          className="rounded-xl px-4 py-2 text-sm font-semibold bg-emerald-400 text-black ring-4 ring-emerald-400/20 disabled:opacity-60"
+                          className="rounded-2xl px-4 py-2.5 text-sm font-semibold bg-emerald-400 text-black ring-4 ring-emerald-400/20 disabled:opacity-60"
                         >
                           {vipCycleBusy ? 'Salvando...' : 'Salvar ciclo'}
                         </button>
                       </div>
                     </div>
 
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      {(vipControl.cycles || []).map((cycle) => (
-                        <button
-                          key={cycle.cycle_key}
-                          onClick={() => loadVipCycleIntoEditor(cycle.cycle_key)}
-                          className={[
-                            'rounded-full px-3 py-1.5 text-xs ring-1 transition',
-                            String(vipCycleEditor.cycle_key || '') === String(cycle.cycle_key)
-                              ? 'bg-cyan-400/15 text-cyan-100 ring-cyan-400/30'
-                              : 'bg-white/[0.03] text-slate-200 ring-white/10 hover:bg-white/[0.06]'
-                          ].join(' ')}
-                        >
-                          {cycle.cycle_key} • {cycle.total_items} itens
-                          {cycle.is_active ? ' • ativo' : ''}
-                        </button>
-                      ))}
-                    </div>
-
-                    <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[520px] overflow-y-auto pr-1">
-                      {(vipControl.library || []).map((item) => {
-                        const selected = (vipCycleEditor.selected_ids || []).includes(String(item.id));
-                        const assignedCycle = String(item?.cycle_key || '');
-                        const isBoss = String(item?.item_type || '').toLowerCase() === 'boss';
-                        return (
-                          <button
-                            type="button"
-                            key={item.id}
-                            onClick={() => toggleVipCycleItem(String(item.id))}
-                            className={[
-                              'text-left rounded-2xl p-3 ring-1 transition',
-                              selected ? 'bg-cyan-400/10 ring-cyan-400/30' : 'bg-white/[0.03] ring-white/10 hover:bg-white/[0.05]'
-                            ].join(' ')}
-                          >
-                            <div className="flex items-start gap-3">
-                              <div className="h-16 w-16 rounded-xl overflow-hidden bg-black/20 ring-1 ring-white/10 shrink-0">
-                                {item.image_url ? <img src={item.image_url} alt={item.title} className="h-full w-full object-cover" loading="lazy" /> : null}
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <div className="text-sm font-semibold text-slate-100 truncate">{item.title}</div>
-                                  <span className={isBoss ? 'rounded-full px-2 py-0.5 text-[10px] bg-fuchsia-500/15 text-fuchsia-200 ring-1 ring-fuchsia-500/20' : 'rounded-full px-2 py-0.5 text-[10px] bg-cyan-500/15 text-cyan-200 ring-1 ring-cyan-500/20'}>
-                                    {isBoss ? 'Boss' : 'Mini'}
-                                  </span>
-                                  {assignedCycle ? (
-                                    <span className="rounded-full px-2 py-0.5 text-[10px] bg-white/6 text-slate-300 ring-1 ring-white/10">
-                                      {assignedCycle}
-                                    </span>
-                                  ) : null}
-                                </div>
-                                {item.description ? <div className="mt-1 text-xs text-slate-500 line-clamp-2">{item.description}</div> : null}
-                              </div>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  <div className="mt-4 space-y-2">
-                    {(vipControl.cycles || []).map((cycle) => (
-                      <div key={cycle.cycle_key} className="rounded-xl bg-black/20 ring-1 ring-white/10 p-3 flex flex-col sm:flex-row sm:items-center gap-3">
-                        <div className="min-w-0 flex-1">
-                          <div className="text-sm font-semibold text-slate-100">{cycle.cycle_key}</div>
-                          <div className="text-xs text-slate-400">{cycle.miniatures_count} minis • {cycle.boss_count} boss • {cycle.total_items} itens</div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {cycle.is_active ? <span className="rounded-full px-2 py-1 text-[11px] bg-emerald-500/15 text-emerald-200 ring-1 ring-emerald-400/20">Ativo</span> : null}
-                          <button
-                            onClick={() => loadVipCycleIntoEditor(cycle.cycle_key)}
-                            className="rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
-                          >
-                            Editar ciclo
-                          </button>
-                          {!cycle.is_active ? (
+                    <div className="mt-5 grid grid-cols-1 lg:grid-cols-[minmax(0,260px)_minmax(0,1fr)] gap-4">
+                      <div className="space-y-4">
+                        <div className="rounded-2xl bg-black/20 ring-1 ring-white/10 p-4">
+                          <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Configuração do ciclo</div>
+                          <label className="mt-4 block">
+                            <div className="text-xs text-slate-400 mb-1.5">Mês de referência</div>
+                            <input
+                              value={vipCycleEditor.cycle_key}
+                              onChange={(e) => setVipCycleEditor((prev) => ({ ...prev, cycle_key: e.target.value }))}
+                              placeholder="YYYY-MM"
+                              className="w-full rounded-2xl bg-black/20 ring-1 ring-white/10 px-3.5 py-3 text-slate-100"
+                            />
+                          </label>
+                          <label className="mt-4 flex items-start gap-3 rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-3 text-sm text-slate-200">
+                            <input
+                              type="checkbox"
+                              checked={!!vipCycleEditor.activate}
+                              onChange={(e) => setVipCycleEditor((prev) => ({ ...prev, activate: e.target.checked }))}
+                              className="mt-1"
+                            />
+                            <span>
+                              <span className="font-semibold text-white">Ativar ao salvar</span>
+                              <span className="mt-1 block text-xs text-slate-400">Use quando esse mês já deve aparecer imediatamente para os assinantes.</span>
+                            </span>
+                          </label>
+                          {vipCycleEditor.cycle_key ? (
                             <button
-                              onClick={() => activateVipCycle(cycle.cycle_key)}
+                              onClick={() => openDeleteVipCycleConfirm(vipCycleEditor.cycle_key)}
                               disabled={vipCycleBusy}
-                              className="rounded-xl px-3 py-2 text-xs font-semibold text-emerald-100 bg-emerald-500/10 hover:bg-emerald-500/20 ring-1 ring-emerald-500/30 disabled:opacity-60"
+                              className="mt-4 w-full rounded-2xl px-4 py-3 text-sm font-semibold text-red-100 bg-red-500/10 ring-1 ring-red-500/30 disabled:opacity-60"
                             >
-                              Ativar ciclo
+                              Excluir ciclo atual do editor
                             </button>
                           ) : null}
-                          <button
-                            onClick={() => openDeleteVipCycleConfirm(cycle.cycle_key)}
-                            disabled={vipCycleBusy}
-                            className="rounded-xl px-3 py-2 text-xs font-semibold text-red-100 bg-red-500/10 hover:bg-red-500/20 ring-1 ring-red-500/30 disabled:opacity-60"
-                          >
-                            Excluir ciclo
-                          </button>
+                        </div>
+
+                        <div className="rounded-2xl bg-black/20 ring-1 ring-white/10 p-4">
+                          <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Resumo da seleção</div>
+                          <div className="mt-4 grid grid-cols-3 gap-2">
+                            <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-3">
+                              <div className="text-[11px] text-slate-500 uppercase tracking-wide">Itens</div>
+                              <div className="mt-1 text-xl font-black text-white">{vipSelectedItems.length}</div>
+                            </div>
+                            <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-3">
+                              <div className="text-[11px] text-slate-500 uppercase tracking-wide">Minis</div>
+                              <div className="mt-1 text-xl font-black text-white">{vipSelectedSummary.mini}</div>
+                            </div>
+                            <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-3">
+                              <div className="text-[11px] text-slate-500 uppercase tracking-wide">Boss</div>
+                              <div className="mt-1 text-xl font-black text-white">{vipSelectedSummary.boss}</div>
+                            </div>
+                          </div>
+                          <div className="mt-4 text-xs text-slate-400">Toque nos cards da biblioteca para adicionar ou remover itens deste ciclo.</div>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                </div>
 
-                <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <div className="text-sm font-semibold text-white">Votações do próximo tema</div>
-                      <div className="mt-1 text-sm text-slate-400">Continue criando e encerrando votações por aqui.</div>
-                    </div>
-                  </div>
-                  {vipPollsLoading ? <div className="mt-4 text-slate-400">Carregando...</div> : null}
-                  {vipPollsError ? <div className="mt-4 text-red-200">{vipPollsError}</div> : null}
-
-                  {!vipPollsLoading && !vipPollsError && !vipPolls.length ? (
-                    <div className="mt-4 text-slate-400">Nenhuma votação encontrada.</div>
-                  ) : null}
-
-                  <div className="mt-4 space-y-4">
-                  {vipPolls.map((p, idx) => (
-                    <div key={idx} className="rounded-2xl bg-black/20 ring-1 ring-white/10 p-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <div className="text-white font-semibold">{p?.poll?.title || "Votação"}</div>
-                          <div className="text-xs text-slate-500">
-                            {p?.poll?.month_key || "—"} • {p?.total_votes || 0} votos • {p?.poll?.status || "—"}
+                      <div className="rounded-2xl bg-black/20 ring-1 ring-white/10 p-4">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div>
+                            <div className="text-sm font-semibold text-white">Ciclos disponíveis</div>
+                            <div className="mt-1 text-xs text-slate-400">Clique em um mês para carregar no editor e ajustar rapidamente.</div>
+                          </div>
+                          <div className="rounded-full bg-white/[0.04] px-3 py-1.5 text-xs text-slate-300 ring-1 ring-white/10">
+                            {vipControl.cycles.length} ciclo(s)
                           </div>
                         </div>
-
-                        <div className="flex items-center gap-2">
-                          {String(p?.poll?.status || "").toLowerCase() === "closed" ? (
-                            <span className="rounded-full px-2 py-1 text-[11px] bg-emerald-500/15 text-emerald-200 ring-1 ring-emerald-400/20">
-                              Encerrada
-                            </span>
-                          ) : (
-                            <span className="rounded-full px-2 py-1 text-[11px] bg-violet-500/15 text-violet-200 ring-1 ring-violet-400/20">
-                              Aberta
-                            </span>
-                          )}
-
-                          {String(p?.poll?.status || "").toLowerCase() === "open" ? (
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          {(vipControl.cycles || []).map((cycle) => (
                             <button
-                              onClick={() =>
-                                setCloseVote({
-                                  open: true,
-                                  poll: p,
-                                  winnerId: null,
-                                  busy: false,
-                                  error: "",
-                                })
-                              }
-                              className="rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
+                              key={cycle.cycle_key}
+                              onClick={() => loadVipCycleIntoEditor(cycle.cycle_key)}
+                              className={[
+                                'rounded-full px-3 py-2 text-xs ring-1 transition',
+                                String(vipCycleEditor.cycle_key || '') === String(cycle.cycle_key)
+                                  ? 'bg-cyan-400/15 text-cyan-100 ring-cyan-400/30'
+                                  : 'bg-white/[0.03] text-slate-200 ring-white/10 hover:bg-white/[0.06]'
+                              ].join(' ')}
                             >
-                              Encerrar votação
+                              {cycle.cycle_key}{cycle.is_active ? ' • ativo' : ''}
                             </button>
-                          ) : null}
+                          ))}
+                        </div>
 
-                          {String(p?.poll?.status || "").toLowerCase() === "closed" ? (
-                            <button
-                              onClick={() => setDeleteVote({ open: true, poll: p, busy: false, error: "" })}
-                              className="rounded-xl px-3 py-2 text-xs font-semibold text-red-200 hover:bg-red-500/10 ring-1 ring-red-500/30"
-                            >
-                              Excluir votação
-                            </button>
-                          ) : null}
+                        <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[620px] overflow-y-auto pr-1">
+                          {(vipControl.library || []).map((item) => {
+                            const selected = (vipCycleEditor.selected_ids || []).includes(String(item.id));
+                            const assignedCycle = String(item?.cycle_key || '');
+                            const isBoss = String(item?.item_type || '').toLowerCase() === 'boss';
+                            return (
+                              <button
+                                type="button"
+                                key={item.id}
+                                onClick={() => toggleVipCycleItem(String(item.id))}
+                                className={[
+                                  'text-left rounded-3xl p-3.5 ring-1 transition shadow-[0_8px_30px_rgba(0,0,0,0.14)]',
+                                  selected
+                                    ? 'bg-cyan-400/10 ring-cyan-400/30 shadow-[0_10px_35px_rgba(34,211,238,0.12)]'
+                                    : 'bg-white/[0.03] ring-white/10 hover:bg-white/[0.05]'
+                                ].join(' ')}
+                              >
+                                <div className="flex items-start gap-3">
+                                  <div className="h-16 w-16 rounded-2xl overflow-hidden bg-black/20 ring-1 ring-white/10 shrink-0">
+                                    {item.image_url ? <img src={item.image_url} alt={item.title} className="h-full w-full object-cover" loading="lazy" /> : null}
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <div className="text-sm font-bold text-slate-100 truncate">{item.title}</div>
+                                      <span className={isBoss ? 'rounded-full px-2 py-0.5 text-[10px] bg-fuchsia-500/15 text-fuchsia-200 ring-1 ring-fuchsia-500/20' : 'rounded-full px-2 py-0.5 text-[10px] bg-cyan-500/15 text-cyan-200 ring-1 ring-cyan-500/20'}>
+                                        {isBoss ? 'Boss' : 'Mini'}
+                                      </span>
+                                      {selected ? <span className="rounded-full px-2 py-0.5 text-[10px] bg-emerald-500/15 text-emerald-200 ring-1 ring-emerald-500/20">Selecionado</span> : null}
+                                      {assignedCycle ? (
+                                        <span className="rounded-full px-2 py-0.5 text-[10px] bg-white/6 text-slate-300 ring-1 ring-white/10">
+                                          {assignedCycle}
+                                        </span>
+                                      ) : null}
+                                    </div>
+                                    {item.description ? <div className="mt-1.5 text-xs text-slate-400 line-clamp-2">{item.description}</div> : null}
+                                  </div>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="rounded-3xl bg-white/[0.03] ring-1 ring-white/10 p-4 md:p-5">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="text-lg font-bold text-white">Radar VIP</div>
+                          <div className="mt-1 text-sm text-slate-400">Acompanhe o ciclo ativo e a distribuição dos assinantes por mês.</div>
+                        </div>
+                        {vipActiveCycle ? <span className="rounded-full px-3 py-1.5 text-xs bg-emerald-500/15 text-emerald-200 ring-1 ring-emerald-400/20">Ativo: {vipActiveCycle.cycle_key}</span> : null}
+                      </div>
+
+                      <div className="mt-4 rounded-2xl bg-black/20 ring-1 ring-white/10 p-4">
+                        <div className="text-xs text-slate-500 uppercase tracking-[0.16em]">Resumo do ciclo ativo</div>
+                        {vipActiveCycle ? (
+                          <div className="mt-3 grid grid-cols-3 gap-3">
+                            <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-3">
+                              <div className="text-[11px] text-slate-500 uppercase tracking-wide">Itens</div>
+                              <div className="mt-1 text-xl font-black text-white">{vipActiveCycle.total_items}</div>
+                            </div>
+                            <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-3">
+                              <div className="text-[11px] text-slate-500 uppercase tracking-wide">Minis</div>
+                              <div className="mt-1 text-xl font-black text-white">{vipActiveCycle.miniatures_count}</div>
+                            </div>
+                            <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-3">
+                              <div className="text-[11px] text-slate-500 uppercase tracking-wide">Boss</div>
+                              <div className="mt-1 text-xl font-black text-white">{vipActiveCycle.boss_count}</div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="mt-3 text-sm text-slate-400">Nenhum ciclo ativo no momento.</div>
+                        )}
+                      </div>
+
+                      <div className="mt-4 rounded-2xl bg-black/20 ring-1 ring-white/10 p-4">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="text-sm font-semibold text-white">Assinantes por ciclo</div>
+                          <div className="text-xs text-slate-500">Leitura rápida da base</div>
+                        </div>
+                        <div className="mt-3 space-y-2">
+                          {vipCycleAudience.length ? vipCycleAudience.map((row, idx) => {
+                            const count = Number(row?.count || row?.total || 0);
+                            const pct = Math.max(6, Math.min(100, vipControl?.vip_summary?.activeSubscribers ? (count / Number(vipControl.vip_summary.activeSubscribers || 1)) * 100 : 0));
+                            return (
+                              <div key={`${row?.cycle_key || 'none'}-${idx}`} className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-3">
+                                <div className="flex items-center justify-between gap-3 text-sm">
+                                  <div className="font-semibold text-slate-100">{row?.cycle_key || 'Sem ciclo'}</div>
+                                  <div className="text-slate-300">{count} assinante(s)</div>
+                                </div>
+                                <div className="mt-2 h-2 rounded-full bg-black/30 overflow-hidden ring-1 ring-white/10">
+                                  <div className="h-full rounded-full bg-white/30" style={{ width: `${pct}%` }} />
+                                </div>
+                              </div>
+                            );
+                          }) : <div className="text-sm text-slate-400">Sem dados de distribuição por ciclo.</div>}
                         </div>
                       </div>
 
-                      {String(p?.poll?.status || "").toLowerCase() === "closed" ? (
-                        (() => {
-                          const winnerId = p?.poll?.winner_option_id;
-                          const winner = (p?.options || []).find((o) => String(o.id) === String(winnerId));
-                          return winner ? (
-                            <div className="mt-3 rounded-xl bg-emerald-500/10 ring-1 ring-emerald-400/20 p-3">
-                              <div className="text-xs uppercase tracking-wide text-emerald-200/90">Vencedor</div>
-                              <div className="mt-1 text-slate-100 font-extrabold">{winner.title}</div>
-                            </div>
-                          ) : (
-                            <div className="mt-3 rounded-xl bg-cyan-500/10 ring-1 ring-cyan-400/20 p-3 text-sm text-cyan-200">
-                              Votação encerrada, mas o vencedor não está salvo no banco (adicione a coluna <b>winner_option_id</b> em <b>vip_theme_polls</b>).
-                            </div>
-                          );
-                        })()
-                      ) : null}
-
-                      <div className="mt-3 space-y-2">
-                        {(p?.options || []).map((o) => (
-                          <div key={o.id} className="rounded-xl bg-white/[0.03] ring-1 ring-white/10 p-2">
-                            <div className="flex items-center justify-between gap-3">
-                              <div className="min-w-0 flex items-center gap-3">
-                                {o.image_url ? (
-                                  <div className="h-12 w-12 rounded-xl overflow-hidden bg-black/20 ring-1 ring-white/10 shrink-0">
-                                    <img src={o.image_url} alt={o.title} className="h-full w-full object-cover" loading="lazy" />
-                                  </div>
-                                ) : null}
-                                <div className="min-w-0">
-                                  <div className="text-slate-100 truncate">{o.title}</div>
-                                  {o.description ? <div className="text-xs text-slate-500 line-clamp-2">{o.description}</div> : null}
-                                </div>
+                      <div className="mt-4 space-y-2">
+                        {(vipControl.cycles || []).map((cycle) => (
+                          <div key={cycle.cycle_key} className="rounded-2xl bg-black/20 ring-1 ring-white/10 p-3 flex flex-col gap-3">
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <div className="text-sm font-bold text-slate-100">{cycle.cycle_key}</div>
+                                <div className="mt-1 text-xs text-slate-400">{cycle.miniatures_count} minis • {cycle.boss_count} boss • {cycle.total_items} itens</div>
                               </div>
-                              <div className="text-xs text-slate-300 whitespace-nowrap">
-                                {o.votes} • {o.pct}%
-                              </div>
+                              {cycle.is_active ? <span className="rounded-full px-2.5 py-1 text-[11px] bg-emerald-500/15 text-emerald-200 ring-1 ring-emerald-400/20">Ativo</span> : null}
                             </div>
-                            <div className="mt-2 h-2 rounded-full bg-black/30 overflow-hidden ring-1 ring-white/10">
-                              <div className="h-full bg-white/30" style={{ width: `${o.pct || 0}%` }} />
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                onClick={() => loadVipCycleIntoEditor(cycle.cycle_key)}
+                                className="rounded-2xl px-3 py-2 text-xs font-semibold text-slate-100 bg-white/[0.04] hover:bg-white/[0.08] ring-1 ring-white/10"
+                              >
+                                Editar
+                              </button>
+                              {!cycle.is_active ? (
+                                <button
+                                  onClick={() => activateVipCycle(cycle.cycle_key)}
+                                  disabled={vipCycleBusy}
+                                  className="rounded-2xl px-3 py-2 text-xs font-semibold text-emerald-100 bg-emerald-500/10 hover:bg-emerald-500/20 ring-1 ring-emerald-500/30 disabled:opacity-60"
+                                >
+                                  Ativar
+                                </button>
+                              ) : null}
+                              <button
+                                onClick={() => openDeleteVipCycleConfirm(cycle.cycle_key)}
+                                disabled={vipCycleBusy}
+                                className="rounded-2xl px-3 py-2 text-xs font-semibold text-red-100 bg-red-500/10 hover:bg-red-500/20 ring-1 ring-red-500/30 disabled:opacity-60"
+                              >
+                                Excluir
+                              </button>
                             </div>
                           </div>
                         ))}
                       </div>
                     </div>
-                  ))}
+
+                    <div className="rounded-3xl bg-white/[0.03] ring-1 ring-white/10 p-4 md:p-5">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <div className="text-lg font-bold text-white">Votações do próximo tema</div>
+                          <div className="mt-1 text-sm text-slate-400">Crie, acompanhe e encerre as votações do mês seguinte sem sair desta área.</div>
+                        </div>
+                      </div>
+                      {vipPollsLoading ? <div className="mt-4 text-slate-400">Carregando...</div> : null}
+                      {vipPollsError ? <div className="mt-4 text-red-200">{vipPollsError}</div> : null}
+
+                      {!vipPollsLoading && !vipPollsError && !vipPolls.length ? (
+                        <div className="mt-4 rounded-2xl bg-black/20 ring-1 ring-white/10 p-4 text-slate-400">Nenhuma votação encontrada.</div>
+                      ) : null}
+
+                      <div className="mt-4 space-y-4">
+                      {vipPolls.map((p, idx) => (
+                        <div key={idx} className="rounded-2xl bg-black/20 ring-1 ring-white/10 p-3.5">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <div className="text-white font-semibold">{p?.poll?.title || "Votação"}</div>
+                              <div className="text-xs text-slate-500">
+                                {p?.poll?.month_key || "—"} • {p?.total_votes || 0} votos • {p?.poll?.status || "—"}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              {String(p?.poll?.status || "").toLowerCase() === "closed" ? (
+                                <span className="rounded-full px-2 py-1 text-[11px] bg-emerald-500/15 text-emerald-200 ring-1 ring-emerald-400/20">
+                                  Encerrada
+                                </span>
+                              ) : (
+                                <span className="rounded-full px-2 py-1 text-[11px] bg-violet-500/15 text-violet-200 ring-1 ring-violet-400/20">
+                                  Aberta
+                                </span>
+                              )}
+
+                              {String(p?.poll?.status || "").toLowerCase() === "open" ? (
+                                <button
+                                  onClick={() =>
+                                    setCloseVote({
+                                      open: true,
+                                      poll: p,
+                                      winnerId: null,
+                                      busy: false,
+                                      error: "",
+                                    })
+                                  }
+                                  className="rounded-2xl px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
+                                >
+                                  Encerrar votação
+                                </button>
+                              ) : null}
+
+                              {String(p?.poll?.status || "").toLowerCase() === "closed" ? (
+                                <button
+                                  onClick={() => setDeleteVote({ open: true, poll: p, busy: false, error: "" })}
+                                  className="rounded-2xl px-3 py-2 text-xs font-semibold text-red-200 hover:bg-red-500/10 ring-1 ring-red-500/30"
+                                >
+                                  Excluir votação
+                                </button>
+                              ) : null}
+                            </div>
+                          </div>
+
+                          {String(p?.poll?.status || "").toLowerCase() === "closed" ? (
+                            (() => {
+                              const winnerId = p?.poll?.winner_option_id;
+                              const winner = (p?.options || []).find((o) => String(o.id) === String(winnerId));
+                              return winner ? (
+                                <div className="mt-3 rounded-2xl bg-emerald-500/10 ring-1 ring-emerald-400/20 p-3">
+                                  <div className="text-xs uppercase tracking-wide text-emerald-200/90">Vencedor</div>
+                                  <div className="mt-1 text-slate-100 font-extrabold">{winner.title}</div>
+                                </div>
+                              ) : (
+                                <div className="mt-3 rounded-2xl bg-cyan-500/10 ring-1 ring-cyan-400/20 p-3 text-sm text-cyan-200">
+                                  Votação encerrada, mas o vencedor não está salvo no banco (adicione a coluna <b>winner_option_id</b> em <b>vip_theme_polls</b>).
+                                </div>
+                              );
+                            })()
+                          ) : null}
+
+                          <div className="mt-3 space-y-2">
+                            {(p?.options || []).map((o) => (
+                              <div key={o.id} className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-2.5">
+                                <div className="flex items-center justify-between gap-3">
+                                  <div className="min-w-0 flex items-center gap-3">
+                                    {o.image_url ? (
+                                      <div className="h-12 w-12 rounded-xl overflow-hidden bg-black/20 ring-1 ring-white/10 shrink-0">
+                                        <img src={o.image_url} alt={o.title} className="h-full w-full object-cover" loading="lazy" />
+                                      </div>
+                                    ) : null}
+                                    <div className="min-w-0">
+                                      <div className="text-slate-100 truncate">{o.title}</div>
+                                      {o.description ? <div className="text-xs text-slate-500 line-clamp-2">{o.description}</div> : null}
+                                    </div>
+                                  </div>
+                                  <div className="text-xs text-slate-300 whitespace-nowrap">
+                                    {o.votes} • {o.pct}%
+                                  </div>
+                                </div>
+                                <div className="mt-2 h-2 rounded-full bg-black/30 overflow-hidden ring-1 ring-white/10">
+                                  <div className="h-full bg-white/30" style={{ width: `${o.pct || 0}%` }} />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
