@@ -3328,7 +3328,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                             {vipControl.cycles.length} ciclo(s)
                           </div>
                         </div>
-                        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                        <div className="mt-4 grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-3">
                           {(vipControl.cycles || []).map((cycle) => {
                             const isCurrentCycle = String(vipCycleEditor.cycle_key || '') === String(cycle.cycle_key);
                             return (
@@ -3369,7 +3369,17 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                           })}
                         </div>
 
-                        <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[620px] overflow-y-auto pr-1">
+                        <div className="mt-5 border-t border-white/10 pt-4">
+                          <div className="flex items-center justify-between gap-2">
+                            <div>
+                              <div className="text-sm font-semibold text-white">Biblioteca do ciclo</div>
+                              <div className="mt-1 text-xs text-slate-400">Selecione miniaturas e bosses para compor o mês em edição.</div>
+                            </div>
+                            <div className="rounded-full bg-white/[0.04] px-3 py-1.5 text-xs text-slate-300 ring-1 ring-white/10">
+                              {(vipControl.library || []).length} item(ns)
+                            </div>
+                          </div>
+                          <div className="mt-4 grid grid-cols-1 2xl:grid-cols-2 gap-3 max-h-[620px] overflow-y-auto pr-1">
                           {(vipControl.library || []).map((item) => {
                             const selected = (vipCycleEditor.selected_ids || []).includes(String(item.id));
                             const assignedCycle = String(item?.cycle_key || '');
@@ -3380,7 +3390,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                                 key={item.id}
                                 onClick={() => toggleVipCycleItem(String(item.id))}
                                 className={[
-                                  'text-left rounded-3xl p-3.5 ring-1 transition shadow-[0_8px_30px_rgba(0,0,0,0.14)]',
+                                  'w-full text-left rounded-3xl p-3.5 ring-1 transition shadow-[0_8px_30px_rgba(0,0,0,0.14)]',
                                   selected
                                     ? 'bg-cyan-400/10 ring-cyan-400/30 shadow-[0_10px_35px_rgba(34,211,238,0.12)]'
                                     : 'bg-white/[0.03] ring-white/10 hover:bg-white/[0.05]'
@@ -3409,6 +3419,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                               </button>
                             );
                           })}
+                          </div>
                         </div>
                       </div>
                     </div>
