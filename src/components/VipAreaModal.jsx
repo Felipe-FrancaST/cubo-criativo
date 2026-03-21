@@ -352,8 +352,17 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
     const nav = mobileTabsNavRef.current;
     if (!activeButton || !nav) return;
     try {
-      activeButton.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-    } catch {}
+      const navRect = nav.getBoundingClientRect();
+      const buttonRect = activeButton.getBoundingClientRect();
+      const targetLeft = activeButton.offsetLeft - (nav.clientWidth / 2) + (activeButton.clientWidth / 2);
+      const maxScroll = Math.max(0, nav.scrollWidth - nav.clientWidth);
+      const clampedLeft = Math.min(Math.max(0, targetLeft), maxScroll);
+      nav.scrollTo({ left: clampedLeft, behavior: 'smooth' });
+    } catch {
+      try {
+        activeButton.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+      } catch {}
+    }
   }, [tab, visibleTabs]);
 
   const nextAction = React.useMemo(() => {
@@ -1256,8 +1265,9 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
 
                     <div
                       ref={mobileTabsNavRef}
-                      className="-mx-1 mt-3 flex gap-3 overflow-x-auto px-1 pb-1 no-scrollbar snap-x snap-mandatory"
+                      className="-mx-1 mt-3 flex gap-3 overflow-x-auto px-[14vw] pb-1 no-scrollbar snap-x snap-mandatory"
                       aria-label="Navegação VIP"
+                      style={{ scrollPaddingInline: '14vw' }}
                     >
                       {visibleTabs.map((t) => {
                         const active = tab === t.k;
