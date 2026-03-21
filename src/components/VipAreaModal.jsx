@@ -61,6 +61,8 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
   // Navegação (melhor experiência no mobile)
   const [tab, setTab] = React.useState('escolhas'); // 'escolhas' | 'pedido' | 'votacao' | 'upgrade' | 'presente'
   const [helpOpen, setHelpOpen] = React.useState(false);
+  const mobileTabsNavRef = React.useRef(null);
+  const mobileTabRefs = React.useRef({});
 
   // Aviso elegante quando o usuário estoura o limite do plano
   const [limitNotice, setLimitNotice] = React.useState(null); // { title, text }
@@ -344,6 +346,15 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
       setTab(visibleTabs[0]?.k || 'escolhas');
     }
   }, [visibleTabs, tab]);
+
+  React.useEffect(() => {
+    const activeButton = mobileTabRefs.current?.[tab];
+    const nav = mobileTabsNavRef.current;
+    if (!activeButton || !nav) return;
+    try {
+      activeButton.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    } catch {}
+  }, [tab, visibleTabs]);
 
   const nextAction = React.useMemo(() => {
     if (!user) return {
@@ -1229,23 +1240,52 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
               <div className="mt-5 sticky top-3 z-20">
                 <div className="rounded-2xl bg-black/35 backdrop-blur-md ring-1 ring-white/10 p-2">
                   <div className="sm:hidden rounded-2xl bg-gradient-to-br from-amber-400/10 via-violet-400/10 to-transparent ring-1 ring-white/10 px-3 py-3">
-                    <label htmlFor="vip-tab-select" className="mb-2 flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-[0.24em] text-slate-400">
-                      <span className="material-icons text-[16px] text-cyan-200">menu_open</span>
-                      Navegação VIP
-                    </label>
-                    <div className="relative">
-                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 material-icons text-[18px] text-cyan-200">auto_awesome</span>
-                      <select
-                        id="vip-tab-select"
-                        value={tab}
-                        onChange={(e) => setTab(String(e.target.value || 'escolhas'))}
-                        className="w-full appearance-none rounded-2xl border border-white/10 bg-slate-950/90 py-3 pl-11 pr-11 text-sm font-extrabold text-slate-100 outline-none ring-1 ring-white/10 transition focus:border-amber-300/40 focus:ring-amber-300/25"
-                      >
-                        {visibleTabs.map((t) => (
-                          <option key={t.k} value={t.k}>{t.mobileLabel || t.label}</option>
-                        ))}
-                      </select>
-                      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 material-icons text-[20px] text-slate-400">expand_more</span>
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-[0.24em] text-slate-400">
+                          <span className="material-icons text-[16px] text-cyan-200">dashboard_customize</span>
+                          Navegação VIP
+                        </div>
+                        <p className="mt-1 text-xs leading-5 text-slate-400">Deslize e toque na área que deseja abrir.</p>
+                      </div>
+                      <div className="shrink-0 rounded-2xl bg-slate-950/80 px-3 py-2 text-right ring-1 ring-white/10">
+                        <div className="text-[10px] font-extrabold uppercase tracking-[0.22em] text-slate-500">Atual</div>
+                        <div className="mt-1 text-sm font-extrabold text-slate-100">{visibleTabs.find((item) => item.k === tab)?.mobileLabel || visibleTabs.find((item) => item.k === tab)?.label || 'Escolhas'}</div>
+                      </div>
+                    </div>
+
+                    <div
+                      ref={mobileTabsNavRef}
+                      className="-mx-1 mt-3 flex gap-3 overflow-x-auto px-1 pb-1 no-scrollbar snap-x snap-mandatory"
+                      aria-label="Navegação VIP"
+                    >
+                      {visibleTabs.map((t) => {
+                        const active = tab === t.k;
+                        return (
+                          <button
+                            key={t.k}
+                            ref={(node) => {
+                              if (node) mobileTabRefs.current[t.k] = node;
+                              else delete mobileTabRefs.current[t.k];
+                            }}
+                            type="button"
+                            onClick={() => setTab(t.k)}
+                            className={`snap-start shrink-0 min-w-[156px] rounded-2xl border px-3 py-3 text-left transition ${active ? 'border-violet-300/50 bg-violet-300 text-black shadow-[0_12px_32px_rgba(167,139,250,0.28)]' : 'border-white/10 bg-slate-950/85 text-slate-100 hover:bg-slate-900/90'}`}
+                            aria-pressed={active}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <span className={`material-icons text-[20px] ${active ? 'text-black' : 'text-cyan-200'}`}>{t.ic}</span>
+                              <span className={`inline-flex items-center rounded-full px-2 py-1 text-[10px] font-extrabold ring-1 ${active ? 'bg-black/10 text-black ring-black/10' : t.tone}`}>
+                                {t.badge}
+                              </span>
+                            </div>
+                            <div className={`mt-3 text-sm font-extrabold ${active ? 'text-black' : 'text-slate-100'}`}>{t.mobileLabel || t.label}</div>
+                            <div className={`mt-1 text-[11px] leading-4 ${active ? 'text-black/75' : 'text-slate-400'}`}>
+                              {t.k === 'escolhas' ? 'Selecione suas miniaturas do ciclo.' : t.k === 'pedido' ? 'Veja status, produção e rastreio.' : t.k === 'votacao' ? 'Vote no próximo tema do clube.' : t.k === 'upgrade' ? 'Suba de plano sem sair do painel.' : 'Abra seu presente mensal d20.'}
+                            </div>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
 
