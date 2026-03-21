@@ -1667,8 +1667,7 @@ React.useEffect(() => {
         onOpenOrders={() => setOrdersOpen(true)}
         onPaymentConfirmed={() => {
           setCart([]);
-          setCartOpen(false);
-          setToastMsg("✅ Pedido finalizado!");
+          setToastMsg("✅ Pagamento confirmado!");
           setToastOpen(true);
           clearTimeout(toastT.current);
           toastT.current = setTimeout(() => setToastOpen(false), 2400);

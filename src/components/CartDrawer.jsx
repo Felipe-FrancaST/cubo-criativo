@@ -46,6 +46,7 @@ export default function CartDrawer({
   const [pixLoading, setPixLoading] = React.useState(false);
   const [pixStatus, setPixStatus] = React.useState("pending");
   const [checkingPix, setCheckingPix] = React.useState(false);
+  const [pixCompletedOpen, setPixCompletedOpen] = React.useState(false);
   const payHandled = React.useRef(false);
   // Mensagens de login/checkout devem aparecer como toast global (App)
   // para manter consistência (ex.: fluxo do cartão) e evitar "colar" alertas no botão.
@@ -94,6 +95,7 @@ export default function CartDrawer({
   React.useEffect(() => {
     if (!open) {
       setPixOpen(false);
+      setPixCompletedOpen(false);
       setPix(null);
       setPixLoading(false);
       setCopyToast(null);
@@ -107,7 +109,7 @@ export default function CartDrawer({
 
   // enquanto o modal do Pix estiver aberto, verifica automaticamente o status do pedido
   React.useEffect(() => {
-    if (!pixOpen || !pix?.order_id) return;
+    if (!pixOpen || pixCompletedOpen || !pix?.order_id) return;
     let stopped = false;
 
     // checa já ao abrir
@@ -122,7 +124,7 @@ export default function CartDrawer({
       stopped = true;
       clearInterval(t);
     };
-  }, [pixOpen, pix?.order_id]);
+  }, [pixCompletedOpen, pixOpen, pix?.order_id]);
 
 
   React.useEffect(() => {
@@ -337,12 +339,21 @@ export default function CartDrawer({
   }
 
 
+  function finalizePixPayment() {
+    if (payHandled.current) return;
+    payHandled.current = true;
+    setPixStatus("paid");
+    setCheckingPix(false);
+    setPixOpen(false);
+    setPixCompletedOpen(true);
+    onPaymentConfirmed?.();
+  }
+
   async function checkPixStatus({ forceVerify = false } = {}) {
-  const panelRef = React.useRef(null);
-  const lastFocusRef = React.useRef(null);
     try {
       if (!pix?.order_id) return;
-      setCheckingPix(true);      // 1) Checa no Supabase (rápido)
+      setCheckingPix(true);
+
       const { data: orderRow, error: orderErr } = await supabase
         .from("orders")
         .select("status")
@@ -351,18 +362,14 @@ export default function CartDrawer({
 
       if (!orderErr && orderRow?.status) {
         setPixStatus(orderRow.status);
-        if (orderRow.status === "paid") {
-          if (!payHandled.current) {
-            payHandled.current = true;
-            onPaymentConfirmed?.();
-          }
+        if (String(orderRow.status).toLowerCase() === "paid") {
+          finalizePixPayment();
           return;
         }
       }
 
       if (!forceVerify) return;
 
-      // 2) Força verificação no Mercado Pago (caso o webhook ainda não tenha atualizado)
       const res = await fetch("/api/pix-payment?action=verify", {
         method: "POST",
         headers: {
@@ -379,13 +386,13 @@ export default function CartDrawer({
       }
 
       if (payload?.status) setPixStatus(payload.status);
-      if (payload?.paid) {
-        if (!payHandled.current) {
-          payHandled.current = true;
-          onPaymentConfirmed?.();
-        }
+      if (payload?.paid || String(payload?.status || "").toLowerCase() === "paid") {
+        finalizePixPayment();
       }
-    } catch (e) {    } finally {
+    } catch (e) {
+      const msg = e?.message || "Não foi possível verificar o Pix.";
+      showPixNotice(msg, "error", 4200);
+    } finally {
       setCheckingPix(false);
     }
   }
@@ -550,119 +557,128 @@ export default function CartDrawer({
           </a>
         </div>
 
-        {pixOpen && (
+        {(pixOpen || pixCompletedOpen) && (
           <div className="absolute inset-0 bg-black/70 flex items-center justify-center p-4">
-            <div className="w-full max-w-sm rounded-xl bg-[#07161d] ring-1 ring-white/10 p-4">
-              <div className="flex items-center justify-between">
-                <h4 className="font-bold">Pague com Pix</h4>
-                <button
-                  onClick={() => { setPixOpen(false); payHandled.current = false; }}
-                  className="rounded-lg p-2 ring-1 ring-white/15"
-                  title="Fechar"
-                >
-                  <span className="material-icons">close</span>
-                </button>
-              </div>
-
-              {pix?.qr_code_base64 ? (
-                <img
-                  className="w-full rounded-lg mt-3 bg-white p-2"
-                  src={`data:image/png;base64,${pix.qr_code_base64}`}
-                  alt="QR Code Pix"
-                />
+            <div className="w-full max-w-sm rounded-[26px] bg-[linear-gradient(180deg,rgba(8,25,34,.98),rgba(5,16,24,.98))] ring-1 ring-white/10 shadow-2xl p-4">
+              {pixCompletedOpen ? (
+                <div className="text-center">
+                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-400/15 ring-1 ring-emerald-300/30 text-emerald-300">
+                    <span className="material-icons text-3xl">check_circle</span>
+                  </div>
+                  <h4 className="mt-4 text-xl font-bold text-white">Pagamento concluído</h4>
+                  <p className="mt-2 text-sm leading-relaxed text-slate-300">
+                    Acompanhe seu pedido na aba <span className="font-semibold text-cyan-100">Meus pedidos</span>.
+                  </p>
+                  <div className="mt-5 space-y-2">
+                    <button
+                      className="w-full rounded-xl px-4 py-3 font-semibold bg-emerald-400 text-black hover:bg-emerald-300 transition"
+                      onClick={() => {
+                        setPixCompletedOpen(false);
+                        onClose?.();
+                        onOpenOrders?.();
+                      }}
+                    >
+                      Ir para Meus pedidos
+                    </button>
+                    <button
+                      className="w-full rounded-xl px-4 py-3 font-semibold bg-white/6 text-white ring-1 ring-white/15 hover:bg-white/8 transition"
+                      onClick={() => {
+                        setPixCompletedOpen(false);
+                        onClose?.();
+                      }}
+                    >
+                      Fechar
+                    </button>
+                  </div>
+                </div>
               ) : (
-                <p className="text-sm text-slate-300 mt-3">
-                  QR Code indisponível. Use o código copia-e-cola abaixo.
-                </p>
+                <>
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-bold">Pague com Pix</h4>
+                    <button
+                      onClick={() => { setPixOpen(false); payHandled.current = false; }}
+                      className="rounded-lg p-2 ring-1 ring-white/15"
+                      title="Fechar"
+                    >
+                      <span className="material-icons">close</span>
+                    </button>
+                  </div>
+
+                  {pix?.qr_code_base64 ? (
+                    <img
+                      className="w-full rounded-lg mt-3 bg-white p-2"
+                      src={`data:image/png;base64,${pix.qr_code_base64}`}
+                      alt="QR Code Pix"
+                    />
+                  ) : (
+                    <p className="text-sm text-slate-300 mt-3">
+                      QR Code indisponível. Use o código copia-e-cola abaixo.
+                    </p>
+                  )}
+
+                  <button
+                    className="w-full mt-3 rounded-lg px-4 py-3 bg-white/6 ring-1 ring-white/15 text-white"
+                    onClick={copyPix}
+                    disabled={!pix?.qr_code}
+                    title={!pix?.qr_code ? "Código Pix não disponível" : ""}
+                  >
+                    Copiar código Pix
+                  </button>
+
+                  {copyToast && (
+                    <div
+                      className={`mt-2 rounded-lg px-3 py-2 text-sm ring-1 flex items-start gap-2 ${
+                        copyToast.type === "success"
+                          ? "bg-emerald-500/10 text-emerald-200 ring-emerald-400/20"
+                          : "bg-rose-500/10 text-rose-200 ring-rose-400/20"
+                      }`}
+                      role="status"
+                      aria-live="polite"
+                    >
+                      <span className="material-icons text-base mt-[1px]">
+                        {copyToast.type === "success" ? "check_circle" : "error_outline"}
+                      </span>
+                      <p className="leading-tight">{copyToast.message}</p>
+                    </div>
+                  )}
+
+                  {pix?.qr_code && (
+                    <div className="mt-3">
+                      <p className="text-xs text-slate-400 mb-2">Copia e cola:</p>
+                      <textarea
+                        readOnly
+                        value={pix.qr_code}
+                        className="w-full h-24 text-xs rounded-lg bg-[#0c2430]/68 ring-1 ring-white/10 p-2 text-slate-200"
+                      />
+                    </div>
+                  )}
+
+                  {pix?.ticket_url && (
+                    <a
+                      href={pix.ticket_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block text-center mt-3 rounded-lg px-4 py-3 bg-white/6 ring-1 ring-white/15 text-white"
+                    >
+                      Abrir link do Pix
+                    </a>
+                  )}
+
+                  <div className="mt-4">
+                    <button
+                      className="w-full rounded-lg px-4 py-3 font-semibold ring-1 transition disabled:opacity-50 bg-white/6 text-white ring-white/15 hover:bg-white/8"
+                      onClick={() => checkPixStatus({ forceVerify: true })}
+                      disabled={checkingPix || !authToken || !pix?.order_id}
+                    >
+                      {checkingPix ? "Verificando…" : "Já paguei"}
+                    </button>
+
+                    <p className="mt-2 text-xs text-slate-400">
+                      A confirmação pode levar alguns instantes. Se você já pagou, toque em “Já paguei”.
+                    </p>
+                  </div>
+                </>
               )}
-
-              <button
-                className="w-full mt-3 rounded-lg px-4 py-3 bg-white/6 ring-1 ring-white/15 text-white"
-                onClick={copyPix}
-                disabled={!pix?.qr_code}
-                title={!pix?.qr_code ? "Código Pix não disponível" : ""}
-              >
-                Copiar código Pix
-              </button>
-
-              {copyToast && (
-                <div
-                  className={`mt-2 rounded-lg px-3 py-2 text-sm ring-1 flex items-start gap-2 ${
-                    copyToast.type === "success"
-                      ? "bg-emerald-500/10 text-emerald-200 ring-emerald-400/20"
-                      : "bg-rose-500/10 text-rose-200 ring-rose-400/20"
-                  }`}
-                  role="status"
-                  aria-live="polite"
-                >
-                  <span className="material-icons text-base mt-[1px]">
-                    {copyToast.type === "success" ? "check_circle" : "error_outline"}
-                  </span>
-                  <p className="leading-tight">{copyToast.message}</p>
-                </div>
-              )}
-
-              {pix?.qr_code && (
-                <div className="mt-3">
-                  <p className="text-xs text-slate-400 mb-2">Copia e cola:</p>
-                  <textarea
-                    readOnly
-                    value={pix.qr_code}
-                    className="w-full h-24 text-xs rounded-lg bg-[#0c2430]/68 ring-1 ring-white/10 p-2 text-slate-200"
-                  />
-                </div>
-              )}
-
-              {pix?.ticket_url && (
-                <a
-                  href={pix.ticket_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="block text-center mt-3 rounded-lg px-4 py-3 bg-white/6 ring-1 ring-white/15 text-white"
-                >
-                  Abrir link do Pix
-                </a>
-              )}
-
-              {/* Ação principal */}
-              <div className="mt-4">
-                {/* Mensagem só quando confirmar */}
-                {pixStatus === "paid" && (
-                  <p className="mb-3 text-sm text-emerald-200">
-                    Pagamento confirmado! Pedido finalizado ✅
-                  </p>
-                )}
-
-                <button
-                  className={`w-full rounded-lg px-4 py-3 font-semibold ring-1 transition disabled:opacity-50 ${
-                    pixStatus === "paid"
-                      ? "bg-emerald-400 text-black ring-emerald-400/30 hover:bg-emerald-300"
-                      : "bg-white/6 text-white ring-white/15 hover:bg-white/8"
-                  }`}
-                  onClick={() => {
-                    if (pixStatus === "paid") {
-                      onPaymentConfirmed?.();
-                      setPixOpen(false);                      onClose?.();
-                      onOpenOrders?.();
-                      return;
-                    }
-                    checkPixStatus({ forceVerify: true });
-                  }}
-                  disabled={checkingPix || !authToken || !pix?.order_id}
-                >
-                  {pixStatus === "paid"
-                    ? "Pagamento confirmado ✅"
-                    : checkingPix
-                    ? "Verificando…"
-                    : "Já paguei"}
-                </button>
-
-                {pixStatus !== "paid" && (
-                  <p className="mt-2 text-xs text-slate-400">
-                    A confirmação pode levar alguns instantes. Se você já pagou, toque em “Já paguei”.
-                  </p>
-                )}
-              </div>
             </div>
           </div>
         )}
