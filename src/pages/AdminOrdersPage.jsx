@@ -80,7 +80,7 @@ function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTrack
               </div>
             </div>
 
-            <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
               <button
                 onClick={() => onUpdateStatus?.(order)}
                 className="rounded-2xl bg-white/[0.04] px-4 py-3 text-sm font-semibold text-slate-100 ring-1 ring-white/10 transition hover:bg-white/[0.08] hover:-translate-y-0.5"
@@ -98,7 +98,7 @@ function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTrack
               <button
                 onClick={() => onResendEmail?.(order)}
                 disabled={!!resendBusy}
-                className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10 disabled:opacity-60 disabled:cursor-not-allowed"
+                className="rounded-2xl bg-white/[0.04] px-4 py-3 text-sm font-semibold text-slate-100 ring-1 ring-white/10 transition hover:bg-white/[0.08] hover:-translate-y-0.5 disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 <span className="material-icons text-[16px] align-middle mr-1">forward_to_inbox</span>
                 {resendBusy ? 'Reenviando…' : 'Reenviar e-mail'}
@@ -109,6 +109,35 @@ function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTrack
               >
                 <span className="material-icons text-[16px] align-middle mr-1">content_copy</span>
                 Copiar e-mail
+              </button>
+              <button
+                onClick={() => copyToClipboard(order?.id)}
+                className="rounded-2xl bg-white/[0.04] px-4 py-3 text-sm font-semibold text-slate-100 ring-1 ring-white/10 transition hover:bg-white/[0.08] hover:-translate-y-0.5"
+              >
+                <span className="material-icons text-[16px] align-middle mr-1">fingerprint</span>
+                Copiar ID
+              </button>
+              <button
+                onClick={() => copyToClipboard(order?.provider_payment_id)}
+                className="rounded-2xl bg-white/[0.04] px-4 py-3 text-sm font-semibold text-slate-100 ring-1 ring-white/10 transition hover:bg-white/[0.08] hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={!order?.provider_payment_id}
+              >
+                <span className="material-icons text-[16px] align-middle mr-1">payments</span>
+                Copiar ID pagamento
+              </button>
+              <button
+                onClick={() => onRequestRefund?.(order)}
+                className="rounded-2xl bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-100 ring-1 ring-red-500/30 transition hover:bg-red-500/15 hover:-translate-y-0.5"
+              >
+                <span className="material-icons text-[16px] align-middle mr-1">request_quote</span>
+                Marcar reembolso solicitado
+              </button>
+              <button
+                onClick={() => setConfirmDeleteOpen(true)}
+                className="rounded-2xl bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-100 ring-1 ring-red-500/30 transition hover:bg-red-500/15 hover:-translate-y-0.5"
+              >
+                <span className="material-icons text-[16px] align-middle mr-1">delete</span>
+                Excluir pedido
               </button>
             </div>
           </div>
@@ -323,59 +352,6 @@ function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTrack
               <div className="mt-2 flex justify-end">
                 <button onClick={()=>{ const note = String(noteDraft||'').trim(); if (!note) return; onAddNote?.(order, note); setNoteDraft(''); }} className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10">Salvar nota</button>
               </div>
-            </div>
-          </div>
-
-          <div className="mt-4 rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-3">
-            <div className="text-sm font-semibold text-white">Ações</div>
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <button
-                onClick={() => copyToClipboard(order?.id)}
-                className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
-              >
-                Copiar ID
-              </button>
-
-              <button
-                onClick={() => copyToClipboard(order?.provider_payment_id)}
-                className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
-                disabled={!order?.provider_payment_id}
-              >
-                Copiar ID pagamento
-              </button>
-
-              <button
-                onClick={() => onUpdateTracking?.(order)}
-                className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
-                disabled={String(order?.status || "").toLowerCase() !== "paid"}
-                title={String(order?.status || "").toLowerCase() !== "paid" ? "Apenas pedidos pagos" : ""}
-              >
-                Editar rastreio
-              </button>
-
-              <button
-                onClick={() => onUpdateStatus?.(order)}
-                className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
-                disabled={String(order?.status || "").toLowerCase() !== "paid"}
-                title={String(order?.status || "").toLowerCase() !== "paid" ? "Apenas pedidos pagos" : ""}
-              >
-                Alterar status
-              </button>
-
-              <button
-                onClick={() => onRequestRefund?.(order)}
-                className="rounded-xl px-3 py-2 text-sm text-red-200 hover:bg-red-500/10 ring-1 ring-red-500/30 col-span-2"
-              >
-                Marcar reembolso solicitado
-              </button>
-
-              <button
-                onClick={() => setConfirmDeleteOpen(true)}
-                className="rounded-xl px-3 py-2 text-sm text-red-200 hover:bg-red-500/10 ring-1 ring-red-500/30 col-span-2"
-              >
-                Excluir pedido
-              </button>
-
             </div>
           </div>
 
@@ -2260,7 +2236,6 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
           ["clients", "groups", "Clientes"],
           ["coupons", "sell", "Cupons"],
           ["vip", "workspace_premium", "VIP"],
-          ["help", "help", "Atalhos"],
         ].map(([key, icon, label]) => (
           <button
             key={key}
@@ -2319,9 +2294,6 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
               </SidebarItem>
             </div>
             <div className="mt-2">
-              <SidebarItem active={section === "help"} icon="help" onClick={() => setSection("help")}>
-                Atalhos / Processo
-              </SidebarItem>
             </div>
           </div>
 
@@ -3488,27 +3460,6 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                     </div>
                   ))}
                   </div>
-                </div>
-              </div>
-            </div>
-          ) : null}
-
-          {section === "help" ? (
-            <div className="space-y-4">
-              <SectionTitle icon="help" title="Atalhos / Processo" subtitle="Checklist rápido para operar o admin sem esquecer nada." />
-              <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-4 space-y-3">
-                <div className="text-sm text-slate-200">
-                  <span className="text-white font-semibold">Fluxo recomendado:</span>
-                </div>
-                <ol className="list-decimal pl-5 text-sm text-slate-300 space-y-1">
-                  <li>Abra <b>Pedidos</b> e filtre por <b>Pagamento: Pago</b>.</li>
-                  <li>Em cada pedido pago, coloque <b>Em produção</b> (com estimativa) e depois <b>Pronto</b>.</li>
-                  <li>Quando postar, adicione o <b>Rastreio</b> e marque como <b>Enviado</b>.</li>
-                  <li>Ao entregar, marque como <b>Entregue</b>.</li>
-                  <li>Se houver solicitação de reembolso, marque como <b>Reembolso solicitado</b> (e trate no provedor).</li>
-                </ol>
-                <div className="text-sm text-slate-300">
-                  <b>Dicas:</b> clique no rastreio para copiar; use o botão WhatsApp nos detalhes para avisar o cliente.
                 </div>
               </div>
             </div>
