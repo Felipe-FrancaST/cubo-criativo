@@ -592,12 +592,9 @@ export function renderOrderStatusEmail(payload) {
     </div>` : '';
 
   const contentHtml = `
-    ${renderEmailSummaryBanner({ eyebrow: isVipOrder ? 'Clube VIP' : 'Pedido', title: baseTitle, description: intro })}
-    ${pills}
     <div style="color:#cbd5e1;font-size:13px;line-height:1.65;">Olá <b style="color:#e2e8f0;">${esc(customerName || 'cliente')}</b>!<br/>${esc(intro)}</div>
     <div style="margin-top:14px;padding:12px 14px;border-radius:14px;background:${accent};border:1px solid ${accentBorder};color:${accentColor};font-size:12px;line-height:1.55;">${esc(highlight)}</div>
     ${visualBlock}
-    ${meta}
     ${cta}
     ${supportBox}
   `;
