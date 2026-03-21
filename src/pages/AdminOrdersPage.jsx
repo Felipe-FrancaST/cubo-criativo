@@ -9,6 +9,7 @@ function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTrack
   const address = fmtAddress(p);
 
   const [confirmDeleteOpen, setConfirmDeleteOpen] = React.useState(false);
+  const [deleteKeyword, setDeleteKeyword] = React.useState("");
   const phone = order?.customer_phone || p?.phone || "";
   const [noteDraft, setNoteDraft] = React.useState('');
   const waPhone = onlyDigits(phone);
@@ -126,18 +127,11 @@ function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTrack
                 Copiar ID pagamento
               </button>
               <button
-                onClick={() => onRequestRefund?.(order)}
-                className="rounded-2xl bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-100 ring-1 ring-red-500/30 transition hover:bg-red-500/15 hover:-translate-y-0.5"
-              >
-                <span className="material-icons text-[16px] align-middle mr-1">request_quote</span>
-                Marcar reembolso solicitado
-              </button>
-              <button
                 onClick={() => setConfirmDeleteOpen(true)}
                 className="rounded-2xl bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-100 ring-1 ring-red-500/30 transition hover:bg-red-500/15 hover:-translate-y-0.5"
               >
                 <span className="material-icons text-[16px] align-middle mr-1">delete</span>
-                Excluir pedido
+                Excluir
               </button>
             </div>
           </div>
@@ -380,9 +374,15 @@ function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTrack
       <ConfirmDeleteModal
         open={confirmDeleteOpen}
         order={order}
-        onClose={() => setConfirmDeleteOpen(false)}
+        keywordValue={deleteKeyword}
+        onKeywordChange={setDeleteKeyword}
+        onClose={() => {
+          setConfirmDeleteOpen(false);
+          setDeleteKeyword("");
+        }}
         onConfirm={() => {
           setConfirmDeleteOpen(false);
+          setDeleteKeyword("");
           onDeleteOrder?.(order);
         }}
       />
@@ -390,11 +390,12 @@ function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTrack
   );
 }
 
-function ConfirmDeleteModal({ open, order, onClose, onConfirm }) {
+function ConfirmDeleteModal({ open, order, keywordValue = "", onKeywordChange, onClose, onConfirm }) {
   if (!open) return null;
   const id = shortId(order?.id || order?.order_id || "");
   const total = fmtBRL(order?.total);
   const email = order?.customer_email || order?.profile?.email || "";
+  const keywordOk = String(keywordValue || "").trim().toLowerCase() === "excluir";
 
   return (
     <div className="fixed inset-0 z-[10010] flex items-center justify-center p-4">
@@ -407,7 +408,7 @@ function ConfirmDeleteModal({ open, order, onClose, onConfirm }) {
           </p>
         </div>
 
-        <div className="p-5 space-y-2">
+        <div className="p-5 space-y-3">
           <div className="rounded-2xl bg-white/4 ring-1 ring-white/10 p-4">
             <p className="text-xs text-slate-400">Pedido</p>
             <p className="text-sm text-slate-100 mt-1">
@@ -417,6 +418,16 @@ function ConfirmDeleteModal({ open, order, onClose, onConfirm }) {
           <p className="text-xs text-slate-400">
             Dica: se você só quer “sumir” com ele da operação, prefira marcar como <b>Cancelado</b> em vez de excluir.
           </p>
+          <label className="block">
+            <div className="text-xs text-slate-400 mb-1">Digite <span className="font-semibold text-red-200">excluir</span> para confirmar</div>
+            <input
+              value={keywordValue}
+              onChange={(e) => onKeywordChange?.(e.target.value)}
+              className="w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-slate-100"
+              placeholder="excluir"
+              autoFocus
+            />
+          </label>
         </div>
 
         <div className="p-5 flex items-center justify-end gap-2 border-t border-white/10">
@@ -428,7 +439,8 @@ function ConfirmDeleteModal({ open, order, onClose, onConfirm }) {
           </button>
           <button
             onClick={onConfirm}
-            className="rounded-xl px-4 py-2 text-sm font-semibold text-red-100 bg-red-500/15 hover:bg-red-500/25 ring-1 ring-red-500/30"
+            disabled={!keywordOk}
+            className="rounded-xl px-4 py-2 text-sm font-semibold text-red-100 bg-red-500/15 hover:bg-red-500/25 ring-1 ring-red-500/30 disabled:opacity-60 disabled:cursor-not-allowed"
           >
             Excluir permanentemente
           </button>
