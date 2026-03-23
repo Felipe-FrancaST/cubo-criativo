@@ -19,6 +19,7 @@ export default function Modal({
   widthClass = "w-[94vw] sm:w-[90vw] lg:w-[70vw]",
   maxWidth = "max-w-[1100px]",
   panelClassName = "",
+  zIndexClass = "z-[150]",
 }) {
   const showHeader = typeof title === "string" && title.trim().length > 0;
   const panelRef = React.useRef(null);
@@ -55,7 +56,7 @@ export default function Modal({
   const label = ariaLabel || (showHeader ? title : "Janela");
 
   return (
-    <div className={`fixed inset-0 z-[150] ${open ? "visible" : "invisible"}`} aria-hidden={!open}>
+    <div className={`fixed inset-0 ${zIndexClass} ${open ? "visible" : "invisible"}`} aria-hidden={!open}>
       {/* backdrop */}
       <div
         className={`absolute inset-0 bg-[#020b10]/72 transition-opacity ${open ? "opacity-100" : "opacity-0"}`}

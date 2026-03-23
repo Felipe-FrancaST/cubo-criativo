@@ -909,7 +909,7 @@ React.useEffect(() => {
         setToastOpen(true);
         clearTimeout(toastT.current);
         toastT.current = setTimeout(() => setToastOpen(false), 2600);
-        openSettings('profile');
+        openSettings('profile', { autoClose: true, overlay: true });
         return false;
       }
       return true;
@@ -919,7 +919,7 @@ React.useEffect(() => {
       setToastOpen(true);
       clearTimeout(toastT.current);
       toastT.current = setTimeout(() => setToastOpen(false), 3000);
-      openSettings('profile');
+      openSettings('profile', { autoClose: true, overlay: true });
       return false;
     }
   }
@@ -969,7 +969,7 @@ React.useEffect(() => {
           setToastOpen(true);
           clearTimeout(toastT.current);
           toastT.current = setTimeout(() => setToastOpen(false), 2600);
-          openSettings('profile');
+          openSettings('profile', { autoClose: true, overlay: true });
           return;
         }
         throw new Error(data?.error || "Não foi possível iniciar o pagamento.");

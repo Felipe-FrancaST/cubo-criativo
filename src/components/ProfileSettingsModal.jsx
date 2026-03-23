@@ -1460,7 +1460,15 @@ setZip2(data?.address2_zip || "");
 
   return (
     <>
-      <Modal open={open} onClose={onClose} title={effectiveModalTitle}>
+      <Modal
+        open={open}
+        onClose={onClose}
+        title={effectiveModalTitle}
+        zIndexClass="z-[230]"
+        widthClass="w-[96vw] sm:w-[92vw] lg:w-[70vw]"
+        panelClassName="max-h-[100dvh] sm:max-h-[92vh] rounded-t-[26px] sm:rounded-2xl"
+        bodyClassName="p-0 sm:p-4"
+      >
         {inner}
       </Modal>
       {deleteAccountModalEl}
