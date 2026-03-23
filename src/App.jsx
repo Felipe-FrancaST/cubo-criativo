@@ -51,6 +51,27 @@ const fmtBRL = (n) =>
     : "—";
 
 
+const CHECKOUT_SESSION_BACKUP_KEY = "cc_checkout_session_backup";
+
+function backupCheckoutSession(session) {
+  if (typeof window === "undefined") return;
+  const accessToken = String(session?.access_token || "").trim();
+  const refreshToken = String(session?.refresh_token || "").trim();
+  if (!accessToken || !refreshToken) return;
+  try {
+    window.localStorage.setItem(
+      CHECKOUT_SESSION_BACKUP_KEY,
+      JSON.stringify({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+        expires_at: Number(session?.expires_at || 0) || 0,
+        expires_in: Number(session?.expires_in || 0) || 0,
+        token_type: String(session?.token_type || 'bearer') || 'bearer',
+      })
+    );
+  } catch {}
+}
+
 /* ========================================================================
    SCROLL HELPERS
    ======================================================================== */
@@ -976,6 +997,7 @@ React.useEffect(() => {
       }
       if (!data?.url) throw new Error("Não foi possível iniciar o pagamento.");
       trackEvent("checkout_started", { items: cart.length, subtotal, coupon_code: appliedCoupon?.code || null });
+      backupCheckoutSession(session);
       window.location.href = data.url;
     } catch (e) {
       console.error(e);

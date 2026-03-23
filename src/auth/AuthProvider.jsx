@@ -3,6 +3,48 @@ import { supabase } from "../lib/supabaseClient";
 
 const AuthContext = React.createContext(null);
 
+const CHECKOUT_SESSION_BACKUP_KEY = "cc_checkout_session_backup";
+
+function readCheckoutSessionBackup() {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(CHECKOUT_SESSION_BACKUP_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return null;
+    const access_token = String(parsed.access_token || "").trim();
+    const refresh_token = String(parsed.refresh_token || "").trim();
+    if (!access_token || !refresh_token) return null;
+    return {
+      access_token,
+      refresh_token,
+      expires_at: Number(parsed.expires_at || 0) || undefined,
+      expires_in: Number(parsed.expires_in || 0) || undefined,
+      token_type: String(parsed.token_type || "bearer") || "bearer",
+    };
+  } catch {
+    return null;
+  }
+}
+
+function clearCheckoutSessionBackup() {
+  if (typeof window === "undefined") return;
+  try { window.localStorage.removeItem(CHECKOUT_SESSION_BACKUP_KEY); } catch {}
+}
+
+async function restoreCheckoutSessionBackup() {
+  const backup = readCheckoutSessionBackup();
+  if (!backup) return null;
+  try {
+    const { data, error } = await supabase.auth.setSession(backup);
+    if (error) return null;
+    return data?.session || null;
+  } catch {
+    return null;
+  }
+}
+
+
 function hasRecoverySignals() {
   if (typeof window === "undefined") return false;
   try {
@@ -135,13 +177,17 @@ export function AuthProvider({ children }) {
 
     supabase.auth.getSession().then(async ({ data }) => {
       if (!mounted) return;
-      setSession(data.session || null);
-      setUser(data.session?.user || null);
-      if (data.session && hasRecoverySignals()) {
+      let nextSession = data.session || null;
+      if (!nextSession) {
+        nextSession = await restoreCheckoutSessionBackup();
+      }
+      setSession(nextSession || null);
+      setUser(nextSession?.user || null);
+      if (nextSession && hasRecoverySignals()) {
         setIsPasswordRecovery(true);
         try { window.sessionStorage.setItem("cc_password_recovery", "1"); } catch {}
       }
-      await evaluateGoogleTermsGate(data.session?.user || null);
+      await evaluateGoogleTermsGate(nextSession?.user || null);
       setLoading(false);
     });
 
@@ -160,6 +206,7 @@ export function AuthProvider({ children }) {
       if (event === "SIGNED_OUT") {
         setIsPasswordRecovery(false);
         setNeedsGoogleTermsAcceptance(false);
+        clearCheckoutSessionBackup();
         try { window.sessionStorage.removeItem("cc_password_recovery"); } catch {}
         return;
       }
@@ -167,6 +214,20 @@ export function AuthProvider({ children }) {
       if (event === "SIGNED_IN" || event === "INITIAL_SESSION" || event === "USER_UPDATED" || event === "TOKEN_REFRESHED") {
         const keepRecovery = hasRecoverySignals();
         setIsPasswordRecovery(keepRecovery);
+        if (nextSession?.access_token && nextSession?.refresh_token) {
+          try {
+            window.localStorage.setItem(
+              CHECKOUT_SESSION_BACKUP_KEY,
+              JSON.stringify({
+                access_token: nextSession.access_token,
+                refresh_token: nextSession.refresh_token,
+                expires_at: nextSession.expires_at || 0,
+                expires_in: nextSession.expires_in || 0,
+                token_type: nextSession.token_type || 'bearer',
+              })
+            );
+          } catch {}
+        }
         try {
           if (keepRecovery) window.sessionStorage.setItem("cc_password_recovery", "1");
           else window.sessionStorage.removeItem("cc_password_recovery");
