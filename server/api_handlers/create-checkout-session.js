@@ -332,9 +332,31 @@ export default async function handler(req, res) {
     const orderItems = buildOrderItemsForInsert(orderId, resolvedOrderItems);
 
     if (orderItems.length) {
-      const { error: itemsErr } = await sb.from("order_items").insert(orderItems);
-      if (itemsErr) {
-        console.error("supabase order_items insert error", itemsErr);
+      const payloadNew = orderItems.map((it) => ({
+        order_id: orderId,
+        product_id: it.product_id,
+        product_name: it.name,
+        scale: it.scale,
+        qty: it.qty,
+        unit_price_cents: Math.round((Number(it.unit_price || 0) || 0) * 100),
+        product_image_url: it.img,
+      }));
+
+      const attemptNew = await sb.from("order_items").insert(payloadNew);
+      if (attemptNew?.error) {
+        const payloadOld = orderItems.map((it) => ({
+          order_id: orderId,
+          product_id: it.product_id,
+          name: it.name,
+          scale: it.scale,
+          qty: it.qty,
+          unit_price: it.unit_price,
+          img: it.img,
+        }));
+        const attemptOld = await sb.from("order_items").insert(payloadOld);
+        if (attemptOld?.error) {
+          console.error("supabase order_items insert error", attemptOld.error);
+        }
       }
     }
 

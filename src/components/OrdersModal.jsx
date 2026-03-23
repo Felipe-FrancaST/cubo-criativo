@@ -677,6 +677,62 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
       order_items: byOrder.get(o.id) || [],
     }));
 
+    const missingItemsOrderIds = merged
+      .filter((o) => String(o.status || '').toLowerCase() === 'paid' && (!Array.isArray(o.order_items) || o.order_items.length === 0))
+      .map((o) => o.id)
+      .slice(0, 8);
+
+    if (missingItemsOrderIds.length && accessToken) {
+      try {
+        await Promise.all(
+          missingItemsOrderIds.map((orderId) =>
+            fetch('/api/repair-order-items', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${accessToken}`,
+              },
+              body: JSON.stringify({ order_id: orderId }),
+            }).catch(() => null)
+          )
+        );
+
+        const retryNew = await supabase
+          .from('order_items')
+          .select('order_id, product_id, product_name, qty, unit_price_cents, scale, product_image_url')
+          .in('order_id', ids);
+
+        let retryItems = [];
+        if (!retryNew?.error) {
+          retryItems = retryNew.data || [];
+        } else {
+          const retryOld = await supabase
+            .from('order_items')
+            .select('order_id, product_id, name, qty, unit_price, scale, img')
+            .in('order_id', ids);
+          retryItems = retryOld?.data || [];
+        }
+
+        if (retryItems.length) {
+          const retryByOrder = new Map();
+          retryItems.forEach((it) => {
+            const k = it.order_id;
+            if (!retryByOrder.has(k)) retryByOrder.set(k, []);
+            retryByOrder.get(k).push({
+              order_id: it.order_id,
+              product_id: it.product_id || null,
+              name: it.product_name || it.name || null,
+              qty: it.qty,
+              scale: it.scale,
+              img: it.product_image_url || it.img || null,
+              slug: null,
+            });
+          });
+          merged = merged.map((o) => ({ ...o, order_items: retryByOrder.get(o.id) || o.order_items || [] }));
+        }
+      } catch {}
+    }
+
     // 3) Preenche nome/imagem a partir da tabela products (para pedidos antigos)
     try {
       const missing = [];

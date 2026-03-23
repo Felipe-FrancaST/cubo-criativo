@@ -6,6 +6,7 @@ import handleCreatePixPayment from '../server/api_handlers/create-pix-payment.js
 import handleDeleteAccount from '../server/api_handlers/delete-account.js';
 import handlePixPayment from '../server/api_handlers/pix-payment.js';
 import handleProfile from '../server/api_handlers/profile.js';
+import handleRepairOrderItems from '../server/api_handlers/repair-order-items.js';
 import handleVipPlans from '../server/api_handlers/vip-plans.js';
 import handleVipPresent from '../server/api_handlers/vip-present.js';
 import handleVipCycle from '../server/api_handlers/vip-cycle.js';
@@ -21,6 +22,7 @@ const ACTIONS = {
   'delete-account': handleDeleteAccount,
   'pix-payment': handlePixPayment,
   'profile': handleProfile,
+  'repair-order-items': handleRepairOrderItems,
   'vip-plans': handleVipPlans,
   'vip-present': handleVipPresent,
   'vip-cycle': handleVipCycle,

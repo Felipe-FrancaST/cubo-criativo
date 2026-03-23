@@ -45,6 +45,17 @@ async function restoreCheckoutSessionBackup() {
 }
 
 
+
+function hasCheckoutReturnSignals() {
+  if (typeof window === "undefined") return false;
+  try {
+    const params = new URLSearchParams(window.location.search || "");
+    return ["success", "pending", "cancel"].includes(String(params.get("payment") || "").toLowerCase());
+  } catch {
+    return false;
+  }
+}
+
 function hasRecoverySignals() {
   if (typeof window === "undefined") return false;
   try {
@@ -206,7 +217,7 @@ export function AuthProvider({ children }) {
       if (event === "SIGNED_OUT") {
         setIsPasswordRecovery(false);
         setNeedsGoogleTermsAcceptance(false);
-        clearCheckoutSessionBackup();
+        if (!hasCheckoutReturnSignals() && !readCheckoutSessionBackup()) clearCheckoutSessionBackup();
         try { window.sessionStorage.removeItem("cc_password_recovery"); } catch {}
         return;
       }
