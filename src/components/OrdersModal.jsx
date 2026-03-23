@@ -62,6 +62,24 @@ function isLikelyPixPaymentId(value) {
   return /^\d+$/.test(raw);
 }
 
+function normalizePaymentProvider(value) {
+  return String(value || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z]/g, '');
+}
+
+function isMercadoPagoProvider(value) {
+  const normalized = normalizePaymentProvider(value);
+  return normalized === 'mercadopago' || normalized === 'mercadopago';
+}
+
+function isRetryablePendingStatus(value) {
+  const status = String(value || '').toLowerCase().trim();
+  return ['pending', 'in_process', 'in_mediation', 'authorized'].includes(status);
+}
+
 function productionMessage(status, hasTracking) {
   const s = String(status || "recebido").toLowerCase();
   if (s === "em_producao") return "Sua peça já entrou em produção e está sendo preparada com cuidado.";
@@ -976,7 +994,7 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
   const mainItem = items[0] || null;
   const extraItems = Math.max(0, items.length - 1);
   const totalQty = items.reduce((acc, it) => acc + (Number(it?.qty) || 1), 0);
-  const paymentLabel = String(o.payment_provider || "").toLowerCase() === "mercado_pago" ? "Mercado Pago" : (o.payment_provider || "Loja");
+  const paymentLabel = isMercadoPagoProvider(o.payment_provider) ? "Mercado Pago" : (o.payment_provider || "Loja");
   const createdLabel = new Date(o.created_at).toLocaleString("pt-BR");
   return (
   <div key={o.id} className="overflow-hidden rounded-[28px] border border-white/10 bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.08),transparent_42%),linear-gradient(180deg,rgba(15,23,42,0.98),rgba(2,6,23,0.98))] shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
@@ -1125,9 +1143,7 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
         ) : null}
 
         <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-white/10 pt-4">
-          {String(o.status || "").toLowerCase() === "pending" &&
-          String(o.payment_provider || "").toLowerCase() === "mercado_pago" &&
-          o.provider_payment_id ? (
+          {isRetryablePendingStatus(o.status) && isMercadoPagoProvider(o.payment_provider) ? (
             <button
               onClick={() => (isLikelyPixPaymentId(o.provider_payment_id) ? openPay(o) : retryCardPayment(o))}
               className="rounded-2xl bg-emerald-400 px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-emerald-300"
