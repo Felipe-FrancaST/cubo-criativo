@@ -27,9 +27,22 @@ function copyToClipboard(text) {
 }
 
 function productOrderItemHref(it) {
+  const slug = String(it?.slug || "").trim();
+  if (slug) return `/p/${encodeURIComponent(slug)}`;
   const key = String(it?.product_id || "").trim();
   if (!key) return "/catalogo";
   return `/catalogo?produto=${encodeURIComponent(key)}`;
+}
+
+function productionMessage(status, hasTracking) {
+  const s = String(status || "recebido").toLowerCase();
+  if (s === "em_producao") return "Sua peça já entrou em produção e está sendo preparada com cuidado.";
+  if (s === "pronto") return "Seu pedido foi finalizado e está em preparação para envio.";
+  if (s === "enviado") return hasTracking ? "Seu pedido foi enviado. Use o código de rastreio para acompanhar a entrega." : "Seu pedido foi enviado e logo o rastreio ficará disponível.";
+  if (s === "entregue") return "Seu pedido foi entregue. Esperamos que você aproveite sua peça.";
+  if (s === "cancelado") return "Este pedido foi cancelado.";
+  if (s === "reembolsado") return "Este pedido foi reembolsado.";
+  return "Recebemos seu pedido e ele seguirá para produção assim que a etapa atual for concluída.";
 }
 
 export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequireLogin }) {
@@ -115,6 +128,8 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
   );
 
   const [reviewsByOrder, setReviewsByOrder] = React.useState({});
+  const [expandedOrderId, setExpandedOrderId] = React.useState(null);
+
   const [reviewModal, setReviewModal] = React.useState({
     open: false,
     order: null,
@@ -653,6 +668,7 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
         qty: it.qty,
         scale: it.scale,
         img: it.product_image_url || it.img || null,
+        slug: null,
       });
     });
 
@@ -709,6 +725,7 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
               ...it,
               name: it.name || p.name,
               img,
+              slug: it.slug || p.slug || null,
             };
           }),
         }));
@@ -718,6 +735,7 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
     }
 
     setOrders(merged);
+    setExpandedOrderId((current) => current || (merged[0]?.id ?? null));
 
     // 4) Carrega avaliações do usuário para exibir botão "Editar avaliação" e pré-preencher modal
     try {
@@ -818,141 +836,205 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
 
             <div className="space-y-3">
               
-{orders.map((o) => (
-  <div key={o.id} className="rounded-2xl bg-gradient-to-b from-slate-900 to-slate-950 ring-1 ring-white/10 p-4 sm:p-5 shadow-xl shadow-black/20">
-    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-      <div className="min-w-0">
-        <p className="text-xs text-slate-400">
-          {new Date(o.created_at).toLocaleString("pt-BR")}
-        </p>
-        <div className="mt-1 flex flex-wrap items-center gap-2">
-          <span
-            className={`inline-flex items-center gap-1 text-xs rounded-full px-2 py-1 ring-1 ${statusUI(o.status).cls}`}
-          >
-            {statusUI(o.status).label}
-          </span>
-          <span
-            className={`inline-flex items-center gap-1 text-xs rounded-full px-2 py-1 ring-1 ${prodUI(o.production_status).cls}`}
-            title="Status de produção/envio"
-          >
-            {prodUI(o.production_status).label}
-          </span>
+{orders.map((o) => {
+  const isExpanded = expandedOrderId === o.id;
+  const items = Array.isArray(o.order_items) ? o.order_items : [];
+  const mainItem = items[0] || null;
+  const extraItems = Math.max(0, items.length - 1);
+  const totalQty = items.reduce((acc, it) => acc + (Number(it?.qty) || 1), 0);
+  const paymentLabel = String(o.payment_provider || "").toLowerCase() === "mercado_pago" ? "Mercado Pago" : (o.payment_provider || "Loja");
+  const createdLabel = new Date(o.created_at).toLocaleString("pt-BR");
+  return (
+  <div key={o.id} className="overflow-hidden rounded-[28px] border border-white/10 bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.08),transparent_42%),linear-gradient(180deg,rgba(15,23,42,0.98),rgba(2,6,23,0.98))] shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
+    <button
+      type="button"
+      onClick={() => setExpandedOrderId((current) => (current === o.id ? null : o.id))}
+      className="w-full p-4 text-left sm:p-5"
+    >
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-200">
+              Pedido #{String(o.id).slice(0, 8)}
+            </span>
+            <span className={`inline-flex items-center gap-1 text-xs rounded-full px-2.5 py-1 ring-1 ${statusUI(o.status).cls}`}>{statusUI(o.status).label}</span>
+            <span className={`inline-flex items-center gap-1 text-xs rounded-full px-2.5 py-1 ring-1 ${prodUI(o.production_status).cls}`}>{prodUI(o.production_status).label}</span>
+          </div>
+
+          <div className="mt-4 flex min-w-0 items-center gap-3">
+            <div className="flex -space-x-3">
+              {items.slice(0, 3).map((it, idx) => (
+                it?.img ? (
+                  <img key={idx} src={it.img} alt={it.name || "Produto"} className="h-14 w-14 rounded-2xl border border-white/10 bg-slate-950 object-cover shadow-lg" loading="lazy" />
+                ) : (
+                  <div key={idx} className="grid h-14 w-14 place-items-center rounded-2xl border border-white/10 bg-slate-900 text-slate-500">
+                    <span className="material-icons text-base">inventory_2</span>
+                  </div>
+                )
+              ))}
+            </div>
+
+            <div className="min-w-0">
+              <p className="truncate text-base font-semibold text-white sm:text-lg">
+                {mainItem?.name || "Pedido da loja"}
+              </p>
+              <p className="mt-1 text-sm text-slate-300">
+                {extraItems > 0 ? `+ ${extraItems} item(ns) neste pedido` : `${totalQty} item(ns) neste pedido`}
+              </p>
+              <p className="mt-1 text-xs text-slate-400">{createdLabel}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between gap-4 lg:justify-end">
+          <div className="text-left lg:text-right">
+            <p className="text-[11px] uppercase tracking-[0.22em] text-slate-500">Total</p>
+            <p className="mt-1 text-xl font-bold text-white">{fmtBRL(Number(o.total))}</p>
+          </div>
+          <div className={`grid h-11 w-11 place-items-center rounded-2xl border border-white/10 bg-white/5 text-slate-200 transition-transform ${isExpanded ? "rotate-180" : ""}`}>
+            <span className="material-icons">expand_more</span>
+          </div>
+        </div>
+      </div>
+    </button>
+
+    {isExpanded ? (
+      <div className="border-t border-white/10 px-4 pb-4 pt-4 sm:px-5 sm:pb-5">
+        <div className="grid gap-3 md:grid-cols-4">
+          {[
+            ["Pedido", `#${String(o.id).slice(0, 8)}`],
+            ["Pagamento", paymentLabel],
+            ["Itens", `${totalQty} unidade(s)`],
+            ["Criado em", createdLabel],
+          ].map(([label, value]) => (
+            <div key={label} className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+              <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">{label}</p>
+              <p className="mt-1 text-sm font-medium text-slate-100 break-words">{value}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-4 rounded-3xl border border-white/10 bg-cyan-400/[0.06] p-4">
+          <div className="flex items-start gap-3">
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-cyan-400/15 text-cyan-200">
+              <span className="material-icons text-lg">local_shipping</span>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-white">Andamento do pedido</p>
+              <p className="mt-1 text-sm leading-6 text-slate-300">{productionMessage(o.production_status, !!o.shipping_tracking)}</p>
+            </div>
+          </div>
+
           {o.shipping_tracking ? (
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1 text-xs rounded-full px-2 py-1 ring-1 ring-white/15 bg-white/4 text-slate-200">
-                Rastreio: {String(o.shipping_tracking)}
-              </span>
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-200">Rastreio: {String(o.shipping_tracking)}</span>
               <button
-                onClick={() => {
-                  const ok = copyToClipboard(o.shipping_tracking);
-                  if (!ok) return;
-                }}
-                className="text-xs rounded-full px-2 py-1 ring-1 ring-white/15 hover:bg-white/4 text-slate-200"
-                title="Copiar código"
+                onClick={() => copyToClipboard(o.shipping_tracking)}
+                className="rounded-full border border-white/10 px-3 py-1.5 text-xs font-medium text-slate-100 transition hover:bg-white/5"
               >
-                Copiar
+                Copiar rastreio
               </button>
               <a
                 href={trackUrl(o.shipping_tracking)}
                 target="_blank"
                 rel="noreferrer"
-                className="text-xs rounded-full px-2 py-1 bg-emerald-400 text-black font-semibold hover:bg-emerald-300"
-                title="Abrir rastreio"
+                className="rounded-full bg-emerald-400 px-3 py-1.5 text-xs font-semibold text-black transition hover:bg-emerald-300"
               >
-                Rastrear
+                Acompanhar entrega
               </a>
             </div>
           ) : null}
         </div>
-      </div>
 
-      <div className="text-right shrink-0">
-        <p className="text-xs text-slate-400">Valor</p>
-        <p className="text-lg font-semibold">{fmtBRL(Number(o.total))}</p>
-      </div>
-    </div>
-
-    {Array.isArray(o.order_items) && o.order_items.length > 0 && (
-  <div className="mt-4 rounded-2xl bg-white/4 ring-1 ring-white/10 overflow-hidden">
-    <ul className="divide-y divide-white/10">
-      {o.order_items.map((it, idx) => (
-        <li key={idx} className="flex items-center justify-between gap-3 px-3 py-3 hover:bg-white/[0.02]">
-          <a
-            href={productOrderItemHref(it)}
-            className="flex items-center gap-3 min-w-0 rounded-lg hover:bg-white/4 px-1 py-1 -mx-1 -my-1"
-            title={it.name ? `Abrir ${it.name}` : "Abrir produto"}
-          >
-            {it.img ? (
-              <img
-                src={it.img}
-                alt={it.name || "Produto"}
-                className="h-10 w-10 rounded-md object-cover ring-1 ring-white/10 bg-[#0c2430]"
-                loading="lazy"
-              />
-            ) : (
-              <div className="h-10 w-10 rounded-md bg-[#0c2430] ring-1 ring-white/10 grid place-items-center text-slate-400">
-                <span className="material-icons text-base">image</span>
+        {items.length ? (
+          <div className="mt-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-white">Itens do pedido</p>
+                <p className="text-xs text-slate-400">Clique no produto para abrir a página dele no site.</p>
               </div>
-            )}
-            <div className="min-w-0">
-              <p className="text-sm text-slate-200 truncate hover:text-emerald-200">{it.name || "Produto"}</p>
-              {it.scale ? (
-                <p className="text-xs text-slate-400 truncate">Escala: {it.scale}</p>
-              ) : null}
             </div>
-          </a>
+            <div className="space-y-3">
+              {items.map((it, idx) => (
+                <a
+                  key={idx}
+                  href={productOrderItemHref(it)}
+                  className="flex items-center gap-3 rounded-3xl border border-white/10 bg-white/[0.03] p-3 transition hover:border-cyan-400/30 hover:bg-cyan-400/[0.05]"
+                  title={it.name ? `Abrir ${it.name}` : "Abrir produto"}
+                >
+                  {it.img ? (
+                    <img
+                      src={it.img}
+                      alt={it.name || "Produto"}
+                      className="h-16 w-16 rounded-2xl object-cover ring-1 ring-white/10 bg-[#0c2430]"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="grid h-16 w-16 place-items-center rounded-2xl bg-[#0c2430] ring-1 ring-white/10 text-slate-400">
+                      <span className="material-icons">image</span>
+                    </div>
+                  )}
 
-          <p className="text-sm text-slate-300 shrink-0">{Number(it.qty) || 1}x</p>
-        </li>
-      ))}
-    </ul>
-  </div>
-)}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-slate-100">{it.name || "Produto"}</p>
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-400">
+                      <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1">Quantidade: {Number(it.qty) || 1}</span>
+                      {it.scale ? <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1">Escala: {it.scale}</span> : null}
+                    </div>
+                  </div>
 
-    <div className="mt-4 flex flex-wrap items-center gap-2 pt-1 border-t border-white/10">
-      {String(o.status || "").toLowerCase() === "pending" &&
-      String(o.payment_provider || "").toLowerCase() === "mercado_pago" &&
-      o.provider_payment_id ? (
-        <button
-          onClick={() => openPay(o)}
-          className="text-sm rounded-xl px-3 py-2 bg-emerald-400 text-black font-semibold hover:bg-emerald-300"
-          title="Abrir pagamento Pix"
-        >
-          Pagar
-        </button>
-      ) : null}
+                  <span className="material-icons text-slate-500">chevron_right</span>
+                </a>
+              ))}
+            </div>
+          </div>
+        ) : null}
 
-      {String(o.production_status || "recebido").toLowerCase() !== "entregue" ? (
-        <button
-          onClick={() => openCancel(o)}
-          className="text-sm rounded-xl px-3 py-2 ring-1 ring-white/15 hover:bg-white/4 text-slate-100"
-        >
-          Cancelar pedido
-        </button>
-      ) : null}
+        <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-white/10 pt-4">
+          {String(o.status || "").toLowerCase() === "pending" &&
+          String(o.payment_provider || "").toLowerCase() === "mercado_pago" &&
+          o.provider_payment_id ? (
+            <button
+              onClick={() => openPay(o)}
+              className="rounded-2xl bg-emerald-400 px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-emerald-300"
+              title="Abrir pagamento Pix"
+            >
+              Pagar agora
+            </button>
+          ) : null}
 
-      {String(o.production_status || "").toLowerCase() === "entregue" ? (
-        <button
-          onClick={() => openReview(o)}
-          className="text-sm rounded-xl px-3 py-2 bg-amber-400 text-black font-semibold hover:bg-cyan-400"
-        >
-          {reviewsByOrder?.[String(o.id)] ? "Editar avaliação" : "Avaliar pedido"}
-        </button>
-      ) : null}
-    </div>
+          {String(o.production_status || "recebido").toLowerCase() !== "entregue" ? (
+            <button
+              onClick={() => openCancel(o)}
+              className="rounded-2xl border border-white/10 px-4 py-2.5 text-sm font-medium text-slate-100 transition hover:bg-white/5"
+            >
+              Cancelar pedido
+            </button>
+          ) : null}
 
-    {String(o.production_status || "").toLowerCase() === "entregue" && reviewsByOrder?.[String(o.id)] ? (
-      <div className="mt-3 rounded-xl bg-emerald-500/10 ring-1 ring-emerald-400/20 px-3 py-3">
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-sm font-semibold text-emerald-100">Sua avaliação</p>
-          <span className="text-cyan-300 text-sm">{"★".repeat(Math.max(1, Math.min(5, Number(reviewsByOrder[String(o.id)]?.rating) || 5)))}</span>
+          {String(o.production_status || "").toLowerCase() === "entregue" ? (
+            <button
+              onClick={() => openReview(o)}
+              className="rounded-2xl bg-amber-400 px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-amber-300"
+            >
+              {reviewsByOrder?.[String(o.id)] ? "Editar avaliação" : "Avaliar pedido"}
+            </button>
+          ) : null}
         </div>
-        <p className="mt-1 text-sm text-slate-200">{reviewsByOrder[String(o.id)]?.comment}</p>
+
+        {String(o.production_status || "").toLowerCase() === "entregue" && reviewsByOrder?.[String(o.id)] ? (
+          <div className="mt-3 rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-emerald-100">Sua avaliação</p>
+              <span className="text-amber-300 text-sm">{"★".repeat(Math.max(1, Math.min(5, Number(reviewsByOrder[String(o.id)]?.rating) || 5)))}</span>
+            </div>
+            <p className="mt-1 text-sm text-slate-200">{reviewsByOrder[String(o.id)]?.comment}</p>
+          </div>
+        ) : null}
       </div>
     ) : null}
   </div>
-))}
-            </div>
+);})}            </div>
           </div>
         )}
       </div>
