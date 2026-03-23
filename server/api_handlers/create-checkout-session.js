@@ -218,6 +218,7 @@ export default async function handler(req, res) {
     }
 
     const body = safeBody(req);
+    const base = getBaseUrl(req);
     const retryOrderId = String(body.retry_order_id || body.order_id || '').trim();
     let vipPlanId = String(body.vip_plan_id || '').trim();
     let items = Array.isArray(body.items) ? body.items : [];
@@ -397,7 +398,6 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "O desconto deixou o valor do pedido inválido para pagamento." });
     }
 
-    const base = getBaseUrl(req);
     const orderId = crypto.randomUUID();
     const activeVipCycleKey = vipPlanId ? (await getActiveVipCycleKey(sb)) : null;
 
