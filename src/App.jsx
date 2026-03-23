@@ -637,6 +637,7 @@ React.useEffect(() => {
 
   // ===== Pagamento (Mercado Pago Checkout Pro + Pix) =====
   const [paying, setPaying] = React.useState(false);
+  const [checkoutSuccessOpen, setCheckoutSuccessOpen] = React.useState(false);
 
   // ===== Galeria =====
   const [galleryOpen, setGalleryOpen] = React.useState(false);
@@ -845,7 +846,7 @@ React.useEffect(() => {
             trackEvent("payment_confirmed", { provider: "mercadopago", order_id: orderId });
             setCart([]);
             setCartOpen(false);
-            showOnce("✅ Pedido finalizado!");
+            setCheckoutSuccessOpen(true);
             cleanupUrl();
             return;
           }
@@ -868,7 +869,7 @@ React.useEffect(() => {
         trackEvent("payment_confirmed", { provider: provider || "unknown" });
         setCart([]);
         setCartOpen(false);
-        showOnce("✅ Pagamento confirmado!");
+        setCheckoutSuccessOpen(true);
         cleanupUrl();
       }
     } catch {
@@ -1702,6 +1703,46 @@ React.useEffect(() => {
       /></Suspense>) : null}
 
       {vipAreaOpen ? (<Suspense fallback={null}><VipAreaModal onRequireLogin={requireLogin} open={vipAreaOpen} onClose={() => setVipAreaOpen(false)} onGoVip={() => { setVipAreaOpen(false); navigate("/vip"); }} /></Suspense>) : null}
+
+      <Modal
+        open={checkoutSuccessOpen}
+        onClose={() => setCheckoutSuccessOpen(false)}
+        title=""
+        ariaLabel="Pagamento concluído"
+        widthClass="w-[92vw] sm:w-[520px]"
+        maxWidth="max-w-[520px]"
+        panelClassName="overflow-visible rounded-[28px] border border-emerald-300/15 bg-[linear-gradient(180deg,rgba(8,25,34,.98),rgba(5,16,24,.98))] shadow-[0_30px_80px_rgba(0,0,0,.55)]"
+        bodyClassName="p-0"
+      >
+        <div className="px-6 py-7 sm:px-7 sm:py-8 text-center">
+          <div className="mx-auto flex h-[72px] w-[72px] items-center justify-center rounded-full bg-emerald-400/15 ring-1 ring-emerald-300/30 text-emerald-300 shadow-[0_0_30px_rgba(16,185,129,.18)]">
+            <span className="material-icons text-4xl">check_circle</span>
+          </div>
+          <h3 className="mt-5 text-2xl font-extrabold text-white">Pagamento concluído</h3>
+          <p className="mt-3 text-sm sm:text-base leading-relaxed text-slate-300">
+            Acompanhe seu pedido na aba <span className="font-semibold text-cyan-100">Meus pedidos</span>.
+          </p>
+          <div className="mt-6 grid gap-3">
+            <button
+              type="button"
+              className="w-full rounded-2xl px-4 py-3 font-semibold bg-emerald-400 text-black hover:bg-emerald-300 transition shadow-[0_12px_30px_rgba(16,185,129,.22)]"
+              onClick={() => {
+                setCheckoutSuccessOpen(false);
+                setOrdersOpen(true);
+              }}
+            >
+              Ir para Meus pedidos
+            </button>
+            <button
+              type="button"
+              className="w-full rounded-2xl px-4 py-3 font-semibold bg-white/6 text-white ring-1 ring-white/15 hover:bg-white/8 transition"
+              onClick={() => setCheckoutSuccessOpen(false)}
+            >
+              Fechar
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       {settingsOverlayOpen ? (<Suspense fallback={null}><ProfileSettingsModal
         open={settingsOverlayOpen}
