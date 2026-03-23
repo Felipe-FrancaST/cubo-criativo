@@ -82,6 +82,41 @@ function findPlanByProfileValue(plans, profilePlan) {
 }
 
 
+
+async function loadExistingOrderItems(sb, orderId) {
+  const attemptNew = await sb
+    .from("order_items")
+    .select("order_id, product_id, product_name, qty, unit_price_cents, scale, product_image_url")
+    .eq("order_id", orderId);
+
+  if (!attemptNew?.error) {
+    return (attemptNew.data || []).map((it) => ({
+      id: it.product_id || null,
+      name: it.product_name || 'Produto',
+      qty: Number(it.qty || 1) || 1,
+      price: Number(((Number(it.unit_price_cents || 0) || 0) / 100).toFixed(2)),
+      scale: it.scale || '',
+      img: it.product_image_url || '',
+    }));
+  }
+
+  const attemptOld = await sb
+    .from("order_items")
+    .select("order_id, product_id, name, qty, unit_price, scale, img")
+    .eq("order_id", orderId);
+
+  if (attemptOld?.error) return [];
+
+  return (attemptOld.data || []).map((it) => ({
+    id: it.product_id || null,
+    name: it.name || 'Produto',
+    qty: Number(it.qty || 1) || 1,
+    price: Number(Number(it.unit_price || 0).toFixed(2)),
+    scale: it.scale || '',
+    img: it.img || '',
+  }));
+}
+
 async function mpCreatePreference({ accessToken, body }) {
   const resp = await fetch("https://api.mercadopago.com/checkout/preferences", {
     method: "POST",
@@ -183,6 +218,7 @@ export default async function handler(req, res) {
     }
 
     const body = safeBody(req);
+    const retryOrderId = String(body.retry_order_id || body.order_id || '').trim();
     let vipPlanId = String(body.vip_plan_id || '').trim();
     let items = Array.isArray(body.items) ? body.items : [];
     let vipUpgradeFromPlanId = '';
@@ -193,6 +229,78 @@ export default async function handler(req, res) {
     const modeBody = String(body.mode || '').trim().toLowerCase();
     const isVipUpgrade = (modeParam === 'vip_upgrade' || modeBody === 'vip_upgrade');
     const vipUpgradeToPlanId = String(body?.to_plan_id || body?.toPlanId || '').trim();
+
+    if (retryOrderId) {
+      const { data: existingOrder, error: existingOrderErr } = await sb
+        .from("orders")
+        .select("id,user_id,status,total,payment_provider,order_type,coupon_code,coupon_discount")
+        .eq("id", retryOrderId)
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (existingOrderErr || !existingOrder) {
+        return res.status(404).json({ error: "Pedido não encontrado." });
+      }
+
+      if (String(existingOrder.order_type || 'shop').toLowerCase() !== 'shop') {
+        return res.status(400).json({ error: "Este tipo de pedido não pode ser pago novamente por aqui." });
+      }
+
+      if (String(existingOrder.status || '').toLowerCase() === 'paid') {
+        return res.status(400).json({ error: "Este pedido já foi pago." });
+      }
+
+      const retryItems = await loadExistingOrderItems(sb, retryOrderId);
+      if (!retryItems.length) {
+        return res.status(400).json({ error: "Este pedido está sem itens para reenviar ao pagamento." });
+      }
+
+      const cleanRetryItems = buildMercadoPagoItems(retryItems);
+      if (!cleanRetryItems.length) {
+        return res.status(400).json({ error: "Não foi possível montar os itens do pagamento." });
+      }
+
+      const prefBody = {
+        items: cleanRetryItems,
+        payer: { email: user.email || undefined },
+        external_reference: retryOrderId,
+        notification_url: `${base}/api/mp-webhook`,
+        back_urls: {
+          success: `${base}/?payment=success&provider=mercadopago&order_id=${retryOrderId}`,
+          pending: `${base}/?payment=pending&provider=mercadopago&order_id=${retryOrderId}`,
+          failure: `${base}/?payment=cancel&provider=mercadopago&order_id=${retryOrderId}`,
+        },
+        auto_return: "approved",
+        statement_descriptor: "CUBOCRIATIVO",
+        metadata: {
+          order_id: retryOrderId,
+          user_id: user.id,
+          order_type: 'shop',
+          coupon_code: existingOrder.coupon_code || null,
+          coupon_discount: Number(existingOrder.coupon_discount || 0) || 0,
+          items_json: serializeResolvedItems(retryItems),
+          retry_payment: true,
+        },
+      };
+
+      const retryResp = await mpCreatePreference({ accessToken: mpToken, body: prefBody });
+      if (!retryResp.ok) {
+        console.error("mercadopago retry preference error", retryResp.data);
+        return res.status(500).json({ error: "Não foi possível reabrir o pagamento.", details: retryResp.data });
+      }
+
+      const retryUrl = retryResp.data?.init_point;
+      const retryPrefId = retryResp.data?.id;
+      if (retryPrefId) {
+        await sb.from("orders").update({ provider_payment_id: String(retryPrefId), payment_provider: 'mercadopago', status: 'pending' }).eq("id", retryOrderId);
+      }
+
+      if (!retryUrl) {
+        return res.status(500).json({ error: "Preferência sem URL" });
+      }
+
+      return res.status(200).json({ url: retryUrl, order_id: retryOrderId, retried: true });
+    }
 
     // Upgrade VIP via Checkout Pro (cartão/pix no MP) — cobra apenas a diferença
     if (isVipUpgrade) {

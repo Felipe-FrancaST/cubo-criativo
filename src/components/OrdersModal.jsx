@@ -34,6 +34,34 @@ function productOrderItemHref(it) {
   return `/catalogo?produto=${encodeURIComponent(key)}`;
 }
 
+
+const CHECKOUT_SESSION_BACKUP_KEY = "cc_checkout_session_backup";
+
+function backupCheckoutSession(session) {
+  if (typeof window === "undefined") return;
+  const accessToken = String(session?.access_token || "").trim();
+  const refreshToken = String(session?.refresh_token || "").trim();
+  if (!accessToken || !refreshToken) return;
+  try {
+    window.localStorage.setItem(
+      CHECKOUT_SESSION_BACKUP_KEY,
+      JSON.stringify({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+        expires_at: Number(session?.expires_at || 0) || 0,
+        expires_in: Number(session?.expires_in || 0) || 0,
+        token_type: String(session?.token_type || 'bearer') || 'bearer',
+      })
+    );
+  } catch {}
+}
+
+function isLikelyPixPaymentId(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return false;
+  return /^\d+$/.test(raw);
+}
+
 function productionMessage(status, hasTracking) {
   const s = String(status || "recebido").toLowerCase();
   if (s === "em_producao") return "Sua peça já entrou em produção e está sendo preparada com cuidado.";
@@ -351,6 +379,56 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
     } catch (e) {
       console.error(e);
       setPayModal((s) => ({ ...s, loading: false, msg: "Erro ao carregar o Pix. Tente novamente." }));
+    }
+  }
+
+  async function retryCardPayment(order) {
+    if (!order?.id) return;
+    if (!accessToken) {
+      onRequireLogin?.("Faça login novamente para concluir o pagamento.");
+      return;
+    }
+
+    try {
+      backupCheckoutSession(session);
+      setPayModal({
+        open: true,
+        order,
+        loading: true,
+        checking: false,
+        pix: null,
+        status: String(order.status || 'pending'),
+        msg: '',
+        finalized: false,
+      });
+
+      const resp = await fetch('/api/create-checkout-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ retry_order_id: order.id }),
+      });
+
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok || !data?.url) {
+        throw new Error(data?.error || 'Não foi possível reabrir o pagamento com cartão.');
+      }
+
+      window.location.href = data.url;
+    } catch (e) {
+      console.error(e);
+      setPayModal({
+        open: true,
+        order,
+        loading: false,
+        checking: false,
+        pix: null,
+        status: String(order.status || 'pending'),
+        msg: e?.message || 'Não foi possível reabrir o pagamento com cartão.',
+        finalized: false,
+      });
     }
   }
 
@@ -1051,11 +1129,11 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
           String(o.payment_provider || "").toLowerCase() === "mercado_pago" &&
           o.provider_payment_id ? (
             <button
-              onClick={() => openPay(o)}
+              onClick={() => (isLikelyPixPaymentId(o.provider_payment_id) ? openPay(o) : retryCardPayment(o))}
               className="rounded-2xl bg-emerald-400 px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-emerald-300"
-              title="Abrir pagamento Pix"
+              title={isLikelyPixPaymentId(o.provider_payment_id) ? "Abrir pagamento Pix" : "Reabrir pagamento com cartão"}
             >
-              Pagar agora
+              Pagar
             </button>
           ) : null}
 
