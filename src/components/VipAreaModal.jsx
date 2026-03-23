@@ -883,6 +883,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
         ticket_url: data?.ticket_url || '',
         status: String(data?.status || '').toLowerCase(),
       });
+      setUpgradePayOpen(false);
       setMsg('Pix do upgrade gerado. A confirmação é automática.');
     } catch (e) {
       setMsg(String(e?.message || 'Não foi possível gerar o Pix do upgrade.'));
@@ -918,6 +919,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
         throw new Error(data?.error || 'Não foi possível iniciar o pagamento.');
       }
       if (data?.url) {
+        setUpgradePayOpen(false);
         window.location.href = data.url;
         return;
       }
@@ -1084,6 +1086,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || 'Não foi possível iniciar a renovação.');
       if (data?.url) {
+        setUpgradePayOpen(false);
         window.location.href = data.url;
         return;
       }
@@ -1606,14 +1609,14 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                     <div className="mt-4 grid grid-cols-1 gap-2">
                       <button
                         disabled={upgradeBusy}
-                        onClick={() => { setUpgradePayMethod('card'); setUpgradePayOpen(false); startUpgradeCard(); }}
+                        onClick={() => { setUpgradePayMethod('card'); startUpgradeCard(); }}
                         className={`rounded-xl px-4 py-3 font-extrabold ring-4 transition ${upgradeBusy ? "bg-cyan-400/20 text-cyan-50 ring-cyan-200/15 cursor-wait" : "bg-cyan-400 text-black ring-cyan-400/20 hover:opacity-95"}`}
                       >
                         {upgradeBusy && upgradePayMethod === 'card' ? 'Aguarde…' : 'Pagar com cartão'}
                       </button>
                       <button
                         disabled={upgradeBusy}
-                        onClick={() => { setUpgradePayMethod('pix'); setUpgradePayOpen(false); startUpgradePix(); }}
+                        onClick={() => { setUpgradePayMethod('pix'); startUpgradePix(); }}
                         className={`rounded-xl px-4 py-3 font-semibold ring-1 transition ${upgradeBusy ? "bg-cyan-400/20 text-cyan-50 ring-cyan-200/15 cursor-wait" : "ring-white/15 hover:bg-white/4"}`}
                       >
                         {upgradeBusy && upgradePayMethod === 'pix' ? 'Aguarde…' : 'Pagar com Pix'}

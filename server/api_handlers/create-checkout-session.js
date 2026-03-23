@@ -94,7 +94,7 @@ async function loadExistingOrderItems(sb, orderId) {
       id: it.product_id || null,
       name: it.product_name || 'Produto',
       qty: Number(it.qty || 1) || 1,
-      unit_price: Number(((Number(it.unit_price_cents || 0) || 0) / 100).toFixed(2)),
+      price: Number(((Number(it.unit_price_cents || 0) || 0) / 100).toFixed(2)),
       scale: it.scale || '',
       img: it.product_image_url || '',
     }));
@@ -218,7 +218,6 @@ export default async function handler(req, res) {
     }
 
     const body = safeBody(req);
-    const base = getBaseUrl(req);
     const retryOrderId = String(body.retry_order_id || body.order_id || '').trim();
     let vipPlanId = String(body.vip_plan_id || '').trim();
     let items = Array.isArray(body.items) ? body.items : [];
@@ -398,6 +397,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "O desconto deixou o valor do pedido inválido para pagamento." });
     }
 
+    const base = getBaseUrl(req);
     const orderId = crypto.randomUUID();
     const activeVipCycleKey = vipPlanId ? (await getActiveVipCycleKey(sb)) : null;
 
