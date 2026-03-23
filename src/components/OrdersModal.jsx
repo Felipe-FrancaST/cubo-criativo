@@ -130,6 +130,7 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
     msg: "",
     finalized: false,
   });
+  const [retryingCardOrderId, setRetryingCardOrderId] = React.useState("");
 
   const paidHandledRef = React.useRef(new Set());
 
@@ -408,17 +409,9 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
     }
 
     try {
+      setError("");
+      setRetryingCardOrderId(String(order.id));
       backupCheckoutSession(session);
-      setPayModal({
-        open: true,
-        order,
-        loading: true,
-        checking: false,
-        pix: null,
-        status: String(order.status || 'pending'),
-        msg: '',
-        finalized: false,
-      });
 
       const resp = await fetch('/api/create-checkout-session', {
         method: 'POST',
@@ -435,18 +428,12 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
       }
 
       window.location.href = data.url;
+      return;
     } catch (e) {
       console.error(e);
-      setPayModal({
-        open: true,
-        order,
-        loading: false,
-        checking: false,
-        pix: null,
-        status: String(order.status || 'pending'),
-        msg: e?.message || 'Não foi possível reabrir o pagamento com cartão.',
-        finalized: false,
-      });
+      setError(e?.message || 'Não foi possível reabrir o pagamento com cartão.');
+    } finally {
+      setRetryingCardOrderId("");
     }
   }
 
@@ -1146,10 +1133,11 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
           {isRetryablePendingStatus(o.status) && isMercadoPagoProvider(o.payment_provider) ? (
             <button
               onClick={() => (isLikelyPixPaymentId(o.provider_payment_id) ? openPay(o) : retryCardPayment(o))}
-              className="rounded-2xl bg-emerald-400 px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-emerald-300"
+              disabled={retryingCardOrderId === String(o.id)}
+              className="rounded-2xl bg-emerald-400 px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-emerald-300 disabled:cursor-wait disabled:opacity-70"
               title={isLikelyPixPaymentId(o.provider_payment_id) ? "Abrir pagamento Pix" : "Reabrir pagamento com cartão"}
             >
-              Pagar
+              {retryingCardOrderId === String(o.id) ? "Abrindo pagamento..." : "Pagar"}
             </button>
           ) : null}
 

@@ -94,7 +94,7 @@ async function loadExistingOrderItems(sb, orderId) {
       id: it.product_id || null,
       name: it.product_name || 'Produto',
       qty: Number(it.qty || 1) || 1,
-      price: Number(((Number(it.unit_price_cents || 0) || 0) / 100).toFixed(2)),
+      unit_price: Number(((Number(it.unit_price_cents || 0) || 0) / 100).toFixed(2)),
       scale: it.scale || '',
       img: it.product_image_url || '',
     }));
