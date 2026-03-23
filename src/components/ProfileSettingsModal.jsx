@@ -75,7 +75,7 @@ function findVipPlanForProfile(plans, profilePlan) {
   return (plans || []).find((p) => [p?.id,p?.slug,p?.name,p?.short_name,p?.title].map(normVipText).some((c)=> c && (c===q || q.includes(c) || c.includes(q)))) || null;
 }
 
-export default function ProfileSettingsModal({ open, onClose, required = false, onSaved, initialTab = "profile", onSignOut, onNavigate, onRequireLogin, mode = "modal" }) {
+export default function ProfileSettingsModal({ open, onClose, required = false, onSaved, initialTab = "profile", onSignOut, onNavigate, onRequireLogin, mode = "modal", modalTitle, highlightTitle = "", highlightMessage = "" }) {
   const { user, session, resetPassword, loading: authLoading, isPasswordRecovery, clearPasswordRecovery, accountHasPassword } = useAuth();
 
   // Navegação compatível com o router simples do App.jsx.
@@ -925,8 +925,23 @@ setZip2(data?.address2_zip || "");
     try { go(path); } catch {}
   }
 
+  const effectiveModalTitle = String(modalTitle || (activeTab === "settings" ? "Configurações" : "Perfil")).trim();
+
   const inner = (
       <div className="w-full max-w-3xl mx-auto">
+        {highlightTitle ? (
+          <div className="mb-4 rounded-[28px] border border-cyan-400/20 bg-[linear-gradient(135deg,rgba(34,211,238,0.14),rgba(16,185,129,0.08),rgba(15,23,42,0.92))] p-5 shadow-[0_22px_70px_-30px_rgba(34,211,238,0.45)]">
+            <div className="flex items-start gap-4">
+              <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-cyan-400/12 text-cyan-200 ring-1 ring-cyan-300/25">
+                <span className="material-icons">badge</span>
+              </div>
+              <div>
+                <p className="text-lg font-extrabold tracking-[0.18em] text-cyan-100 uppercase">{highlightTitle}</p>
+                {highlightMessage ? <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-200">{highlightMessage}</p> : null}
+              </div>
+            </div>
+          </div>
+        ) : null}
         {!user ? (
           <div className="rounded-2xl bg-white/4 ring-1 ring-white/10 p-4 text-slate-200">
             <div className="font-semibold">Entre para continuar</div>
@@ -1445,7 +1460,7 @@ setZip2(data?.address2_zip || "");
 
   return (
     <>
-      <Modal open={open} onClose={onClose} title={activeTab === "settings" ? "Configurações" : "Perfil"}>
+      <Modal open={open} onClose={onClose} title={effectiveModalTitle}>
         {inner}
       </Modal>
       {deleteAccountModalEl}

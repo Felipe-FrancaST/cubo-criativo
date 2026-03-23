@@ -10,6 +10,7 @@ const AuthModal = lazy(() => import("./components/AuthModal.jsx"));
 const OrdersModal = lazy(() => import("./components/OrdersModal.jsx"));
 const MenuDrawer = lazy(() => import("./components/MenuDrawer.jsx"));
 const VipAreaModal = lazy(() => import("./components/VipAreaModal.jsx"));
+const ProfileSettingsModal = lazy(() => import("./components/ProfileSettingsModal.jsx"));
 import SiteHeader from "./components/SiteHeader.jsx";
 import { useAuth } from "./auth/AuthProvider.jsx";
 import { supabase } from "./lib/supabaseClient";
@@ -528,10 +529,18 @@ React.useEffect(() => {
 
   function openSettings(tab = 'profile', opts = {}) {
     const t = tab === 'settings' ? 'settings' : 'profile';
-    setSettingsCtx({
+    const nextCtx = {
       returnTo: String(opts?.returnTo || route || "/"),
       autoClose: Boolean(opts?.autoClose),
-    });
+    };
+    setSettingsCtx(nextCtx);
+
+    const shouldOpenOverlay = Boolean(opts?.overlay) || Boolean(opts?.autoClose && cartOpen);
+    if (shouldOpenOverlay) {
+      setSettingsOverlayOpen(true);
+      return;
+    }
+
     navigate(t === 'settings' ? '/configuracoes' : '/perfil');
   }
 
@@ -576,6 +585,7 @@ React.useEffect(() => {
   const [ordersOpen, setOrdersOpen] = React.useState(false);
   // Configurações/Perfil agora são PÁGINA (não modal)
   const [settingsCtx, setSettingsCtx] = React.useState({ returnTo: "/", autoClose: false });
+  const [settingsOverlayOpen, setSettingsOverlayOpen] = React.useState(false);
   const [vipAreaOpen, setVipAreaOpen] = React.useState(false);
   const [menuDrawerOpen, setMenuDrawerOpen] = React.useState(false);
 
@@ -1056,12 +1066,12 @@ React.useEffect(() => {
   }, []);
 
   React.useEffect(() => {
-    const anyOverlayOpen = cartOpen || galleryOpen || authOpen || ordersOpen || menuDrawerOpen;
+    const anyOverlayOpen = cartOpen || galleryOpen || authOpen || ordersOpen || menuDrawerOpen || settingsOverlayOpen;
     document.body.style.overflow = anyOverlayOpen ? "hidden" : "";
     return () => {
       document.body.style.overflow = "";
     };
-  }, [cartOpen, galleryOpen, authOpen, ordersOpen, menuDrawerOpen]);
+  }, [cartOpen, galleryOpen, authOpen, ordersOpen, menuDrawerOpen, settingsOverlayOpen]);
 
   // fecha menu lateral quando muda rota
   React.useEffect(() => {
@@ -1692,6 +1702,30 @@ React.useEffect(() => {
       /></Suspense>) : null}
 
       {vipAreaOpen ? (<Suspense fallback={null}><VipAreaModal onRequireLogin={requireLogin} open={vipAreaOpen} onClose={() => setVipAreaOpen(false)} onGoVip={() => { setVipAreaOpen(false); navigate("/vip"); }} /></Suspense>) : null}
+
+      {settingsOverlayOpen ? (<Suspense fallback={null}><ProfileSettingsModal
+        open={settingsOverlayOpen}
+        required={true}
+        initialTab="profile"
+        modalTitle="Complete o seu cadastro"
+        highlightTitle="Complete o seu cadastro"
+        highlightMessage="Preencha seus dados de identificação e entrega para concluir o pagamento. Assim que salvar, esta janela será fechada automaticamente."
+        onClose={() => {
+          setSettingsOverlayOpen(false);
+          setSettingsCtx((p) => ({ ...p, autoClose: false }));
+        }}
+        onRequireLogin={requireLogin}
+        onNavigate={navigate}
+        onSignOut={() => signOut()}
+        onSaved={() => {
+          setSettingsOverlayOpen(false);
+          setToastMsg("Cadastro atualizado!");
+          setToastOpen(true);
+          clearTimeout(toastT.current);
+          toastT.current = setTimeout(() => setToastOpen(false), 1800);
+          setSettingsCtx((p) => ({ ...p, autoClose: false }));
+        }}
+      /></Suspense>) : null}
 
       {/* MODAL GALERIA */}
       {/*
