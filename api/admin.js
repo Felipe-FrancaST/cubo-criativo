@@ -1581,6 +1581,18 @@ async function deleteOrderById(sb, orderId) {
   const id = String(orderId || "").trim();
   if (!id) return { ok: false, error: "Missing order_id" };
 
+  let orderBeforeDelete = null;
+  try {
+    const { data } = await sb
+      .from("orders")
+      .select("id,user_id,order_type")
+      .eq("id", id)
+      .maybeSingle();
+    orderBeforeDelete = data || null;
+  } catch (e) {
+    // ignore lookup failure and continue with deletion
+  }
+
   try {
     await sb.from("order_items").delete().eq("order_id", id);
   } catch (e) {
@@ -1589,6 +1601,35 @@ async function deleteOrderById(sb, orderId) {
 
   const { error: delErr } = await sb.from("orders").delete().eq("id", id);
   if (delErr) return { ok: false, error: delErr.message || "Failed to delete order" };
+
+  if (
+    String(orderBeforeDelete?.order_type || "").toLowerCase() === "vip" &&
+    String(orderBeforeDelete?.user_id || "").trim()
+  ) {
+    const nowIso = new Date().toISOString();
+    const userId = String(orderBeforeDelete.user_id).trim();
+    try {
+      await sb
+        .from("vip_subscriptions")
+        .update({ status: "deleted_by_admin", ends_at: nowIso })
+        .eq("order_id", id);
+    } catch (e) {
+      console.error("vip subscription cleanup on order delete failed", e);
+    }
+    try {
+      await sb
+        .from("profiles")
+        .update({ vip_until: null, vip_plan: null, vip_cycle_key: null })
+        .eq("id", userId);
+    } catch (e) {
+      try {
+        await sb.from("profiles").update({ vip_until: null, vip_plan: null }).eq("id", userId);
+      } catch (fallbackErr) {
+        console.error("vip profile cleanup on order delete failed", fallbackErr);
+      }
+    }
+  }
+
   return { ok: true, order_id: id };
 }
 
