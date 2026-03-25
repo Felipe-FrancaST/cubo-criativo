@@ -1844,16 +1844,19 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                   </div>
                 </div>
               ) : null}
-              <div className="fixed right-3 top-1/2 z-30 -translate-y-1/2 md:hidden">
-                <div className="rounded-2xl bg-slate-950/92 px-3 py-2 shadow-2xl backdrop-blur ring-1 ring-cyan-300/20">
-                  <div className="flex flex-col gap-2 text-[11px] font-extrabold">
-                    <div className="flex items-center justify-between gap-3 text-slate-200"><span className="uppercase tracking-[0.18em] text-slate-400">Mini</span><span>{selectedCounts.mini}/{miniLimit}</span></div>
-                    {bossLimit ? <div className="flex items-center justify-between gap-3 text-slate-200"><span className="uppercase tracking-[0.18em] text-slate-400">Boss</span><span>{selectedCounts.boss}/{bossLimit}</span></div> : null}
+              {editing ? (
+                <div className="fixed right-3 top-1/2 z-30 -translate-y-1/2 md:hidden">
+                  <div className="rounded-2xl bg-slate-950/92 px-3 py-2 shadow-2xl backdrop-blur ring-1 ring-cyan-300/20">
+                    <div className="flex flex-col gap-2 text-[11px] font-extrabold">
+                      <div className="flex items-center justify-between gap-3 text-slate-200"><span className="uppercase tracking-[0.18em] text-slate-400">Mini</span><span>{selectedCounts.mini}/{miniLimit}</span></div>
+                      {bossLimit ? <div className="flex items-center justify-between gap-3 text-slate-200"><span className="uppercase tracking-[0.18em] text-slate-400">Boss</span><span>{selectedCounts.boss}/{bossLimit}</span></div> : null}
+                    </div>
                   </div>
                 </div>
-              </div>
+              ) : null}
 
-              <div className="mt-6 hidden rounded-2xl bg-white/4 ring-1 ring-white/10 p-4 md:block">
+              {editing ? (
+                <div className="mt-6 hidden rounded-2xl bg-white/4 ring-1 ring-white/10 p-4 md:block">
                 <div className="flex items-center justify-between gap-3 flex-wrap">
                   <div className="text-sm text-slate-300">
                     Escolha <b>{totalLimit}</b> item(ns) do mês ({miniLimit} miniatura(s){bossLimit ? ` + ${bossLimit} boss(es)` : ""}) entre <b>{optionsLoading ? '…' : options.length}</b> opções.
@@ -1884,6 +1887,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                   ) : null}
                 </div>
               </div>
+              ) : null}
 
               {/* Miniaturas escolhidas (fixo no topo, como antes) */}
               <div className="mt-4 hidden rounded-2xl bg-white/4 ring-1 ring-white/10 p-4 md:block">
