@@ -16,7 +16,7 @@ export default function TrocasPage({ onGoHome }) {
             ['Peças com defeito ou avaria', 'Entre em contato o quanto antes com fotos e número do pedido para avaliação.'],
             ['Arrependimento (quando aplicável)', 'Solicitações serão analisadas conforme o tipo de peça, estado do item e regras legais aplicáveis.'],
             ['Peças sob encomenda/personalizadas', 'Por serem produzidas sob demanda, podem ter regras específicas de cancelamento e devolução. Combine antes de fechar.'],
-            ['Prazo de produção', 'Peças sob encomenda costumam levar de 3 a 7 dias úteis, podendo variar conforme complexidade e fila.'],
+            ['Prazo de produção', 'Peças sob encomenda costumam levar de 15 a 30 dias úteis, podendo variar conforme complexidade e fila.'],
             ['Prazo de envio', 'O envio ocorre após confirmação de pagamento e finalização da produção (quando aplicável).'],
           ].map(([title, text]) => (
             <div key={title} className="rounded-2xl p-5 bg-white/4 ring-1 ring-white/10">
