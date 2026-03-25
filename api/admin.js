@@ -2449,9 +2449,11 @@ async function handleClients(req, res) {
 
   let rows = wantedIds.map((uid) => {
     const profile = profileMap.get(uid) || { id: uid };
-    const userOrders = (ordersByUser.get(uid) || []).filter((o) => !isUpgradeOrderType(o.order_type));
+    const allUserOrders = ordersByUser.get(uid) || [];
+    const userOrders = allUserOrders.filter((o) => !isUpgradeOrderType(o.order_type));
     const paidOrders = userOrders.filter((o) => String(o.status || '').toLowerCase() === 'paid');
-    const spent = paidOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
+    const paidOrdersForSpent = allUserOrders.filter((o) => String(o.status || '').toLowerCase() === 'paid');
+    const spent = paidOrdersForSpent.reduce((sum, o) => sum + Number(o.total || 0), 0);
     const lastOrder = userOrders.slice().sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))[0] || null;
     const authUser = authMap.get(uid);
     const meta = authUser?.user_metadata && typeof authUser.user_metadata === 'object' ? authUser.user_metadata : {};
