@@ -3227,14 +3227,14 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                 {vipControlLoading ? <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 px-4 py-3 text-slate-400">Carregando controle VIP...</div> : null}
                 {vipControlError ? <div className="rounded-2xl bg-red-500/10 ring-1 ring-red-500/30 px-4 py-3 text-sm text-red-200">{vipControlError}</div> : null}
 
-                <div className="grid grid-cols-1 xl:grid-cols-[1.2fr_0.8fr] gap-4">
+                <div className="grid grid-cols-1 gap-4 2xl:grid-cols-[minmax(0,1.45fr)_minmax(340px,0.8fr)]">
                   <div className="rounded-3xl bg-white/[0.03] ring-1 ring-white/10 p-4 md:p-5">
-                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                      <div>
+                    <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                      <div className="max-w-2xl">
                         <div className="text-lg font-bold text-white">Montagem do ciclo VIP</div>
-                        <div className="mt-1 text-sm text-slate-400">Monte o mês, selecione as minis e deixe claro qual ciclo está ativo. Tudo fica concentrado aqui.</div>
+                        <div className="mt-1 text-sm text-slate-400">Monte o mês, escolha as minis e mantenha claro o que está no editor e o que já está ativo. Tudo fica concentrado aqui.</div>
                       </div>
-                      <div className="flex flex-wrap gap-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full xl:w-auto xl:min-w-[430px]">
                         <button
                           onClick={() => setVipCycleEditor({ cycle_key: nextMonthKey(), selected_ids: [], activate: true })}
                           className="rounded-2xl px-4 py-2.5 text-sm font-semibold text-slate-100 bg-white/[0.04] hover:bg-white/[0.08] ring-1 ring-white/10"
@@ -3262,8 +3262,8 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                       </div>
                     </div>
 
-                    <div className="mt-5 grid grid-cols-1 lg:grid-cols-[minmax(0,260px)_minmax(0,1fr)] gap-4">
-                      <div className="space-y-4">
+                    <div className="mt-5 grid grid-cols-1 xl:grid-cols-12 gap-4 items-start">
+                      <div className="xl:col-span-4 2xl:col-span-3 space-y-4">
                         <div className="rounded-2xl bg-black/20 ring-1 ring-white/10 p-4">
                           <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Configuração do ciclo</div>
                           <label className="mt-4 block">
@@ -3314,44 +3314,47 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                               <div className="mt-1 text-xl font-black text-white">{vipSelectedSummary.boss}</div>
                             </div>
                           </div>
-                          <div className="mt-4 text-xs text-slate-400">Toque nos cards da biblioteca para adicionar ou remover itens deste ciclo.</div>
+                          <div className="mt-4 text-xs leading-5 text-slate-400">Toque nos cards da biblioteca para adicionar ou remover itens deste ciclo.</div>
                         </div>
                       </div>
 
-                      <div className="rounded-2xl bg-black/20 ring-1 ring-white/10 p-4">
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                          <div>
-                            <div className="text-sm font-semibold text-white">Ciclos disponíveis</div>
-                            <div className="mt-1 text-xs text-slate-400">Clique em um mês para carregar no editor e ajustar rapidamente.</div>
+                      <div className="xl:col-span-8 2xl:col-span-9 space-y-4 min-w-0">
+                        <div className="rounded-2xl bg-black/20 ring-1 ring-white/10 p-4">
+                          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                            <div>
+                              <div className="text-sm font-semibold text-white">Ciclos disponíveis</div>
+                              <div className="mt-1 text-xs text-slate-400">Clique em um mês para carregar no editor e ajustar rapidamente.</div>
+                            </div>
+                            <div className="rounded-full bg-white/[0.04] px-3 py-1.5 text-xs text-slate-300 ring-1 ring-white/10 self-start lg:self-auto">
+                              {vipControl.cycles.length} ciclo(s)
+                            </div>
                           </div>
-                          <div className="rounded-full bg-white/[0.04] px-3 py-1.5 text-xs text-slate-300 ring-1 ring-white/10">
-                            {vipControl.cycles.length} ciclo(s)
-                          </div>
-                        </div>
-                        <div className="mt-4 grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-3">
-                          {(vipControl.cycles || []).map((cycle) => {
-                            const isCurrentCycle = String(vipCycleEditor.cycle_key || '') === String(cycle.cycle_key);
-                            return (
-                              <button
-                                key={cycle.cycle_key}
-                                type="button"
-                                onClick={() => loadVipCycleIntoEditor(cycle.cycle_key)}
-                                className={[
-                                  'min-w-0 rounded-2xl px-4 py-3 text-left ring-1 transition-all duration-200',
-                                  'bg-white/[0.03] hover:bg-white/[0.05] hover:-translate-y-[1px]',
-                                  isCurrentCycle
-                                    ? 'ring-cyan-400/35 bg-cyan-400/10 shadow-[0_10px_30px_rgba(34,211,238,0.12)]'
-                                    : 'ring-white/10'
-                                ].join(' ')}
-                              >
-                                <div className="flex items-start justify-between gap-3">
-                                  <div className="min-w-0">
-                                    <div className="text-sm font-semibold text-white truncate">{cycle.cycle_key}</div>
-                                    <div className="mt-1 text-[11px] text-slate-400 truncate">
-                                      {cycle.is_active ? 'Ciclo ativo para assinantes' : 'Clique para carregar no editor'}
+                          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-3 max-h-[320px] overflow-y-auto pr-1">
+                            {(vipControl.cycles || []).map((cycle) => {
+                              const isCurrentCycle = String(vipCycleEditor.cycle_key || '') === String(cycle.cycle_key);
+                              return (
+                                <button
+                                  key={cycle.cycle_key}
+                                  type="button"
+                                  onClick={() => loadVipCycleIntoEditor(cycle.cycle_key)}
+                                  className={[
+                                    'min-w-0 rounded-2xl p-4 text-left ring-1 transition-all duration-200',
+                                    'bg-white/[0.03] hover:bg-white/[0.05] hover:-translate-y-[1px]',
+                                    isCurrentCycle
+                                      ? 'ring-cyan-400/35 bg-cyan-400/10 shadow-[0_10px_30px_rgba(34,211,238,0.12)]'
+                                      : 'ring-white/10'
+                                  ].join(' ')}
+                                >
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0 flex-1">
+                                      <div className="text-sm font-semibold text-white truncate">{cycle.cycle_key}</div>
+                                      <div className="mt-1 text-[11px] text-slate-400 leading-5">
+                                        {cycle.is_active ? 'Ciclo ativo para assinantes' : 'Clique para carregar no editor'}
+                                      </div>
                                     </div>
+                                    <span className="material-icons text-slate-500 text-lg shrink-0">calendar_month</span>
                                   </div>
-                                  <div className="shrink-0 flex flex-col items-end gap-1.5">
+                                  <div className="mt-3 flex flex-wrap gap-2">
                                     {cycle.is_active ? (
                                       <span className="rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-wide bg-emerald-500/15 text-emerald-200 ring-1 ring-emerald-500/20">
                                         Ativo
@@ -3362,63 +3365,66 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                                         No editor
                                       </span>
                                     ) : null}
+                                    <span className="rounded-full px-2 py-1 text-[10px] bg-white/6 text-slate-300 ring-1 ring-white/10">
+                                      {cycle.total_items} item(ns)
+                                    </span>
                                   </div>
-                                </div>
-                              </button>
-                            );
-                          })}
+                                </button>
+                              );
+                            })}
+                          </div>
                         </div>
 
-                        <div className="mt-5 border-t border-white/10 pt-4">
-                          <div className="flex items-center justify-between gap-2">
+                        <div className="rounded-2xl bg-black/20 ring-1 ring-white/10 p-4">
+                          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                             <div>
                               <div className="text-sm font-semibold text-white">Biblioteca do ciclo</div>
                               <div className="mt-1 text-xs text-slate-400">Selecione miniaturas e bosses para compor o mês em edição.</div>
                             </div>
-                            <div className="rounded-full bg-white/[0.04] px-3 py-1.5 text-xs text-slate-300 ring-1 ring-white/10">
+                            <div className="rounded-full bg-white/[0.04] px-3 py-1.5 text-xs text-slate-300 ring-1 ring-white/10 self-start lg:self-auto">
                               {(vipControl.library || []).length} item(ns)
                             </div>
                           </div>
-                          <div className="mt-4 grid grid-cols-1 2xl:grid-cols-2 gap-3 max-h-[620px] overflow-y-auto pr-1">
-                          {(vipControl.library || []).map((item) => {
-                            const selected = (vipCycleEditor.selected_ids || []).includes(String(item.id));
-                            const assignedCycle = String(item?.cycle_key || '');
-                            const isBoss = String(item?.item_type || '').toLowerCase() === 'boss';
-                            return (
-                              <button
-                                type="button"
-                                key={item.id}
-                                onClick={() => toggleVipCycleItem(String(item.id))}
-                                className={[
-                                  'w-full text-left rounded-3xl p-3.5 ring-1 transition shadow-[0_8px_30px_rgba(0,0,0,0.14)]',
-                                  selected
-                                    ? 'bg-cyan-400/10 ring-cyan-400/30 shadow-[0_10px_35px_rgba(34,211,238,0.12)]'
-                                    : 'bg-white/[0.03] ring-white/10 hover:bg-white/[0.05]'
-                                ].join(' ')}
-                              >
-                                <div className="flex items-start gap-3">
-                                  <div className="h-16 w-16 rounded-2xl overflow-hidden bg-black/20 ring-1 ring-white/10 shrink-0">
-                                    {item.image_url ? <img src={item.image_url} alt={item.title} className="h-full w-full object-cover" loading="lazy" /> : null}
-                                  </div>
-                                  <div className="min-w-0 flex-1">
-                                    <div className="flex flex-wrap items-center gap-2">
-                                      <div className="text-sm font-bold text-slate-100 truncate">{item.title}</div>
-                                      <span className={isBoss ? 'rounded-full px-2 py-0.5 text-[10px] bg-fuchsia-500/15 text-fuchsia-200 ring-1 ring-fuchsia-500/20' : 'rounded-full px-2 py-0.5 text-[10px] bg-cyan-500/15 text-cyan-200 ring-1 ring-cyan-500/20'}>
-                                        {isBoss ? 'Boss' : 'Mini'}
-                                      </span>
-                                      {selected ? <span className="rounded-full px-2 py-0.5 text-[10px] bg-emerald-500/15 text-emerald-200 ring-1 ring-emerald-500/20">Selecionado</span> : null}
-                                      {assignedCycle ? (
-                                        <span className="rounded-full px-2 py-0.5 text-[10px] bg-white/6 text-slate-300 ring-1 ring-white/10">
-                                          {assignedCycle}
-                                        </span>
-                                      ) : null}
+                          <div className="mt-4 grid grid-cols-1 gap-3 max-h-[720px] overflow-y-auto pr-1 2xl:grid-cols-2">
+                            {(vipControl.library || []).map((item) => {
+                              const selected = (vipCycleEditor.selected_ids || []).includes(String(item.id));
+                              const assignedCycle = String(item?.cycle_key || '');
+                              const isBoss = String(item?.item_type || '').toLowerCase() === 'boss';
+                              return (
+                                <button
+                                  type="button"
+                                  key={item.id}
+                                  onClick={() => toggleVipCycleItem(String(item.id))}
+                                  className={[
+                                    'w-full text-left rounded-3xl p-3.5 ring-1 transition shadow-[0_8px_30px_rgba(0,0,0,0.14)]',
+                                    selected
+                                      ? 'bg-cyan-400/10 ring-cyan-400/30 shadow-[0_10px_35px_rgba(34,211,238,0.12)]'
+                                      : 'bg-white/[0.03] ring-white/10 hover:bg-white/[0.05]'
+                                  ].join(' ')}
+                                >
+                                  <div className="flex items-start gap-3 min-w-0">
+                                    <div className="h-16 w-16 rounded-2xl overflow-hidden bg-black/20 ring-1 ring-white/10 shrink-0">
+                                      {item.image_url ? <img src={item.image_url} alt={item.title} className="h-full w-full object-cover" loading="lazy" /> : null}
                                     </div>
-                                    {item.description ? <div className="mt-1.5 text-xs text-slate-400 line-clamp-2">{item.description}</div> : null}
+                                    <div className="min-w-0 flex-1">
+                                      <div className="text-sm font-bold text-slate-100 break-words leading-5">{item.title}</div>
+                                      <div className="mt-2 flex flex-wrap gap-2">
+                                        <span className={isBoss ? 'rounded-full px-2 py-0.5 text-[10px] bg-fuchsia-500/15 text-fuchsia-200 ring-1 ring-fuchsia-500/20' : 'rounded-full px-2 py-0.5 text-[10px] bg-cyan-500/15 text-cyan-200 ring-1 ring-cyan-500/20'}>
+                                          {isBoss ? 'Boss' : 'Mini'}
+                                        </span>
+                                        {selected ? <span className="rounded-full px-2 py-0.5 text-[10px] bg-emerald-500/15 text-emerald-200 ring-1 ring-emerald-500/20">Selecionado</span> : null}
+                                        {assignedCycle ? (
+                                          <span className="rounded-full px-2 py-0.5 text-[10px] bg-white/6 text-slate-300 ring-1 ring-white/10">
+                                            {assignedCycle}
+                                          </span>
+                                        ) : null}
+                                      </div>
+                                      {item.description ? <div className="mt-2 text-xs text-slate-400 leading-5 line-clamp-2">{item.description}</div> : null}
+                                    </div>
                                   </div>
-                                </div>
-                              </button>
-                            );
-                          })}
+                                </button>
+                              );
+                            })}
                           </div>
                         </div>
                       </div>
