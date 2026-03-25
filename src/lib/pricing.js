@@ -42,7 +42,9 @@ export function percentOffCents(originalCents, currentCents) {
 export function getVariantPricingCents(p, selIndex = 0, defaultIndex = 0) {
   const variants = Array.isArray(p?.variants) ? p.variants : [];
   const hasVariants = variants.length > 0;
-  const safeIndex = hasVariants ? Math.min(Math.max(0, selIndex), variants.length - 1) : 0;
+  const preferredIndex = Number.isInteger(defaultIndex) ? defaultIndex : 0;
+  const requestedIndex = Number.isInteger(selIndex) ? selIndex : preferredIndex;
+  const safeIndex = hasVariants ? Math.min(Math.max(0, requestedIndex), variants.length - 1) : 0;
   const sel = hasVariants ? variants[safeIndex] : null;
 
   const baseVariantCents = hasVariants
