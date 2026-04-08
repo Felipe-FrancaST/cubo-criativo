@@ -576,7 +576,7 @@ function StatusModal({ open, mode, order, onClose, onSubmit }) {
   React.useEffect(() => {
     if (!open) return;
     setProductionStatus(String(order?.production_status || "recebido"));
-    setEta("3 a 7 dias úteis");
+    setEta(String(order?.production_eta || "3 a 7 dias úteis"));
     setTracking(String(order?.shipping_tracking || ""));
     setShippingCarrier(resolveTrackingCarrier({ carrier: order?.shipping_carrier, trackingUrl: order?.tracking_url }));
   }, [open, order]);

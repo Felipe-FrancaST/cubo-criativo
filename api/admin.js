@@ -85,6 +85,27 @@ function daysOpenSince(value) {
   return Math.max(0, Math.floor((Date.now() - d.getTime()) / 86400000));
 }
 
+function parseProductionEtaDays(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  if (!raw) return null;
+  const matches = [...raw.matchAll(/\d+/g)].map((m) => Number(m[0])).filter((n) => Number.isFinite(n) && n > 0);
+  if (!matches.length) return null;
+  return Math.max(...matches);
+}
+
+function isDelayedByProductionEta(order) {
+  const status = String(order?.production_status || '').toLowerCase();
+  if (!['em_producao', 'pronto'].includes(status)) return false;
+  if (isTerminalProductionStatus(status)) return false;
+  const etaDays = parseProductionEtaDays(order?.production_eta);
+  if (!etaDays) return false;
+  const anchor = order?.production_status_updated_at || order?.created_at;
+  const anchorDate = anchor ? new Date(anchor) : null;
+  if (!anchorDate || Number.isNaN(anchorDate.getTime())) return false;
+  const elapsedDays = Math.max(0, Math.floor((Date.now() - anchorDate.getTime()) / 86400000));
+  return elapsedDays > etaDays;
+}
+
 function isTerminalProductionStatus(value) {
   return ['entregue', 'cancelado', 'reembolsado'].includes(String(value || '').toLowerCase());
 }
@@ -461,8 +482,8 @@ async function loadOrderEvents(sb, orderIds) {
 }
 
 async function fetchOrderForAdmin(sb, orderId) {
-  const fullSelect = "id,user_id,order_type,vip_plan_id,status,production_status,shipping_tracking,shipping_carrier,tracking_code,tracking_url,customer_email,customer_name,created_at,updated_at,payment_provider,total,last_email_type,last_email_status,last_email_sent_at,last_email_error";
-  const legacySelect = "id,user_id,order_type,vip_plan_id,status,production_status,shipping_tracking,shipping_carrier,tracking_code,tracking_url,customer_email,customer_name,created_at,updated_at,payment_provider,total";
+  const fullSelect = "id,user_id,order_type,vip_plan_id,status,production_status,shipping_tracking,shipping_carrier,tracking_code,tracking_url,production_eta,production_status_updated_at,customer_email,customer_name,created_at,updated_at,payment_provider,total,last_email_type,last_email_status,last_email_sent_at,last_email_error";
+  const legacySelect = "id,user_id,order_type,vip_plan_id,status,production_status,shipping_tracking,shipping_carrier,tracking_code,tracking_url,production_eta,production_status_updated_at,customer_email,customer_name,created_at,updated_at,payment_provider,total";
   let resp = await sb.from('orders').select(fullSelect).eq('id', orderId).maybeSingle();
   if (resp?.error && /last_email_|column/i.test(String(resp.error.message || ''))) {
     resp = await sb.from('orders').select(legacySelect).eq('id', orderId).maybeSingle();
@@ -1036,11 +1057,11 @@ async function handleOrders(req, res) {
   let totalCount = 0;
 
   const selectFull =
-    "id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,production_status,shipping_tracking,shipping_carrier,order_type,vip_plan_id,refund_requested,refund_requested_at,last_email_type,last_email_status,last_email_sent_at,last_email_error";
+    "id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,production_status,shipping_tracking,shipping_carrier,production_eta,production_status_updated_at,order_type,vip_plan_id,refund_requested,refund_requested_at,last_email_type,last_email_status,last_email_sent_at,last_email_error";
   const selectNoEmailAudit =
-    "id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,production_status,shipping_tracking,shipping_carrier,order_type,vip_plan_id,refund_requested,refund_requested_at";
+    "id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,production_status,shipping_tracking,shipping_carrier,production_eta,production_status_updated_at,order_type,vip_plan_id,refund_requested,refund_requested_at";
   const selectLegacy =
-    "id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,production_status,shipping_tracking,shipping_carrier,order_type,vip_plan_id";
+    "id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,production_status,shipping_tracking,shipping_carrier,production_eta,production_status_updated_at,order_type,vip_plan_id";
 
   const runOrderQuery = async (selectColumns) => {
     let query = sb.from("orders").select(selectColumns, { count: "exact" });
@@ -1071,8 +1092,8 @@ async function handleOrders(req, res) {
 
   let summaryRows = [];
   let summaryRowsAll = [];
-  const summarySelectFull = "status,total,production_status,shipping_tracking,shipping_carrier,order_type,refund_requested,created_at";
-  const summarySelectLegacy = "status,total,production_status,shipping_tracking,shipping_carrier,order_type,created_at";
+  const summarySelectFull = "status,total,production_status,shipping_tracking,shipping_carrier,production_eta,production_status_updated_at,order_type,refund_requested,created_at";
+  const summarySelectLegacy = "status,total,production_status,shipping_tracking,shipping_carrier,production_eta,production_status_updated_at,order_type,created_at";
   const runSummaryQuery = async (selectColumns) => {
     let query = sb.from("orders").select(selectColumns);
     query = applyOrderFilters(query, filters);
@@ -1101,7 +1122,7 @@ async function handleOrders(req, res) {
     const paidWaitingProduction = list.filter((o) => String(o?.status || '').toLowerCase() === 'paid' && ['recebido', 'editavel'].includes(String(o?.production_status || 'recebido').toLowerCase())).length;
     const readyWithoutTracking = list.filter((o) => String(o?.status || '').toLowerCase() === 'paid' && String(o?.production_status || '').toLowerCase() === 'pronto' && !String(o?.shipping_tracking || '').trim()).length;
     const shippedInTransit = list.filter((o) => String(o?.production_status || '').toLowerCase() === 'enviado').length;
-    const overdueCount = list.filter((o) => !isTerminalProductionStatus(o?.production_status) && daysOpenSince(o?.created_at) > 10).length;
+    const overdueCount = list.filter((o) => isDelayedByProductionEta(o)).length;
     const staleOrders = list.filter((o) => !isTerminalProductionStatus(o?.production_status) && daysOpenSince(o?.created_at) > 5).length;
     const awaitingShipment = list.filter((o) => String(o?.status || '').toLowerCase() === 'paid' && ['pronto', 'em_producao'].includes(String(o?.production_status || '').toLowerCase())).length;
     const now = new Date();
@@ -1376,7 +1397,7 @@ async function handleOrders(req, res) {
         upgrade_total: upgradeTotal,
         effective_total: Number(o.total || 0) + upgradeTotal,
         days_open: daysOpenSince(o.created_at),
-        is_overdue: !isTerminalProductionStatus(o.production_status) && daysOpenSince(o.created_at) > 10,
+        is_overdue: isDelayedByProductionEta(o),
         latest_admin_note: latestAdminNote?.description || '',
         timeline,
         timeline_source: dbEvents.length ? 'order_events' : 'synthetic',
@@ -1457,6 +1478,7 @@ async function handleOrders(req, res) {
         related_upgrades_count: 0,
         upgrade_total: 0,
         effective_total: Number(o.total || 0),
+        is_overdue: isDelayedByProductionEta(o),
         timeline: synthesizeOrderTimeline(o),
         timeline_source: 'synthetic',
       })),
@@ -1475,14 +1497,14 @@ async function handleOrders(req, res) {
   } catch (fatalError) {
     console.error('[admin/orders] fatal fallback error:', fatalError);
     try {
-      const legacySelect = "id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,production_status,shipping_tracking,shipping_carrier,order_type,vip_plan_id";
+      const legacySelect = "id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,production_status,shipping_tracking,shipping_carrier,production_eta,production_status_updated_at,order_type,vip_plan_id";
       let legacyQuery = sb.from("orders").select(legacySelect, { count: "exact" });
       legacyQuery = applyOrderFilters(legacyQuery, filters);
       const legacyResp = await legacyQuery.order("created_at", { ascending: false }).range(from, to);
       if (legacyResp?.error) {
         return res.status(500).json({ error: legacyResp.error.message || "Failed to load orders" });
       }
-      const legacyAllResp = await applyOrderFilters(sb.from("orders").select("status,total,production_status,shipping_tracking,order_type,created_at"), filters).order("created_at", { ascending: false });
+      const legacyAllResp = await applyOrderFilters(sb.from("orders").select("status,total,production_status,shipping_tracking,shipping_carrier,production_eta,production_status_updated_at,order_type,created_at"), filters).order("created_at", { ascending: false });
       const legacyAllRows = Array.isArray(legacyAllResp?.data) ? legacyAllResp.data : [];
       const baseRows = (Array.isArray(legacyResp?.data) ? legacyResp.data : []).filter((o) => !isUpgradeOrderType(o?.order_type));
       const summaryRows = legacyAllRows.filter((o) => !isUpgradeOrderType(o?.order_type));
@@ -1499,6 +1521,7 @@ async function handleOrders(req, res) {
         const paidWaitingProduction = list.filter((o) => String(o?.status || '').toLowerCase() === 'paid' && ['recebido', 'editavel'].includes(String(o?.production_status || 'recebido').toLowerCase())).length;
         const readyWithoutTracking = list.filter((o) => String(o?.status || '').toLowerCase() === 'paid' && String(o?.production_status || '').toLowerCase() === 'pronto' && !String(o?.shipping_tracking || '').trim()).length;
         const shippedInTransit = list.filter((o) => String(o?.production_status || '').toLowerCase() === 'enviado').length;
+        const overdueCount = list.filter((o) => isDelayedByProductionEta(o)).length;
         return {
           total: totalCount,
           paid: paidRows.length,
@@ -1506,7 +1529,8 @@ async function handleOrders(req, res) {
           revenue,
           refundReq,
           vipCount,
-          bottlenecks: { paidWaitingProduction, readyWithoutTracking, shippedInTransit, refundRequested: refundReq },
+          overdueCount,
+          bottlenecks: { paidWaitingProduction, readyWithoutTracking, shippedInTransit, refundRequested: refundReq, overdueCount },
         };
       })();
       return res.status(200).json({
@@ -2285,6 +2309,7 @@ async function handleUpdateOrder(req, res) {
     const ps = String(body.production_status || "").trim().toLowerCase();
     if (!ALLOWED_PROD_STATUS.has(ps)) return res.status(400).json({ error: "Invalid production_status" });
     next.production_status = ps;
+    if (ps === 'em_producao') next.production_status_updated_at = new Date().toISOString();
   }
   const shippingCarrier = normalizeTrackingCarrier(body.shipping_carrier);
   if (body.shipping_tracking !== undefined) {
@@ -2333,6 +2358,7 @@ async function handleUpdateOrder(req, res) {
     if (/shipping_carrier/i.test(msg)) delete retry.shipping_carrier;
     if (/tracking_code/i.test(msg)) delete retry.tracking_code;
     if (/tracking_url/i.test(msg)) delete retry.tracking_url;
+    if (/production_status_updated_at/i.test(msg)) delete retry.production_status_updated_at;
 
     // Only retry if we actually removed something.
     if (Object.keys(retry).length !== Object.keys(next).length) {
