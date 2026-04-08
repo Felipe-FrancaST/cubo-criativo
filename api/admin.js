@@ -201,6 +201,7 @@ async function handleManualOrderCreate(req, res) {
 
   const sb = supabaseAdmin();
   let resolvedItems = [];
+  let freightCarrier = '';
   for (const item of itemsRaw) {
     const mode = String(item.mode || item.type || '').trim().toLowerCase();
     if (mode === 'product') {
