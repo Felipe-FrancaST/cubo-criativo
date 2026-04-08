@@ -173,6 +173,7 @@ async function handleManualOrderCreate(req, res) {
   const auth = await requireAdmin(req);
   if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
   const body = await readJsonBody(req);
+  const paymentAction = String(body?.payment_action || body?.paymentAction || 'payment_link').trim().toLowerCase();
   const customer = body?.customer || {};
   const existingUserId = String(body?.existing_user_id || customer.existing_user_id || '').trim();
   const accountMode = String(body?.account_mode || customer.account_mode || (existingUserId ? 'existing' : 'new')).trim().toLowerCase();
