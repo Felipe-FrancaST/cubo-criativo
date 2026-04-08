@@ -222,8 +222,12 @@ async function handleManualOrderCreate(req, res) {
       resolvedItems.push({ product_id: row.id, name: row.name, qty, scale: chosenScale, unit_price: unitPrice, img: row.image_url || (Array.isArray(row.images) ? row.images[0] : '') || '' });
     } else if (mode === 'freight' || mode === 'shipping' || mode === 'frete') {
       const freightValue = Number(item.unit_price ?? item.price ?? item.valor ?? item.shipping_price ?? 0);
+      const carrier = String(item.carrier || item.shipping_carrier || '').trim().toLowerCase();
       if (!Number.isFinite(freightValue) || freightValue <= 0) return res.status(400).json({ error: 'Valor de frete inválido.' });
-      const freightLabel = `Pagamento de frete — ${address.address_line1}, ${address.address_number}${address.address_line2 ? `, ${address.address_line2}` : ''} — ${address.neighborhood} — ${address.city}/${address.state} — CEP ${address.zip}`;
+      if (!carrier) return res.status(400).json({ error: 'Selecione a transportadora do frete.' });
+      const carrierLabel = carrier === 'jadlog' ? 'Jadlog' : carrier === 'loggi' ? 'Loggi' : 'Correios';
+      const freightLabel = `Pagamento de frete — ${carrierLabel} — ${address.address_line1}, ${address.address_number}${address.address_line2 ? `, ${address.address_line2}` : ''} — ${address.neighborhood} — ${address.city}/${address.state} — CEP ${address.zip}`;
+      freightCarrier = freightCarrier || carrier;
       resolvedItems.push({ product_id: `freight:${crypto.randomUUID()}`, name: freightLabel, qty: 1, scale: '', unit_price: Number(freightValue.toFixed(2)), img: '' });
     } else {
       resolvedItems.push(buildManualOrderItemFromCustom(item));
@@ -253,18 +257,22 @@ async function handleManualOrderCreate(req, res) {
     account = await ensureManualOrderCustomerAccount({ email, cpf, fullName, phone, address });
   }
   const orderId = crypto.randomUUID();
+  const isPaidManually = paymentAction === 'mark_paid';
+  const hasFreightOnly = resolvedItems.length > 0 && resolvedItems.every((it) => String(it.product_id || '').startsWith('freight:'));
   const orderPayload = {
     id: orderId,
     user_id: account.userId,
-    status: 'pending',
+    status: isPaidManually ? 'paid' : 'pending',
     currency: 'BRL',
     total,
-    payment_provider: 'mercado_pago',
-    production_status: 'editavel',
-    order_type: resolvedItems.some((it) => String(it.product_id || '').startsWith('freight:')) ? 'shipping_payment' : 'shop',
+    payment_provider: isPaidManually ? 'admin_manual' : 'mercado_pago',
+    production_status: isPaidManually ? 'recebido' : 'editavel',
+    production_status_updated_at: isPaidManually ? new Date().toISOString() : null,
+    order_type: hasFreightOnly ? 'shipping_payment' : 'shop',
     customer_email: email,
     customer_name: fullName,
     customer_phone: phone || null,
+    shipping_carrier: freightCarrier || null,
   };
   const { error: orderErr } = await sb.from('orders').insert(orderPayload);
   if (orderErr) return res.status(500).json({ error: orderErr.message || 'Não foi possível criar o pedido.' });
@@ -305,18 +313,20 @@ async function handleManualOrderCreate(req, res) {
     }
   }
 
-  const paymentLink = buildManualPaymentLink({ baseUrl: getBaseUrl(req), orderId });
+  const paymentLink = isPaidManually ? null : buildManualPaymentLink({ baseUrl: getBaseUrl(req), orderId });
   await recordOrderEvent(sb, {
     order_id: orderId,
-    event_type: 'order_created',
-    title: 'Pedido criado pelo admin',
-    description: account?.existing ? 'Pedido lançado para cliente já cadastrado.' : 'Pedido manual criado com conta automática para o cliente.',
+    event_type: isPaidManually ? 'payment_confirmed' : 'order_created',
+    title: isPaidManually ? 'Pedido pago lançado pelo admin' : 'Pedido criado pelo admin',
+    description: isPaidManually
+      ? 'Pedido criado e marcado como pago manualmente no painel administrativo.'
+      : (account?.existing ? 'Pedido lançado para cliente já cadastrado.' : 'Pedido manual criado com conta automática para o cliente.'),
     actor_label: 'Admin',
-    metadata: { account_mode: account?.existing ? 'existing' : 'new', total, items_count: cleanedItems.length },
+    metadata: { account_mode: account?.existing ? 'existing' : 'new', total, items_count: cleanedItems.length, payment_action: paymentAction, shipping_carrier: freightCarrier || null },
   });
   return res.status(200).json({
     ok: true,
-    order: { id: orderId, order_number: buildControlNumber(orderId), total, customer_name: fullName, customer_email: email },
+    order: { id: orderId, order_number: buildControlNumber(orderId), total, customer_name: fullName, customer_email: email, status: orderPayload.status },
     payment_link: paymentLink,
     account: account?.existing ? { email, existing: true } : { email, password: cpf },
   });
@@ -1005,7 +1015,7 @@ function applyOrderFilters(builder, filters = {}) {
   if (dateFrom) q = q.gte("created_at", `${dateFrom}T00:00:00`);
   if (dateTo) q = q.lte("created_at", `${dateTo}T23:59:59.999`);
   if (pay !== "all") q = q.eq("status", pay);
-  if (prod !== "all") q = q.eq("production_status", prod);
+  if (prod !== "all" && prod !== "overdue") q = q.eq("production_status", prod);
   if (type !== "all") {
     if (type === "vip") q = q.eq("order_type", "vip");
     if (type === "store") q = q.neq("order_type", "vip");
@@ -1055,6 +1065,7 @@ async function handleOrders(req, res) {
   let orders = null;
   let ordersErr = null;
   let totalCount = 0;
+  const overdueOnly = String(filters.prod || '').toLowerCase() === 'overdue';
 
   const selectFull =
     "id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,production_status,shipping_tracking,shipping_carrier,production_eta,production_status_updated_at,order_type,vip_plan_id,refund_requested,refund_requested_at,last_email_type,last_email_status,last_email_sent_at,last_email_error";
@@ -1066,7 +1077,9 @@ async function handleOrders(req, res) {
   const runOrderQuery = async (selectColumns) => {
     let query = sb.from("orders").select(selectColumns, { count: "exact" });
     query = applyOrderFilters(query, filters);
-    return await query.order("created_at", { ascending: false }).range(from, to);
+    query = query.order("created_at", { ascending: false });
+    if (!overdueOnly) query = query.range(from, to);
+    return await query;
   };
 
   let attemptOrders = await runOrderQuery(selectFull);
@@ -1092,8 +1105,8 @@ async function handleOrders(req, res) {
 
   let summaryRows = [];
   let summaryRowsAll = [];
-  const summarySelectFull = "status,total,production_status,shipping_tracking,shipping_carrier,production_eta,production_status_updated_at,order_type,refund_requested,created_at";
-  const summarySelectLegacy = "status,total,production_status,shipping_tracking,shipping_carrier,production_eta,production_status_updated_at,order_type,created_at";
+  const summarySelectFull = "id,status,total,production_status,shipping_tracking,shipping_carrier,production_eta,production_status_updated_at,order_type,refund_requested,created_at";
+  const summarySelectLegacy = "id,status,total,production_status,shipping_tracking,shipping_carrier,production_eta,production_status_updated_at,order_type,created_at";
   const runSummaryQuery = async (selectColumns) => {
     let query = sb.from("orders").select(selectColumns);
     query = applyOrderFilters(query, filters);
@@ -1109,6 +1122,14 @@ async function handleOrders(req, res) {
   const summaryUpgradeRows = summaryRowsAll.filter((o) => isUpgradeOrderType(o?.order_type));
   totalCount = summaryRows.length;
   orders = (Array.isArray(orders) ? orders : []).filter((o) => !isUpgradeOrderType(o?.order_type));
+
+  if (overdueOnly) {
+    summaryRows = summaryRows.filter((o) => isDelayedByProductionEta(o));
+    const overdueIds = new Set(summaryRows.map((o) => String(o.id || '')));
+    orders = orders.filter((o) => overdueIds.has(String(o.id || '')) || isDelayedByProductionEta(o));
+    totalCount = summaryRows.length;
+    orders = orders.slice(from, to + 1);
+  }
 
   const summary = (() => {
     const list = summaryRows || [];
@@ -1809,6 +1830,7 @@ async function fetchVipMiniLibrary(sb) {
 
 function groupVipCyclesFromLibrary(items = [], activeCycleKey = null) {
   const map = new Map();
+  let freightCarrier = '';
   for (const item of items) {
     const cycleKey = String(item?.cycle_key || "").trim();
     if (!cycleKey) continue;

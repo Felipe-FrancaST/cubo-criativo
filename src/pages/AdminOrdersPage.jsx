@@ -1117,6 +1117,7 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
     name: '', cpf: '', email: '', phone: '', address_line1: '', address_number: '', address_line2: '', neighborhood: '', city: '', state: '', zip: '',
   });
   const [items, setItems] = React.useState([]);
+  const [showFinalizeChoices, setShowFinalizeChoices] = React.useState(false);
 
   React.useEffect(() => {
     if (!open || !accessToken) return;
@@ -1137,6 +1138,7 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
   function updateForm(key, value) { setForm((p) => ({ ...p, [key]: value })); }
   function addRegisteredProduct() { setItems((p) => [...p, { id: crypto?.randomUUID?.() || String(Date.now()+Math.random()), mode: 'product', product_id: '', qty: 1, scale: '' }]); }
   function addCustomItem() { setItems((p) => [...p, { id: crypto?.randomUUID?.() || String(Date.now()+Math.random()), mode: 'custom', name: '', price: '', scale: '', qty: 1, notes: '' }]); }
+  function addFreightItem() { setItems((p) => [...p, { id: crypto?.randomUUID?.() || String(Date.now()+Math.random()), mode: 'freight', carrier: '', price: '', qty: 1, notes: '' }]); }
   function updateItem(id, patch) { setItems((p) => p.map((it) => it.id === id ? { ...it, ...patch } : it)); }
   function removeItem(id) { setItems((p) => p.filter((it) => it.id !== id)); }
 
@@ -1149,15 +1151,18 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
     return sum + Number(it.price || 0) * Number(it.qty || 1);
   }, 0), [items, products]);
 
-  async function handleSubmit() {
+  async function handleSubmit(paymentAction = 'payment_link') {
     setBusy(true);
     setError('');
     try {
       const payload = {
         customer: form,
-        items: items.map((it) => it.mode === 'product'
-          ? { mode: 'product', product_id: it.product_id, qty: Number(it.qty || 1), scale: it.scale || '' }
-          : { mode: 'custom', name: it.name, price: Number(it.price || 0), scale: it.scale || '', qty: Number(it.qty || 1), notes: it.notes || '' }),
+        payment_action: paymentAction,
+        items: items.map((it) => {
+          if (it.mode === 'product') return { mode: 'product', product_id: it.product_id, qty: Number(it.qty || 1), scale: it.scale || '' };
+          if (it.mode === 'freight') return { mode: 'freight', carrier: it.carrier || '', price: Number(it.price || 0), qty: 1, notes: it.notes || '' };
+          return { mode: 'custom', name: it.name, price: Number(it.price || 0), scale: it.scale || '', qty: Number(it.qty || 1), notes: it.notes || '' };
+        }),
       };
       const resp = await fetch('/api/admin?action=manual-order-create', {
         method: 'POST',
@@ -1167,7 +1172,8 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
       const json = await resp.json().catch(() => ({}));
       if (!resp.ok) throw new Error(json?.error || 'Não foi possível criar o pedido.');
       setResult(json);
-      showToast?.('Pedido criado com sucesso.');
+      setShowFinalizeChoices(false);
+      showToast?.(paymentAction === 'mark_paid' ? 'Pedido lançado como pago com sucesso.' : 'Pedido criado com sucesso.');
       onCreated?.();
     } catch (e) {
       setError(e?.message || 'Erro ao criar pedido.');
@@ -1194,13 +1200,17 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
         {result ? (
           <div className="mt-5 grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4 items-start">
             <div className="rounded-3xl bg-emerald-500/10 ring-1 ring-emerald-400/20 p-5">
-              <div className="text-emerald-100 text-xl font-extrabold">Pedido criado</div>
-              <div className="mt-2 text-sm text-emerald-50/90">Compartilhe o link abaixo com o cliente para ele pagar com Pix ou cartão.</div>
-              <div className="mt-4 rounded-2xl bg-black/20 ring-1 ring-white/10 p-4 break-all text-sm text-slate-100">{result?.payment_link}</div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button onClick={() => navigator.clipboard?.writeText(result?.payment_link || '')} className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10">Copiar link</button>
-                <a href={result?.payment_link} target="_blank" rel="noreferrer" className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10">Abrir página</a>
-              </div>
+              <div className="text-emerald-100 text-xl font-extrabold">{result?.payment_link ? 'Pedido criado' : 'Pedido lançado como pago'}</div>
+              <div className="mt-2 text-sm text-emerald-50/90">{result?.payment_link ? 'Compartilhe o link abaixo com o cliente para ele pagar com Pix ou cartão.' : 'O pedido já entrou no sistema como pago e pronto para seguir no fluxo de produção.'}</div>
+              {result?.payment_link ? (
+                <>
+                  <div className="mt-4 rounded-2xl bg-black/20 ring-1 ring-white/10 p-4 break-all text-sm text-slate-100">{result?.payment_link}</div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button onClick={() => navigator.clipboard?.writeText(result?.payment_link || '')} className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10">Copiar link</button>
+                    <a href={result?.payment_link} target="_blank" rel="noreferrer" className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10">Abrir página</a>
+                  </div>
+                </>
+              ) : null}
               <div className="mt-4 rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-4 text-sm text-slate-200">
                 <div><b>Conta criada:</b> {result?.account?.email}</div>
                 <div className="mt-1"><b>Senha inicial:</b> CPF do cliente</div>
@@ -1234,11 +1244,12 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <div className="text-white font-bold">Itens do pedido</div>
-                    <div className="text-sm text-slate-400">Adicione produtos cadastrados ou orçamento personalizado.</div>
+                    <div className="text-sm text-slate-400">Adicione produtos cadastrados, orçamento personalizado ou pagamento de frete.</div>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <button onClick={addRegisteredProduct} className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10">Produto cadastrado</button>
                     <button onClick={addCustomItem} className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10">Orçamento personalizado</button>
+                    <button onClick={addFreightItem} className="rounded-xl px-3 py-2 text-sm text-cyan-100 hover:bg-cyan-500/10 ring-1 ring-cyan-400/20">Pagamento de frete</button>
                   </div>
                 </div>
                 <div className="mt-4 space-y-3">
@@ -1248,6 +1259,16 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
                       <label className="text-sm text-slate-300">Quantidade<input type="number" min="1" value={it.qty} onChange={(e)=>updateItem(it.id, { qty: e.target.value })} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
                       <label className="text-sm text-slate-300">Escala<input value={it.scale} onChange={(e)=>updateItem(it.id, { scale: e.target.value })} placeholder="Opcional" className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
                       <button onClick={()=>removeItem(it.id)} className="rounded-xl px-3 py-2 text-sm text-red-200 hover:bg-red-500/10 ring-1 ring-red-500/30">Remover</button>
+                    </div>
+                  ) : it.mode === 'freight' ? (
+                    <div key={it.id} className="rounded-2xl bg-cyan-500/5 ring-1 ring-cyan-400/20 p-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <label className="text-sm text-slate-300">Transportadora<select value={it.carrier} onChange={(e)=>updateItem(it.id, { carrier: e.target.value })} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white"><option value="">Selecione</option><option value="correios">Correios</option><option value="jadlog">Jadlog</option><option value="loggi">Loggi</option></select></label>
+                      <label className="text-sm text-slate-300">Valor do frete<input type="number" min="0" step="0.01" value={it.price} onChange={(e)=>updateItem(it.id, { price: e.target.value })} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+                      <label className="text-sm text-slate-300 sm:col-span-2">Observações<textarea value={it.notes} onChange={(e)=>updateItem(it.id, { notes: e.target.value })} placeholder="Opcional" className="mt-1 h-20 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+                      <div className="sm:col-span-2 flex items-center justify-between gap-3">
+                        <div className="rounded-xl bg-black/20 px-3 py-2 text-xs text-cyan-100 ring-1 ring-cyan-400/20">Item exclusivo para cobrança de frete.</div>
+                        <button onClick={()=>removeItem(it.id)} className="rounded-xl px-3 py-2 text-sm text-red-200 hover:bg-red-500/10 ring-1 ring-red-500/30">Remover</button>
+                      </div>
                     </div>
                   ) : (
                     <div key={it.id} className="rounded-2xl bg-black/20 ring-1 ring-white/10 p-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1261,9 +1282,17 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
                   ))}
                   {!items.length ? <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-4 text-sm text-slate-400">Nenhum item adicionado ainda.</div> : null}
                 </div>
-                <div className="mt-4 flex items-center justify-between gap-3 border-t border-white/10 pt-4">
+                <div className="mt-4 flex flex-col gap-3 border-t border-white/10 pt-4 sm:flex-row sm:items-center sm:justify-between">
                   <div className="text-lg font-extrabold text-white">Total: {fmtBRL(total)}</div>
-                  <button onClick={handleSubmit} disabled={busy || loadingProducts} className="rounded-2xl bg-cyan-400 text-[#031116] font-black px-5 py-3 disabled:opacity-60">{busy ? 'Criando…' : 'Finalizar pedido'}</button>
+                  <div className="flex flex-col items-stretch gap-2 sm:items-end">
+                    <button onClick={() => setShowFinalizeChoices((v) => !v)} disabled={busy || loadingProducts} className="rounded-2xl bg-cyan-400 text-[#031116] font-black px-5 py-3 disabled:opacity-60">{busy ? 'Processando…' : 'Finalizar pedido'}</button>
+                    {showFinalizeChoices ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <button onClick={() => handleSubmit('payment_link')} disabled={busy || loadingProducts} className="rounded-2xl bg-white/[0.04] text-slate-100 font-semibold px-4 py-3 ring-1 ring-white/10 hover:bg-white/[0.07] disabled:opacity-60">Gerar link de pagamento</button>
+                        <button onClick={() => handleSubmit('mark_paid')} disabled={busy || loadingProducts} className="rounded-2xl bg-emerald-400 text-[#031116] font-black px-4 py-3 disabled:opacity-60">Pedido pago</button>
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
               </div>
             </div>
@@ -2127,7 +2156,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
   const orderQuickPresets = React.useMemo(() => ([
     { key: 'paid_waiting', label: 'Pagos sem produção', apply: () => { setFilterPay('paid'); setFilterProd('recebido'); setFilterType('all'); setPage(1); } },
     { key: 'ready_track', label: 'Prontos sem rastreio', apply: () => { setFilterPay('paid'); setFilterProd('pronto'); setFilterType('all'); setPage(1); } },
-    { key: 'overdue', label: 'Atrasados', apply: () => { setFilterPay('paid'); setFilterProd('all'); setQ(''); setPage(1); } },
+    { key: 'overdue', label: 'Atrasados', apply: () => { setFilterPay('paid'); setFilterProd('overdue'); setQ(''); setPage(1); } },
     { key: 'vip', label: 'Somente VIP', apply: () => { setFilterType('vip'); setFilterPay('all'); setFilterProd('all'); setPage(1); } },
   ]), []);
 
@@ -2561,6 +2590,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                       <option value="recebido">Recebido</option>
                       <option value="em_producao">Em produção</option>
                       <option value="pronto">Pronto</option>
+                      <option value="overdue">Atrasados</option>
                       <option value="enviado">Enviado</option>
                       <option value="entregue">Entregue</option>
                       <option value="cancelado">Cancelado</option>
