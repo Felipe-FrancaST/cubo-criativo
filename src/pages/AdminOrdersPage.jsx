@@ -2,6 +2,7 @@ import React from "react";
 import { useAuth } from "../auth/AuthProvider.jsx";
 import { DetailRow, KpiCard, OrderBadgeCluster, SectionTitle, SidebarItem, TimelineList } from "./admin/orders/AdminOrdersComponents.jsx";
 import { badgeBase, copyToClipboard, daysBetween, emailAuditBadge, endOfDay, exportCsv, fmtAddress, fmtBRL, fmtDate, onlyDigits, prodStatusBadge, shortId, startOfDay, statusBadge, toDateInputValue } from "./admin/orders/adminOrdersUtils.js";
+import { inferTrackingCarrierFromUrl, normalizeTrackingCarrier, resolveTrackingCarrier, trackingCarrierLabel } from "../lib/tracking";
 
 function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTracking, onRequestRefund, onDeleteOrder, onResendEmail, onAddNote, resendBusy, toast, adminQuickSearch, setAdminQuickSearch, runAdminQuickSearch }) {
   if (!open) return null;
@@ -570,12 +571,14 @@ function StatusModal({ open, mode, order, onClose, onSubmit }) {
   const [productionStatus, setProductionStatus] = React.useState("recebido");
   const [eta, setEta] = React.useState("3 a 7 dias úteis");
   const [tracking, setTracking] = React.useState("");
+  const [shippingCarrier, setShippingCarrier] = React.useState("correios");
 
   React.useEffect(() => {
     if (!open) return;
     setProductionStatus(String(order?.production_status || "recebido"));
     setEta("3 a 7 dias úteis");
     setTracking(String(order?.shipping_tracking || ""));
+    setShippingCarrier(resolveTrackingCarrier({ carrier: order?.shipping_carrier, trackingUrl: order?.tracking_url }));
   }, [open, order]);
 
   if (!open) return null;
@@ -585,12 +588,12 @@ function StatusModal({ open, mode, order, onClose, onSubmit }) {
       const next = String(productionStatus || "recebido").toLowerCase();
       const patch = { production_status: next };
       if (next === "em_producao") patch.production_eta = eta;
-      if (next === "enviado" && tracking.trim()) patch.shipping_tracking = tracking.trim();
+      if (next === "enviado" && tracking.trim()) { patch.shipping_tracking = tracking.trim(); patch.shipping_carrier = normalizeTrackingCarrier(shippingCarrier); }
       onSubmit?.(patch);
       return;
     }
     if (mode === "tracking") {
-      onSubmit?.({ shipping_tracking: tracking.trim(), ...(tracking.trim() ? { production_status: "enviado" } : {}) });
+      onSubmit?.({ shipping_tracking: tracking.trim(), shipping_carrier: normalizeTrackingCarrier(shippingCarrier), ...(tracking.trim() ? { production_status: "enviado" } : {}) });
     }
   };
 
@@ -648,30 +651,58 @@ function StatusModal({ open, mode, order, onClose, onSubmit }) {
               ) : null}
 
               {String(productionStatus).toLowerCase() === "enviado" ? (
-                <label className="block">
-                  <div className="text-xs text-slate-400 mb-1">Rastreio (opcional)</div>
-                  <input
-                    value={tracking}
-                    onChange={(e) => setTracking(e.target.value)}
-                    className="w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-slate-100"
-                    placeholder="Código de rastreio"
-                  />
-                </label>
+                <>
+                  <label className="block">
+                    <div className="text-xs text-slate-400 mb-1">Transportadora</div>
+                    <select
+                      value={shippingCarrier}
+                      onChange={(e) => setShippingCarrier(e.target.value)}
+                      className="w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-slate-100"
+                    >
+                      {TRACKING_CARRIERS.map((carrier) => (
+                        <option key={carrier.value} value={carrier.value}>{carrier.label}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block">
+                    <div className="text-xs text-slate-400 mb-1">Rastreio (opcional)</div>
+                    <input
+                      value={tracking}
+                      onChange={(e) => setTracking(e.target.value)}
+                      className="w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-slate-100"
+                      placeholder="Código de rastreio"
+                    />
+                  </label>
+                </>
               ) : null}
             </>
           ) : (
-            <label className="block">
-              <div className="text-xs text-slate-400 mb-1">Rastreio</div>
-              <input
-                value={tracking}
-                onChange={(e) => setTracking(e.target.value)}
-                className="w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-slate-100"
-                placeholder="Código de rastreio"
-              />
-              <div className="mt-1 text-[11px] text-slate-500">
-                Dica: ao definir rastreio, o pedido pode ser marcado como <span className="text-slate-300">Enviado</span>.
-              </div>
-            </label>
+            <>
+              <label className="block">
+                <div className="text-xs text-slate-400 mb-1">Transportadora</div>
+                <select
+                  value={shippingCarrier}
+                  onChange={(e) => setShippingCarrier(e.target.value)}
+                  className="w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-slate-100"
+                >
+                  {TRACKING_CARRIERS.map((carrier) => (
+                    <option key={carrier.value} value={carrier.value}>{carrier.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <div className="text-xs text-slate-400 mb-1">Rastreio</div>
+                <input
+                  value={tracking}
+                  onChange={(e) => setTracking(e.target.value)}
+                  className="w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-slate-100"
+                  placeholder="Código de rastreio"
+                />
+                <div className="mt-1 text-[11px] text-slate-500">
+                  Dica: ao definir rastreio, o pedido pode ser marcado como <span className="text-slate-300">Enviado</span>.
+                </div>
+              </label>
+            </>
           )}
         </div>
 
@@ -2724,15 +2755,18 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                               </td>
                               <td className="py-3 px-3 whitespace-nowrap">
                                 {o.shipping_tracking ? (
-                                  <button
-                                    onClick={() => {
-                                      copyToClipboard(o.shipping_tracking);
-                                      showToast("📋 Rastreio copiado!");
-                                    }}
-                                    className="text-slate-100 hover:underline"
-                                  >
-                                    {o.shipping_tracking}
-                                  </button>
+                                  <div className="space-y-1">
+                                    <button
+                                      onClick={() => {
+                                        copyToClipboard(o.shipping_tracking);
+                                        showToast("📋 Rastreio copiado!");
+                                      }}
+                                      className="text-slate-100 hover:underline"
+                                    >
+                                      {o.shipping_tracking}
+                                    </button>
+                                    <div className="text-[10px] uppercase tracking-[0.18em] text-cyan-200/65">{trackingCarrierLabel(o.shipping_carrier || inferTrackingCarrierFromUrl(o.tracking_url))}</div>
+                                  </div>
                                 ) : (
                                   <span className="text-slate-500">—</span>
                                 )}

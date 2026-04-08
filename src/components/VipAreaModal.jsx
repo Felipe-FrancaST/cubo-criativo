@@ -4,6 +4,7 @@ import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../auth/AuthProvider.jsx";
 import VipPresentD20 from "./VipPresentD20.jsx";
 import { clearVipCache, cycleDeadlineLabel, cycleKeyUTC, findPlanByProfileValue, fmtBRLFromCents, readVipCache, statusLabel, tabHelpContent, vipBlockMessage, writeVipCache } from "./vip-area/vipAreaHelpers.js";
+import { buildTrackingUrl, resolveTrackingCarrier, trackingCarrierLabel } from "../lib/tracking";
 
 // Planos VIP vêm do Supabase (tabela vip_plans). Sem valores fixos no código.
 const FALLBACK_VIP_PLANS = [];
@@ -39,6 +40,8 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
   const [activeCycleKey, setActiveCycleKey] = React.useState("");
   const [orderStatus, setOrderStatus] = React.useState("editavel");
   const [shippingTracking, setShippingTracking] = React.useState("");
+  const [shippingTrackingUrl, setShippingTrackingUrl] = React.useState("");
+  const [shippingCarrier, setShippingCarrier] = React.useState("correios");
   const [options, setOptions] = React.useState([]);
   // selected: escolhas em edição (não necessariamente salvas)
   const [selected, setSelected] = React.useState([]);
@@ -709,14 +712,28 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
       })();
       const [prof, { data: lastVipOrder }, { data: sel }] = await Promise.all([
         profilePromise,
-        supabase
-          .from("orders")
-          .select("id,production_status,shipping_tracking,created_at")
-          .eq("user_id", user.id)
-          .eq("order_type", "vip")
-          .eq("status", "paid")
-          .order("created_at", { ascending: false })
-          .limit(1),
+        (async () => {
+          const attempts = [
+            "id,production_status,shipping_tracking,shipping_carrier,tracking_url,created_at",
+            "id,production_status,shipping_tracking,shipping_carrier,created_at",
+            "id,production_status,shipping_tracking,created_at",
+          ];
+          let lastResp = null;
+          for (const selectColumns of attempts) {
+            const resp = await supabase
+              .from("orders")
+              .select(selectColumns)
+              .eq("user_id", user.id)
+              .eq("order_type", "vip")
+              .eq("status", "paid")
+              .order("created_at", { ascending: false })
+              .limit(1);
+            if (!resp.error) return resp;
+            lastResp = resp;
+            if (!/column/i.test(String(resp.error.message || ""))) break;
+          }
+          return lastResp || { data: [], error: null };
+        })(),
         // saved_at ajuda a diferenciar seleção realmente salva de um registro antigo/placeholder
         supabase.from("vip_mini_selections").select("selected_option_ids,saved_at").eq("user_id", user.id).eq("cycle_key", cycleForLoad).maybeSingle(),
       ]);
@@ -736,8 +753,11 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
       } catch {}
       // Mantém o que já estava na tela para evitar flicker no mobile durante refresh.
 
+      const resolvedCarrier = resolveTrackingCarrier({ carrier: order?.shipping_carrier, trackingUrl: order?.tracking_url });
       setOrderStatus(String(order?.production_status || "editavel").toLowerCase());
       setShippingTracking(String(order?.shipping_tracking || "").trim());
+      setShippingCarrier(resolvedCarrier);
+      setShippingTrackingUrl(buildTrackingUrl({ code: order?.shipping_tracking, fallbackUrl: order?.tracking_url, carrier: resolvedCarrier }));
 
       // Regra: ao abrir a tela após assinatura, não deve vir nada pré-selecionado.
       // Só exibimos escolhas se houver saved_at (seleção confirmada no ciclo).
@@ -1504,7 +1524,8 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                     <div className="rounded-2xl bg-cyan-500/10 ring-1 ring-cyan-400/20 p-5">
                       <div className="flex items-center justify-between gap-2 flex-wrap">
                         <p className="text-sm font-extrabold text-amber-100">Código de rastreio</p>
-                        <a href={`https://rastreamento.correios.com.br/app/index.php?objetos=${encodeURIComponent(shippingTracking)}`} target="_blank" rel="noreferrer" className="rounded-lg px-3 py-2 text-xs font-extrabold bg-cyan-400 text-black hover:bg-amber-200">Rastrear</a>
+                        <p className="mt-1 text-[11px] uppercase tracking-[0.24em] text-cyan-200/70">{trackingCarrierLabel(shippingCarrier)}</p>
+                        <a href={shippingTrackingUrl || buildTrackingUrl({ code: shippingTracking, carrier: shippingCarrier })} target="_blank" rel="noreferrer" className="rounded-lg px-3 py-2 text-xs font-extrabold bg-cyan-400 text-black hover:bg-amber-200">Rastrear</a>
                       </div>
                       <div className="mt-3 flex flex-col gap-2">
                         <code className="rounded-lg bg-black/30 px-3 py-3 text-xs text-cyan-50 ring-1 ring-amber-200/10 break-all">{shippingTracking}</code>

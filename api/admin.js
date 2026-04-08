@@ -325,6 +325,21 @@ function safeJson(value) {
   }
 }
 
+
+function normalizeTrackingCarrier(value) {
+  const v = String(value || '').trim().toLowerCase();
+  return ['correios', 'jadlog', 'loggi'].includes(v) ? v : 'correios';
+}
+
+function buildTrackingUrlForCarrier(code, carrier) {
+  const trackingCode = String(code || '').trim();
+  if (!trackingCode) return null;
+  const normalizedCarrier = normalizeTrackingCarrier(carrier);
+  if (normalizedCarrier === 'jadlog') return 'https://www.jadlog.com.br/siteInstitucional/tracking.jad';
+  if (normalizedCarrier === 'loggi') return 'https://www.loggi.com/rastreador/';
+  return 'https://rastreamento.correios.com.br/';
+}
+
 function formatProdStatusPt(status) {
   const s = String(status || '').toLowerCase();
   return ({
@@ -446,8 +461,8 @@ async function loadOrderEvents(sb, orderIds) {
 }
 
 async function fetchOrderForAdmin(sb, orderId) {
-  const fullSelect = "id,user_id,order_type,vip_plan_id,status,production_status,shipping_tracking,tracking_code,tracking_url,customer_email,customer_name,created_at,updated_at,payment_provider,total,last_email_type,last_email_status,last_email_sent_at,last_email_error";
-  const legacySelect = "id,user_id,order_type,vip_plan_id,status,production_status,shipping_tracking,tracking_code,tracking_url,customer_email,customer_name,created_at,updated_at,payment_provider,total";
+  const fullSelect = "id,user_id,order_type,vip_plan_id,status,production_status,shipping_tracking,shipping_carrier,tracking_code,tracking_url,customer_email,customer_name,created_at,updated_at,payment_provider,total,last_email_type,last_email_status,last_email_sent_at,last_email_error";
+  const legacySelect = "id,user_id,order_type,vip_plan_id,status,production_status,shipping_tracking,shipping_carrier,tracking_code,tracking_url,customer_email,customer_name,created_at,updated_at,payment_provider,total";
   let resp = await sb.from('orders').select(fullSelect).eq('id', orderId).maybeSingle();
   if (resp?.error && /last_email_|column/i.test(String(resp.error.message || ''))) {
     resp = await sb.from('orders').select(legacySelect).eq('id', orderId).maybeSingle();
@@ -1021,11 +1036,11 @@ async function handleOrders(req, res) {
   let totalCount = 0;
 
   const selectFull =
-    "id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,production_status,shipping_tracking,order_type,vip_plan_id,refund_requested,refund_requested_at,last_email_type,last_email_status,last_email_sent_at,last_email_error";
+    "id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,production_status,shipping_tracking,shipping_carrier,order_type,vip_plan_id,refund_requested,refund_requested_at,last_email_type,last_email_status,last_email_sent_at,last_email_error";
   const selectNoEmailAudit =
-    "id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,production_status,shipping_tracking,order_type,vip_plan_id,refund_requested,refund_requested_at";
+    "id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,production_status,shipping_tracking,shipping_carrier,order_type,vip_plan_id,refund_requested,refund_requested_at";
   const selectLegacy =
-    "id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,production_status,shipping_tracking,order_type,vip_plan_id";
+    "id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,production_status,shipping_tracking,shipping_carrier,order_type,vip_plan_id";
 
   const runOrderQuery = async (selectColumns) => {
     let query = sb.from("orders").select(selectColumns, { count: "exact" });
@@ -1056,8 +1071,8 @@ async function handleOrders(req, res) {
 
   let summaryRows = [];
   let summaryRowsAll = [];
-  const summarySelectFull = "status,total,production_status,shipping_tracking,order_type,refund_requested,created_at";
-  const summarySelectLegacy = "status,total,production_status,shipping_tracking,order_type,created_at";
+  const summarySelectFull = "status,total,production_status,shipping_tracking,shipping_carrier,order_type,refund_requested,created_at";
+  const summarySelectLegacy = "status,total,production_status,shipping_tracking,shipping_carrier,order_type,created_at";
   const runSummaryQuery = async (selectColumns) => {
     let query = sb.from("orders").select(selectColumns);
     query = applyOrderFilters(query, filters);
@@ -1460,7 +1475,7 @@ async function handleOrders(req, res) {
   } catch (fatalError) {
     console.error('[admin/orders] fatal fallback error:', fatalError);
     try {
-      const legacySelect = "id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,production_status,shipping_tracking,order_type,vip_plan_id";
+      const legacySelect = "id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,production_status,shipping_tracking,shipping_carrier,order_type,vip_plan_id";
       let legacyQuery = sb.from("orders").select(legacySelect, { count: "exact" });
       legacyQuery = applyOrderFilters(legacyQuery, filters);
       const legacyResp = await legacyQuery.order("created_at", { ascending: false }).range(from, to);
@@ -2271,11 +2286,14 @@ async function handleUpdateOrder(req, res) {
     if (!ALLOWED_PROD_STATUS.has(ps)) return res.status(400).json({ error: "Invalid production_status" });
     next.production_status = ps;
   }
+  const shippingCarrier = normalizeTrackingCarrier(body.shipping_carrier);
   if (body.shipping_tracking !== undefined) {
     const tr = String(body.shipping_tracking || "").trim();
     next.shipping_tracking = tr || null;
+    next.shipping_carrier = tr ? shippingCarrier : null;
     // Keep new columns in sync when available
     next.tracking_code = tr || null;
+    next.tracking_url = tr ? buildTrackingUrlForCarrier(tr, shippingCarrier) : null;
   }
   if (body.tracking_code !== undefined) {
     const tc = String(body.tracking_code || "").trim();
@@ -2312,6 +2330,7 @@ async function handleUpdateOrder(req, res) {
     const retry = { ...next };
 
     if (/production_eta/i.test(msg)) delete retry.production_eta;
+    if (/shipping_carrier/i.test(msg)) delete retry.shipping_carrier;
     if (/tracking_code/i.test(msg)) delete retry.tracking_code;
     if (/tracking_url/i.test(msg)) delete retry.tracking_url;
 
@@ -2351,6 +2370,7 @@ async function handleUpdateOrder(req, res) {
         from_tracking: prevTracking || null,
         to_tracking: nextTracking || null,
         tracking_url: next.tracking_url || currentOrder.tracking_url || null,
+        shipping_carrier: next.shipping_carrier || currentOrder.shipping_carrier || null,
       },
     }));
   }
@@ -2406,7 +2426,7 @@ async function handleClients(req, res) {
 
   const ordersResp = await sb
     .from('orders')
-    .select('id,user_id,status,total,created_at,order_type,customer_name,customer_email,production_status,shipping_tracking,refund_requested')
+    .select('id,user_id,status,total,created_at,order_type,customer_name,customer_email,production_status,shipping_tracking,shipping_carrier,refund_requested')
     .order('created_at', { ascending: false })
     .limit(5000);
   if (ordersResp?.error) return res.status(500).json({ error: ordersResp.error.message || 'Falha ao carregar pedidos para clientes.' });
@@ -2472,6 +2492,7 @@ async function handleClients(req, res) {
         total: Number(order.total || 0),
         production_status: order.production_status || 'recebido',
         shipping_tracking: order.shipping_tracking || null,
+        shipping_carrier: order.shipping_carrier || null,
         refund_requested: !!order.refund_requested,
       }));
     return {
