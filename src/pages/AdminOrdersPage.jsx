@@ -1108,16 +1108,37 @@ function StartVotingModal({ state, imageLibrary, imageLibraryLoading, imageLibra
 
 
 function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast }) {
+  const emptyForm = React.useMemo(() => ({
+    name: '', cpf: '', email: '', phone: '', address_line1: '', address_number: '', address_line2: '', neighborhood: '', city: '', state: '', zip: '',
+  }), []);
   const [loadingProducts, setLoadingProducts] = React.useState(false);
   const [products, setProducts] = React.useState([]);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState('');
   const [result, setResult] = React.useState(null);
-  const [form, setForm] = React.useState({
-    name: '', cpf: '', email: '', phone: '', address_line1: '', address_number: '', address_line2: '', neighborhood: '', city: '', state: '', zip: '',
-  });
+  const [form, setForm] = React.useState(emptyForm);
   const [items, setItems] = React.useState([]);
   const [showFinalizeChoices, setShowFinalizeChoices] = React.useState(false);
+  const [customerMode, setCustomerMode] = React.useState('new');
+  const [selectedClientId, setSelectedClientId] = React.useState('');
+  const [clientSearch, setClientSearch] = React.useState('');
+  const [availableClients, setAvailableClients] = React.useState([]);
+  const [loadingClients, setLoadingClients] = React.useState(false);
+  const [clientsError, setClientsError] = React.useState('');
+
+  React.useEffect(() => {
+    if (!open) return;
+    setError('');
+    setResult(null);
+    setShowFinalizeChoices(false);
+    setCustomerMode('new');
+    setSelectedClientId('');
+    setClientSearch('');
+    setAvailableClients([]);
+    setClientsError('');
+    setForm(emptyForm);
+    setItems([]);
+  }, [open, emptyForm]);
 
   React.useEffect(() => {
     if (!open || !accessToken) return;
@@ -1134,6 +1155,51 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
       .finally(() => active && setLoadingProducts(false));
     return () => { active = false; };
   }, [open, accessToken]);
+
+  React.useEffect(() => {
+    if (!open || !accessToken || customerMode !== 'existing') return;
+    let active = true;
+    setLoadingClients(true);
+    setClientsError('');
+    const params = new URLSearchParams({ action: 'clients', q: String(clientSearch || '') });
+    fetch(`/api/admin?${params.toString()}`, { headers: { Authorization: `Bearer ${accessToken}` } })
+      .then((r) => r.json().catch(() => ({})).then((json) => ({ ok: r.ok, json })))
+      .then(({ ok, json }) => {
+        if (!active) return;
+        if (!ok) throw new Error(json?.error || 'Não foi possível carregar os clientes.');
+        setAvailableClients(Array.isArray(json?.clients) ? json.clients : []);
+      })
+      .catch((e) => {
+        if (!active) return;
+        setAvailableClients([]);
+        setClientsError(e?.message || 'Erro ao carregar clientes.');
+      })
+      .finally(() => active && setLoadingClients(false));
+    return () => { active = false; };
+  }, [open, accessToken, customerMode, clientSearch]);
+
+  const selectedClient = React.useMemo(
+    () => availableClients.find((client) => String(client.id) === String(selectedClientId || '')) || null,
+    [availableClients, selectedClientId]
+  );
+
+  React.useEffect(() => {
+    if (customerMode !== 'existing') return;
+    if (!selectedClient) return;
+    setForm({
+      name: String(selectedClient.full_name || '').trim(),
+      cpf: String(selectedClient.cpf || '').trim(),
+      email: String(selectedClient.email || '').trim(),
+      phone: String(selectedClient.phone || '').trim(),
+      address_line1: String(selectedClient.address_line1 || '').trim(),
+      address_number: String(selectedClient.address_number || '').trim(),
+      address_line2: String(selectedClient.address_line2 || '').trim(),
+      neighborhood: String(selectedClient.neighborhood || '').trim(),
+      city: String(selectedClient.city || '').trim(),
+      state: String(selectedClient.state || '').trim(),
+      zip: String(selectedClient.zip || '').trim(),
+    });
+  }, [customerMode, selectedClient]);
 
   function updateForm(key, value) { setForm((p) => ({ ...p, [key]: value })); }
   function addRegisteredProduct() { setItems((p) => [...p, { id: crypto?.randomUUID?.() || String(Date.now()+Math.random()), mode: 'product', product_id: '', qty: 1, scale: '' }]); }
@@ -1156,7 +1222,13 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
     setError('');
     try {
       const payload = {
-        customer: form,
+        customer: {
+          ...form,
+          existing_user_id: customerMode === 'existing' ? selectedClientId : '',
+          account_mode: customerMode,
+        },
+        existing_user_id: customerMode === 'existing' ? selectedClientId : '',
+        account_mode: customerMode,
         payment_action: paymentAction,
         items: items.map((it) => {
           if (it.mode === 'product') return { mode: 'product', product_id: it.product_id, qty: Number(it.qty || 1), scale: it.scale || '' };
@@ -1212,8 +1284,8 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
                 </>
               ) : null}
               <div className="mt-4 rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-4 text-sm text-slate-200">
-                <div><b>Conta criada:</b> {result?.account?.email}</div>
-                <div className="mt-1"><b>Senha inicial:</b> CPF do cliente</div>
+                <div><b>{result?.account?.existing ? 'Conta vinculada:' : 'Conta criada:'}</b> {result?.account?.email}</div>
+                {!result?.account?.existing ? <div className="mt-1"><b>Senha inicial:</b> CPF do cliente</div> : <div className="mt-1">Pedido associado a um cliente já cadastrado no site.</div>}
               </div>
             </div>
             <div className="rounded-3xl bg-white/[0.03] ring-1 ring-white/10 p-4 min-w-[240px]">
@@ -1225,18 +1297,79 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
         ) : (
           <div className="mt-5 grid grid-cols-1 xl:grid-cols-[0.95fr_1.05fr] gap-5">
             <div className="space-y-4">
-              <div className="rounded-3xl bg-white/[0.03] ring-1 ring-white/10 p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <label className="text-sm text-slate-300">Nome<input value={form.name} onChange={(e)=>updateForm('name', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
-                <label className="text-sm text-slate-300">CPF<input value={form.cpf} onChange={(e)=>updateForm('cpf', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
-                <label className="text-sm text-slate-300">E-mail<input value={form.email} onChange={(e)=>updateForm('email', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
-                <label className="text-sm text-slate-300">Telefone<input value={form.phone} onChange={(e)=>updateForm('phone', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
-                <label className="text-sm text-slate-300 sm:col-span-2">Rua<input value={form.address_line1} onChange={(e)=>updateForm('address_line1', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
-                <label className="text-sm text-slate-300">Número<input value={form.address_number} onChange={(e)=>updateForm('address_number', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
-                <label className="text-sm text-slate-300">Complemento<input value={form.address_line2} onChange={(e)=>updateForm('address_line2', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
-                <label className="text-sm text-slate-300">Bairro<input value={form.neighborhood} onChange={(e)=>updateForm('neighborhood', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
-                <label className="text-sm text-slate-300">Cidade<input value={form.city} onChange={(e)=>updateForm('city', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
-                <label className="text-sm text-slate-300">Estado<input value={form.state} onChange={(e)=>updateForm('state', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
-                <label className="text-sm text-slate-300">CEP<input value={form.zip} onChange={(e)=>updateForm('zip', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+              <div className="rounded-3xl bg-white/[0.03] ring-1 ring-white/10 p-4 space-y-4">
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCustomerMode('new');
+                      setSelectedClientId('');
+                      setForm(emptyForm);
+                    }}
+                    className={`rounded-2xl px-4 py-2 text-sm font-semibold ring-1 transition ${customerMode === 'new' ? 'bg-cyan-400 text-[#031116] ring-cyan-300/40' : 'bg-white/[0.03] text-slate-200 ring-white/10 hover:bg-white/[0.06]'}`}
+                  >
+                    Novo cliente
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCustomerMode('existing')}
+                    className={`rounded-2xl px-4 py-2 text-sm font-semibold ring-1 transition ${customerMode === 'existing' ? 'bg-cyan-400 text-[#031116] ring-cyan-300/40' : 'bg-white/[0.03] text-slate-200 ring-white/10 hover:bg-white/[0.06]'}`}
+                  >
+                    Cliente já cadastrado
+                  </button>
+                </div>
+
+                {customerMode === 'existing' ? (
+                  <div className="rounded-2xl bg-black/20 ring-1 ring-white/10 p-3 space-y-3">
+                    <label className="block text-sm text-slate-300">
+                      Buscar cliente
+                      <input
+                        value={clientSearch}
+                        onChange={(e) => setClientSearch(e.target.value)}
+                        placeholder="Digite nome, e-mail, CPF ou telefone"
+                        className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white"
+                      />
+                    </label>
+                    <label className="block text-sm text-slate-300">
+                      Selecionar cliente
+                      <select
+                        value={selectedClientId}
+                        onChange={(e) => setSelectedClientId(e.target.value)}
+                        className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white"
+                        disabled={loadingClients || !availableClients.length}
+                      >
+                        <option value="">{loadingClients ? 'Carregando clientes...' : 'Selecione um cliente cadastrado'}</option>
+                        {availableClients.map((client) => (
+                          <option key={client.id} value={client.id}>
+                            {client.full_name || client.email || client.id}{client.email ? ` • ${client.email}` : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    {clientsError ? <div className="text-sm text-red-200">{clientsError}</div> : null}
+                    {selectedClient ? (
+                      <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-3 text-sm text-slate-300">
+                        <div className="font-semibold text-slate-100">{selectedClient.full_name || 'Cliente selecionado'}</div>
+                        <div>{selectedClient.email || 'Sem e-mail cadastrado'}</div>
+                        <div>{selectedClient.phone || 'Sem telefone cadastrado'}</div>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <label className="text-sm text-slate-300">Nome<input value={form.name} onChange={(e)=>updateForm('name', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+                  <label className="text-sm text-slate-300">CPF<input value={form.cpf} onChange={(e)=>updateForm('cpf', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+                  <label className="text-sm text-slate-300">E-mail<input value={form.email} onChange={(e)=>updateForm('email', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+                  <label className="text-sm text-slate-300">Telefone<input value={form.phone} onChange={(e)=>updateForm('phone', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+                  <label className="text-sm text-slate-300 sm:col-span-2">Rua<input value={form.address_line1} onChange={(e)=>updateForm('address_line1', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+                  <label className="text-sm text-slate-300">Número<input value={form.address_number} onChange={(e)=>updateForm('address_number', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+                  <label className="text-sm text-slate-300">Complemento<input value={form.address_line2} onChange={(e)=>updateForm('address_line2', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+                  <label className="text-sm text-slate-300">Bairro<input value={form.neighborhood} onChange={(e)=>updateForm('neighborhood', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+                  <label className="text-sm text-slate-300">Cidade<input value={form.city} onChange={(e)=>updateForm('city', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+                  <label className="text-sm text-slate-300">Estado<input value={form.state} onChange={(e)=>updateForm('state', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+                  <label className="text-sm text-slate-300">CEP<input value={form.zip} onChange={(e)=>updateForm('zip', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+                </div>
               </div>
             </div>
             <div className="space-y-4">
