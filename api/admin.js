@@ -2352,6 +2352,14 @@ async function handleUpdateOrder(req, res) {
     const tu = String(body.tracking_url || "").trim();
     next.tracking_url = tu || null;
   }
+  if (body.created_at !== undefined) {
+    const rawCreatedAt = String(body.created_at || "").trim();
+    const parsedCreatedAt = rawCreatedAt ? new Date(rawCreatedAt) : null;
+    if (!parsedCreatedAt || Number.isNaN(parsedCreatedAt.getTime())) {
+      return res.status(400).json({ error: "Data de lançamento inválida." });
+    }
+    next.created_at = parsedCreatedAt.toISOString();
+  }
 
   const production_eta = String(body.production_eta || "").trim();
   const cancelled_by = String(body.cancelled_by || "").trim().toLowerCase();
@@ -2405,6 +2413,16 @@ async function handleUpdateOrder(req, res) {
         production_eta: production_eta || null,
         cancelled_by: cancelled_by || null,
       },
+    }));
+  }
+  if (Object.prototype.hasOwnProperty.call(next, 'created_at') && String(next.created_at || '') !== String(currentOrder.created_at || '')) {
+    timelineWrites.push(recordOrderEvent(sb, {
+      order_id,
+      event_type: 'order_created_at_updated',
+      title: 'Data de lançamento alterada',
+      description: `De ${currentOrder.created_at || 'sem data'} para ${next.created_at}.`,
+      actor_label: 'Admin',
+      metadata: { from_created_at: currentOrder.created_at || null, to_created_at: next.created_at },
     }));
   }
   const nextTracking = next.shipping_tracking ?? next.tracking_code;

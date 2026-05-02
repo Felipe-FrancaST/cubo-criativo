@@ -3,8 +3,46 @@ import { useAuth } from "../auth/AuthProvider.jsx";
 import { DetailRow, KpiCard, OrderBadgeCluster, SectionTitle, SidebarItem, TimelineList } from "./admin/orders/AdminOrdersComponents.jsx";
 import { badgeBase, copyToClipboard, daysBetween, emailAuditBadge, endOfDay, exportCsv, fmtAddress, fmtBRL, fmtDate, onlyDigits, prodStatusBadge, shortId, startOfDay, statusBadge, toDateInputValue } from "./admin/orders/adminOrdersUtils.js";
 import { TRACKING_CARRIERS, inferTrackingCarrierFromUrl, normalizeTrackingCarrier, resolveTrackingCarrier, trackingCarrierLabel } from "../lib/tracking";
+import { fetchAddressFromCep } from "../lib/cep.js";
 
-function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTracking, onRequestRefund, onDeleteOrder, onResendEmail, onAddNote, resendBusy, toast, adminQuickSearch, setAdminQuickSearch, runAdminQuickSearch }) {
+
+function formatCpfInput(value) {
+  const d = onlyDigits(value).slice(0, 11);
+  if (d.length <= 3) return d;
+  if (d.length <= 6) return `${d.slice(0, 3)}.${d.slice(3)}`;
+  if (d.length <= 9) return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}`;
+  return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
+}
+
+function formatPhoneInput(value) {
+  const d = onlyDigits(value).slice(0, 11);
+  if (d.length <= 2) return d ? `(${d}` : "";
+  if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+  if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+}
+
+function formatCepInput(value) {
+  const d = onlyDigits(value).slice(0, 8);
+  if (d.length <= 5) return d;
+  return `${d.slice(0, 5)}-${d.slice(5)}`;
+}
+
+function dateTimeLocalValue(value) {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function dateTimeLocalToIso(value) {
+  if (!value) return "";
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? "" : d.toISOString();
+}
+
+function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTracking, onUpdateCreatedAt, onRequestRefund, onDeleteOrder, onResendEmail, onAddNote, resendBusy, toast, adminQuickSearch, setAdminQuickSearch, runAdminQuickSearch }) {
   if (!open) return null;
   const p = order?.profile || null;
   const address = fmtAddress(p);
@@ -13,6 +51,11 @@ function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTrack
   const [deleteKeyword, setDeleteKeyword] = React.useState("");
   const phone = order?.customer_phone || p?.phone || "";
   const [noteDraft, setNoteDraft] = React.useState('');
+  const [launchDateDraft, setLaunchDateDraft] = React.useState(() => dateTimeLocalValue(order?.created_at));
+
+  React.useEffect(() => {
+    setLaunchDateDraft(dateTimeLocalValue(order?.created_at));
+  }, [order?.id, order?.created_at]);
   const waPhone = onlyDigits(phone);
   const waMsg = encodeURIComponent(
     `Olá! Sobre seu pedido ${shortId(order?.id)}:\nStatus: ${String(order?.production_status || "recebido")}\n\nQualquer dúvida, me responda aqui.`
@@ -66,6 +109,30 @@ function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTrack
 
           <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-3">
             <OrderBadgeCluster order={order} />
+
+            <div className="mt-3 rounded-2xl bg-black/20 ring-1 ring-white/10 p-3">
+              <div className="text-[11px] text-slate-500">Data de lançamento</div>
+              <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
+                <input
+                  type="datetime-local"
+                  value={launchDateDraft}
+                  onChange={(e) => setLaunchDateDraft(e.target.value)}
+                  className="w-full rounded-xl bg-black/30 ring-1 ring-white/10 px-3 py-2 text-sm text-white"
+                />
+                <button
+                  onClick={() => {
+                    const iso = dateTimeLocalToIso(launchDateDraft);
+                    if (!iso) return;
+                    onUpdateCreatedAt?.(order, iso);
+                  }}
+                  disabled={!launchDateDraft || dateTimeLocalToIso(launchDateDraft) === order?.created_at}
+                  className="rounded-xl px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-white/4 ring-1 ring-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Alterar data
+                </button>
+              </div>
+              <div className="mt-1 text-xs text-slate-500">Atual: {fmtDate(order?.created_at)}</div>
+            </div>
 
             <div className="mt-3 grid grid-cols-2 gap-3">
               <div>
@@ -1125,6 +1192,8 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
   const [availableClients, setAvailableClients] = React.useState([]);
   const [loadingClients, setLoadingClients] = React.useState(false);
   const [clientsError, setClientsError] = React.useState('');
+  const [cepLoading, setCepLoading] = React.useState(false);
+  const [cepError, setCepError] = React.useState('');
 
   React.useEffect(() => {
     if (!open) return;
@@ -1136,6 +1205,8 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
     setClientSearch('');
     setAvailableClients([]);
     setClientsError('');
+    setCepLoading(false);
+    setCepError('');
     setForm(emptyForm);
     setItems([]);
   }, [open, emptyForm]);
@@ -1188,20 +1259,57 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
     if (!selectedClient) return;
     setForm({
       name: String(selectedClient.full_name || '').trim(),
-      cpf: String(selectedClient.cpf || '').trim(),
+      cpf: formatCpfInput(selectedClient.cpf || ''),
       email: String(selectedClient.email || '').trim(),
-      phone: String(selectedClient.phone || '').trim(),
+      phone: formatPhoneInput(selectedClient.phone || ''),
       address_line1: String(selectedClient.address_line1 || '').trim(),
       address_number: String(selectedClient.address_number || '').trim(),
       address_line2: String(selectedClient.address_line2 || '').trim(),
       neighborhood: String(selectedClient.neighborhood || '').trim(),
       city: String(selectedClient.city || '').trim(),
       state: String(selectedClient.state || '').trim(),
-      zip: String(selectedClient.zip || '').trim(),
+      zip: formatCepInput(selectedClient.zip || ''),
     });
   }, [customerMode, selectedClient]);
 
-  function updateForm(key, value) { setForm((p) => ({ ...p, [key]: value })); }
+  React.useEffect(() => {
+    if (!open || customerMode === 'existing') return;
+    const cepDigits = onlyDigits(form.zip);
+    if (cepDigits.length !== 8) {
+      setCepError('');
+      return;
+    }
+    let active = true;
+    setCepLoading(true);
+    setCepError('');
+    fetchAddressFromCep(cepDigits)
+      .then((resp) => {
+        if (!active) return;
+        if (!resp?.ok) {
+          setCepError(resp?.error || 'CEP não encontrado.');
+          return;
+        }
+        setForm((prev) => ({
+          ...prev,
+          address_line1: resp.data.street || prev.address_line1,
+          neighborhood: resp.data.neighborhood || prev.neighborhood,
+          city: resp.data.city || prev.city,
+          state: resp.data.uf || prev.state,
+        }));
+      })
+      .catch(() => active && setCepError('Erro ao consultar CEP.'))
+      .finally(() => active && setCepLoading(false));
+    return () => { active = false; };
+  }, [open, customerMode, form.zip]);
+
+  function updateForm(key, value) {
+    let nextValue = value;
+    if (key === 'cpf') nextValue = formatCpfInput(value);
+    if (key === 'phone') nextValue = formatPhoneInput(value);
+    if (key === 'zip') nextValue = formatCepInput(value);
+    if (key === 'state') nextValue = String(value || '').toUpperCase().slice(0, 2);
+    setForm((p) => ({ ...p, [key]: nextValue }));
+  }
   function addRegisteredProduct() { setItems((p) => [...p, { id: crypto?.randomUUID?.() || String(Date.now()+Math.random()), mode: 'product', product_id: '', qty: 1, scale: '' }]); }
   function addCustomItem() { setItems((p) => [...p, { id: crypto?.randomUUID?.() || String(Date.now()+Math.random()), mode: 'custom', name: '', price: '', scale: '', qty: 1, notes: '' }]); }
   function addFreightItem() { setItems((p) => [...p, { id: crypto?.randomUUID?.() || String(Date.now()+Math.random()), mode: 'freight', carrier: '', price: '', qty: 1, notes: '' }]); }
@@ -1359,16 +1467,16 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <label className="text-sm text-slate-300">Nome<input value={form.name} onChange={(e)=>updateForm('name', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
-                  <label className="text-sm text-slate-300">CPF<input value={form.cpf} onChange={(e)=>updateForm('cpf', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+                  <label className="text-sm text-slate-300">CPF<input value={form.cpf} onChange={(e)=>updateForm('cpf', e.target.value)} placeholder="000.000.000-00" className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
                   <label className="text-sm text-slate-300">E-mail<input value={form.email} onChange={(e)=>updateForm('email', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
-                  <label className="text-sm text-slate-300">Telefone<input value={form.phone} onChange={(e)=>updateForm('phone', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+                  <label className="text-sm text-slate-300">Telefone<input value={form.phone} onChange={(e)=>updateForm('phone', e.target.value)} placeholder="(00) 00000-0000" className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
                   <label className="text-sm text-slate-300 sm:col-span-2">Rua<input value={form.address_line1} onChange={(e)=>updateForm('address_line1', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
                   <label className="text-sm text-slate-300">Número<input value={form.address_number} onChange={(e)=>updateForm('address_number', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
                   <label className="text-sm text-slate-300">Complemento<input value={form.address_line2} onChange={(e)=>updateForm('address_line2', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
                   <label className="text-sm text-slate-300">Bairro<input value={form.neighborhood} onChange={(e)=>updateForm('neighborhood', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
                   <label className="text-sm text-slate-300">Cidade<input value={form.city} onChange={(e)=>updateForm('city', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
                   <label className="text-sm text-slate-300">Estado<input value={form.state} onChange={(e)=>updateForm('state', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
-                  <label className="text-sm text-slate-300">CEP<input value={form.zip} onChange={(e)=>updateForm('zip', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+                  <label className="text-sm text-slate-300">CEP<input value={form.zip} onChange={(e)=>updateForm('zip', e.target.value)} placeholder="00000-000" className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" />{cepLoading ? <span className="mt-1 block text-xs text-cyan-200">Buscando endereço…</span> : null}{cepError ? <span className="mt-1 block text-xs text-red-200">{cepError}</span> : null}</label>
                 </div>
               </div>
             </div>
@@ -1455,6 +1563,8 @@ function CreateClientModal({ open, accessToken, onClose, onCreated, showToast })
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState('');
   const [created, setCreated] = React.useState(null);
+  const [cepLoading, setCepLoading] = React.useState(false);
+  const [cepError, setCepError] = React.useState('');
 
   React.useEffect(() => {
     if (!open) return;
@@ -1462,10 +1572,47 @@ function CreateClientModal({ open, accessToken, onClose, onCreated, showToast })
     setBusy(false);
     setError('');
     setCreated(null);
+    setCepLoading(false);
+    setCepError('');
   }, [open, emptyForm]);
 
+  React.useEffect(() => {
+    if (!open) return;
+    const cepDigits = onlyDigits(form.zip);
+    if (cepDigits.length !== 8) {
+      setCepError('');
+      return;
+    }
+    let active = true;
+    setCepLoading(true);
+    setCepError('');
+    fetchAddressFromCep(cepDigits)
+      .then((resp) => {
+        if (!active) return;
+        if (!resp?.ok) {
+          setCepError(resp?.error || 'CEP não encontrado.');
+          return;
+        }
+        setForm((prev) => ({
+          ...prev,
+          address_line1: resp.data.street || prev.address_line1,
+          neighborhood: resp.data.neighborhood || prev.neighborhood,
+          city: resp.data.city || prev.city,
+          state: resp.data.uf || prev.state,
+        }));
+      })
+      .catch(() => active && setCepError('Erro ao consultar CEP.'))
+      .finally(() => active && setCepLoading(false));
+    return () => { active = false; };
+  }, [open, form.zip]);
+
   function updateField(key, value) {
-    setForm((prev) => ({ ...prev, [key]: value }));
+    let nextValue = value;
+    if (key === 'cpf') nextValue = formatCpfInput(value);
+    if (key === 'phone') nextValue = formatPhoneInput(value);
+    if (key === 'zip') nextValue = formatCepInput(value);
+    if (key === 'state') nextValue = String(value || '').toUpperCase().slice(0, 2);
+    setForm((prev) => ({ ...prev, [key]: nextValue }));
   }
 
   async function handleCreate() {
@@ -1514,15 +1661,15 @@ function CreateClientModal({ open, accessToken, onClose, onCreated, showToast })
         <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-3">
           <label className="text-sm text-slate-300">Nome completo<input value={form.full_name} onChange={(e)=>updateField('full_name', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
           <label className="text-sm text-slate-300">E-mail<input type="email" value={form.email} onChange={(e)=>updateField('email', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
-          <label className="text-sm text-slate-300">CPF<input value={form.cpf} onChange={(e)=>updateField('cpf', e.target.value)} placeholder="A senha inicial será o CPF" className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
-          <label className="text-sm text-slate-300">Telefone<input value={form.phone} onChange={(e)=>updateField('phone', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+          <label className="text-sm text-slate-300">CPF<input value={form.cpf} onChange={(e)=>updateField('cpf', e.target.value)} placeholder="000.000.000-00" className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /><span className="mt-1 block text-xs text-slate-500">A senha inicial será o CPF</span></label>
+          <label className="text-sm text-slate-300">Telefone<input value={form.phone} onChange={(e)=>updateField('phone', e.target.value)} placeholder="(00) 00000-0000" className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
           <label className="text-sm text-slate-300 md:col-span-2">Endereço<input value={form.address_line1} onChange={(e)=>updateField('address_line1', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
           <label className="text-sm text-slate-300">Número<input value={form.address_number} onChange={(e)=>updateField('address_number', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
           <label className="text-sm text-slate-300">Complemento<input value={form.address_line2} onChange={(e)=>updateField('address_line2', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
           <label className="text-sm text-slate-300">Bairro<input value={form.neighborhood} onChange={(e)=>updateField('neighborhood', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
           <label className="text-sm text-slate-300">Cidade<input value={form.city} onChange={(e)=>updateField('city', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
           <label className="text-sm text-slate-300">UF<input value={form.state} onChange={(e)=>updateField('state', e.target.value)} maxLength={2} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white uppercase" /></label>
-          <label className="text-sm text-slate-300">CEP<input value={form.zip} onChange={(e)=>updateField('zip', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+          <label className="text-sm text-slate-300">CEP<input value={form.zip} onChange={(e)=>updateField('zip', e.target.value)} placeholder="00000-000" className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" />{cepLoading ? <span className="mt-1 block text-xs text-cyan-200">Buscando endereço…</span> : null}{cepError ? <span className="mt-1 block text-xs text-red-200">{cepError}</span> : null}</label>
         </div>
 
         <div className="mt-5 flex flex-wrap items-center justify-end gap-2 border-t border-white/10 pt-4">
@@ -3948,6 +4095,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
         onClose={() => setDetails({ open: false, orderId: null })}
         onUpdateStatus={(o) => setActionModal({ open: true, mode: "status", orderId: o?.id })}
         onUpdateTracking={(o) => setActionModal({ open: true, mode: "tracking", orderId: o?.id })}
+        onUpdateCreatedAt={(o, createdAt) => updateOrder(o?.id, { created_at: createdAt })}
         onRequestRefund={(o) => updateOrder(o?.id, { refund_requested: true, refund_requested_at: new Date().toISOString() })}
         onDeleteOrder={(o) => deleteOrder(o?.id || o?.order_id)}
         onResendEmail={(o) => resendOrderEmail(o?.id || o?.order_id)}
