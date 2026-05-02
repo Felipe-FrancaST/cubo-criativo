@@ -31,6 +31,7 @@ export default function ManualOrderPaymentPage({ onGoHome }) {
   const [{ order, sig, payment }] = React.useState(parseParams);
   const [loading, setLoading] = React.useState(true);
   const [busy, setBusy] = React.useState(false);
+  const [busyMethod, setBusyMethod] = React.useState('');
   const [error, setError] = React.useState('');
   const [data, setData] = React.useState(null);
   const [pix, setPix] = React.useState({ qr_code: '', qr_code_base64: '', ticket_url: '' });
@@ -123,6 +124,7 @@ export default function ManualOrderPaymentPage({ onGoHome }) {
 
   async function handlePix() {
     setBusy(true);
+    setBusyMethod('pix');
     setError('');
     try {
       const resp = await fetch('/api/manual-order-payment?action=create-pix', {
@@ -142,11 +144,13 @@ export default function ManualOrderPaymentPage({ onGoHome }) {
       setError(e?.message || 'Erro ao gerar Pix.');
     } finally {
       setBusy(false);
+      setBusyMethod('');
     }
   }
 
   async function handleCard() {
     setBusy(true);
+    setBusyMethod('card');
     setError('');
     try {
       const resp = await fetch('/api/manual-order-payment?action=create-card', {
@@ -165,6 +169,7 @@ export default function ManualOrderPaymentPage({ onGoHome }) {
     } catch (e) {
       setError(e?.message || 'Erro ao abrir checkout.');
       setBusy(false);
+      setBusyMethod('');
     }
   }
 
@@ -219,8 +224,8 @@ export default function ManualOrderPaymentPage({ onGoHome }) {
                     <div className="text-white font-bold text-lg">Pagar agora</div>
                     <div className="mt-2 text-sm text-slate-300">Escolha a forma de pagamento para concluir este pedido.</div>
                     <div className="mt-4 grid grid-cols-1 gap-3">
-                      <button onClick={handleCard} disabled={busy} className="rounded-2xl bg-cyan-400 text-[#031116] font-black px-4 py-3 disabled:opacity-60">Pagar com cartão</button>
-                      <button onClick={handlePix} disabled={busy} className="rounded-2xl bg-white/5 text-white font-black px-4 py-3 ring-1 ring-white/10 disabled:opacity-60">Pagar com Pix</button>
+                      <button onClick={handleCard} disabled={busy} className="rounded-2xl bg-cyan-400 text-[#031116] font-black px-4 py-3 disabled:opacity-60 disabled:cursor-wait">{busy && busyMethod === 'card' ? 'Aguarde…' : 'Pagar com cartão'}</button>
+                      <button onClick={handlePix} disabled={busy} className="rounded-2xl bg-white/5 text-white font-black px-4 py-3 ring-1 ring-white/10 disabled:opacity-60 disabled:cursor-wait">{busy && busyMethod === 'pix' ? 'Aguarde…' : 'Pagar com Pix'}</button>
                     </div>
                   </div>
 

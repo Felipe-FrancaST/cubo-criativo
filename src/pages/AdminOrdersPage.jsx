@@ -1436,6 +1436,104 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
   );
 }
 
+
+function CreateClientModal({ open, accessToken, onClose, onCreated, showToast }) {
+  const emptyForm = React.useMemo(() => ({
+    full_name: '',
+    email: '',
+    cpf: '',
+    phone: '',
+    address_line1: '',
+    address_number: '',
+    address_line2: '',
+    neighborhood: '',
+    city: '',
+    state: '',
+    zip: '',
+  }), []);
+  const [form, setForm] = React.useState(emptyForm);
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState('');
+  const [created, setCreated] = React.useState(null);
+
+  React.useEffect(() => {
+    if (!open) return;
+    setForm(emptyForm);
+    setBusy(false);
+    setError('');
+    setCreated(null);
+  }, [open, emptyForm]);
+
+  function updateField(key, value) {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  async function handleCreate() {
+    if (busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      const resp = await fetch('/api/admin?action=create-client', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify(form),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data?.error || 'Não foi possível cadastrar o cliente.');
+      setCreated(data?.client || null);
+      showToast?.('Cliente cadastrado com sucesso.');
+      onCreated?.(data?.client || null);
+    } catch (e) {
+      setError(e?.message || 'Erro ao cadastrar cliente.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-[10001]">
+      <div className="absolute inset-0 bg-[#020b10]/80" onClick={busy ? undefined : onClose} />
+      <div className="absolute inset-x-0 top-4 mx-auto w-[min(760px,calc(100vw-24px))] max-h-[92vh] overflow-y-auto rounded-[28px] bg-[#0a0f1a] ring-1 ring-white/10 p-4 sm:p-6">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="text-2xl font-bold text-white">Cadastrar cliente</div>
+            <div className="text-sm text-slate-400">Crie uma conta de cliente para usar em pedidos e acompanhamento no site.</div>
+          </div>
+          <button onClick={onClose} disabled={busy} className="rounded-xl px-3 py-2 text-slate-200 hover:bg-white/4 ring-1 ring-white/10 disabled:opacity-60">Fechar</button>
+        </div>
+
+        {error ? <div className="mt-4 rounded-2xl bg-red-500/10 ring-1 ring-red-500/20 px-4 py-3 text-red-100">{error}</div> : null}
+        {created ? (
+          <div className="mt-4 rounded-2xl bg-emerald-500/10 ring-1 ring-emerald-400/20 px-4 py-3 text-emerald-100">
+            <div className="font-bold">Cliente cadastrado.</div>
+            <div className="mt-1 text-sm">E-mail: <b>{created.email}</b> • Senha inicial: <b>CPF do cliente</b></div>
+          </div>
+        ) : null}
+
+        <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-3">
+          <label className="text-sm text-slate-300">Nome completo<input value={form.full_name} onChange={(e)=>updateField('full_name', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+          <label className="text-sm text-slate-300">E-mail<input type="email" value={form.email} onChange={(e)=>updateField('email', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+          <label className="text-sm text-slate-300">CPF<input value={form.cpf} onChange={(e)=>updateField('cpf', e.target.value)} placeholder="A senha inicial será o CPF" className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+          <label className="text-sm text-slate-300">Telefone<input value={form.phone} onChange={(e)=>updateField('phone', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+          <label className="text-sm text-slate-300 md:col-span-2">Endereço<input value={form.address_line1} onChange={(e)=>updateField('address_line1', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+          <label className="text-sm text-slate-300">Número<input value={form.address_number} onChange={(e)=>updateField('address_number', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+          <label className="text-sm text-slate-300">Complemento<input value={form.address_line2} onChange={(e)=>updateField('address_line2', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+          <label className="text-sm text-slate-300">Bairro<input value={form.neighborhood} onChange={(e)=>updateField('neighborhood', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+          <label className="text-sm text-slate-300">Cidade<input value={form.city} onChange={(e)=>updateField('city', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+          <label className="text-sm text-slate-300">UF<input value={form.state} onChange={(e)=>updateField('state', e.target.value)} maxLength={2} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white uppercase" /></label>
+          <label className="text-sm text-slate-300">CEP<input value={form.zip} onChange={(e)=>updateField('zip', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+        </div>
+
+        <div className="mt-5 flex flex-wrap items-center justify-end gap-2 border-t border-white/10 pt-4">
+          <button onClick={onClose} disabled={busy} className="rounded-xl px-4 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10 disabled:opacity-60">Cancelar</button>
+          <button onClick={handleCreate} disabled={busy} className="rounded-xl px-4 py-2 text-sm font-semibold bg-emerald-400 text-black ring-4 ring-emerald-400/20 disabled:opacity-60 disabled:cursor-wait">{busy ? 'Cadastrando…' : 'Cadastrar'}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoading = false, onNavigateHome, onRequireLogin }) {
   const { loading: authLoading } = useAuth();
   const [section, setSection] = React.useState("dashboard");
@@ -1509,6 +1607,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
   const [clientsError, setClientsError] = React.useState('');
   const [clientsQ, setClientsQ] = React.useState('');
   const [clientEditor, setClientEditor] = React.useState(null);
+  const [newClientOpen, setNewClientOpen] = React.useState(false);
   const [adminQuickSearch, setAdminQuickSearch] = React.useState('');
   const [confirmAction, setConfirmAction] = React.useState({ open: false, type: '', payload: null, busy: false, error: '', keywordValue: '' });
 
@@ -1538,6 +1637,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
         type: String(filterType || "all"),
         date_from: String(filterDateFrom || ""),
         date_to: String(filterDateTo || ""),
+        _: String(Date.now()),
       });
       const resp = await fetch(`/api/admin?${params.toString()}`, {
         headers: { Authorization: `Bearer ${accessToken}` },
@@ -2428,10 +2528,11 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
         <div className="flex items-center gap-2">
           <button
             onClick={() => fetchOrders()}
-            className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
+            disabled={loading}
+            className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10 disabled:opacity-60 disabled:cursor-wait"
           >
             <span className="material-icons text-[18px] align-middle mr-1">refresh</span>
-            Atualizar
+            {loading ? 'Atualizando…' : 'Atualizar'}
           </button>
           <button
             onClick={() => setNewOrderOpen(true)}
@@ -3081,7 +3182,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
             </div>
           ) : section === "clients" ? (
             <div className="space-y-4">
-              <SectionTitle icon="groups" title="Clientes" subtitle="Cadastros, histórico resumido e informações VIP." right={<button onClick={fetchClients} className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10">Atualizar</button>} />
+              <SectionTitle icon="groups" title="Clientes" subtitle="Cadastros, histórico resumido e informações VIP." right={<div className="flex flex-wrap items-center gap-2"><button onClick={() => setNewClientOpen(true)} className="rounded-xl px-3 py-2 text-sm font-semibold bg-emerald-400 text-black ring-4 ring-emerald-400/20"><span className="material-icons text-[18px] align-middle mr-1">person_add</span>Cadastrar</button><button onClick={fetchClients} disabled={clientsLoading} className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10 disabled:opacity-60 disabled:cursor-wait">{clientsLoading ? 'Atualizando…' : 'Atualizar'}</button></div>} />
               <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-4">
                 <input value={clientsQ} onChange={(e)=>setClientsQ(e.target.value)} placeholder="Buscar por nome, e-mail, CPF, cidade ou último pedido" className="w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" />
               </div>
@@ -3891,6 +3992,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
       />
 
       <NewManualOrderModal open={newOrderOpen} accessToken={accessToken} onClose={() => setNewOrderOpen(false)} onCreated={() => { fetchOrders(); }} showToast={showToast} />
+      <CreateClientModal open={newClientOpen} accessToken={accessToken} onClose={() => setNewClientOpen(false)} onCreated={(client) => { fetchClients(); if (client) setClientEditor(client); }} showToast={showToast} />
 
       <CloseVotingModal
         state={closeVote}

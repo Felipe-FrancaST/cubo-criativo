@@ -2580,6 +2580,38 @@ async function handleClients(req, res) {
   return res.status(200).json({ ok: true, clients: rows });
 }
 
+
+async function handleCreateClient(req, res) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  const auth = await requireAdmin(req);
+  if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
+  const body = await readJsonBody(req);
+  const email = normalizeEmail(body?.email || '');
+  const cpf = normalizeCpf(body?.cpf || '');
+  const fullName = String(body?.full_name || body?.name || '').trim();
+  const phone = String(body?.phone || '').trim();
+  if (!fullName) return res.status(400).json({ error: 'Nome obrigatório.' });
+  if (!email) return res.status(400).json({ error: 'E-mail obrigatório.' });
+  if (cpf.length !== 11) return res.status(400).json({ error: 'CPF inválido. Use 11 dígitos.' });
+
+  const address = {
+    address_line1: String(body?.address_line1 || '').trim(),
+    address_number: String(body?.address_number || '').trim(),
+    address_line2: String(body?.address_line2 || '').trim(),
+    neighborhood: String(body?.neighborhood || '').trim(),
+    city: String(body?.city || '').trim(),
+    state: String(body?.state || '').trim(),
+    zip: normalizeZip(body?.zip || ''),
+  };
+
+  try {
+    const account = await ensureManualOrderCustomerAccount({ email, cpf, fullName, phone, address });
+    return res.status(200).json({ ok: true, client: { id: account.userId, email: account.email, full_name: fullName, phone, cpf, ...address }, password_hint: 'CPF do cliente' });
+  } catch (e) {
+    return res.status(500).json({ error: e?.message || 'Não foi possível cadastrar o cliente.' });
+  }
+}
+
 async function handleUpdateClient(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   const auth = await requireAdmin(req);
@@ -2703,6 +2735,7 @@ export default async function handler(req, res) {
     if (action === "manual-order-products") return await handleManualOrderProducts(req, res);
     if (action === "manual-order-create") return await handleManualOrderCreate(req, res);
     if (action === "clients") return await handleClients(req, res);
+    if (action === "create-client") return await handleCreateClient(req, res);
     if (action === "update-client") return await handleUpdateClient(req, res);
     if (action === "delete-client") return await handleDeleteClient(req, res);
     if (action === "add-order-note") return await handleAddOrderNote(req, res);
