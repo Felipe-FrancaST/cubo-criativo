@@ -1274,7 +1274,7 @@ async function handleOrders(req, res) {
     const profileById = new Map();
     (profiles || []).forEach((p) => profileById.set(p.id, p));
 
-    const vipCycles = Array.from(
+    let vipCycles = Array.from(
       new Set(
         vipOrders
           .map((o) => {
@@ -1284,6 +1284,12 @@ async function handleOrders(req, res) {
           .filter(Boolean)
       )
     );
+    const profileVipCycles = vipOrders
+      .map((o) => String(profileById.get(o.user_id)?.vip_cycle_key || '').trim())
+      .filter(Boolean);
+    if (profileVipCycles.length) {
+      vipCycles = Array.from(new Set([...vipCycles, ...profileVipCycles]));
+    }
 
     const vipSelByUserCycle = new Map();
     if (vipUserIds.length && vipCycles.length) {
@@ -1310,6 +1316,7 @@ async function handleOrders(req, res) {
         vipSelByUserCycle.set(`${sel.user_id}:${sel.cycle_key}`, {
           cycle_key: sel.cycle_key,
           updated_at: sel.updated_at || null,
+          selected_option_ids: ids,
           selected_titles: selectedOptions.map((x) => x.title).filter(Boolean),
           selected_options: selectedOptions,
         });
@@ -1401,20 +1408,26 @@ async function handleOrders(req, res) {
       }
 
       const latestAdminNote = timeline.find((evt) => String(evt?.event_type || '').toLowerCase() === 'admin_note') || null;
+      const profile = o.user_id ? profileById.get(o.user_id) || null : null;
+      const vipCycleCandidates = Array.from(new Set([
+        String(profile?.vip_cycle_key || '').trim(),
+        cycleKey,
+      ].filter(Boolean)));
+      const vipSelection = normalizeOrderType(o.order_type) === "vip" && o.user_id
+        ? (vipCycleCandidates.map((key) => vipSelByUserCycle.get(`${o.user_id}:${key}`)).find(Boolean) || null)
+        : null;
+      const vipPresentRoll = normalizeOrderType(o.order_type) === "vip" && o.user_id
+        ? (vipCycleCandidates.map((key) => vipPresentResp.byKey.get(`${o.user_id}:${key}`)).find(Boolean) || null)
+        : null;
+
       return {
         ...o,
         vip_plan_id: latestPaidUpgrade?.vip_plan_id || o.vip_plan_id,
         vip_plan_label: planLabel(latestPaidUpgrade?.vip_plan_id || o.vip_plan_id),
-        profile: o.user_id ? profileById.get(o.user_id) || null : null,
+        profile,
         order_items: itemsByOrder.get(o.id) || [],
-        vip_selection:
-          normalizeOrderType(o.order_type) === "vip" && o.user_id
-            ? vipSelByUserCycle.get(`${o.user_id}:${cycleKey}`) || null
-            : null,
-        vip_present_roll:
-          normalizeOrderType(o.order_type) === "vip" && o.user_id
-            ? vipPresentResp.byKey.get(`${o.user_id}:${cycleKey}`) || null
-            : null,
+        vip_selection: vipSelection,
+        vip_present_roll: vipPresentRoll,
         related_upgrades: relatedUpgradesForOrder,
         related_upgrades_count: relatedUpgradesForOrder.length,
         upgrade_total: upgradeTotal,

@@ -52,6 +52,10 @@ function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTrack
   const phone = order?.customer_phone || p?.phone || "";
   const [noteDraft, setNoteDraft] = React.useState('');
   const [launchDateDraft, setLaunchDateDraft] = React.useState(() => dateTimeLocalValue(order?.created_at));
+  const isVipOrder = String(order?.order_type || '').trim().toLowerCase() === 'vip';
+  const vipSelectedOptions = Array.isArray(order?.vip_selection?.selected_options) ? order.vip_selection.selected_options : [];
+  const vipSelectedTitles = Array.isArray(order?.vip_selection?.selected_titles) ? order.vip_selection.selected_titles : [];
+  const vipSelectedIds = Array.isArray(order?.vip_selection?.selected_option_ids) ? order.vip_selection.selected_option_ids : [];
 
   React.useEffect(() => {
     setLaunchDateDraft(dateTimeLocalValue(order?.created_at));
@@ -296,12 +300,23 @@ function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTrack
               )}
             </div>
 
-            {order?.vip_selection?.selected_titles?.length ? (
-              <div className="mt-3">
-                <div className="text-xs text-slate-500">Seleção VIP:</div>
-                {Array.isArray(order?.vip_selection?.selected_options) && order.vip_selection.selected_options.length ? (
-                  <div className="mt-2 grid grid-cols-3 gap-2">
-                    {order.vip_selection.selected_options.map((opt) => (
+            {isVipOrder ? (
+              <div className="mt-3 rounded-2xl bg-violet-500/10 ring-1 ring-violet-300/20 p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-xs text-violet-200/80 uppercase tracking-wide">Miniaturas escolhidas pelo assinante</div>
+                    <div className="mt-1 text-[11px] text-slate-400">
+                      Ciclo: {order?.vip_selection?.cycle_key || order?.profile?.vip_cycle_key || String(order?.created_at || '').slice(0, 7) || '—'}
+                    </div>
+                  </div>
+                  <span className="rounded-full bg-violet-300/10 px-2 py-1 text-[11px] font-semibold text-violet-100 ring-1 ring-violet-300/20">
+                    {(vipSelectedOptions.length || vipSelectedTitles.length || vipSelectedIds.length)} item(ns)
+                  </span>
+                </div>
+
+                {vipSelectedOptions.length ? (
+                  <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {vipSelectedOptions.map((opt) => (
                       <div
                         key={String(opt?.id || opt?.title)}
                         className="rounded-xl bg-black/20 ring-1 ring-white/10 p-2"
@@ -315,13 +330,19 @@ function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTrack
                           )}
                         </div>
                         <div className="mt-2 text-[11px] text-slate-200 leading-snug break-words" style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-                          {opt?.title}
+                          {opt?.title || 'Miniatura VIP'}
                         </div>
                       </div>
                     ))}
                   </div>
+                ) : vipSelectedTitles.length ? (
+                  <div className="mt-2 text-xs text-slate-200">{vipSelectedTitles.join(", ")}</div>
+                ) : vipSelectedIds.length ? (
+                  <div className="mt-2 text-xs text-slate-300">IDs escolhidos: {vipSelectedIds.join(", ")}</div>
                 ) : (
-                  <div className="mt-1 text-xs text-slate-300">{order.vip_selection.selected_titles.join(", ")}</div>
+                  <div className="mt-3 rounded-xl bg-black/20 ring-1 ring-white/10 p-3 text-sm text-slate-300">
+                    Nenhuma miniatura escolhida foi encontrada para este ciclo VIP.
+                  </div>
                 )}
               </div>
             ) : null}
