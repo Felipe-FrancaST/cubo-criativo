@@ -42,6 +42,9 @@ export default function VipRpgPage({
   const [plans, setPlans] = React.useState([]);
   const [selectedPlanId, setSelectedPlanId] = React.useState('');
   const [plansLoading, setPlansLoading] = React.useState(true);
+  const [collectionItems, setCollectionItems] = React.useState([]);
+  const [collectionLoading, setCollectionLoading] = React.useState(true);
+
 
   const vipUntil = vipProfile?.vip_until || null;
   const isVip = Boolean(vipUntil && new Date(vipUntil) > new Date());
@@ -136,6 +139,24 @@ export default function VipRpgPage({
       alive = false;
     };
   }, []);
+
+  React.useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        setCollectionLoading(true);
+        const res = await fetch('/api/core?action=vip-cycle');
+        const data = await res.json().catch(() => ({}));
+        if (!alive) return;
+        setCollectionItems(Array.isArray(data?.items) ? data.items : []);
+      } catch {
+        if (alive) setCollectionItems([]);
+      } finally {
+        if (alive) setCollectionLoading(false);
+      }
+    })();
+    return () => { alive = false; };
+  });
 
   React.useEffect(() => {
     let alive = true;
@@ -433,7 +454,39 @@ export default function VipRpgPage({
               </div>
             </div>
 
-            {vipLoading ? (
+            
+            <div className="mt-8">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-xl font-bold">Coleção Atual</h2>
+                <span className="text-xs text-slate-400">Prévia das miniaturas disponíveis neste ciclo</span>
+              </div>
+
+              {collectionLoading ? (
+                <div className="rounded-2xl bg-white/4 ring-1 ring-white/10 p-4 text-slate-300">Carregando coleção...</div>
+              ) : collectionItems.length ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                  {collectionItems.map((item) => (
+                    <div key={item.id} className="rounded-2xl overflow-hidden bg-white/4 ring-1 ring-white/10">
+                      <div className="aspect-square bg-black/20">
+                        <img
+                          src={item.image_url}
+                          alt={item.title || 'Miniatura'}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                        />
+                      </div>
+                      <div className="p-2">
+                        <div className="text-xs sm:text-sm font-semibold line-clamp-2">
+                          {item.title}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+
+{vipLoading ? (
               <div className="mt-8 rounded-2xl bg-white/4 ring-1 ring-white/10 p-5 text-slate-200">Carregando…</div>
             ) : isVip ? (
               <div className="mt-8 rounded-2xl bg-white/4 ring-1 ring-white/10 p-5 text-slate-200">
