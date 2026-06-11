@@ -42,6 +42,8 @@ export default function VipRpgPage({
   const [plans, setPlans] = React.useState([]);
   const [selectedPlanId, setSelectedPlanId] = React.useState('');
   const [plansLoading, setPlansLoading] = React.useState(true);
+  const [currentCollection, setCurrentCollection] = React.useState([]);
+
 
   const vipUntil = vipProfile?.vip_until || null;
   const isVip = Boolean(vipUntil && new Date(vipUntil) > new Date());
@@ -107,6 +109,40 @@ export default function VipRpgPage({
     return items;
   }, [selectedPlan, selectedMiniaturesCount, selectedBossCount, selectedItemsPerMonth]);
 
+
+
+React.useEffect(() => {
+  let alive = true;
+  (async () => {
+    try {
+      const res = await fetch('/api/vip-cycle');
+      const data = await res.json().catch(() => ({}));
+      if (alive) setCurrentCollection(Array.isArray(data?.items) ? data.items : []);
+    } catch {
+      if (alive) setCurrentCollection([]);
+    }
+  })();
+  return () => { alive = false; };
+}, []);
+
+
+
+const collectionPreviewSection = currentCollection.length ? (
+  <section className="mt-8 rounded-3xl border border-white/10 bg-white/5 p-4 md:p-6">
+    <h2 className="text-xl font-bold mb-2">Coleção atual do mês</h2>
+    <p className="text-slate-300 mb-4">Veja todas as miniaturas disponíveis na coleção ativa antes de assinar.</p>
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      {currentCollection.map((item) => (
+        <div key={item.id} className="rounded-2xl overflow-hidden bg-black/20 border border-white/10">
+          <img src={item.image_url} alt={item.title} className="w-full aspect-square object-cover" />
+          <div className="p-3">
+            <div className="font-semibold text-sm">{item.title}</div>
+          </div>
+        </div>
+      ))}
+    </div>
+  </section>
+) : null;
   function pixStatusPtLabel(v) {
     const st = String(v || '').toLowerCase();
     if (!st || st === 'pending' || st === 'in_process') return 'Pendente';
@@ -401,7 +437,7 @@ export default function VipRpgPage({
     }
   }
 
-  return (
+  return (<> {collectionPreviewSection} 
     <main className="flex-1">
       <section className="container-cc px-4 sm:px-6 lg:px-8 py-10 sm:py-14" >
         <div className="relative overflow-hidden rounded-3xl ring-1 ring-white/10 bg-gradient-to-br from-slate-900/60 via-slate-950/50 to-black/60 backdrop-blur p-6 sm:p-10">

@@ -2,7 +2,6 @@ import React from "react";
 import { useAuth } from "../auth/AuthProvider.jsx";
 import { supabase } from "../lib/supabaseClient";
 import brand from "../data/config";
-import { buildTrackingUrl, resolveTrackingCarrier, trackingCarrierLabel } from "../lib/tracking";
 
 
 function fmtBRL(v) {
@@ -21,8 +20,9 @@ function prodUI(status) {
   return { label: v.replaceAll('_', ' '), cls: 'bg-white/4 text-slate-200 ring-white/10' };
 }
 
-function trackUrl(code, trackingUrl, shippingCarrier) {
-  return buildTrackingUrl({ code, fallbackUrl: trackingUrl, carrier: resolveTrackingCarrier({ carrier: shippingCarrier, trackingUrl }) });
+function trackUrl(code) {
+  const c = String(code || '').trim();
+  return c ? `https://rastreamento.correios.com.br/app/index.php?objetos=${encodeURIComponent(c)}` : '#';
 }
 
 function emailEventLabel(type, status) {
@@ -160,30 +160,13 @@ export default function AccountPage({ onClose, onGoHome }) {
     setDashboardLoading(true);
     setDashboardError("");
     try {
-      const loadOrders = async () => {
-        const attempts = [
-          "id,status,total,payment_provider,provider_payment_id,created_at,updated_at,production_status,shipping_tracking,shipping_carrier,tracking_url,order_type,last_email_type,last_email_status,last_email_sent_at,last_email_error",
-          "id,status,total,payment_provider,provider_payment_id,created_at,updated_at,production_status,shipping_tracking,shipping_carrier,order_type,last_email_type,last_email_status,last_email_sent_at,last_email_error",
-          "id,status,total,payment_provider,provider_payment_id,created_at,updated_at,production_status,shipping_tracking,shipping_carrier,order_type",
-          "id,status,total,payment_provider,provider_payment_id,created_at,updated_at,production_status,shipping_tracking,order_type",
-        ];
-        let lastError = null;
-        for (const selectColumns of attempts) {
-          const resp = await supabase
-            .from("orders")
-            .select(selectColumns)
-            .eq("user_id", user.id)
-            .order("created_at", { ascending: false })
-            .limit(8);
-          if (!resp.error) return resp;
-          lastError = resp.error;
-          if (!/column/i.test(String(resp.error.message || ""))) break;
-        }
-        return { data: null, error: lastError };
-      };
-
       const [ordersResp, profileResp] = await Promise.all([
-        loadOrders(),
+        supabase
+          .from("orders")
+          .select("id,status,total,payment_provider,provider_payment_id,created_at,updated_at,production_status,shipping_tracking,order_type,last_email_type,last_email_status,last_email_sent_at,last_email_error")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(8),
         supabase.from("profiles").select("vip_until,vip_plan").eq("id", user.id).maybeSingle(),
       ]);
 
@@ -422,8 +405,8 @@ export default function AccountPage({ onClose, onGoHome }) {
                               <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-slate-300">
                                 {order.shipping_tracking ? (
                                   <>
-                                    <span className="rounded-full bg-white/4 px-3 py-1 ring-1 ring-white/10">{trackingCarrierLabel(order.shipping_carrier)} • <b>{order.shipping_tracking}</b></span>
-                                    <a href={trackUrl(order.shipping_tracking, order.tracking_url, order.shipping_carrier)} target="_blank" rel="noreferrer" className="rounded-full bg-emerald-400 px-3 py-1 font-semibold text-black hover:bg-emerald-300">Rastrear</a>
+                                    <span className="rounded-full bg-white/4 px-3 py-1 ring-1 ring-white/10">Rastreio: <b>{order.shipping_tracking}</b></span>
+                                    <a href={trackUrl(order.shipping_tracking)} target="_blank" rel="noreferrer" className="rounded-full bg-emerald-400 px-3 py-1 font-semibold text-black hover:bg-emerald-300">Rastrear</a>
                                   </>
                                 ) : (
                                   <span className="text-slate-400">Sem rastreio disponível no momento.</span>

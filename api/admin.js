@@ -85,27 +85,6 @@ function daysOpenSince(value) {
   return Math.max(0, Math.floor((Date.now() - d.getTime()) / 86400000));
 }
 
-function parseProductionEtaDays(value) {
-  const raw = String(value || '').trim().toLowerCase();
-  if (!raw) return null;
-  const matches = [...raw.matchAll(/\d+/g)].map((m) => Number(m[0])).filter((n) => Number.isFinite(n) && n > 0);
-  if (!matches.length) return null;
-  return Math.max(...matches);
-}
-
-function isDelayedByProductionEta(order) {
-  const status = String(order?.production_status || '').toLowerCase();
-  if (!['em_producao', 'pronto'].includes(status)) return false;
-  if (isTerminalProductionStatus(status)) return false;
-  const etaDays = parseProductionEtaDays(order?.production_eta);
-  if (!etaDays) return false;
-  const anchor = order?.production_status_updated_at || order?.created_at;
-  const anchorDate = anchor ? new Date(anchor) : null;
-  if (!anchorDate || Number.isNaN(anchorDate.getTime())) return false;
-  const elapsedDays = Math.max(0, Math.floor((Date.now() - anchorDate.getTime()) / 86400000));
-  return elapsedDays > etaDays;
-}
-
 function isTerminalProductionStatus(value) {
   return ['entregue', 'cancelado', 'reembolsado'].includes(String(value || '').toLowerCase());
 }
@@ -173,7 +152,6 @@ async function handleManualOrderCreate(req, res) {
   const auth = await requireAdmin(req);
   if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
   const body = await readJsonBody(req);
-  const paymentAction = String(body?.payment_action || body?.paymentAction || 'payment_link').trim().toLowerCase();
   const customer = body?.customer || {};
   const existingUserId = String(body?.existing_user_id || customer.existing_user_id || '').trim();
   const accountMode = String(body?.account_mode || customer.account_mode || (existingUserId ? 'existing' : 'new')).trim().toLowerCase();
@@ -202,7 +180,6 @@ async function handleManualOrderCreate(req, res) {
 
   const sb = supabaseAdmin();
   let resolvedItems = [];
-  let freightCarrier = '';
   for (const item of itemsRaw) {
     const mode = String(item.mode || item.type || '').trim().toLowerCase();
     if (mode === 'product') {
@@ -224,12 +201,8 @@ async function handleManualOrderCreate(req, res) {
       resolvedItems.push({ product_id: row.id, name: row.name, qty, scale: chosenScale, unit_price: unitPrice, img: row.image_url || (Array.isArray(row.images) ? row.images[0] : '') || '' });
     } else if (mode === 'freight' || mode === 'shipping' || mode === 'frete') {
       const freightValue = Number(item.unit_price ?? item.price ?? item.valor ?? item.shipping_price ?? 0);
-      const carrier = String(item.carrier || item.shipping_carrier || '').trim().toLowerCase();
       if (!Number.isFinite(freightValue) || freightValue <= 0) return res.status(400).json({ error: 'Valor de frete inválido.' });
-      if (!carrier) return res.status(400).json({ error: 'Selecione a transportadora do frete.' });
-      const carrierLabel = carrier === 'jadlog' ? 'Jadlog' : carrier === 'loggi' ? 'Loggi' : 'Correios';
-      const freightLabel = `Pagamento de frete — ${carrierLabel} — ${address.address_line1}, ${address.address_number}${address.address_line2 ? `, ${address.address_line2}` : ''} — ${address.neighborhood} — ${address.city}/${address.state} — CEP ${address.zip}`;
-      freightCarrier = freightCarrier || carrier;
+      const freightLabel = `Pagamento de frete — ${address.address_line1}, ${address.address_number}${address.address_line2 ? `, ${address.address_line2}` : ''} — ${address.neighborhood} — ${address.city}/${address.state} — CEP ${address.zip}`;
       resolvedItems.push({ product_id: `freight:${crypto.randomUUID()}`, name: freightLabel, qty: 1, scale: '', unit_price: Number(freightValue.toFixed(2)), img: '' });
     } else {
       resolvedItems.push(buildManualOrderItemFromCustom(item));
@@ -259,22 +232,18 @@ async function handleManualOrderCreate(req, res) {
     account = await ensureManualOrderCustomerAccount({ email, cpf, fullName, phone, address });
   }
   const orderId = crypto.randomUUID();
-  const isPaidManually = paymentAction === 'mark_paid';
-  const hasFreightOnly = resolvedItems.length > 0 && resolvedItems.every((it) => String(it.product_id || '').startsWith('freight:'));
   const orderPayload = {
     id: orderId,
     user_id: account.userId,
-    status: isPaidManually ? 'paid' : 'pending',
+    status: 'pending',
     currency: 'BRL',
     total,
-    payment_provider: isPaidManually ? 'admin_manual' : 'mercado_pago',
-    production_status: isPaidManually ? 'recebido' : 'editavel',
-    production_status_updated_at: isPaidManually ? new Date().toISOString() : null,
-    order_type: hasFreightOnly ? 'shipping_payment' : 'shop',
+    payment_provider: 'mercado_pago',
+    production_status: 'editavel',
+    order_type: resolvedItems.some((it) => String(it.product_id || '').startsWith('freight:')) ? 'shipping_payment' : 'shop',
     customer_email: email,
     customer_name: fullName,
     customer_phone: phone || null,
-    shipping_carrier: freightCarrier || null,
   };
   const { error: orderErr } = await sb.from('orders').insert(orderPayload);
   if (orderErr) return res.status(500).json({ error: orderErr.message || 'Não foi possível criar o pedido.' });
@@ -315,20 +284,18 @@ async function handleManualOrderCreate(req, res) {
     }
   }
 
-  const paymentLink = isPaidManually ? null : buildManualPaymentLink({ baseUrl: getBaseUrl(req), orderId });
+  const paymentLink = buildManualPaymentLink({ baseUrl: getBaseUrl(req), orderId });
   await recordOrderEvent(sb, {
     order_id: orderId,
-    event_type: isPaidManually ? 'payment_confirmed' : 'order_created',
-    title: isPaidManually ? 'Pedido pago lançado pelo admin' : 'Pedido criado pelo admin',
-    description: isPaidManually
-      ? 'Pedido criado e marcado como pago manualmente no painel administrativo.'
-      : (account?.existing ? 'Pedido lançado para cliente já cadastrado.' : 'Pedido manual criado com conta automática para o cliente.'),
+    event_type: 'order_created',
+    title: 'Pedido criado pelo admin',
+    description: account?.existing ? 'Pedido lançado para cliente já cadastrado.' : 'Pedido manual criado com conta automática para o cliente.',
     actor_label: 'Admin',
-    metadata: { account_mode: account?.existing ? 'existing' : 'new', total, items_count: cleanedItems.length, payment_action: paymentAction, shipping_carrier: freightCarrier || null },
+    metadata: { account_mode: account?.existing ? 'existing' : 'new', total, items_count: cleanedItems.length },
   });
   return res.status(200).json({
     ok: true,
-    order: { id: orderId, order_number: buildControlNumber(orderId), total, customer_name: fullName, customer_email: email, status: orderPayload.status },
+    order: { id: orderId, order_number: buildControlNumber(orderId), total, customer_name: fullName, customer_email: email },
     payment_link: paymentLink,
     account: account?.existing ? { email, existing: true } : { email, password: cpf },
   });
@@ -356,21 +323,6 @@ function safeJson(value) {
   } catch {
     return '{}';
   }
-}
-
-
-function normalizeTrackingCarrier(value) {
-  const v = String(value || '').trim().toLowerCase();
-  return ['correios', 'jadlog', 'loggi'].includes(v) ? v : 'correios';
-}
-
-function buildTrackingUrlForCarrier(code, carrier) {
-  const trackingCode = String(code || '').trim();
-  if (!trackingCode) return null;
-  const normalizedCarrier = normalizeTrackingCarrier(carrier);
-  if (normalizedCarrier === 'jadlog') return 'https://www.jadlog.com.br/siteInstitucional/tracking.jad';
-  if (normalizedCarrier === 'loggi') return 'https://www.loggi.com/rastreador/';
-  return 'https://rastreamento.correios.com.br/';
 }
 
 function formatProdStatusPt(status) {
@@ -494,8 +446,8 @@ async function loadOrderEvents(sb, orderIds) {
 }
 
 async function fetchOrderForAdmin(sb, orderId) {
-  const fullSelect = "id,user_id,order_type,vip_plan_id,status,production_status,shipping_tracking,shipping_carrier,tracking_code,tracking_url,production_eta,production_status_updated_at,customer_email,customer_name,created_at,updated_at,payment_provider,total,last_email_type,last_email_status,last_email_sent_at,last_email_error";
-  const legacySelect = "id,user_id,order_type,vip_plan_id,status,production_status,shipping_tracking,shipping_carrier,tracking_code,tracking_url,production_eta,production_status_updated_at,customer_email,customer_name,created_at,updated_at,payment_provider,total";
+  const fullSelect = "id,user_id,order_type,vip_plan_id,status,production_status,shipping_tracking,tracking_code,tracking_url,customer_email,customer_name,created_at,updated_at,payment_provider,total,last_email_type,last_email_status,last_email_sent_at,last_email_error";
+  const legacySelect = "id,user_id,order_type,vip_plan_id,status,production_status,shipping_tracking,tracking_code,tracking_url,customer_email,customer_name,created_at,updated_at,payment_provider,total";
   let resp = await sb.from('orders').select(fullSelect).eq('id', orderId).maybeSingle();
   if (resp?.error && /last_email_|column/i.test(String(resp.error.message || ''))) {
     resp = await sb.from('orders').select(legacySelect).eq('id', orderId).maybeSingle();
@@ -1017,7 +969,7 @@ function applyOrderFilters(builder, filters = {}) {
   if (dateFrom) q = q.gte("created_at", `${dateFrom}T00:00:00`);
   if (dateTo) q = q.lte("created_at", `${dateTo}T23:59:59.999`);
   if (pay !== "all") q = q.eq("status", pay);
-  if (prod !== "all" && prod !== "overdue") q = q.eq("production_status", prod);
+  if (prod !== "all") q = q.eq("production_status", prod);
   if (type !== "all") {
     if (type === "vip") q = q.eq("order_type", "vip");
     if (type === "store") q = q.neq("order_type", "vip");
@@ -1067,21 +1019,18 @@ async function handleOrders(req, res) {
   let orders = null;
   let ordersErr = null;
   let totalCount = 0;
-  const overdueOnly = String(filters.prod || '').toLowerCase() === 'overdue';
 
   const selectFull =
-    "id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,production_status,shipping_tracking,shipping_carrier,production_eta,production_status_updated_at,order_type,vip_plan_id,refund_requested,refund_requested_at,last_email_type,last_email_status,last_email_sent_at,last_email_error";
+    "id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,production_status,shipping_tracking,order_type,vip_plan_id,refund_requested,refund_requested_at,last_email_type,last_email_status,last_email_sent_at,last_email_error";
   const selectNoEmailAudit =
-    "id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,production_status,shipping_tracking,shipping_carrier,production_eta,production_status_updated_at,order_type,vip_plan_id,refund_requested,refund_requested_at";
+    "id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,production_status,shipping_tracking,order_type,vip_plan_id,refund_requested,refund_requested_at";
   const selectLegacy =
-    "id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,production_status,shipping_tracking,shipping_carrier,production_eta,production_status_updated_at,order_type,vip_plan_id";
+    "id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,production_status,shipping_tracking,order_type,vip_plan_id";
 
   const runOrderQuery = async (selectColumns) => {
     let query = sb.from("orders").select(selectColumns, { count: "exact" });
     query = applyOrderFilters(query, filters);
-    query = query.order("created_at", { ascending: false });
-    if (!overdueOnly) query = query.range(from, to);
-    return await query;
+    return await query.order("created_at", { ascending: false }).range(from, to);
   };
 
   let attemptOrders = await runOrderQuery(selectFull);
@@ -1107,8 +1056,8 @@ async function handleOrders(req, res) {
 
   let summaryRows = [];
   let summaryRowsAll = [];
-  const summarySelectFull = "id,status,total,production_status,shipping_tracking,shipping_carrier,production_eta,production_status_updated_at,order_type,refund_requested,created_at";
-  const summarySelectLegacy = "id,status,total,production_status,shipping_tracking,shipping_carrier,production_eta,production_status_updated_at,order_type,created_at";
+  const summarySelectFull = "status,total,production_status,shipping_tracking,order_type,refund_requested,created_at";
+  const summarySelectLegacy = "status,total,production_status,shipping_tracking,order_type,created_at";
   const runSummaryQuery = async (selectColumns) => {
     let query = sb.from("orders").select(selectColumns);
     query = applyOrderFilters(query, filters);
@@ -1125,14 +1074,6 @@ async function handleOrders(req, res) {
   totalCount = summaryRows.length;
   orders = (Array.isArray(orders) ? orders : []).filter((o) => !isUpgradeOrderType(o?.order_type));
 
-  if (overdueOnly) {
-    summaryRows = summaryRows.filter((o) => isDelayedByProductionEta(o));
-    const overdueIds = new Set(summaryRows.map((o) => String(o.id || '')));
-    orders = orders.filter((o) => overdueIds.has(String(o.id || '')) || isDelayedByProductionEta(o));
-    totalCount = summaryRows.length;
-    orders = orders.slice(from, to + 1);
-  }
-
   const summary = (() => {
     const list = summaryRows || [];
     const total = Number(totalCount || list.length || 0);
@@ -1145,7 +1086,7 @@ async function handleOrders(req, res) {
     const paidWaitingProduction = list.filter((o) => String(o?.status || '').toLowerCase() === 'paid' && ['recebido', 'editavel'].includes(String(o?.production_status || 'recebido').toLowerCase())).length;
     const readyWithoutTracking = list.filter((o) => String(o?.status || '').toLowerCase() === 'paid' && String(o?.production_status || '').toLowerCase() === 'pronto' && !String(o?.shipping_tracking || '').trim()).length;
     const shippedInTransit = list.filter((o) => String(o?.production_status || '').toLowerCase() === 'enviado').length;
-    const overdueCount = list.filter((o) => isDelayedByProductionEta(o)).length;
+    const overdueCount = list.filter((o) => !isTerminalProductionStatus(o?.production_status) && daysOpenSince(o?.created_at) > 10).length;
     const staleOrders = list.filter((o) => !isTerminalProductionStatus(o?.production_status) && daysOpenSince(o?.created_at) > 5).length;
     const awaitingShipment = list.filter((o) => String(o?.status || '').toLowerCase() === 'paid' && ['pronto', 'em_producao'].includes(String(o?.production_status || '').toLowerCase())).length;
     const now = new Date();
@@ -1274,7 +1215,7 @@ async function handleOrders(req, res) {
     const profileById = new Map();
     (profiles || []).forEach((p) => profileById.set(p.id, p));
 
-    let vipCycles = Array.from(
+    const vipCycles = Array.from(
       new Set(
         vipOrders
           .map((o) => {
@@ -1284,12 +1225,6 @@ async function handleOrders(req, res) {
           .filter(Boolean)
       )
     );
-    const profileVipCycles = vipOrders
-      .map((o) => String(profileById.get(o.user_id)?.vip_cycle_key || '').trim())
-      .filter(Boolean);
-    if (profileVipCycles.length) {
-      vipCycles = Array.from(new Set([...vipCycles, ...profileVipCycles]));
-    }
 
     const vipSelByUserCycle = new Map();
     if (vipUserIds.length && vipCycles.length) {
@@ -1316,7 +1251,6 @@ async function handleOrders(req, res) {
         vipSelByUserCycle.set(`${sel.user_id}:${sel.cycle_key}`, {
           cycle_key: sel.cycle_key,
           updated_at: sel.updated_at || null,
-          selected_option_ids: ids,
           selected_titles: selectedOptions.map((x) => x.title).filter(Boolean),
           selected_options: selectedOptions,
         });
@@ -1408,32 +1342,26 @@ async function handleOrders(req, res) {
       }
 
       const latestAdminNote = timeline.find((evt) => String(evt?.event_type || '').toLowerCase() === 'admin_note') || null;
-      const profile = o.user_id ? profileById.get(o.user_id) || null : null;
-      const vipCycleCandidates = Array.from(new Set([
-        String(profile?.vip_cycle_key || '').trim(),
-        cycleKey,
-      ].filter(Boolean)));
-      const vipSelection = normalizeOrderType(o.order_type) === "vip" && o.user_id
-        ? (vipCycleCandidates.map((key) => vipSelByUserCycle.get(`${o.user_id}:${key}`)).find(Boolean) || null)
-        : null;
-      const vipPresentRoll = normalizeOrderType(o.order_type) === "vip" && o.user_id
-        ? (vipCycleCandidates.map((key) => vipPresentResp.byKey.get(`${o.user_id}:${key}`)).find(Boolean) || null)
-        : null;
-
       return {
         ...o,
         vip_plan_id: latestPaidUpgrade?.vip_plan_id || o.vip_plan_id,
         vip_plan_label: planLabel(latestPaidUpgrade?.vip_plan_id || o.vip_plan_id),
-        profile,
+        profile: o.user_id ? profileById.get(o.user_id) || null : null,
         order_items: itemsByOrder.get(o.id) || [],
-        vip_selection: vipSelection,
-        vip_present_roll: vipPresentRoll,
+        vip_selection:
+          normalizeOrderType(o.order_type) === "vip" && o.user_id
+            ? vipSelByUserCycle.get(`${o.user_id}:${cycleKey}`) || null
+            : null,
+        vip_present_roll:
+          normalizeOrderType(o.order_type) === "vip" && o.user_id
+            ? vipPresentResp.byKey.get(`${o.user_id}:${cycleKey}`) || null
+            : null,
         related_upgrades: relatedUpgradesForOrder,
         related_upgrades_count: relatedUpgradesForOrder.length,
         upgrade_total: upgradeTotal,
         effective_total: Number(o.total || 0) + upgradeTotal,
         days_open: daysOpenSince(o.created_at),
-        is_overdue: isDelayedByProductionEta(o),
+        is_overdue: !isTerminalProductionStatus(o.production_status) && daysOpenSince(o.created_at) > 10,
         latest_admin_note: latestAdminNote?.description || '',
         timeline,
         timeline_source: dbEvents.length ? 'order_events' : 'synthetic',
@@ -1514,7 +1442,6 @@ async function handleOrders(req, res) {
         related_upgrades_count: 0,
         upgrade_total: 0,
         effective_total: Number(o.total || 0),
-        is_overdue: isDelayedByProductionEta(o),
         timeline: synthesizeOrderTimeline(o),
         timeline_source: 'synthetic',
       })),
@@ -1533,14 +1460,14 @@ async function handleOrders(req, res) {
   } catch (fatalError) {
     console.error('[admin/orders] fatal fallback error:', fatalError);
     try {
-      const legacySelect = "id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,production_status,shipping_tracking,shipping_carrier,production_eta,production_status_updated_at,order_type,vip_plan_id";
+      const legacySelect = "id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,production_status,shipping_tracking,order_type,vip_plan_id";
       let legacyQuery = sb.from("orders").select(legacySelect, { count: "exact" });
       legacyQuery = applyOrderFilters(legacyQuery, filters);
       const legacyResp = await legacyQuery.order("created_at", { ascending: false }).range(from, to);
       if (legacyResp?.error) {
         return res.status(500).json({ error: legacyResp.error.message || "Failed to load orders" });
       }
-      const legacyAllResp = await applyOrderFilters(sb.from("orders").select("status,total,production_status,shipping_tracking,shipping_carrier,production_eta,production_status_updated_at,order_type,created_at"), filters).order("created_at", { ascending: false });
+      const legacyAllResp = await applyOrderFilters(sb.from("orders").select("status,total,production_status,shipping_tracking,order_type,created_at"), filters).order("created_at", { ascending: false });
       const legacyAllRows = Array.isArray(legacyAllResp?.data) ? legacyAllResp.data : [];
       const baseRows = (Array.isArray(legacyResp?.data) ? legacyResp.data : []).filter((o) => !isUpgradeOrderType(o?.order_type));
       const summaryRows = legacyAllRows.filter((o) => !isUpgradeOrderType(o?.order_type));
@@ -1557,7 +1484,6 @@ async function handleOrders(req, res) {
         const paidWaitingProduction = list.filter((o) => String(o?.status || '').toLowerCase() === 'paid' && ['recebido', 'editavel'].includes(String(o?.production_status || 'recebido').toLowerCase())).length;
         const readyWithoutTracking = list.filter((o) => String(o?.status || '').toLowerCase() === 'paid' && String(o?.production_status || '').toLowerCase() === 'pronto' && !String(o?.shipping_tracking || '').trim()).length;
         const shippedInTransit = list.filter((o) => String(o?.production_status || '').toLowerCase() === 'enviado').length;
-        const overdueCount = list.filter((o) => isDelayedByProductionEta(o)).length;
         return {
           total: totalCount,
           paid: paidRows.length,
@@ -1565,8 +1491,7 @@ async function handleOrders(req, res) {
           revenue,
           refundReq,
           vipCount,
-          overdueCount,
-          bottlenecks: { paidWaitingProduction, readyWithoutTracking, shippedInTransit, refundRequested: refundReq, overdueCount },
+          bottlenecks: { paidWaitingProduction, readyWithoutTracking, shippedInTransit, refundRequested: refundReq },
         };
       })();
       return res.status(200).json({
@@ -1845,7 +1770,6 @@ async function fetchVipMiniLibrary(sb) {
 
 function groupVipCyclesFromLibrary(items = [], activeCycleKey = null) {
   const map = new Map();
-  let freightCarrier = '';
   for (const item of items) {
     const cycleKey = String(item?.cycle_key || "").trim();
     if (!cycleKey) continue;
@@ -2346,16 +2270,12 @@ async function handleUpdateOrder(req, res) {
     const ps = String(body.production_status || "").trim().toLowerCase();
     if (!ALLOWED_PROD_STATUS.has(ps)) return res.status(400).json({ error: "Invalid production_status" });
     next.production_status = ps;
-    if (ps === 'em_producao') next.production_status_updated_at = new Date().toISOString();
   }
-  const shippingCarrier = normalizeTrackingCarrier(body.shipping_carrier);
   if (body.shipping_tracking !== undefined) {
     const tr = String(body.shipping_tracking || "").trim();
     next.shipping_tracking = tr || null;
-    next.shipping_carrier = tr ? shippingCarrier : null;
     // Keep new columns in sync when available
     next.tracking_code = tr || null;
-    next.tracking_url = tr ? buildTrackingUrlForCarrier(tr, shippingCarrier) : null;
   }
   if (body.tracking_code !== undefined) {
     const tc = String(body.tracking_code || "").trim();
@@ -2364,14 +2284,6 @@ async function handleUpdateOrder(req, res) {
   if (body.tracking_url !== undefined) {
     const tu = String(body.tracking_url || "").trim();
     next.tracking_url = tu || null;
-  }
-  if (body.created_at !== undefined) {
-    const rawCreatedAt = String(body.created_at || "").trim();
-    const parsedCreatedAt = rawCreatedAt ? new Date(rawCreatedAt) : null;
-    if (!parsedCreatedAt || Number.isNaN(parsedCreatedAt.getTime())) {
-      return res.status(400).json({ error: "Data de lançamento inválida." });
-    }
-    next.created_at = parsedCreatedAt.toISOString();
   }
 
   const production_eta = String(body.production_eta || "").trim();
@@ -2400,10 +2312,8 @@ async function handleUpdateOrder(req, res) {
     const retry = { ...next };
 
     if (/production_eta/i.test(msg)) delete retry.production_eta;
-    if (/shipping_carrier/i.test(msg)) delete retry.shipping_carrier;
     if (/tracking_code/i.test(msg)) delete retry.tracking_code;
     if (/tracking_url/i.test(msg)) delete retry.tracking_url;
-    if (/production_status_updated_at/i.test(msg)) delete retry.production_status_updated_at;
 
     // Only retry if we actually removed something.
     if (Object.keys(retry).length !== Object.keys(next).length) {
@@ -2428,16 +2338,6 @@ async function handleUpdateOrder(req, res) {
       },
     }));
   }
-  if (Object.prototype.hasOwnProperty.call(next, 'created_at') && String(next.created_at || '') !== String(currentOrder.created_at || '')) {
-    timelineWrites.push(recordOrderEvent(sb, {
-      order_id,
-      event_type: 'order_created_at_updated',
-      title: 'Data de lançamento alterada',
-      description: `De ${currentOrder.created_at || 'sem data'} para ${next.created_at}.`,
-      actor_label: 'Admin',
-      metadata: { from_created_at: currentOrder.created_at || null, to_created_at: next.created_at },
-    }));
-  }
   const nextTracking = next.shipping_tracking ?? next.tracking_code;
   const prevTracking = currentOrder.shipping_tracking || currentOrder.tracking_code || '';
   if (typeof nextTracking === 'string' && nextTracking !== prevTracking) {
@@ -2451,7 +2351,6 @@ async function handleUpdateOrder(req, res) {
         from_tracking: prevTracking || null,
         to_tracking: nextTracking || null,
         tracking_url: next.tracking_url || currentOrder.tracking_url || null,
-        shipping_carrier: next.shipping_carrier || currentOrder.shipping_carrier || null,
       },
     }));
   }
@@ -2507,7 +2406,7 @@ async function handleClients(req, res) {
 
   const ordersResp = await sb
     .from('orders')
-    .select('id,user_id,status,total,created_at,order_type,customer_name,customer_email,production_status,shipping_tracking,shipping_carrier,refund_requested')
+    .select('id,user_id,status,total,created_at,order_type,customer_name,customer_email,production_status,shipping_tracking,refund_requested')
     .order('created_at', { ascending: false })
     .limit(5000);
   if (ordersResp?.error) return res.status(500).json({ error: ordersResp.error.message || 'Falha ao carregar pedidos para clientes.' });
@@ -2573,7 +2472,6 @@ async function handleClients(req, res) {
         total: Number(order.total || 0),
         production_status: order.production_status || 'recebido',
         shipping_tracking: order.shipping_tracking || null,
-        shipping_carrier: order.shipping_carrier || null,
         refund_requested: !!order.refund_requested,
       }));
     return {
@@ -2609,38 +2507,6 @@ async function handleClients(req, res) {
   });
 
   return res.status(200).json({ ok: true, clients: rows });
-}
-
-
-async function handleCreateClient(req, res) {
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-  const auth = await requireAdmin(req);
-  if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
-  const body = await readJsonBody(req);
-  const email = normalizeEmail(body?.email || '');
-  const cpf = normalizeCpf(body?.cpf || '');
-  const fullName = String(body?.full_name || body?.name || '').trim();
-  const phone = String(body?.phone || '').trim();
-  if (!fullName) return res.status(400).json({ error: 'Nome obrigatório.' });
-  if (!email) return res.status(400).json({ error: 'E-mail obrigatório.' });
-  if (cpf.length !== 11) return res.status(400).json({ error: 'CPF inválido. Use 11 dígitos.' });
-
-  const address = {
-    address_line1: String(body?.address_line1 || '').trim(),
-    address_number: String(body?.address_number || '').trim(),
-    address_line2: String(body?.address_line2 || '').trim(),
-    neighborhood: String(body?.neighborhood || '').trim(),
-    city: String(body?.city || '').trim(),
-    state: String(body?.state || '').trim(),
-    zip: normalizeZip(body?.zip || ''),
-  };
-
-  try {
-    const account = await ensureManualOrderCustomerAccount({ email, cpf, fullName, phone, address });
-    return res.status(200).json({ ok: true, client: { id: account.userId, email: account.email, full_name: fullName, phone, cpf, ...address }, password_hint: 'CPF do cliente' });
-  } catch (e) {
-    return res.status(500).json({ error: e?.message || 'Não foi possível cadastrar o cliente.' });
-  }
 }
 
 async function handleUpdateClient(req, res) {
@@ -2766,7 +2632,6 @@ export default async function handler(req, res) {
     if (action === "manual-order-products") return await handleManualOrderProducts(req, res);
     if (action === "manual-order-create") return await handleManualOrderCreate(req, res);
     if (action === "clients") return await handleClients(req, res);
-    if (action === "create-client") return await handleCreateClient(req, res);
     if (action === "update-client") return await handleUpdateClient(req, res);
     if (action === "delete-client") return await handleDeleteClient(req, res);
     if (action === "add-order-note") return await handleAddOrderNote(req, res);
