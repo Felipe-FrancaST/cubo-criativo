@@ -156,7 +156,7 @@ export default function VipRpgPage({
       }
     })();
     return () => { alive = false; };
-  });
+  }, []);
 
   React.useEffect(() => {
     let alive = true;
