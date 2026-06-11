@@ -4,17 +4,15 @@ import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../auth/AuthProvider.jsx";
 import brand from "../data/config.js";
 import { trackEvent } from "../lib/analytics.js";
+import { buildTrackingUrl, resolveTrackingCarrier, trackingCarrierLabel } from "../lib/tracking";
 
 const fmtBRL = (n) =>
   typeof n === "number" && isFinite(n)
     ? n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
     : "—";
 
-function trackUrl(code) {
-  const c = String(code || "").trim();
-  if (!c) return "";
-  // Correios (funciona para a maioria dos envios no BR)
-  return `https://www2.correios.com.br/sistemas/rastreamento/default.cfm?objeto=${encodeURIComponent(c)}`;
+function trackUrl(code, trackingUrl, shippingCarrier) {
+  return buildTrackingUrl({ code, fallbackUrl: trackingUrl, carrier: resolveTrackingCarrier({ carrier: shippingCarrier, trackingUrl }) });
 }
 
 function copyToClipboard(text) {
@@ -690,11 +688,27 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
     setError("");
 
     // 1) Carrega pedidos (sem join) para evitar erro de relationship no schema cache
-    const { data: ordersData, error: ordersErr } = await supabase
-      .from("orders")
-      .select("id, status, total, payment_provider, provider_payment_id, created_at, production_status, shipping_tracking, order_type")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
+    const orderSelectAttempts = [
+      "id, status, total, payment_provider, provider_payment_id, created_at, production_status, shipping_tracking, shipping_carrier, tracking_url, order_type",
+      "id, status, total, payment_provider, provider_payment_id, created_at, production_status, shipping_tracking, shipping_carrier, order_type",
+      "id, status, total, payment_provider, provider_payment_id, created_at, production_status, shipping_tracking, order_type",
+    ];
+    let ordersData = null;
+    let ordersErr = null;
+    for (const selectColumns of orderSelectAttempts) {
+      const resp = await supabase
+        .from("orders")
+        .select(selectColumns)
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+      if (!resp.error) {
+        ordersData = resp.data;
+        ordersErr = null;
+        break;
+      }
+      ordersErr = resp.error;
+      if (!/column/i.test(String(resp.error.message || ""))) break;
+    }
 
     if (ordersErr) {
       setLoading(false);
@@ -1079,7 +1093,7 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
 
           {o.shipping_tracking ? (
             <div className="mt-4 flex flex-wrap items-center gap-2">
-              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-200">Rastreio: {String(o.shipping_tracking)}</span>
+              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-200">{trackingCarrierLabel(o.shipping_carrier)} • {String(o.shipping_tracking)}</span>
               <button
                 onClick={() => copyToClipboard(o.shipping_tracking)}
                 className="rounded-full border border-white/10 px-3 py-1.5 text-xs font-medium text-slate-100 transition hover:bg-white/5"
@@ -1087,7 +1101,7 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
                 Copiar rastreio
               </button>
               <a
-                href={trackUrl(o.shipping_tracking)}
+                href={trackUrl(o.shipping_tracking, o.tracking_url, o.shipping_carrier)}
                 target="_blank"
                 rel="noreferrer"
                 className="rounded-full bg-emerald-400 px-3 py-1.5 text-xs font-semibold text-black transition hover:bg-emerald-300"

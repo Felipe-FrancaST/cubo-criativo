@@ -2,8 +2,47 @@ import React from "react";
 import { useAuth } from "../auth/AuthProvider.jsx";
 import { DetailRow, KpiCard, OrderBadgeCluster, SectionTitle, SidebarItem, TimelineList } from "./admin/orders/AdminOrdersComponents.jsx";
 import { badgeBase, copyToClipboard, daysBetween, emailAuditBadge, endOfDay, exportCsv, fmtAddress, fmtBRL, fmtDate, onlyDigits, prodStatusBadge, shortId, startOfDay, statusBadge, toDateInputValue } from "./admin/orders/adminOrdersUtils.js";
+import { TRACKING_CARRIERS, inferTrackingCarrierFromUrl, normalizeTrackingCarrier, resolveTrackingCarrier, trackingCarrierLabel } from "../lib/tracking";
+import { fetchAddressFromCep } from "../lib/cep.js";
 
-function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTracking, onRequestRefund, onDeleteOrder, onResendEmail, onAddNote, resendBusy, toast, adminQuickSearch, setAdminQuickSearch, runAdminQuickSearch }) {
+
+function formatCpfInput(value) {
+  const d = onlyDigits(value).slice(0, 11);
+  if (d.length <= 3) return d;
+  if (d.length <= 6) return `${d.slice(0, 3)}.${d.slice(3)}`;
+  if (d.length <= 9) return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}`;
+  return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
+}
+
+function formatPhoneInput(value) {
+  const d = onlyDigits(value).slice(0, 11);
+  if (d.length <= 2) return d ? `(${d}` : "";
+  if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+  if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+}
+
+function formatCepInput(value) {
+  const d = onlyDigits(value).slice(0, 8);
+  if (d.length <= 5) return d;
+  return `${d.slice(0, 5)}-${d.slice(5)}`;
+}
+
+function dateTimeLocalValue(value) {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function dateTimeLocalToIso(value) {
+  if (!value) return "";
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? "" : d.toISOString();
+}
+
+function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTracking, onUpdateCreatedAt, onRequestRefund, onDeleteOrder, onResendEmail, onAddNote, resendBusy, toast, adminQuickSearch, setAdminQuickSearch, runAdminQuickSearch }) {
   if (!open) return null;
   const p = order?.profile || null;
   const address = fmtAddress(p);
@@ -12,6 +51,15 @@ function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTrack
   const [deleteKeyword, setDeleteKeyword] = React.useState("");
   const phone = order?.customer_phone || p?.phone || "";
   const [noteDraft, setNoteDraft] = React.useState('');
+  const [launchDateDraft, setLaunchDateDraft] = React.useState(() => dateTimeLocalValue(order?.created_at));
+  const isVipOrder = String(order?.order_type || '').trim().toLowerCase() === 'vip';
+  const vipSelectedOptions = Array.isArray(order?.vip_selection?.selected_options) ? order.vip_selection.selected_options : [];
+  const vipSelectedTitles = Array.isArray(order?.vip_selection?.selected_titles) ? order.vip_selection.selected_titles : [];
+  const vipSelectedIds = Array.isArray(order?.vip_selection?.selected_option_ids) ? order.vip_selection.selected_option_ids : [];
+
+  React.useEffect(() => {
+    setLaunchDateDraft(dateTimeLocalValue(order?.created_at));
+  }, [order?.id, order?.created_at]);
   const waPhone = onlyDigits(phone);
   const waMsg = encodeURIComponent(
     `Olá! Sobre seu pedido ${shortId(order?.id)}:\nStatus: ${String(order?.production_status || "recebido")}\n\nQualquer dúvida, me responda aqui.`
@@ -65,6 +113,30 @@ function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTrack
 
           <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-3">
             <OrderBadgeCluster order={order} />
+
+            <div className="mt-3 rounded-2xl bg-black/20 ring-1 ring-white/10 p-3">
+              <div className="text-[11px] text-slate-500">Data de lançamento</div>
+              <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
+                <input
+                  type="datetime-local"
+                  value={launchDateDraft}
+                  onChange={(e) => setLaunchDateDraft(e.target.value)}
+                  className="w-full rounded-xl bg-black/30 ring-1 ring-white/10 px-3 py-2 text-sm text-white"
+                />
+                <button
+                  onClick={() => {
+                    const iso = dateTimeLocalToIso(launchDateDraft);
+                    if (!iso) return;
+                    onUpdateCreatedAt?.(order, iso);
+                  }}
+                  disabled={!launchDateDraft || dateTimeLocalToIso(launchDateDraft) === order?.created_at}
+                  className="rounded-xl px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-white/4 ring-1 ring-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Alterar data
+                </button>
+              </div>
+              <div className="mt-1 text-xs text-slate-500">Atual: {fmtDate(order?.created_at)}</div>
+            </div>
 
             <div className="mt-3 grid grid-cols-2 gap-3">
               <div>
@@ -228,12 +300,23 @@ function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTrack
               )}
             </div>
 
-            {order?.vip_selection?.selected_titles?.length ? (
-              <div className="mt-3">
-                <div className="text-xs text-slate-500">Seleção VIP:</div>
-                {Array.isArray(order?.vip_selection?.selected_options) && order.vip_selection.selected_options.length ? (
-                  <div className="mt-2 grid grid-cols-3 gap-2">
-                    {order.vip_selection.selected_options.map((opt) => (
+            {isVipOrder ? (
+              <div className="mt-3 rounded-2xl bg-violet-500/10 ring-1 ring-violet-300/20 p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-xs text-violet-200/80 uppercase tracking-wide">Miniaturas escolhidas pelo assinante</div>
+                    <div className="mt-1 text-[11px] text-slate-400">
+                      Ciclo: {order?.vip_selection?.cycle_key || order?.profile?.vip_cycle_key || String(order?.created_at || '').slice(0, 7) || '—'}
+                    </div>
+                  </div>
+                  <span className="rounded-full bg-violet-300/10 px-2 py-1 text-[11px] font-semibold text-violet-100 ring-1 ring-violet-300/20">
+                    {(vipSelectedOptions.length || vipSelectedTitles.length || vipSelectedIds.length)} item(ns)
+                  </span>
+                </div>
+
+                {vipSelectedOptions.length ? (
+                  <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {vipSelectedOptions.map((opt) => (
                       <div
                         key={String(opt?.id || opt?.title)}
                         className="rounded-xl bg-black/20 ring-1 ring-white/10 p-2"
@@ -247,13 +330,19 @@ function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTrack
                           )}
                         </div>
                         <div className="mt-2 text-[11px] text-slate-200 leading-snug break-words" style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-                          {opt?.title}
+                          {opt?.title || 'Miniatura VIP'}
                         </div>
                       </div>
                     ))}
                   </div>
+                ) : vipSelectedTitles.length ? (
+                  <div className="mt-2 text-xs text-slate-200">{vipSelectedTitles.join(", ")}</div>
+                ) : vipSelectedIds.length ? (
+                  <div className="mt-2 text-xs text-slate-300">IDs escolhidos: {vipSelectedIds.join(", ")}</div>
                 ) : (
-                  <div className="mt-1 text-xs text-slate-300">{order.vip_selection.selected_titles.join(", ")}</div>
+                  <div className="mt-3 rounded-xl bg-black/20 ring-1 ring-white/10 p-3 text-sm text-slate-300">
+                    Nenhuma miniatura escolhida foi encontrada para este ciclo VIP.
+                  </div>
                 )}
               </div>
             ) : null}
@@ -570,12 +659,14 @@ function StatusModal({ open, mode, order, onClose, onSubmit }) {
   const [productionStatus, setProductionStatus] = React.useState("recebido");
   const [eta, setEta] = React.useState("3 a 7 dias úteis");
   const [tracking, setTracking] = React.useState("");
+  const [shippingCarrier, setShippingCarrier] = React.useState("correios");
 
   React.useEffect(() => {
     if (!open) return;
     setProductionStatus(String(order?.production_status || "recebido"));
-    setEta("3 a 7 dias úteis");
+    setEta(String(order?.production_eta || "3 a 7 dias úteis"));
     setTracking(String(order?.shipping_tracking || ""));
+    setShippingCarrier(resolveTrackingCarrier({ carrier: order?.shipping_carrier, trackingUrl: order?.tracking_url }));
   }, [open, order]);
 
   if (!open) return null;
@@ -585,12 +676,12 @@ function StatusModal({ open, mode, order, onClose, onSubmit }) {
       const next = String(productionStatus || "recebido").toLowerCase();
       const patch = { production_status: next };
       if (next === "em_producao") patch.production_eta = eta;
-      if (next === "enviado" && tracking.trim()) patch.shipping_tracking = tracking.trim();
+      if (next === "enviado" && tracking.trim()) { patch.shipping_tracking = tracking.trim(); patch.shipping_carrier = normalizeTrackingCarrier(shippingCarrier); }
       onSubmit?.(patch);
       return;
     }
     if (mode === "tracking") {
-      onSubmit?.({ shipping_tracking: tracking.trim(), ...(tracking.trim() ? { production_status: "enviado" } : {}) });
+      onSubmit?.({ shipping_tracking: tracking.trim(), shipping_carrier: normalizeTrackingCarrier(shippingCarrier), ...(tracking.trim() ? { production_status: "enviado" } : {}) });
     }
   };
 
@@ -648,30 +739,58 @@ function StatusModal({ open, mode, order, onClose, onSubmit }) {
               ) : null}
 
               {String(productionStatus).toLowerCase() === "enviado" ? (
-                <label className="block">
-                  <div className="text-xs text-slate-400 mb-1">Rastreio (opcional)</div>
-                  <input
-                    value={tracking}
-                    onChange={(e) => setTracking(e.target.value)}
-                    className="w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-slate-100"
-                    placeholder="Código de rastreio"
-                  />
-                </label>
+                <>
+                  <label className="block">
+                    <div className="text-xs text-slate-400 mb-1">Transportadora</div>
+                    <select
+                      value={shippingCarrier}
+                      onChange={(e) => setShippingCarrier(e.target.value)}
+                      className="w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-slate-100"
+                    >
+                      {TRACKING_CARRIERS.map((carrier) => (
+                        <option key={carrier.value} value={carrier.value}>{carrier.label}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block">
+                    <div className="text-xs text-slate-400 mb-1">Rastreio (opcional)</div>
+                    <input
+                      value={tracking}
+                      onChange={(e) => setTracking(e.target.value)}
+                      className="w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-slate-100"
+                      placeholder="Código de rastreio"
+                    />
+                  </label>
+                </>
               ) : null}
             </>
           ) : (
-            <label className="block">
-              <div className="text-xs text-slate-400 mb-1">Rastreio</div>
-              <input
-                value={tracking}
-                onChange={(e) => setTracking(e.target.value)}
-                className="w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-slate-100"
-                placeholder="Código de rastreio"
-              />
-              <div className="mt-1 text-[11px] text-slate-500">
-                Dica: ao definir rastreio, o pedido pode ser marcado como <span className="text-slate-300">Enviado</span>.
-              </div>
-            </label>
+            <>
+              <label className="block">
+                <div className="text-xs text-slate-400 mb-1">Transportadora</div>
+                <select
+                  value={shippingCarrier}
+                  onChange={(e) => setShippingCarrier(e.target.value)}
+                  className="w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-slate-100"
+                >
+                  {TRACKING_CARRIERS.map((carrier) => (
+                    <option key={carrier.value} value={carrier.value}>{carrier.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <div className="text-xs text-slate-400 mb-1">Rastreio</div>
+                <input
+                  value={tracking}
+                  onChange={(e) => setTracking(e.target.value)}
+                  className="w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-slate-100"
+                  placeholder="Código de rastreio"
+                />
+                <div className="mt-1 text-[11px] text-slate-500">
+                  Dica: ao definir rastreio, o pedido pode ser marcado como <span className="text-slate-300">Enviado</span>.
+                </div>
+              </label>
+            </>
           )}
         </div>
 
@@ -1077,15 +1196,41 @@ function StartVotingModal({ state, imageLibrary, imageLibraryLoading, imageLibra
 
 
 function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast }) {
+  const emptyForm = React.useMemo(() => ({
+    name: '', cpf: '', email: '', phone: '', address_line1: '', address_number: '', address_line2: '', neighborhood: '', city: '', state: '', zip: '',
+  }), []);
   const [loadingProducts, setLoadingProducts] = React.useState(false);
   const [products, setProducts] = React.useState([]);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState('');
   const [result, setResult] = React.useState(null);
-  const [form, setForm] = React.useState({
-    name: '', cpf: '', email: '', phone: '', address_line1: '', address_number: '', address_line2: '', neighborhood: '', city: '', state: '', zip: '',
-  });
+  const [form, setForm] = React.useState(emptyForm);
   const [items, setItems] = React.useState([]);
+  const [showFinalizeChoices, setShowFinalizeChoices] = React.useState(false);
+  const [customerMode, setCustomerMode] = React.useState('new');
+  const [selectedClientId, setSelectedClientId] = React.useState('');
+  const [clientSearch, setClientSearch] = React.useState('');
+  const [availableClients, setAvailableClients] = React.useState([]);
+  const [loadingClients, setLoadingClients] = React.useState(false);
+  const [clientsError, setClientsError] = React.useState('');
+  const [cepLoading, setCepLoading] = React.useState(false);
+  const [cepError, setCepError] = React.useState('');
+
+  React.useEffect(() => {
+    if (!open) return;
+    setError('');
+    setResult(null);
+    setShowFinalizeChoices(false);
+    setCustomerMode('new');
+    setSelectedClientId('');
+    setClientSearch('');
+    setAvailableClients([]);
+    setClientsError('');
+    setCepLoading(false);
+    setCepError('');
+    setForm(emptyForm);
+    setItems([]);
+  }, [open, emptyForm]);
 
   React.useEffect(() => {
     if (!open || !accessToken) return;
@@ -1103,9 +1248,92 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
     return () => { active = false; };
   }, [open, accessToken]);
 
-  function updateForm(key, value) { setForm((p) => ({ ...p, [key]: value })); }
+  React.useEffect(() => {
+    if (!open || !accessToken || customerMode !== 'existing') return;
+    let active = true;
+    setLoadingClients(true);
+    setClientsError('');
+    const params = new URLSearchParams({ action: 'clients', q: String(clientSearch || '') });
+    fetch(`/api/admin?${params.toString()}`, { headers: { Authorization: `Bearer ${accessToken}` } })
+      .then((r) => r.json().catch(() => ({})).then((json) => ({ ok: r.ok, json })))
+      .then(({ ok, json }) => {
+        if (!active) return;
+        if (!ok) throw new Error(json?.error || 'Não foi possível carregar os clientes.');
+        setAvailableClients(Array.isArray(json?.clients) ? json.clients : []);
+      })
+      .catch((e) => {
+        if (!active) return;
+        setAvailableClients([]);
+        setClientsError(e?.message || 'Erro ao carregar clientes.');
+      })
+      .finally(() => active && setLoadingClients(false));
+    return () => { active = false; };
+  }, [open, accessToken, customerMode, clientSearch]);
+
+  const selectedClient = React.useMemo(
+    () => availableClients.find((client) => String(client.id) === String(selectedClientId || '')) || null,
+    [availableClients, selectedClientId]
+  );
+
+  React.useEffect(() => {
+    if (customerMode !== 'existing') return;
+    if (!selectedClient) return;
+    setForm({
+      name: String(selectedClient.full_name || '').trim(),
+      cpf: formatCpfInput(selectedClient.cpf || ''),
+      email: String(selectedClient.email || '').trim(),
+      phone: formatPhoneInput(selectedClient.phone || ''),
+      address_line1: String(selectedClient.address_line1 || '').trim(),
+      address_number: String(selectedClient.address_number || '').trim(),
+      address_line2: String(selectedClient.address_line2 || '').trim(),
+      neighborhood: String(selectedClient.neighborhood || '').trim(),
+      city: String(selectedClient.city || '').trim(),
+      state: String(selectedClient.state || '').trim(),
+      zip: formatCepInput(selectedClient.zip || ''),
+    });
+  }, [customerMode, selectedClient]);
+
+  React.useEffect(() => {
+    if (!open || customerMode === 'existing') return;
+    const cepDigits = onlyDigits(form.zip);
+    if (cepDigits.length !== 8) {
+      setCepError('');
+      return;
+    }
+    let active = true;
+    setCepLoading(true);
+    setCepError('');
+    fetchAddressFromCep(cepDigits)
+      .then((resp) => {
+        if (!active) return;
+        if (!resp?.ok) {
+          setCepError(resp?.error || 'CEP não encontrado.');
+          return;
+        }
+        setForm((prev) => ({
+          ...prev,
+          address_line1: resp.data.street || prev.address_line1,
+          neighborhood: resp.data.neighborhood || prev.neighborhood,
+          city: resp.data.city || prev.city,
+          state: resp.data.uf || prev.state,
+        }));
+      })
+      .catch(() => active && setCepError('Erro ao consultar CEP.'))
+      .finally(() => active && setCepLoading(false));
+    return () => { active = false; };
+  }, [open, customerMode, form.zip]);
+
+  function updateForm(key, value) {
+    let nextValue = value;
+    if (key === 'cpf') nextValue = formatCpfInput(value);
+    if (key === 'phone') nextValue = formatPhoneInput(value);
+    if (key === 'zip') nextValue = formatCepInput(value);
+    if (key === 'state') nextValue = String(value || '').toUpperCase().slice(0, 2);
+    setForm((p) => ({ ...p, [key]: nextValue }));
+  }
   function addRegisteredProduct() { setItems((p) => [...p, { id: crypto?.randomUUID?.() || String(Date.now()+Math.random()), mode: 'product', product_id: '', qty: 1, scale: '' }]); }
   function addCustomItem() { setItems((p) => [...p, { id: crypto?.randomUUID?.() || String(Date.now()+Math.random()), mode: 'custom', name: '', price: '', scale: '', qty: 1, notes: '' }]); }
+  function addFreightItem() { setItems((p) => [...p, { id: crypto?.randomUUID?.() || String(Date.now()+Math.random()), mode: 'freight', carrier: '', price: '', qty: 1, notes: '' }]); }
   function updateItem(id, patch) { setItems((p) => p.map((it) => it.id === id ? { ...it, ...patch } : it)); }
   function removeItem(id) { setItems((p) => p.filter((it) => it.id !== id)); }
 
@@ -1118,15 +1346,24 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
     return sum + Number(it.price || 0) * Number(it.qty || 1);
   }, 0), [items, products]);
 
-  async function handleSubmit() {
+  async function handleSubmit(paymentAction = 'payment_link') {
     setBusy(true);
     setError('');
     try {
       const payload = {
-        customer: form,
-        items: items.map((it) => it.mode === 'product'
-          ? { mode: 'product', product_id: it.product_id, qty: Number(it.qty || 1), scale: it.scale || '' }
-          : { mode: 'custom', name: it.name, price: Number(it.price || 0), scale: it.scale || '', qty: Number(it.qty || 1), notes: it.notes || '' }),
+        customer: {
+          ...form,
+          existing_user_id: customerMode === 'existing' ? selectedClientId : '',
+          account_mode: customerMode,
+        },
+        existing_user_id: customerMode === 'existing' ? selectedClientId : '',
+        account_mode: customerMode,
+        payment_action: paymentAction,
+        items: items.map((it) => {
+          if (it.mode === 'product') return { mode: 'product', product_id: it.product_id, qty: Number(it.qty || 1), scale: it.scale || '' };
+          if (it.mode === 'freight') return { mode: 'freight', carrier: it.carrier || '', price: Number(it.price || 0), qty: 1, notes: it.notes || '' };
+          return { mode: 'custom', name: it.name, price: Number(it.price || 0), scale: it.scale || '', qty: Number(it.qty || 1), notes: it.notes || '' };
+        }),
       };
       const resp = await fetch('/api/admin?action=manual-order-create', {
         method: 'POST',
@@ -1136,7 +1373,8 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
       const json = await resp.json().catch(() => ({}));
       if (!resp.ok) throw new Error(json?.error || 'Não foi possível criar o pedido.');
       setResult(json);
-      showToast?.('Pedido criado com sucesso.');
+      setShowFinalizeChoices(false);
+      showToast?.(paymentAction === 'mark_paid' ? 'Pedido lançado como pago com sucesso.' : 'Pedido criado com sucesso.');
       onCreated?.();
     } catch (e) {
       setError(e?.message || 'Erro ao criar pedido.');
@@ -1163,16 +1401,20 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
         {result ? (
           <div className="mt-5 grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4 items-start">
             <div className="rounded-3xl bg-emerald-500/10 ring-1 ring-emerald-400/20 p-5">
-              <div className="text-emerald-100 text-xl font-extrabold">Pedido criado</div>
-              <div className="mt-2 text-sm text-emerald-50/90">Compartilhe o link abaixo com o cliente para ele pagar com Pix ou cartão.</div>
-              <div className="mt-4 rounded-2xl bg-black/20 ring-1 ring-white/10 p-4 break-all text-sm text-slate-100">{result?.payment_link}</div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button onClick={() => navigator.clipboard?.writeText(result?.payment_link || '')} className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10">Copiar link</button>
-                <a href={result?.payment_link} target="_blank" rel="noreferrer" className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10">Abrir página</a>
-              </div>
+              <div className="text-emerald-100 text-xl font-extrabold">{result?.payment_link ? 'Pedido criado' : 'Pedido lançado como pago'}</div>
+              <div className="mt-2 text-sm text-emerald-50/90">{result?.payment_link ? 'Compartilhe o link abaixo com o cliente para ele pagar com Pix ou cartão.' : 'O pedido já entrou no sistema como pago e pronto para seguir no fluxo de produção.'}</div>
+              {result?.payment_link ? (
+                <>
+                  <div className="mt-4 rounded-2xl bg-black/20 ring-1 ring-white/10 p-4 break-all text-sm text-slate-100">{result?.payment_link}</div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button onClick={() => navigator.clipboard?.writeText(result?.payment_link || '')} className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10">Copiar link</button>
+                    <a href={result?.payment_link} target="_blank" rel="noreferrer" className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10">Abrir página</a>
+                  </div>
+                </>
+              ) : null}
               <div className="mt-4 rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-4 text-sm text-slate-200">
-                <div><b>Conta criada:</b> {result?.account?.email}</div>
-                <div className="mt-1"><b>Senha inicial:</b> CPF do cliente</div>
+                <div><b>{result?.account?.existing ? 'Conta vinculada:' : 'Conta criada:'}</b> {result?.account?.email}</div>
+                {!result?.account?.existing ? <div className="mt-1"><b>Senha inicial:</b> CPF do cliente</div> : <div className="mt-1">Pedido associado a um cliente já cadastrado no site.</div>}
               </div>
             </div>
             <div className="rounded-3xl bg-white/[0.03] ring-1 ring-white/10 p-4 min-w-[240px]">
@@ -1184,18 +1426,79 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
         ) : (
           <div className="mt-5 grid grid-cols-1 xl:grid-cols-[0.95fr_1.05fr] gap-5">
             <div className="space-y-4">
-              <div className="rounded-3xl bg-white/[0.03] ring-1 ring-white/10 p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <label className="text-sm text-slate-300">Nome<input value={form.name} onChange={(e)=>updateForm('name', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
-                <label className="text-sm text-slate-300">CPF<input value={form.cpf} onChange={(e)=>updateForm('cpf', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
-                <label className="text-sm text-slate-300">E-mail<input value={form.email} onChange={(e)=>updateForm('email', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
-                <label className="text-sm text-slate-300">Telefone<input value={form.phone} onChange={(e)=>updateForm('phone', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
-                <label className="text-sm text-slate-300 sm:col-span-2">Rua<input value={form.address_line1} onChange={(e)=>updateForm('address_line1', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
-                <label className="text-sm text-slate-300">Número<input value={form.address_number} onChange={(e)=>updateForm('address_number', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
-                <label className="text-sm text-slate-300">Complemento<input value={form.address_line2} onChange={(e)=>updateForm('address_line2', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
-                <label className="text-sm text-slate-300">Bairro<input value={form.neighborhood} onChange={(e)=>updateForm('neighborhood', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
-                <label className="text-sm text-slate-300">Cidade<input value={form.city} onChange={(e)=>updateForm('city', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
-                <label className="text-sm text-slate-300">Estado<input value={form.state} onChange={(e)=>updateForm('state', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
-                <label className="text-sm text-slate-300">CEP<input value={form.zip} onChange={(e)=>updateForm('zip', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+              <div className="rounded-3xl bg-white/[0.03] ring-1 ring-white/10 p-4 space-y-4">
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCustomerMode('new');
+                      setSelectedClientId('');
+                      setForm(emptyForm);
+                    }}
+                    className={`rounded-2xl px-4 py-2 text-sm font-semibold ring-1 transition ${customerMode === 'new' ? 'bg-cyan-400 text-[#031116] ring-cyan-300/40' : 'bg-white/[0.03] text-slate-200 ring-white/10 hover:bg-white/[0.06]'}`}
+                  >
+                    Novo cliente
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCustomerMode('existing')}
+                    className={`rounded-2xl px-4 py-2 text-sm font-semibold ring-1 transition ${customerMode === 'existing' ? 'bg-cyan-400 text-[#031116] ring-cyan-300/40' : 'bg-white/[0.03] text-slate-200 ring-white/10 hover:bg-white/[0.06]'}`}
+                  >
+                    Cliente já cadastrado
+                  </button>
+                </div>
+
+                {customerMode === 'existing' ? (
+                  <div className="rounded-2xl bg-black/20 ring-1 ring-white/10 p-3 space-y-3">
+                    <label className="block text-sm text-slate-300">
+                      Buscar cliente
+                      <input
+                        value={clientSearch}
+                        onChange={(e) => setClientSearch(e.target.value)}
+                        placeholder="Digite nome, e-mail, CPF ou telefone"
+                        className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white"
+                      />
+                    </label>
+                    <label className="block text-sm text-slate-300">
+                      Selecionar cliente
+                      <select
+                        value={selectedClientId}
+                        onChange={(e) => setSelectedClientId(e.target.value)}
+                        className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white"
+                        disabled={loadingClients || !availableClients.length}
+                      >
+                        <option value="">{loadingClients ? 'Carregando clientes...' : 'Selecione um cliente cadastrado'}</option>
+                        {availableClients.map((client) => (
+                          <option key={client.id} value={client.id}>
+                            {client.full_name || client.email || client.id}{client.email ? ` • ${client.email}` : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    {clientsError ? <div className="text-sm text-red-200">{clientsError}</div> : null}
+                    {selectedClient ? (
+                      <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-3 text-sm text-slate-300">
+                        <div className="font-semibold text-slate-100">{selectedClient.full_name || 'Cliente selecionado'}</div>
+                        <div>{selectedClient.email || 'Sem e-mail cadastrado'}</div>
+                        <div>{selectedClient.phone || 'Sem telefone cadastrado'}</div>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <label className="text-sm text-slate-300">Nome<input value={form.name} onChange={(e)=>updateForm('name', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+                  <label className="text-sm text-slate-300">CPF<input value={form.cpf} onChange={(e)=>updateForm('cpf', e.target.value)} placeholder="000.000.000-00" className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+                  <label className="text-sm text-slate-300">E-mail<input value={form.email} onChange={(e)=>updateForm('email', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+                  <label className="text-sm text-slate-300">Telefone<input value={form.phone} onChange={(e)=>updateForm('phone', e.target.value)} placeholder="(00) 00000-0000" className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+                  <label className="text-sm text-slate-300 sm:col-span-2">Rua<input value={form.address_line1} onChange={(e)=>updateForm('address_line1', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+                  <label className="text-sm text-slate-300">Número<input value={form.address_number} onChange={(e)=>updateForm('address_number', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+                  <label className="text-sm text-slate-300">Complemento<input value={form.address_line2} onChange={(e)=>updateForm('address_line2', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+                  <label className="text-sm text-slate-300">Bairro<input value={form.neighborhood} onChange={(e)=>updateForm('neighborhood', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+                  <label className="text-sm text-slate-300">Cidade<input value={form.city} onChange={(e)=>updateForm('city', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+                  <label className="text-sm text-slate-300">Estado<input value={form.state} onChange={(e)=>updateForm('state', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+                  <label className="text-sm text-slate-300">CEP<input value={form.zip} onChange={(e)=>updateForm('zip', e.target.value)} placeholder="00000-000" className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" />{cepLoading ? <span className="mt-1 block text-xs text-cyan-200">Buscando endereço…</span> : null}{cepError ? <span className="mt-1 block text-xs text-red-200">{cepError}</span> : null}</label>
+                </div>
               </div>
             </div>
             <div className="space-y-4">
@@ -1203,11 +1506,12 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <div className="text-white font-bold">Itens do pedido</div>
-                    <div className="text-sm text-slate-400">Adicione produtos cadastrados ou orçamento personalizado.</div>
+                    <div className="text-sm text-slate-400">Adicione produtos cadastrados, orçamento personalizado ou pagamento de frete.</div>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <button onClick={addRegisteredProduct} className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10">Produto cadastrado</button>
                     <button onClick={addCustomItem} className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10">Orçamento personalizado</button>
+                    <button onClick={addFreightItem} className="rounded-xl px-3 py-2 text-sm text-cyan-100 hover:bg-cyan-500/10 ring-1 ring-cyan-400/20">Pagamento de frete</button>
                   </div>
                 </div>
                 <div className="mt-4 space-y-3">
@@ -1217,6 +1521,16 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
                       <label className="text-sm text-slate-300">Quantidade<input type="number" min="1" value={it.qty} onChange={(e)=>updateItem(it.id, { qty: e.target.value })} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
                       <label className="text-sm text-slate-300">Escala<input value={it.scale} onChange={(e)=>updateItem(it.id, { scale: e.target.value })} placeholder="Opcional" className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
                       <button onClick={()=>removeItem(it.id)} className="rounded-xl px-3 py-2 text-sm text-red-200 hover:bg-red-500/10 ring-1 ring-red-500/30">Remover</button>
+                    </div>
+                  ) : it.mode === 'freight' ? (
+                    <div key={it.id} className="rounded-2xl bg-cyan-500/5 ring-1 ring-cyan-400/20 p-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <label className="text-sm text-slate-300">Transportadora<select value={it.carrier} onChange={(e)=>updateItem(it.id, { carrier: e.target.value })} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white"><option value="">Selecione</option><option value="correios">Correios</option><option value="jadlog">Jadlog</option><option value="loggi">Loggi</option></select></label>
+                      <label className="text-sm text-slate-300">Valor do frete<input type="number" min="0" step="0.01" value={it.price} onChange={(e)=>updateItem(it.id, { price: e.target.value })} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+                      <label className="text-sm text-slate-300 sm:col-span-2">Observações<textarea value={it.notes} onChange={(e)=>updateItem(it.id, { notes: e.target.value })} placeholder="Opcional" className="mt-1 h-20 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+                      <div className="sm:col-span-2 flex items-center justify-between gap-3">
+                        <div className="rounded-xl bg-black/20 px-3 py-2 text-xs text-cyan-100 ring-1 ring-cyan-400/20">Item exclusivo para cobrança de frete.</div>
+                        <button onClick={()=>removeItem(it.id)} className="rounded-xl px-3 py-2 text-sm text-red-200 hover:bg-red-500/10 ring-1 ring-red-500/30">Remover</button>
+                      </div>
                     </div>
                   ) : (
                     <div key={it.id} className="rounded-2xl bg-black/20 ring-1 ring-white/10 p-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1230,14 +1544,159 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
                   ))}
                   {!items.length ? <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-4 text-sm text-slate-400">Nenhum item adicionado ainda.</div> : null}
                 </div>
-                <div className="mt-4 flex items-center justify-between gap-3 border-t border-white/10 pt-4">
+                <div className="mt-4 flex flex-col gap-3 border-t border-white/10 pt-4 sm:flex-row sm:items-center sm:justify-between">
                   <div className="text-lg font-extrabold text-white">Total: {fmtBRL(total)}</div>
-                  <button onClick={handleSubmit} disabled={busy || loadingProducts} className="rounded-2xl bg-cyan-400 text-[#031116] font-black px-5 py-3 disabled:opacity-60">{busy ? 'Criando…' : 'Finalizar pedido'}</button>
+                  <div className="flex flex-col items-stretch gap-2 sm:items-end">
+                    <button onClick={() => setShowFinalizeChoices((v) => !v)} disabled={busy || loadingProducts} className="rounded-2xl bg-cyan-400 text-[#031116] font-black px-5 py-3 disabled:opacity-60">{busy ? 'Processando…' : 'Finalizar pedido'}</button>
+                    {showFinalizeChoices ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <button onClick={() => handleSubmit('payment_link')} disabled={busy || loadingProducts} className="rounded-2xl bg-white/[0.04] text-slate-100 font-semibold px-4 py-3 ring-1 ring-white/10 hover:bg-white/[0.07] disabled:opacity-60">Gerar link de pagamento</button>
+                        <button onClick={() => handleSubmit('mark_paid')} disabled={busy || loadingProducts} className="rounded-2xl bg-emerald-400 text-[#031116] font-black px-4 py-3 disabled:opacity-60">Pedido pago</button>
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+
+function CreateClientModal({ open, accessToken, onClose, onCreated, showToast }) {
+  const emptyForm = React.useMemo(() => ({
+    full_name: '',
+    email: '',
+    cpf: '',
+    phone: '',
+    address_line1: '',
+    address_number: '',
+    address_line2: '',
+    neighborhood: '',
+    city: '',
+    state: '',
+    zip: '',
+  }), []);
+  const [form, setForm] = React.useState(emptyForm);
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState('');
+  const [created, setCreated] = React.useState(null);
+  const [cepLoading, setCepLoading] = React.useState(false);
+  const [cepError, setCepError] = React.useState('');
+
+  React.useEffect(() => {
+    if (!open) return;
+    setForm(emptyForm);
+    setBusy(false);
+    setError('');
+    setCreated(null);
+    setCepLoading(false);
+    setCepError('');
+  }, [open, emptyForm]);
+
+  React.useEffect(() => {
+    if (!open) return;
+    const cepDigits = onlyDigits(form.zip);
+    if (cepDigits.length !== 8) {
+      setCepError('');
+      return;
+    }
+    let active = true;
+    setCepLoading(true);
+    setCepError('');
+    fetchAddressFromCep(cepDigits)
+      .then((resp) => {
+        if (!active) return;
+        if (!resp?.ok) {
+          setCepError(resp?.error || 'CEP não encontrado.');
+          return;
+        }
+        setForm((prev) => ({
+          ...prev,
+          address_line1: resp.data.street || prev.address_line1,
+          neighborhood: resp.data.neighborhood || prev.neighborhood,
+          city: resp.data.city || prev.city,
+          state: resp.data.uf || prev.state,
+        }));
+      })
+      .catch(() => active && setCepError('Erro ao consultar CEP.'))
+      .finally(() => active && setCepLoading(false));
+    return () => { active = false; };
+  }, [open, form.zip]);
+
+  function updateField(key, value) {
+    let nextValue = value;
+    if (key === 'cpf') nextValue = formatCpfInput(value);
+    if (key === 'phone') nextValue = formatPhoneInput(value);
+    if (key === 'zip') nextValue = formatCepInput(value);
+    if (key === 'state') nextValue = String(value || '').toUpperCase().slice(0, 2);
+    setForm((prev) => ({ ...prev, [key]: nextValue }));
+  }
+
+  async function handleCreate() {
+    if (busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      const resp = await fetch('/api/admin?action=create-client', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify(form),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data?.error || 'Não foi possível cadastrar o cliente.');
+      setCreated(data?.client || null);
+      showToast?.('Cliente cadastrado com sucesso.');
+      onCreated?.(data?.client || null);
+    } catch (e) {
+      setError(e?.message || 'Erro ao cadastrar cliente.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-[10001]">
+      <div className="absolute inset-0 bg-[#020b10]/80" onClick={busy ? undefined : onClose} />
+      <div className="absolute inset-x-0 top-4 mx-auto w-[min(760px,calc(100vw-24px))] max-h-[92vh] overflow-y-auto rounded-[28px] bg-[#0a0f1a] ring-1 ring-white/10 p-4 sm:p-6">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="text-2xl font-bold text-white">Cadastrar cliente</div>
+            <div className="text-sm text-slate-400">Crie uma conta de cliente para usar em pedidos e acompanhamento no site.</div>
+          </div>
+          <button onClick={onClose} disabled={busy} className="rounded-xl px-3 py-2 text-slate-200 hover:bg-white/4 ring-1 ring-white/10 disabled:opacity-60">Fechar</button>
+        </div>
+
+        {error ? <div className="mt-4 rounded-2xl bg-red-500/10 ring-1 ring-red-500/20 px-4 py-3 text-red-100">{error}</div> : null}
+        {created ? (
+          <div className="mt-4 rounded-2xl bg-emerald-500/10 ring-1 ring-emerald-400/20 px-4 py-3 text-emerald-100">
+            <div className="font-bold">Cliente cadastrado.</div>
+            <div className="mt-1 text-sm">E-mail: <b>{created.email}</b> • Senha inicial: <b>CPF do cliente</b></div>
+          </div>
+        ) : null}
+
+        <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-3">
+          <label className="text-sm text-slate-300">Nome completo<input value={form.full_name} onChange={(e)=>updateField('full_name', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+          <label className="text-sm text-slate-300">E-mail<input type="email" value={form.email} onChange={(e)=>updateField('email', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+          <label className="text-sm text-slate-300">CPF<input value={form.cpf} onChange={(e)=>updateField('cpf', e.target.value)} placeholder="000.000.000-00" className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /><span className="mt-1 block text-xs text-slate-500">A senha inicial será o CPF</span></label>
+          <label className="text-sm text-slate-300">Telefone<input value={form.phone} onChange={(e)=>updateField('phone', e.target.value)} placeholder="(00) 00000-0000" className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+          <label className="text-sm text-slate-300 md:col-span-2">Endereço<input value={form.address_line1} onChange={(e)=>updateField('address_line1', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+          <label className="text-sm text-slate-300">Número<input value={form.address_number} onChange={(e)=>updateField('address_number', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+          <label className="text-sm text-slate-300">Complemento<input value={form.address_line2} onChange={(e)=>updateField('address_line2', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+          <label className="text-sm text-slate-300">Bairro<input value={form.neighborhood} onChange={(e)=>updateField('neighborhood', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+          <label className="text-sm text-slate-300">Cidade<input value={form.city} onChange={(e)=>updateField('city', e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
+          <label className="text-sm text-slate-300">UF<input value={form.state} onChange={(e)=>updateField('state', e.target.value)} maxLength={2} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white uppercase" /></label>
+          <label className="text-sm text-slate-300">CEP<input value={form.zip} onChange={(e)=>updateField('zip', e.target.value)} placeholder="00000-000" className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" />{cepLoading ? <span className="mt-1 block text-xs text-cyan-200">Buscando endereço…</span> : null}{cepError ? <span className="mt-1 block text-xs text-red-200">{cepError}</span> : null}</label>
+        </div>
+
+        <div className="mt-5 flex flex-wrap items-center justify-end gap-2 border-t border-white/10 pt-4">
+          <button onClick={onClose} disabled={busy} className="rounded-xl px-4 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10 disabled:opacity-60">Cancelar</button>
+          <button onClick={handleCreate} disabled={busy} className="rounded-xl px-4 py-2 text-sm font-semibold bg-emerald-400 text-black ring-4 ring-emerald-400/20 disabled:opacity-60 disabled:cursor-wait">{busy ? 'Cadastrando…' : 'Cadastrar'}</button>
+        </div>
       </div>
     </div>
   );
@@ -1316,6 +1775,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
   const [clientsError, setClientsError] = React.useState('');
   const [clientsQ, setClientsQ] = React.useState('');
   const [clientEditor, setClientEditor] = React.useState(null);
+  const [newClientOpen, setNewClientOpen] = React.useState(false);
   const [adminQuickSearch, setAdminQuickSearch] = React.useState('');
   const [confirmAction, setConfirmAction] = React.useState({ open: false, type: '', payload: null, busy: false, error: '', keywordValue: '' });
 
@@ -1345,6 +1805,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
         type: String(filterType || "all"),
         date_from: String(filterDateFrom || ""),
         date_to: String(filterDateTo || ""),
+        _: String(Date.now()),
       });
       const resp = await fetch(`/api/admin?${params.toString()}`, {
         headers: { Authorization: `Bearer ${accessToken}` },
@@ -2096,7 +2557,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
   const orderQuickPresets = React.useMemo(() => ([
     { key: 'paid_waiting', label: 'Pagos sem produção', apply: () => { setFilterPay('paid'); setFilterProd('recebido'); setFilterType('all'); setPage(1); } },
     { key: 'ready_track', label: 'Prontos sem rastreio', apply: () => { setFilterPay('paid'); setFilterProd('pronto'); setFilterType('all'); setPage(1); } },
-    { key: 'overdue', label: 'Atrasados', apply: () => { setFilterPay('paid'); setFilterProd('all'); setQ(''); setPage(1); } },
+    { key: 'overdue', label: 'Atrasados', apply: () => { setFilterPay('paid'); setFilterProd('overdue'); setQ(''); setPage(1); } },
     { key: 'vip', label: 'Somente VIP', apply: () => { setFilterType('vip'); setFilterPay('all'); setFilterProd('all'); setPage(1); } },
   ]), []);
 
@@ -2235,10 +2696,11 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
         <div className="flex items-center gap-2">
           <button
             onClick={() => fetchOrders()}
-            className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
+            disabled={loading}
+            className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10 disabled:opacity-60 disabled:cursor-wait"
           >
             <span className="material-icons text-[18px] align-middle mr-1">refresh</span>
-            Atualizar
+            {loading ? 'Atualizando…' : 'Atualizar'}
           </button>
           <button
             onClick={() => setNewOrderOpen(true)}
@@ -2530,6 +2992,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                       <option value="recebido">Recebido</option>
                       <option value="em_producao">Em produção</option>
                       <option value="pronto">Pronto</option>
+                      <option value="overdue">Atrasados</option>
                       <option value="enviado">Enviado</option>
                       <option value="entregue">Entregue</option>
                       <option value="cancelado">Cancelado</option>
@@ -2724,15 +3187,18 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                               </td>
                               <td className="py-3 px-3 whitespace-nowrap">
                                 {o.shipping_tracking ? (
-                                  <button
-                                    onClick={() => {
-                                      copyToClipboard(o.shipping_tracking);
-                                      showToast("📋 Rastreio copiado!");
-                                    }}
-                                    className="text-slate-100 hover:underline"
-                                  >
-                                    {o.shipping_tracking}
-                                  </button>
+                                  <div className="space-y-1">
+                                    <button
+                                      onClick={() => {
+                                        copyToClipboard(o.shipping_tracking);
+                                        showToast("📋 Rastreio copiado!");
+                                      }}
+                                      className="text-slate-100 hover:underline"
+                                    >
+                                      {o.shipping_tracking}
+                                    </button>
+                                    <div className="text-[10px] uppercase tracking-[0.18em] text-cyan-200/65">{trackingCarrierLabel(o.shipping_carrier || inferTrackingCarrierFromUrl(o.tracking_url))}</div>
+                                  </div>
                                 ) : (
                                   <span className="text-slate-500">—</span>
                                 )}
@@ -2884,7 +3350,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
             </div>
           ) : section === "clients" ? (
             <div className="space-y-4">
-              <SectionTitle icon="groups" title="Clientes" subtitle="Cadastros, histórico resumido e informações VIP." right={<button onClick={fetchClients} className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10">Atualizar</button>} />
+              <SectionTitle icon="groups" title="Clientes" subtitle="Cadastros, histórico resumido e informações VIP." right={<div className="flex flex-wrap items-center gap-2"><button onClick={() => setNewClientOpen(true)} className="rounded-xl px-3 py-2 text-sm font-semibold bg-emerald-400 text-black ring-4 ring-emerald-400/20"><span className="material-icons text-[18px] align-middle mr-1">person_add</span>Cadastrar</button><button onClick={fetchClients} disabled={clientsLoading} className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10 disabled:opacity-60 disabled:cursor-wait">{clientsLoading ? 'Atualizando…' : 'Atualizar'}</button></div>} />
               <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-4">
                 <input value={clientsQ} onChange={(e)=>setClientsQ(e.target.value)} placeholder="Buscar por nome, e-mail, CPF, cidade ou último pedido" className="w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" />
               </div>
@@ -3650,6 +4116,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
         onClose={() => setDetails({ open: false, orderId: null })}
         onUpdateStatus={(o) => setActionModal({ open: true, mode: "status", orderId: o?.id })}
         onUpdateTracking={(o) => setActionModal({ open: true, mode: "tracking", orderId: o?.id })}
+        onUpdateCreatedAt={(o, createdAt) => updateOrder(o?.id, { created_at: createdAt })}
         onRequestRefund={(o) => updateOrder(o?.id, { refund_requested: true, refund_requested_at: new Date().toISOString() })}
         onDeleteOrder={(o) => deleteOrder(o?.id || o?.order_id)}
         onResendEmail={(o) => resendOrderEmail(o?.id || o?.order_id)}
@@ -3694,6 +4161,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
       />
 
       <NewManualOrderModal open={newOrderOpen} accessToken={accessToken} onClose={() => setNewOrderOpen(false)} onCreated={() => { fetchOrders(); }} showToast={showToast} />
+      <CreateClientModal open={newClientOpen} accessToken={accessToken} onClose={() => setNewClientOpen(false)} onCreated={(client) => { fetchClients(); if (client) setClientEditor(client); }} showToast={showToast} />
 
       <CloseVotingModal
         state={closeVote}
