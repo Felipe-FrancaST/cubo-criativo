@@ -447,7 +447,7 @@ export default function VipRpgPage({
                   Assine e escolha suas miniaturas do mês na Área VIP. Pagamento via cartão ou Pix.
                 </p>
               </div>
-              <div className="text-right">
+              <div className="hidden sm:block text-right">
                 <div className="text-slate-400 text-sm">Plano selecionado</div>
                 <div className="text-2xl font-extrabold">{selectedPlan?.name || '—'}</div>
                 <div className="text-slate-300 text-sm mt-1">{selectedPlan ? fmtBRL(selectedPlan.price_brl) : ''}</div>
@@ -485,6 +485,12 @@ export default function VipRpgPage({
                 </div>
               ) : null}
             </div>
+
+              <div className="sm:hidden mt-4 text-center">
+                <div className="text-slate-400 text-sm">Plano selecionado</div>
+                <div className="text-xl font-extrabold">{selectedPlan?.name || '—'}</div>
+                <div className="text-slate-300 text-sm mt-1">{selectedPlan ? fmtBRL(selectedPlan.price_brl) : ''}</div>
+              </div>
 
 {vipLoading ? (
               <div className="mt-8 rounded-2xl bg-white/4 ring-1 ring-white/10 p-5 text-slate-200">Carregando…</div>
