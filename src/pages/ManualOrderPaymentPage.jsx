@@ -7,6 +7,8 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 function Order3DViewer({ url }) {
   const hostRef = React.useRef(null);
   const [viewerError, setViewerError] = React.useState('');
+  const [isModelLoading, setIsModelLoading] = React.useState(false);
+  const [loadProgress, setLoadProgress] = React.useState(0);
 
   React.useEffect(() => {
     if (!url || !hostRef.current) return undefined;
@@ -14,6 +16,8 @@ function Order3DViewer({ url }) {
     const host = hostRef.current;
     host.innerHTML = '';
     setViewerError('');
+    setIsModelLoading(true);
+    setLoadProgress(0);
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x07131d);
@@ -83,10 +87,18 @@ function Order3DViewer({ url }) {
         controls.target.set(0, Math.min(0.9, fittedSize.y * 0.35), 0);
         camera.position.set(0, Math.max(1.1, fittedSize.y * 0.45), Math.max(3.4, fittedSize.z * 1.8 + 3));
         controls.update();
+        setIsModelLoading(false);
+        setLoadProgress(100);
       },
-      undefined,
+      (event) => {
+        if (disposed || !event?.total) return;
+        setLoadProgress(Math.min(99, Math.round((event.loaded / event.total) * 100)));
+      },
       () => {
-        if (!disposed) setViewerError('Não foi possível carregar o modelo 3D. Verifique se o arquivo .glb está público no Storage.');
+        if (!disposed) {
+          setIsModelLoading(false);
+          setViewerError('Não foi possível carregar o modelo 3D. Verifique se o arquivo .glb está público no Storage.');
+        }
       }
     );
 
@@ -123,6 +135,16 @@ function Order3DViewer({ url }) {
   return (
     <div className="relative overflow-hidden rounded-3xl bg-[#07131d] ring-1 ring-white/10">
       <div ref={hostRef} className="h-[70vh] min-h-[360px] w-full" />
+      {isModelLoading ? (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#07131d]/85 backdrop-blur-sm">
+          <div className="rounded-3xl bg-black/40 px-6 py-5 text-center ring-1 ring-cyan-300/20">
+            <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-cyan-300/20 border-t-cyan-300" />
+            <div className="mt-4 text-base font-extrabold text-white">Carregando modelo 3D...</div>
+            <div className="mt-1 text-xs text-slate-300">Aguarde enquanto preparamos a visualização.</div>
+            {loadProgress > 0 ? <div className="mt-3 text-xs font-bold text-cyan-100">{loadProgress}%</div> : null}
+          </div>
+        </div>
+      ) : null}
       <div className="pointer-events-none absolute left-4 top-4 rounded-2xl bg-black/35 px-3 py-2 text-xs text-slate-200 ring-1 ring-white/10 backdrop-blur">
         Arraste para girar • Pinça/scroll para zoom
       </div>
