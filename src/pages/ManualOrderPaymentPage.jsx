@@ -146,12 +146,6 @@ function Model3DModal({ open, url, name, onClose }) {
         </div>
         <Order3DViewer url={url} />
       </div>
-      <Model3DModal
-        open={modelViewerOpen}
-        url={data?.model_3d_url || ''}
-        name={data?.model_3d_name || 'Modelo do pedido'}
-        onClose={() => setModelViewerOpen(false)}
-      />
     </div>
   );
 }
@@ -423,6 +417,12 @@ export default function ManualOrderPaymentPage({ onGoHome }) {
           </div>
         ) : null}
       </div>
+      <Model3DModal
+        open={modelViewerOpen}
+        url={data?.model_3d_url || ''}
+        name={data?.model_3d_name || 'Modelo do pedido'}
+        onClose={() => setModelViewerOpen(false)}
+      />
     </div>
   );
 }
