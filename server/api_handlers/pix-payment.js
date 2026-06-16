@@ -3,6 +3,7 @@ import { getUserFromAuthHeader, supabaseAdmin } from "../supabase.js";
 import { getVipPlanById } from "../vipPlans.js";
 import { applyStockDeductionWithClaim } from "../inventory.js";
 import { rateLimit } from '../rateLimit.js';
+import { cleanupOrder3dModel, shouldCleanupOrder3dForStatus } from '../order3dCleanup.js';
 
 export const config = { runtime: "nodejs" };
 
@@ -285,7 +286,7 @@ async function loadUserAndOrder(req, res, purposeText) {
   const sb = supabaseAdmin();
   const { data: order, error: orderErr } = await sb
     .from("orders")
-    .select("id,user_id,status,total,customer_email,customer_name,payment_provider,provider_payment_id,order_type,vip_plan_id")
+    .select("id,user_id,status,total,customer_email,customer_name,payment_provider,provider_payment_id,order_type,vip_plan_id,model_3d_url,model_3d_name")
     .eq("id", orderId)
     .maybeSingle();
   if (orderErr) return res.status(500).json({ error: "Supabase error", details: orderErr }), {};
@@ -310,6 +311,7 @@ async function handleGet(req, res) {
   const mapped = mapOrderStatus(mpStatus);
   try {
     await sb.from("orders").update({ status: mapped, payment_provider: "mercado_pago", provider_payment_id: String(mp.id || paymentId) }).eq("id", orderId);
+    if (shouldCleanupOrder3dForStatus(mapped)) await cleanupOrder3dModel(sb, order).catch((e) => console.error("order 3d cleanup on pix get failed", e));
     if (mapped === "failed") await revokeVipFromOrder(sb, order, "payment_failed");
   } catch {}
 
@@ -335,6 +337,7 @@ async function handleVerify(req, res) {
     customer_email: mp?.payer?.email || order.customer_email || null,
   }).eq("id", orderId);
 
+  if (shouldCleanupOrder3dForStatus(newStatus)) await cleanupOrder3dModel(sb, order).catch((e) => console.error("order 3d cleanup on pix verify failed", e));
   if (newStatus === "paid") { await applyVipFromOrder(sb, order, mp); await applyStockDeductionIfNeeded(sb, order); }
   if (newStatus === "failed") await revokeVipFromOrder(sb, order, "payment_failed");
 

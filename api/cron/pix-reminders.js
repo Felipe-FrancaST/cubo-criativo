@@ -16,6 +16,7 @@
  */
 
 import { supabaseAdmin } from "../../server/supabase.js";
+import { cleanupOrder3dModel, shouldCleanupOrder3dForStatus } from "../../server/order3dCleanup.js";
 
 export const config = { runtime: "nodejs" };
 
@@ -167,6 +168,7 @@ export default async function handler(req, res) {
         try {
           const mapped = mpStatus === "approved" ? "paid" : (mpStatus === "rejected" || mpStatus === "cancelled") ? "failed" : "pending";
           await sb.from("orders").update({ status: mapped }).eq("id", orderId);
+          if (shouldCleanupOrder3dForStatus(mapped)) await cleanupOrder3dModel(sb, orderId);
         } catch {
           // ignore
         }

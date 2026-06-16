@@ -2,6 +2,7 @@
 import { getUserFromAuthHeader, supabaseAdmin } from "../supabase.js";
 import { renderOrderStatusEmail } from "../emailTemplates.js";
 import { rateLimit } from '../rateLimit.js';
+import { cleanupOrder3dModel } from '../order3dCleanup.js';
 
 async function sendResendEmail({to,subject,html}){
   const apiKey=String(process.env.RESEND_API_KEY||"" ).trim(); const from=String(process.env.RESEND_FROM||"" ).trim();
@@ -49,7 +50,7 @@ if (req.method !== "POST") return res.status(405).json({ error: "Method not allo
 
     const attemptNew = await sb
       .from("orders")
-      .select("id, user_id, status, production_status, customer_email, refund_requested, refund_requested_at")
+      .select("id, user_id, status, production_status, customer_email, refund_requested, refund_requested_at, model_3d_url, model_3d_name")
       .eq("id", orderId)
       .maybeSingle();
 
@@ -166,6 +167,7 @@ if (req.method !== "POST") return res.status(405).json({ error: "Method not allo
 
     if (upErr) return res.status(500).json({ error: upErr.message || "Não foi possível cancelar." });
 
+    await cleanupOrder3dModel(sb, order).catch((e) => console.error('order 3d cleanup on customer cancel failed', e));
 
     // Se o pedido ainda não foi pago, devolve o cupom para novo uso (remove resgate e decrementa used_count)
     try {

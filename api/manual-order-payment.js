@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { supabaseAdmin } from '../server/supabase.js';
 import { buildControlNumber, buildManualPaymentLink, verifyManualOrderSignature } from '../server/manualOrder.js';
 import { rateLimit } from '../server/rateLimit.js';
+import { cleanupOrder3dModel, shouldCleanupOrder3dForStatus } from '../server/order3dCleanup.js';
 
 export const config = { runtime: 'nodejs' };
 
@@ -164,7 +165,9 @@ async function createPixPayment(req, res) {
     if (!paymentResp.ok) return res.status(paymentResp.status || 500).json({ error: paymentResp.data || { message: 'Mercado Pago error' } });
     const mp = paymentResp.data || {};
     const tx = mp.point_of_interaction?.transaction_data || {};
-    await sb.from('orders').update({ status: mapOrderStatus(mp.status), payment_provider: 'mercado_pago', provider_payment_id: String(mp.id || '') }).eq('id', order.id);
+    const mappedStatus = mapOrderStatus(mp.status);
+    await sb.from('orders').update({ status: mappedStatus, payment_provider: 'mercado_pago', provider_payment_id: String(mp.id || '') }).eq('id', order.id);
+    if (shouldCleanupOrder3dForStatus(mappedStatus)) await cleanupOrder3dModel(sb, order).catch((e) => console.error('order 3d cleanup on manual pix status failed', e));
     return res.status(200).json({ ok: true, order: serializePublic(order, items, getBaseUrl(req)), provider_payment_id: String(mp.id || ''), qr_code: tx.qr_code || null, qr_code_base64: tx.qr_code_base64 || null, ticket_url: tx.ticket_url || null, status: mapOrderStatus(mp.status) });
   } catch (e) {
     return res.status(e.status || 500).json({ error: e.message || String(e) });
@@ -235,6 +238,7 @@ async function verifyStatus(req, res) {
         const patch = { status: newStatus };
         if (newStatus === 'paid') patch.production_status = 'recebido';
         await sb.from('orders').update(patch).eq('id', order.id);
+        if (shouldCleanupOrder3dForStatus(newStatus)) await cleanupOrder3dModel(sb, order).catch((e) => console.error('order 3d cleanup on manual status verify failed', e));
         order.status = newStatus;
         if (patch.production_status) order.production_status = patch.production_status;
       }

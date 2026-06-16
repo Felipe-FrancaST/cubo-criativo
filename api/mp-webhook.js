@@ -1,6 +1,7 @@
 import { renderOwnerOrderEmail, renderCustomerOrderEmail, renderOwnerVipWelcomeEmail, renderOwnerVipUpgradeEmail, renderVipWelcomeEmail, renderVipUpgradeEmail } from "../server/emailTemplates.js";
 import { getVipPlanById } from "../server/vipPlans.js";
 import { applyStockDeductionWithClaim } from "../server/inventory.js";
+import { cleanupOrder3dModel, shouldCleanupOrder3dForStatus } from "../server/order3dCleanup.js";
 /**
  * Vercel Serverless Function
  * Route: /api/mp-webhook
@@ -683,6 +684,9 @@ export default async function handler(req, res) {
           if (payerPhone) updateData.customer_phone = payerPhone;
 
           await sb.from("orders").update(updateData).eq("id", orderId);
+          if (shouldCleanupOrder3dForStatus(mapped)) {
+            await cleanupOrder3dModel(sb, orderId).catch((e) => console.error("order 3d cleanup on webhook status failed", e));
+          }
 
         // Se ainda não está aprovado, só atualiza e encerra (sem e-mail)
         if (mapped !== "paid") {

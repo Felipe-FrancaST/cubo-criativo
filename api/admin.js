@@ -19,6 +19,7 @@ import { renderOrderStatusEmail } from "../server/emailTemplates.js";
 import { rateLimit } from '../server/rateLimit.js';
 import { formatRewardLabel } from '../server/couponGame.js';
 import { buildControlNumber, buildManualPaymentLink, ensureManualOrderCustomerAccount, normalizeCpf } from '../server/manualOrder.js';
+import { cleanupOrder3dModel, shouldCleanupOrder3dForStatus } from '../server/order3dCleanup.js';
 
 export const config = { runtime: "nodejs" };
 
@@ -504,7 +505,7 @@ async function loadOrderEvents(sb, orderIds) {
 }
 
 async function fetchOrderForAdmin(sb, orderId) {
-  const fullSelect = "id,user_id,order_type,vip_plan_id,status,production_status,shipping_tracking,shipping_carrier,tracking_code,tracking_url,production_eta,production_status_updated_at,customer_email,customer_name,created_at,updated_at,payment_provider,total,last_email_type,last_email_status,last_email_sent_at,last_email_error";
+  const fullSelect = "id,user_id,order_type,vip_plan_id,status,production_status,shipping_tracking,shipping_carrier,tracking_code,tracking_url,production_eta,production_status_updated_at,customer_email,customer_name,created_at,updated_at,payment_provider,total,model_3d_url,model_3d_name,last_email_type,last_email_status,last_email_sent_at,last_email_error";
   const legacySelect = "id,user_id,order_type,vip_plan_id,status,production_status,shipping_tracking,shipping_carrier,tracking_code,tracking_url,production_eta,production_status_updated_at,customer_email,customer_name,created_at,updated_at,payment_provider,total";
   let resp = await sb.from('orders').select(fullSelect).eq('id', orderId).maybeSingle();
   if (resp?.error && /last_email_|column/i.test(String(resp.error.message || ''))) {
@@ -1670,7 +1671,7 @@ async function deleteOrderById(sb, orderId) {
   try {
     const { data } = await sb
       .from("orders")
-      .select("id,user_id,order_type")
+      .select("id,user_id,order_type,model_3d_url,model_3d_name")
       .eq("id", id)
       .maybeSingle();
     orderBeforeDelete = data || null;
@@ -1683,6 +1684,8 @@ async function deleteOrderById(sb, orderId) {
   } catch (e) {
     // ignore (table may not exist in some deployments)
   }
+
+  await cleanupOrder3dModel(sb, orderBeforeDelete).catch((e) => console.error("order 3d cleanup before delete failed", e));
 
   const { error: delErr } = await sb.from("orders").delete().eq("id", id);
   if (delErr) return { ok: false, error: delErr.message || "Failed to delete order" };
@@ -2421,6 +2424,10 @@ async function handleUpdateOrder(req, res) {
     }
   }
   if (updateResp?.error) return res.status(500).json({ error: updateResp.error.message || "Update failed" });
+
+  if (Object.prototype.hasOwnProperty.call(next, "production_status") && shouldCleanupOrder3dForStatus(next.production_status)) {
+    await cleanupOrder3dModel(sb, currentOrder).catch((e) => console.error("order 3d cleanup on terminal production status failed", e));
+  }
 
   const timelineWrites = [];
   if (Object.prototype.hasOwnProperty.call(next, 'production_status') && String(next.production_status || '').toLowerCase() !== String(currentOrder.production_status || '').toLowerCase()) {
