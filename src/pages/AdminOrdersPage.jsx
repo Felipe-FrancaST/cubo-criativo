@@ -4,7 +4,35 @@ import { DetailRow, KpiCard, OrderBadgeCluster, SectionTitle, SidebarItem, Timel
 import { badgeBase, copyToClipboard, daysBetween, emailAuditBadge, endOfDay, exportCsv, fmtAddress, fmtBRL, fmtDate, onlyDigits, prodStatusBadge, shortId, startOfDay, statusBadge, toDateInputValue } from "./admin/orders/adminOrdersUtils.js";
 import { TRACKING_CARRIERS, inferTrackingCarrierFromUrl, normalizeTrackingCarrier, resolveTrackingCarrier, trackingCarrierLabel } from "../lib/tracking";
 import { fetchAddressFromCep } from "../lib/cep.js";
+import { supabase } from "../lib/supabaseClient.js";
 
+
+function safeStorageFileName(name = 'modelo.glb') {
+  const raw = String(name || 'modelo.glb').trim() || 'modelo.glb';
+  const withoutPath = raw.split(/[\\/]/).pop() || 'modelo.glb';
+  const normalized = withoutPath
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9._-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+  return normalized.toLowerCase().endsWith('.glb') ? normalized : `${normalized || 'modelo'}.glb`;
+}
+
+async function uploadOrder3dModel(file) {
+  if (!file) return { url: '', name: '' };
+  const fileName = safeStorageFileName(file.name || 'modelo.glb');
+  if (!fileName.toLowerCase().endsWith('.glb')) throw new Error('Envie um arquivo no formato .glb.');
+  const maxBytes = 100 * 1024 * 1024;
+  if (Number(file.size || 0) > maxBytes) throw new Error('O arquivo .glb deve ter no máximo 100 MB.');
+  const path = `manual-orders/${Date.now()}-${Math.random().toString(36).slice(2, 10)}-${fileName}`;
+  const { error: uploadError } = await supabase.storage
+    .from('order-3d-models')
+    .upload(path, file, { cacheControl: '3600', upsert: false, contentType: 'model/gltf-binary' });
+  if (uploadError) throw new Error(uploadError.message || 'Não foi possível enviar o arquivo 3D.');
+  const { data } = supabase.storage.from('order-3d-models').getPublicUrl(path);
+  return { url: data?.publicUrl || '', name: file.name || fileName };
+}
 
 function formatCpfInput(value) {
   const d = onlyDigits(value).slice(0, 11);
@@ -1215,6 +1243,8 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
   const [clientsError, setClientsError] = React.useState('');
   const [cepLoading, setCepLoading] = React.useState(false);
   const [cepError, setCepError] = React.useState('');
+  const [model3dFile, setModel3dFile] = React.useState(null);
+  const [model3dError, setModel3dError] = React.useState('');
 
   React.useEffect(() => {
     if (!open) return;
@@ -1228,6 +1258,8 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
     setClientsError('');
     setCepLoading(false);
     setCepError('');
+    setModel3dFile(null);
+    setModel3dError('');
     setForm(emptyForm);
     setItems([]);
   }, [open, emptyForm]);
@@ -1346,10 +1378,36 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
     return sum + Number(it.price || 0) * Number(it.qty || 1);
   }, 0), [items, products]);
 
+  function handleModel3dChange(file) {
+    setModel3dError('');
+    if (!file) {
+      setModel3dFile(null);
+      return;
+    }
+    const name = String(file.name || '').toLowerCase();
+    if (!name.endsWith('.glb')) {
+      setModel3dFile(null);
+      setModel3dError('Selecione apenas arquivos .glb.');
+      return;
+    }
+    const maxBytes = 100 * 1024 * 1024;
+    if (Number(file.size || 0) > maxBytes) {
+      setModel3dFile(null);
+      setModel3dError('O arquivo .glb deve ter no máximo 100 MB.');
+      return;
+    }
+    setModel3dFile(file);
+  }
+
   async function handleSubmit(paymentAction = 'payment_link') {
     setBusy(true);
     setError('');
     try {
+      let uploadedModel = { url: '', name: '' };
+      if (model3dFile) {
+        uploadedModel = await uploadOrder3dModel(model3dFile);
+        if (!uploadedModel.url) throw new Error('O upload do modelo 3D terminou sem gerar uma URL pública.');
+      }
       const payload = {
         customer: {
           ...form,
@@ -1359,6 +1417,8 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
         existing_user_id: customerMode === 'existing' ? selectedClientId : '',
         account_mode: customerMode,
         payment_action: paymentAction,
+        model_3d_url: uploadedModel.url,
+        model_3d_name: uploadedModel.name,
         items: items.map((it) => {
           if (it.mode === 'product') return { mode: 'product', product_id: it.product_id, qty: Number(it.qty || 1), scale: it.scale || '' };
           if (it.mode === 'freight') return { mode: 'freight', carrier: it.carrier || '', price: Number(it.price || 0), qty: 1, notes: it.notes || '' };
@@ -1500,6 +1560,35 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
                   <label className="text-sm text-slate-300">CEP<input value={form.zip} onChange={(e)=>updateForm('zip', e.target.value)} placeholder="00000-000" className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" />{cepLoading ? <span className="mt-1 block text-xs text-cyan-200">Buscando endereço…</span> : null}{cepError ? <span className="mt-1 block text-xs text-red-200">{cepError}</span> : null}</label>
                 </div>
               </div>
+
+              <div className="rounded-3xl bg-white/[0.03] ring-1 ring-white/10 p-4">
+                <div className="text-white font-bold">Visualizador 3D</div>
+                <div className="mt-1 text-sm text-slate-400">Adicione um arquivo .glb para o cliente visualizar o modelo na página de pagamento.</div>
+                <label className="mt-4 flex min-h-[104px] cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-cyan-300/30 bg-cyan-400/[0.03] px-4 py-5 text-center hover:bg-cyan-400/[0.06]">
+                  <input
+                    type="file"
+                    accept=".glb,model/gltf-binary"
+                    className="sr-only"
+                    onChange={(e) => handleModel3dChange(e.target.files?.[0] || null)}
+                    disabled={busy}
+                  />
+                  <span className="text-sm font-bold text-cyan-100">Selecionar arquivo .glb</span>
+                  <span className="mt-1 text-xs text-slate-400">Máximo recomendado: 100 MB</span>
+                </label>
+                {model3dFile ? (
+                  <div className="mt-3 flex items-center justify-between gap-3 rounded-2xl bg-black/20 p-3 ring-1 ring-white/10">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-semibold text-slate-100">{model3dFile.name}</div>
+                      <div className="text-xs text-slate-400">{(Number(model3dFile.size || 0) / 1024 / 1024).toFixed(2)} MB</div>
+                    </div>
+                    <button type="button" onClick={() => handleModel3dChange(null)} disabled={busy} className="rounded-xl px-3 py-2 text-sm text-red-200 hover:bg-red-500/10 ring-1 ring-red-500/30">Remover</button>
+                  </div>
+                ) : null}
+                {model3dError ? <div className="mt-3 rounded-xl bg-red-500/10 px-3 py-2 text-sm text-red-100 ring-1 ring-red-500/20">{model3dError}</div> : null}
+                <div className="mt-3 rounded-2xl bg-black/20 p-3 text-xs text-slate-400 ring-1 ring-white/10">
+                  Quando o link de pagamento for aberto, o cliente verá o botão <b className="text-slate-200">Ver 3D</b> se este arquivo estiver anexado.
+                </div>
+              </div>
             </div>
             <div className="space-y-4">
               <div className="rounded-3xl bg-white/[0.03] ring-1 ring-white/10 p-4">
@@ -1586,6 +1675,8 @@ function CreateClientModal({ open, accessToken, onClose, onCreated, showToast })
   const [created, setCreated] = React.useState(null);
   const [cepLoading, setCepLoading] = React.useState(false);
   const [cepError, setCepError] = React.useState('');
+  const [model3dFile, setModel3dFile] = React.useState(null);
+  const [model3dError, setModel3dError] = React.useState('');
 
   React.useEffect(() => {
     if (!open) return;

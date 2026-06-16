@@ -61,7 +61,7 @@ async function loadManualOrder({ orderId, sig }) {
     throw err;
   }
   const sb = supabaseAdmin();
-  const { data: order, error } = await sb.from('orders').select('id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,production_status,order_type').eq('id', orderId).maybeSingle();
+  const { data: order, error } = await sb.from('orders').select('id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,production_status,order_type,model_3d_url,model_3d_name').eq('id', orderId).maybeSingle();
   if (error) throw error;
   if (!order) {
     const err = new Error('Pedido não encontrado.');
@@ -105,6 +105,8 @@ function serializePublic(order, items, baseUrl) {
     customer_name: order.customer_name || '',
     customer_email: order.customer_email || '',
     payment_link: buildManualPaymentLink({ baseUrl, orderId: order.id }),
+    model_3d_url: order.model_3d_url || '',
+    model_3d_name: order.model_3d_name || '',
     items: (items || []).map((it) => ({
       id: it.id,
       name: it.name || 'Item',

@@ -174,6 +174,8 @@ async function handleManualOrderCreate(req, res) {
   if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
   const body = await readJsonBody(req);
   const paymentAction = String(body?.payment_action || body?.paymentAction || 'payment_link').trim().toLowerCase();
+  const model3dUrl = String(body?.model_3d_url || body?.model3d_url || '').trim();
+  const model3dName = String(body?.model_3d_name || body?.model3d_name || '').trim();
   const customer = body?.customer || {};
   const existingUserId = String(body?.existing_user_id || customer.existing_user_id || '').trim();
   const accountMode = String(body?.account_mode || customer.account_mode || (existingUserId ? 'existing' : 'new')).trim().toLowerCase();
@@ -275,9 +277,17 @@ async function handleManualOrderCreate(req, res) {
     customer_name: fullName,
     customer_phone: phone || null,
     shipping_carrier: freightCarrier || null,
+    model_3d_url: model3dUrl || null,
+    model_3d_name: model3dName || null,
   };
-  const { error: orderErr } = await sb.from('orders').insert(orderPayload);
-  if (orderErr) return res.status(500).json({ error: orderErr.message || 'Não foi possível criar o pedido.' });
+  let orderInsertPayload = orderPayload;
+  let orderInsertResp = await sb.from('orders').insert(orderInsertPayload);
+  if (orderInsertResp?.error && /model_3d_url|model_3d_name|column/i.test(String(orderInsertResp.error.message || ''))) {
+    const { model_3d_url, model_3d_name, ...legacyOrderPayload } = orderPayload;
+    orderInsertPayload = legacyOrderPayload;
+    orderInsertResp = await sb.from('orders').insert(orderInsertPayload);
+  }
+  if (orderInsertResp?.error) return res.status(500).json({ error: orderInsertResp.error.message || 'Não foi possível criar o pedido.' });
 
   const cleanedItems = resolvedItems.map((it) => ({
     product_id: String(it.product_id || '').trim() || null,
@@ -324,7 +334,7 @@ async function handleManualOrderCreate(req, res) {
       ? 'Pedido criado e marcado como pago manualmente no painel administrativo.'
       : (account?.existing ? 'Pedido lançado para cliente já cadastrado.' : 'Pedido manual criado com conta automática para o cliente.'),
     actor_label: 'Admin',
-    metadata: { account_mode: account?.existing ? 'existing' : 'new', total, items_count: cleanedItems.length, payment_action: paymentAction, shipping_carrier: freightCarrier || null },
+    metadata: { account_mode: account?.existing ? 'existing' : 'new', total, items_count: cleanedItems.length, payment_action: paymentAction, shipping_carrier: freightCarrier || null, has_model_3d: Boolean(model3dUrl) },
   });
   return res.status(200).json({
     ok: true,

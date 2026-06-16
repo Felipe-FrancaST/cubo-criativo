@@ -1,4 +1,160 @@
 import React from 'react';
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+
+
+function Order3DViewer({ url }) {
+  const hostRef = React.useRef(null);
+  const [viewerError, setViewerError] = React.useState('');
+
+  React.useEffect(() => {
+    if (!url || !hostRef.current) return undefined;
+    let disposed = false;
+    const host = hostRef.current;
+    host.innerHTML = '';
+    setViewerError('');
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x07131d);
+    const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
+    camera.position.set(0, 1.1, 4.2);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.1;
+    host.appendChild(renderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+    controls.enablePan = true;
+    controls.autoRotate = true;
+    controls.autoRotateSpeed = 1.2;
+
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x233040, 2.4));
+    const key = new THREE.DirectionalLight(0xffffff, 2.2);
+    key.position.set(4, 6, 5);
+    scene.add(key);
+    const fill = new THREE.DirectionalLight(0x8bdcff, 1.1);
+    fill.position.set(-4, 2, -3);
+    scene.add(fill);
+
+    const grid = new THREE.GridHelper(6, 24, 0x1d5364, 0x163241);
+    grid.position.y = -1;
+    scene.add(grid);
+
+    function resize() {
+      if (!host || !renderer) return;
+      const rect = host.getBoundingClientRect();
+      const width = Math.max(280, Math.floor(rect.width || 720));
+      const height = Math.max(320, Math.floor(rect.height || 460));
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+      renderer.setSize(width, height, false);
+    }
+
+    const loader = new GLTFLoader();
+    loader.load(
+      url,
+      (gltf) => {
+        if (disposed) return;
+        const model = gltf.scene;
+        scene.add(model);
+
+        const box = new THREE.Box3().setFromObject(model);
+        const size = new THREE.Vector3();
+        const center = new THREE.Vector3();
+        box.getSize(size);
+        box.getCenter(center);
+        model.position.sub(center);
+
+        const maxDim = Math.max(size.x, size.y, size.z) || 1;
+        const scale = 2.7 / maxDim;
+        model.scale.setScalar(scale);
+
+        const fittedBox = new THREE.Box3().setFromObject(model);
+        const fittedSize = new THREE.Vector3();
+        fittedBox.getSize(fittedSize);
+        model.position.y -= fittedBox.min.y + Math.min(1, fittedSize.y * 0.08);
+
+        controls.target.set(0, Math.min(0.9, fittedSize.y * 0.35), 0);
+        camera.position.set(0, Math.max(1.1, fittedSize.y * 0.45), Math.max(3.4, fittedSize.z * 1.8 + 3));
+        controls.update();
+      },
+      undefined,
+      () => {
+        if (!disposed) setViewerError('Não foi possível carregar o modelo 3D. Verifique se o arquivo .glb está público no Storage.');
+      }
+    );
+
+    resize();
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(resize) : null;
+    if (ro) ro.observe(host);
+    window.addEventListener('resize', resize);
+
+    function animate() {
+      if (disposed) return;
+      controls.update();
+      renderer.render(scene, camera);
+      window.requestAnimationFrame(animate);
+    }
+    animate();
+
+    return () => {
+      disposed = true;
+      window.removeEventListener('resize', resize);
+      if (ro) ro.disconnect();
+      controls.dispose();
+      renderer.dispose();
+      scene.traverse((obj) => {
+        if (obj.geometry) obj.geometry.dispose?.();
+        if (obj.material) {
+          const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+          mats.forEach((m) => m?.dispose?.());
+        }
+      });
+      if (host && renderer.domElement?.parentNode === host) host.removeChild(renderer.domElement);
+    };
+  }, [url]);
+
+  return (
+    <div className="relative overflow-hidden rounded-3xl bg-[#07131d] ring-1 ring-white/10">
+      <div ref={hostRef} className="h-[70vh] min-h-[360px] w-full" />
+      <div className="pointer-events-none absolute left-4 top-4 rounded-2xl bg-black/35 px-3 py-2 text-xs text-slate-200 ring-1 ring-white/10 backdrop-blur">
+        Arraste para girar • Pinça/scroll para zoom
+      </div>
+      {viewerError ? <div className="absolute inset-x-4 bottom-4 rounded-2xl bg-red-500/10 p-3 text-sm text-red-100 ring-1 ring-red-400/20">{viewerError}</div> : null}
+    </div>
+  );
+}
+
+function Model3DModal({ open, url, name, onClose }) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-[10000]">
+      <div className="absolute inset-0 bg-[#020b10]/85" onClick={onClose} />
+      <div className="absolute inset-x-3 top-3 mx-auto max-h-[calc(100vh-24px)] max-w-5xl overflow-y-auto rounded-[28px] bg-[#0a0f1a] p-4 ring-1 ring-white/10 sm:top-6 sm:max-h-[calc(100vh-48px)] sm:p-5">
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <div className="text-xs uppercase tracking-[0.25em] text-cyan-200/70">Visualizador 3D</div>
+            <div className="mt-1 text-xl font-extrabold text-white">{name || 'Modelo do pedido'}</div>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-xl px-3 py-2 text-sm text-slate-200 ring-1 ring-white/10 hover:bg-white/4">Fechar</button>
+        </div>
+        <Order3DViewer url={url} />
+      </div>
+      <Model3DModal
+        open={modelViewerOpen}
+        url={data?.model_3d_url || ''}
+        name={data?.model_3d_name || 'Modelo do pedido'}
+        onClose={() => setModelViewerOpen(false)}
+      />
+    </div>
+  );
+}
 
 const fmtBRL = (n) => Number(n || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
@@ -36,6 +192,7 @@ export default function ManualOrderPaymentPage({ onGoHome }) {
   const [data, setData] = React.useState(null);
   const [pix, setPix] = React.useState({ qr_code: '', qr_code_base64: '', ticket_url: '' });
   const [copyMsg, setCopyMsg] = React.useState('');
+  const [modelViewerOpen, setModelViewerOpen] = React.useState(false);
 
   const loadOrder = React.useCallback(async () => {
     if (!order || !sig) return;
@@ -198,6 +355,24 @@ export default function ManualOrderPaymentPage({ onGoHome }) {
                 </div>
                 <div className="rounded-full px-3 py-1 text-xs ring-1 ring-white/10 bg-white/5 text-slate-100">{String(data.status || 'pending').toLowerCase() === 'paid' ? 'Pago' : 'Aguardando pagamento'}</div>
               </div>
+              {data.model_3d_url ? (
+                <div className="mt-4 rounded-3xl bg-cyan-400/[0.06] p-4 ring-1 ring-cyan-300/20">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <div className="text-sm font-bold text-cyan-100">Visualização 3D disponível</div>
+                      <div className="mt-1 text-xs text-slate-400">Veja o modelo do seu pedido antes de finalizar o pagamento.</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setModelViewerOpen(true)}
+                      className="rounded-2xl bg-cyan-400 px-4 py-3 text-sm font-black text-[#031116] shadow-lg shadow-cyan-500/10"
+                    >
+                      Ver 3D
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
               <div className="mt-4 space-y-3">
                 {(data.items || []).map((it) => (
                   <div key={it.id || `${it.name}-${it.scale}`} className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-3 flex items-center justify-between gap-3">
