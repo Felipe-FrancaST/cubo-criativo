@@ -2,7 +2,7 @@ import React from "react";
 import { fmtBRL, centsToBRL, getVariantPricingCents, percentOffCents } from "../lib/pricing.js";
 import { useFavorites } from "../state/FavoritesProvider.jsx";
 import { useAuth } from "../auth/AuthProvider.jsx";
-import { saveProductReturnState } from "../lib/navigation.js";
+import { navigateClient, saveProductReturnState } from "../lib/navigation.js";
 
 /**
  * Props:
@@ -137,7 +137,13 @@ export default function ProductCard({ p, addToCart, buyNow, openGallery, onRequi
           {p?.slug ? (
             <a
               href={`/p/${p.slug}`}
-              onClick={() => saveProductReturnState()}
+              onClick={(event) => {
+                saveProductReturnState(`/p/${p.slug}`);
+                // Mantém os atalhos do navegador (abrir em nova aba/janela).
+                if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                event.preventDefault();
+                navigateClient(`/p/${p.slug}`);
+              }}
               className="text-xs font-semibold text-cyan-300 hover:text-cyan-200 underline underline-offset-4 shrink-0"
               aria-label={`Abrir página de ${p.nome}`}
               title="Abrir página do produto"

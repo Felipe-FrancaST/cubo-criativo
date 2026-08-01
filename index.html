@@ -113,6 +113,48 @@
       <a href="/terms.html" style="color:#cbd5e1; text-decoration: underline;">Termos de Serviço</a>
     </footer>
 
+    <script id="stale-build-recovery">
+      (() => {
+        const reloadKey = "cc_stale_asset_reload_v1";
+        const cooldownMs = 60000;
+        const stalePattern = /failed to fetch dynamically imported module|failed to fetch module script|importing a module script failed|chunkloaderror|loading chunk|expected a javascript-or-wasm module script/i;
+
+        const reloadLatestVersion = () => {
+          try {
+            const lastReload = Number(sessionStorage.getItem(reloadKey) || 0);
+            if (lastReload && Date.now() - lastReload < cooldownMs) return;
+            sessionStorage.setItem(reloadKey, String(Date.now()));
+          } catch {}
+
+          const url = new URL(window.location.href);
+          url.searchParams.set("cc_refresh", String(Date.now()));
+          window.location.replace(url.toString());
+        };
+
+        window.addEventListener("error", (event) => {
+          const scriptSrc = String(event?.target?.src || "");
+          const message = String(event?.message || event?.error?.message || "");
+          if ((scriptSrc && scriptSrc.includes("/assets/")) || stalePattern.test(message)) {
+            reloadLatestVersion();
+          }
+        }, true);
+
+        window.addEventListener("unhandledrejection", (event) => {
+          const message = String(event?.reason?.message || event?.reason || "");
+          if (stalePattern.test(message)) reloadLatestVersion();
+        });
+
+        const currentUrl = new URL(window.location.href);
+        if (currentUrl.searchParams.has("cc_refresh")) {
+          currentUrl.searchParams.delete("cc_refresh");
+          window.history.replaceState(
+            window.history.state,
+            "",
+            `${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`
+          );
+        }
+      })();
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

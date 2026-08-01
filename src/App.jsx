@@ -1,46 +1,48 @@
 // src/App.jsx
 import React from "react";
-const { startTransition, Suspense, lazy } = React;
+const { startTransition, Suspense } = React;
 import brand from "./data/config";
 
 // Componentes
 import Modal from "./components/Modal.jsx";
-const CartDrawer = lazy(() => import("./components/CartDrawer.jsx"));
-const AuthModal = lazy(() => import("./components/AuthModal.jsx"));
-const OrdersModal = lazy(() => import("./components/OrdersModal.jsx"));
-const MenuDrawer = lazy(() => import("./components/MenuDrawer.jsx"));
-const VipAreaModal = lazy(() => import("./components/VipAreaModal.jsx"));
-const ProfileSettingsModal = lazy(() => import("./components/ProfileSettingsModal.jsx"));
+import RouteErrorBoundary from "./components/RouteErrorBoundary.jsx";
+import { clearDynamicImportReloadGuard, lazyWithReload } from "./lib/lazyWithReload.js";
+const CartDrawer = lazyWithReload(() => import("./components/CartDrawer.jsx"));
+const AuthModal = lazyWithReload(() => import("./components/AuthModal.jsx"));
+const OrdersModal = lazyWithReload(() => import("./components/OrdersModal.jsx"));
+const MenuDrawer = lazyWithReload(() => import("./components/MenuDrawer.jsx"));
+const VipAreaModal = lazyWithReload(() => import("./components/VipAreaModal.jsx"));
+const ProfileSettingsModal = lazyWithReload(() => import("./components/ProfileSettingsModal.jsx"));
 import SiteHeader from "./components/SiteHeader.jsx";
 import { useAuth } from "./auth/AuthProvider.jsx";
 import { supabase } from "./lib/supabaseClient";
 
 // Páginas
-const HomePage = lazy(() => import("./pages/HomePage.jsx"));
-const StockPage = lazy(() => import("./pages/StockPage.jsx"));
-const CatalogPage = lazy(() => import("./pages/CatalogPage.jsx"));
-const AccountPage = lazy(() => import("./pages/AccountPage.jsx"));
-const SettingsPage = lazy(() => import("./pages/SettingsPage.jsx"));
-const PromocoesPage = lazy(() => import("./pages/PromocoesPage.jsx"));
-const ProductPage = lazy(() => import("./pages/ProductPage.jsx"));
-const SobrePage = lazy(() => import("./pages/SobrePage.jsx"));
-const ContactPage = lazy(() => import("./pages/ContactPage.jsx"));
-const AdminOrdersPage = lazy(() => import("./pages/AdminOrdersPage.jsx"));
-const FAQPage = lazy(() => import("./pages/FAQPage.jsx"));
-const TrocasPage = lazy(() => import("./pages/TrocasPage.jsx"));
-const CupomGamePage = lazy(() => import("./pages/CupomGamePage.jsx"));
-const VipRpgPage = lazy(() => import("./pages/VipRpgPage.jsx"));
-const VipRedirectPage = lazy(() => import("./pages/VipRedirectPage.jsx"));
-const VipAreaPage = lazy(() => import("./pages/VipAreaPage.jsx"));
-const PasswordResetPage = lazy(() => import("./pages/PasswordResetPage.jsx"));
-const ManualOrderPaymentPage = lazy(() => import("./pages/ManualOrderPaymentPage.jsx"));
-const CustomerOrdersLandingPage = lazy(() => import("./pages/CustomerOrdersLandingPage.jsx"));
-const ReviewPage = lazy(() => import("./pages/ReviewPage.jsx"));
-const ReviewsPage = lazy(() => import("./pages/ReviewsPage.jsx"));
+const HomePage = lazyWithReload(() => import("./pages/HomePage.jsx"));
+const StockPage = lazyWithReload(() => import("./pages/StockPage.jsx"));
+const CatalogPage = lazyWithReload(() => import("./pages/CatalogPage.jsx"));
+const AccountPage = lazyWithReload(() => import("./pages/AccountPage.jsx"));
+const SettingsPage = lazyWithReload(() => import("./pages/SettingsPage.jsx"));
+const PromocoesPage = lazyWithReload(() => import("./pages/PromocoesPage.jsx"));
+const ProductPage = lazyWithReload(() => import("./pages/ProductPage.jsx"));
+const SobrePage = lazyWithReload(() => import("./pages/SobrePage.jsx"));
+const ContactPage = lazyWithReload(() => import("./pages/ContactPage.jsx"));
+const AdminOrdersPage = lazyWithReload(() => import("./pages/AdminOrdersPage.jsx"));
+const FAQPage = lazyWithReload(() => import("./pages/FAQPage.jsx"));
+const TrocasPage = lazyWithReload(() => import("./pages/TrocasPage.jsx"));
+const CupomGamePage = lazyWithReload(() => import("./pages/CupomGamePage.jsx"));
+const VipRpgPage = lazyWithReload(() => import("./pages/VipRpgPage.jsx"));
+const VipRedirectPage = lazyWithReload(() => import("./pages/VipRedirectPage.jsx"));
+const VipAreaPage = lazyWithReload(() => import("./pages/VipAreaPage.jsx"));
+const PasswordResetPage = lazyWithReload(() => import("./pages/PasswordResetPage.jsx"));
+const ManualOrderPaymentPage = lazyWithReload(() => import("./pages/ManualOrderPaymentPage.jsx"));
+const CustomerOrdersLandingPage = lazyWithReload(() => import("./pages/CustomerOrdersLandingPage.jsx"));
+const ReviewPage = lazyWithReload(() => import("./pages/ReviewPage.jsx"));
+const ReviewsPage = lazyWithReload(() => import("./pages/ReviewsPage.jsx"));
 import { fetchAdminStatus } from "./lib/admin.js";
 import { applySeo, setJsonLd, clearJsonLd } from "./lib/seo.js";
 import { trackEvent } from "./lib/analytics.js";
-import { consumeScrollRestore, readProductReturnState, queueScrollRestore } from "./lib/navigation.js";
+import { currentClientPath, consumeScrollRestore, isSpaHistoryEntry, readProductReturnState, queueScrollRestore } from "./lib/navigation.js";
 
 // (Removido) Modo RPG separado: agora as peças RPG vivem dentro do Catálogo.
 
@@ -485,6 +487,10 @@ React.useEffect(() => {
   const lastAutoOpenedProductRef = React.useRef("");
 
   React.useEffect(() => {
+    clearDynamicImportReloadGuard();
+  }, []);
+
+  React.useEffect(() => {
     const onPop = () => startTransition(() => setRoute(getRouteFromLocation()));
     window.addEventListener("popstate", onPop);
     // compat: links antigos com hash
@@ -538,6 +544,21 @@ React.useEffect(() => {
 React.useEffect(() => {
   if (typeof window === "undefined") return;
 
+  const restore = consumeScrollRestore(currentClientPath());
+  if (restore) {
+    const targetY = Math.max(0, Number(restore.scrollY || 0));
+    const restorePosition = () => {
+      try { window.scrollTo({ top: targetY, left: 0, behavior: "auto" }); } catch {}
+      try {
+        document.documentElement.scrollTop = targetY;
+        document.body.scrollTop = targetY;
+      } catch {}
+    };
+    requestAnimationFrame(() => requestAnimationFrame(restorePosition));
+    setTimeout(restorePosition, 120);
+    return;
+  }
+
   // Faz o scroll depois do repaint da nova rota (mais confiável em mobile),
   // e repete em seguida para neutralizar "scroll restoration" em alguns browsers.
   requestAnimationFrame(() => scrollToTop());
@@ -545,10 +566,11 @@ React.useEffect(() => {
 }, [route]);
 
 
-  function navigate(path) {
+  function navigate(path, options = {}) {
     const normalized = path?.startsWith("/") ? path : `/${path || ""}`;
     if (typeof window !== "undefined") {
-      window.history.pushState({}, "", normalized);
+      const method = options?.replace ? "replaceState" : "pushState";
+      window.history[method]({ cc_spa_navigation: true }, "", normalized);
       // mantemos o estado de rota somente como pathname
       let nextRoute;
       try {
@@ -560,8 +582,7 @@ React.useEffect(() => {
       startTransition(() => {
         setRoute(nextRoute);
       });
-      // Mantém consistente com o scroll-to-top global (sem animação).
-      scrollToTop();
+      if (!options?.preserveScroll) scrollToTop();
     }
   }
 
@@ -1348,12 +1369,24 @@ React.useEffect(() => {
           product={found}
           loading={productsLoading}
           onBack={() => {
-            try {
-              if (window.history.length > 1) window.history.back();
-              else navigate("/catalogo");
-            } catch {
-              navigate("/catalogo");
+            const returnState = readProductReturnState();
+            const returnTarget = String(returnState?.targetPath || "").split(/[?#]/)[0];
+            const currentProductPath = currentClientPath().split(/[?#]/)[0];
+            if (returnState?.path && (!returnTarget || returnTarget === currentProductPath)) {
+              queueScrollRestore(returnState.path, returnState.scrollY);
+              try {
+                // Quando o produto foi aberto dentro da SPA, voltar é seguro e preserva o histórico.
+                if (isSpaHistoryEntry() && window.history.length > 1) {
+                  window.history.back();
+                  return;
+                }
+              } catch {}
+
+              // Produto aberto por carregamento completo: não restaura a página antiga do cache.
+              navigate(returnState.path, { replace: true, preserveScroll: true });
+              return;
             }
+            navigate("/catalogo", { replace: true });
           }}
           addToCart={addToCart}
           buyNow={buyNow}
@@ -1519,6 +1552,7 @@ React.useEffect(() => {
   })();
 
   return (
+    <RouteErrorBoundary routeKey={route}>
     <div className="min-h-screen w-full overflow-x-clip flex flex-col bg-[radial-gradient(circle_at_top,rgba(122,35,65,.14),transparent_24%),linear-gradient(180deg,#120809_0%,#090506_48%,#050304_100%)] text-cyan-50">
       <Toast open={toastOpen}>{toastMsg}</Toast>
 
@@ -1950,5 +1984,6 @@ React.useEffect(() => {
         )}
       </Modal>
     </div>
+    </RouteErrorBoundary>
   );
 }
