@@ -1832,6 +1832,8 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
   const [vipControlError, setVipControlError] = React.useState("");
   const [vipCycleEditor, setVipCycleEditor] = React.useState({ cycle_key: "", selected_ids: [], activate: true });
   const [vipCycleBusy, setVipCycleBusy] = React.useState(false);
+  const [vipLibrarySearch, setVipLibrarySearch] = React.useState("");
+  const [vipLibraryFilter, setVipLibraryFilter] = React.useState("all");
 
   const [gameCouponLoading, setGameCouponLoading] = React.useState(false);
   const [gameCouponError, setGameCouponError] = React.useState("");
@@ -2735,6 +2737,24 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
     }, { mini: 0, boss: 0 });
   }, [vipSelectedItems]);
 
+  const vipVisibleLibrary = React.useMemo(() => {
+    const query = String(vipLibrarySearch || '').trim().toLocaleLowerCase('pt-BR');
+    const selectedSet = new Set((vipCycleEditor?.selected_ids || []).map((id) => String(id)));
+    return (vipControl?.library || []).filter((item) => {
+      const type = String(item?.item_type || '').toLowerCase() === 'boss' ? 'boss' : 'mini';
+      const selected = selectedSet.has(String(item?.id));
+      if (vipLibraryFilter === 'selected' && !selected) return false;
+      if (vipLibraryFilter === 'mini' && type !== 'mini') return false;
+      if (vipLibraryFilter === 'boss' && type !== 'boss') return false;
+      if (!query) return true;
+      const haystack = [item?.title, item?.description, item?.cycle_key, type]
+        .filter(Boolean)
+        .join(' ')
+        .toLocaleLowerCase('pt-BR');
+      return haystack.includes(query);
+    });
+  }, [vipControl, vipCycleEditor, vipLibraryFilter, vipLibrarySearch]);
+
   const vipActiveCycle = React.useMemo(() => {
     return (vipControl?.cycles || []).find((cycle) => cycle.is_active) || null;
   }, [vipControl]);
@@ -2777,32 +2797,32 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-3 sm:px-6 py-6">
+    <div className="mx-auto max-w-[1600px] px-3 py-4 sm:px-5 sm:py-6 lg:px-8">
       {/* Topbar */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <div className="text-2xl font-semibold text-white">Admin</div>
           <div className="text-sm text-slate-400">Pedidos, produção, rastreio e votação VIP — tudo em um painel.</div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="grid w-full grid-cols-3 gap-2 sm:flex sm:w-auto sm:items-center">
           <button
             onClick={() => fetchOrders()}
             disabled={loading}
-            className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10 disabled:opacity-60 disabled:cursor-wait"
+            className="rounded-xl px-2.5 py-2 text-center text-xs text-slate-200 ring-1 ring-white/10 hover:bg-white/4 disabled:cursor-wait disabled:opacity-60 sm:px-3 sm:text-sm"
           >
             <span className="material-icons text-[18px] align-middle mr-1">refresh</span>
             {loading ? 'Atualizando…' : 'Atualizar'}
           </button>
           <button
             onClick={() => setNewOrderOpen(true)}
-            className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
+            className="rounded-xl px-2.5 py-2 text-center text-xs text-slate-200 ring-1 ring-white/10 hover:bg-white/4 sm:px-3 sm:text-sm"
           >
             <span className="material-icons text-[18px] align-middle mr-1">add_box</span>
             Novo pedido
           </button>
           <button
             onClick={() => onNavigateHome?.()}
-            className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
+            className="rounded-xl px-2.5 py-2 text-center text-xs text-slate-200 ring-1 ring-white/10 hover:bg-white/4 sm:px-3 sm:text-sm"
           >
             <span className="material-icons text-[18px] align-middle mr-1">home</span>
             Site
@@ -2811,7 +2831,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
       </div>
 
       {/* Mobile tabs */}
-      <div className="mt-4 sm:hidden flex gap-2 overflow-x-auto pb-1">
+      <div className="sticky top-[68px] z-[80] mt-4 flex gap-2 overflow-x-auto rounded-2xl bg-[#07161d]/95 p-2 shadow-[0_12px_35px_rgba(0,0,0,0.35)] ring-1 ring-white/10 backdrop-blur lg:hidden">
         {[
           ["dashboard", "space_dashboard", "Dashboard"],
           ["orders", "inventory_2", "Pedidos"],
@@ -2835,10 +2855,10 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
         ))}
       </div>
 
-      <div className="mt-5 grid grid-cols-1 sm:grid-cols-[260px_1fr] gap-4">
+      <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-[240px_minmax(0,1fr)] xl:grid-cols-[260px_minmax(0,1fr)]">
         {/* Sidebar */}
-        <aside className="hidden sm:block">
-          <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-3">
+        <aside className="hidden lg:block">
+          <div className="sticky top-24 rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-3">
             <SidebarItem active={section === "dashboard"} icon="space_dashboard" onClick={() => setSection("dashboard")}>
               Dashboard
             </SidebarItem>
@@ -3722,10 +3742,10 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                 title="VIP Controle"
                 subtitle="Organize ciclos VIP, acompanhe base ativa e mantenha a votação do próximo tema."
                 right={
-                  <div className="flex items-center gap-2">
+                  <div className="flex w-full gap-2 sm:w-auto sm:items-center">
                     <button
                       onClick={() => fetchVipVoting()}
-                      className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
+                      className="flex-1 rounded-xl px-3 py-2 text-sm text-slate-200 ring-1 ring-white/10 hover:bg-white/4 sm:flex-none"
                     >
                       Atualizar
                     </button>
@@ -3748,7 +3768,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                             },
                           })
                         }
-                        className="rounded-xl px-3 py-2 text-sm font-semibold bg-emerald-400 text-black ring-4 ring-emerald-400/20"
+                        className="flex-1 rounded-xl bg-emerald-400 px-3 py-2 text-sm font-semibold text-black ring-4 ring-emerald-400/20 sm:flex-none"
                       >
                         + Nova votação
                       </button>
@@ -3758,7 +3778,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
               />
 
               <div className="grid grid-cols-1 gap-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+                <div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 xl:grid-cols-4">
                   <div className="rounded-3xl bg-gradient-to-br from-cyan-500/15 via-cyan-400/8 to-transparent ring-1 ring-cyan-400/20 p-4 shadow-[0_12px_40px_rgba(6,182,212,0.08)]">
                     <div className="text-[11px] uppercase tracking-[0.18em] text-cyan-200/80">Ciclo ativo</div>
                     <div className="mt-2 text-2xl font-black text-white">{vipControl.active_cycle_key || '—'}</div>
@@ -3784,14 +3804,14 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                 {vipControlLoading ? <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 px-4 py-3 text-slate-400">Carregando controle VIP...</div> : null}
                 {vipControlError ? <div className="rounded-2xl bg-red-500/10 ring-1 ring-red-500/30 px-4 py-3 text-sm text-red-200">{vipControlError}</div> : null}
 
-                <div className="grid grid-cols-1 gap-4 2xl:grid-cols-[minmax(0,1.45fr)_minmax(340px,0.8fr)]">
+                <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.82fr)]">
                   <div className="rounded-3xl bg-white/[0.03] ring-1 ring-white/10 p-4 md:p-5">
                     <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                       <div className="max-w-2xl">
                         <div className="text-lg font-bold text-white">Montagem do ciclo VIP</div>
                         <div className="mt-1 text-sm text-slate-400">Monte o mês, escolha as minis e mantenha claro o que está no editor e o que já está ativo. Tudo fica concentrado aqui.</div>
                       </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full xl:w-auto xl:min-w-[430px]">
+                      <div className="grid w-full grid-cols-2 gap-2 sm:grid-cols-3 xl:w-auto xl:min-w-[430px]">
                         <button
                           onClick={() => setVipCycleEditor({ cycle_key: nextMonthKey(), selected_ids: [], activate: true })}
                           className="rounded-2xl px-4 py-2.5 text-sm font-semibold text-slate-100 bg-white/[0.04] hover:bg-white/[0.08] ring-1 ring-white/10"
@@ -3812,15 +3832,15 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                         <button
                           onClick={saveVipCycle}
                           disabled={vipCycleBusy}
-                          className="rounded-2xl px-4 py-2.5 text-sm font-semibold bg-emerald-400 text-black ring-4 ring-emerald-400/20 disabled:opacity-60"
+                          className="col-span-2 rounded-2xl bg-emerald-400 px-4 py-2.5 text-sm font-semibold text-black ring-4 ring-emerald-400/20 disabled:opacity-60 sm:col-span-1"
                         >
                           {vipCycleBusy ? 'Salvando...' : 'Salvar ciclo'}
                         </button>
                       </div>
                     </div>
 
-                    <div className="mt-5 grid grid-cols-1 xl:grid-cols-12 gap-4 items-start">
-                      <div className="xl:col-span-4 2xl:col-span-3 space-y-4">
+                    <div className="mt-5 grid grid-cols-1 items-start gap-4 lg:grid-cols-12">
+                      <div className="space-y-4 lg:col-span-4 2xl:col-span-3">
                         <div className="rounded-2xl bg-black/20 ring-1 ring-white/10 p-4">
                           <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Configuração do ciclo</div>
                           <label className="mt-4 block">
@@ -3875,7 +3895,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                         </div>
                       </div>
 
-                      <div className="xl:col-span-8 2xl:col-span-9 space-y-4 min-w-0">
+                      <div className="min-w-0 space-y-4 lg:col-span-8 2xl:col-span-9">
                         <div className="rounded-2xl bg-black/20 ring-1 ring-white/10 p-4">
                           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                             <div>
@@ -3886,7 +3906,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                               {vipControl.cycles.length} ciclo(s)
                             </div>
                           </div>
-                          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-3 max-h-[320px] overflow-y-auto pr-1">
+                          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 md:max-h-[320px] md:overflow-y-auto md:pr-1 2xl:grid-cols-3">
                             {(vipControl.cycles || []).map((cycle) => {
                               const isCurrentCycle = String(vipCycleEditor.cycle_key || '') === String(cycle.cycle_key);
                               return (
@@ -3936,14 +3956,60 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                             <div>
                               <div className="text-sm font-semibold text-white">Biblioteca do ciclo</div>
-                              <div className="mt-1 text-xs text-slate-400">Selecione miniaturas e bosses para compor o mês em edição.</div>
+                              <div className="mt-1 text-xs text-slate-400">Busque e filtre antes de tocar nos cards que entrarão neste mês.</div>
                             </div>
                             <div className="rounded-full bg-white/[0.04] px-3 py-1.5 text-xs text-slate-300 ring-1 ring-white/10 self-start lg:self-auto">
-                              {(vipControl.library || []).length} item(ns)
+                              {vipVisibleLibrary.length} de {(vipControl.library || []).length} item(ns)
                             </div>
                           </div>
-                          <div className="mt-4 grid grid-cols-1 gap-3 max-h-[720px] overflow-y-auto pr-1 2xl:grid-cols-2">
-                            {(vipControl.library || []).map((item) => {
+
+                          <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+                            <div className="relative block">
+                              <span className="material-icons pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[19px] text-slate-500">search</span>
+                              <input
+                                value={vipLibrarySearch}
+                                onChange={(event) => setVipLibrarySearch(event.target.value)}
+                                placeholder="Buscar por nome, descrição ou ciclo..."
+                                aria-label="Buscar na biblioteca VIP"
+                                className="w-full rounded-2xl bg-black/25 py-3 pl-10 pr-10 text-sm text-slate-100 ring-1 ring-white/10 placeholder:text-slate-600 focus:outline-none focus:ring-cyan-400/35"
+                              />
+                              {vipLibrarySearch ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setVipLibrarySearch('')}
+                                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-1 text-slate-400 hover:bg-white/5 hover:text-white"
+                                  aria-label="Limpar busca"
+                                >
+                                  <span className="material-icons text-[18px]">close</span>
+                                </button>
+                              ) : null}
+                            </div>
+                            <div className="flex gap-2 overflow-x-auto pb-1 md:pb-0">
+                              {[
+                                ['all', 'Todos'],
+                                ['selected', 'Selecionados'],
+                                ['mini', 'Minis'],
+                                ['boss', 'Bosses'],
+                              ].map(([value, label]) => (
+                                <button
+                                  key={value}
+                                  type="button"
+                                  onClick={() => setVipLibraryFilter(value)}
+                                  className={[
+                                    'shrink-0 rounded-full px-3 py-2 text-xs font-semibold ring-1 transition',
+                                    vipLibraryFilter === value
+                                      ? 'bg-cyan-400/15 text-cyan-100 ring-cyan-400/30'
+                                      : 'bg-white/[0.03] text-slate-300 ring-white/10 hover:bg-white/[0.06]',
+                                  ].join(' ')}
+                                >
+                                  {label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 md:max-h-[720px] md:overflow-y-auto md:pr-1">
+                            {vipVisibleLibrary.map((item) => {
                               const selected = (vipCycleEditor.selected_ids || []).includes(String(item.id));
                               const assignedCycle = String(item?.cycle_key || '');
                               const isBoss = String(item?.item_type || '').toLowerCase() === 'boss';
@@ -3952,6 +4018,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                                   type="button"
                                   key={item.id}
                                   onClick={() => toggleVipCycleItem(String(item.id))}
+                                  aria-pressed={selected}
                                   className={[
                                     'w-full text-left rounded-3xl p-3.5 ring-1 transition shadow-[0_8px_30px_rgba(0,0,0,0.14)]',
                                     selected
@@ -3982,15 +4049,35 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                                 </button>
                               );
                             })}
+                            {!vipVisibleLibrary.length ? (
+                              <div className="rounded-2xl bg-white/[0.03] p-5 text-center text-sm text-slate-400 ring-1 ring-white/10 md:col-span-2">
+                                Nenhum item encontrado com esses filtros.
+                              </div>
+                            ) : null}
                           </div>
                         </div>
                       </div>
+                    </div>
+
+                    <div className="sticky bottom-3 z-30 mt-4 flex items-center justify-between gap-3 rounded-2xl bg-[#0a202a]/95 p-3 shadow-[0_16px_45px_rgba(0,0,0,0.45)] ring-1 ring-cyan-300/20 backdrop-blur lg:hidden">
+                      <div className="min-w-0">
+                        <div className="text-xs text-slate-400">Ciclo {vipCycleEditor.cycle_key || 'novo'}</div>
+                        <div className="truncate text-sm font-semibold text-white">{vipSelectedItems.length} item(ns) selecionado(s)</div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={saveVipCycle}
+                        disabled={vipCycleBusy}
+                        className="shrink-0 rounded-xl bg-emerald-400 px-4 py-2.5 text-sm font-bold text-black ring-4 ring-emerald-400/15 disabled:opacity-60"
+                      >
+                        {vipCycleBusy ? 'Salvando...' : 'Salvar'}
+                      </button>
                     </div>
                   </div>
 
                   <div className="space-y-4">
                     <div className="rounded-3xl bg-white/[0.03] ring-1 ring-white/10 p-4 md:p-5">
-                      <div className="flex items-start justify-between gap-3">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <div>
                           <div className="text-lg font-bold text-white">Radar VIP</div>
                           <div className="mt-1 text-sm text-slate-400">Acompanhe o ciclo ativo e a distribuição dos assinantes por mês.</div>
@@ -4100,15 +4187,15 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                       <div className="mt-4 space-y-4">
                       {vipPolls.map((p, idx) => (
                         <div key={idx} className="rounded-2xl bg-black/20 ring-1 ring-white/10 p-3.5">
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <div className="text-white font-semibold">{p?.poll?.title || "Votação"}</div>
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="min-w-0">
+                              <div className="break-words text-white font-semibold">{p?.poll?.title || "Votação"}</div>
                               <div className="text-xs text-slate-500">
                                 {p?.poll?.month_key || "—"} • {p?.total_votes || 0} votos • {p?.poll?.status || "—"}
                               </div>
                             </div>
 
-                            <div className="flex items-center gap-2">
+                            <div className="flex w-full flex-col items-stretch gap-2 sm:w-auto sm:flex-row sm:items-center">
                               {String(p?.poll?.status || "").toLowerCase() === "closed" ? (
                                 <span className="rounded-full px-2 py-1 text-[11px] bg-emerald-500/15 text-emerald-200 ring-1 ring-emerald-400/20">
                                   Encerrada
@@ -4130,7 +4217,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                                       error: "",
                                     })
                                   }
-                                  className="rounded-2xl px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
+                                  className="w-full rounded-2xl px-3 py-2 text-xs font-semibold text-slate-200 ring-1 ring-white/10 hover:bg-white/4 sm:w-auto"
                                 >
                                   Encerrar votação
                                 </button>
@@ -4139,7 +4226,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                               {String(p?.poll?.status || "").toLowerCase() === "closed" ? (
                                 <button
                                   onClick={() => setDeleteVote({ open: true, poll: p, busy: false, error: "" })}
-                                  className="rounded-2xl px-3 py-2 text-xs font-semibold text-red-200 hover:bg-red-500/10 ring-1 ring-red-500/30"
+                                  className="w-full rounded-2xl px-3 py-2 text-xs font-semibold text-red-200 ring-1 ring-red-500/30 hover:bg-red-500/10 sm:w-auto"
                                 >
                                   Excluir votação
                                 </button>
@@ -4168,7 +4255,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                             {(p?.options || []).map((o) => (
                               <div key={o.id} className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-2.5">
                                 <div className="flex items-center justify-between gap-3">
-                                  <div className="min-w-0 flex items-center gap-3">
+                                  <div className="min-w-0 flex flex-1 items-center gap-3">
                                     {o.image_url ? (
                                       <div className="h-12 w-12 rounded-xl overflow-hidden bg-black/20 ring-1 ring-white/10 shrink-0">
                                         <img src={o.image_url} alt={o.title} className="h-full w-full object-cover" loading="lazy" />

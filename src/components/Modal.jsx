@@ -30,6 +30,8 @@ export default function Modal({
     if (!open) return;
 
     lastFocusRef.current = document.activeElement;
+    const previousBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
 
     const onKey = (e) => {
       if (e.key === "Escape") {
@@ -46,6 +48,7 @@ export default function Modal({
     window.addEventListener("keydown", onKey);
     return () => {
       window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = previousBodyOverflow;
       const prev = lastFocusRef.current;
       if (prev && typeof prev.focus === "function") {
         queueMicrotask(() => prev.focus({ preventScroll: true }));

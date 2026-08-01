@@ -1,4 +1,5 @@
 import React from 'react';
+import Modal from '../components/Modal.jsx';
 import { trackEvent } from '../lib/analytics.js';
 
 function Badge({ children }) {
@@ -44,6 +45,7 @@ export default function VipRpgPage({
   const [plansLoading, setPlansLoading] = React.useState(true);
   const [collectionItems, setCollectionItems] = React.useState([]);
   const [collectionLoading, setCollectionLoading] = React.useState(true);
+  const [collectionPreviewIndex, setCollectionPreviewIndex] = React.useState(-1);
 
 
   const vipUntil = vipProfile?.vip_until || null;
@@ -157,6 +159,39 @@ export default function VipRpgPage({
     })();
     return () => { alive = false; };
   }, []);
+
+  const activeCollectionItem = collectionPreviewIndex >= 0 ? collectionItems[collectionPreviewIndex] || null : null;
+
+  const openCollectionPreview = React.useCallback((index) => {
+    setCollectionPreviewIndex(index);
+  }, []);
+
+  const closeCollectionPreview = React.useCallback(() => {
+    setCollectionPreviewIndex(-1);
+  }, []);
+
+  const moveCollectionPreview = React.useCallback((direction) => {
+    setCollectionPreviewIndex((current) => {
+      if (!collectionItems.length || current < 0) return -1;
+      return (current + direction + collectionItems.length) % collectionItems.length;
+    });
+  }, [collectionItems.length]);
+
+  React.useEffect(() => {
+    if (!activeCollectionItem || collectionItems.length < 2) return undefined;
+    const onKeyDown = (event) => {
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        moveCollectionPreview(-1);
+      }
+      if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        moveCollectionPreview(1);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [activeCollectionItem, collectionItems.length, moveCollectionPreview]);
 
   React.useEffect(() => {
     let alive = true;
@@ -423,7 +458,8 @@ export default function VipRpgPage({
   }
 
   return (
-    <main className="flex-1">
+    <>
+      <main className="flex-1">
       <section className="container-cc px-4 sm:px-6 lg:px-8 py-10 sm:py-14" >
         <div className="relative overflow-hidden rounded-3xl ring-1 ring-white/10 bg-gradient-to-br from-slate-900/60 via-slate-950/50 to-black/60 backdrop-blur p-6 sm:p-10">
           <div
@@ -465,22 +501,33 @@ export default function VipRpgPage({
                 <div className="rounded-2xl bg-white/4 ring-1 ring-white/10 p-4 text-slate-300">Carregando coleção...</div>
               ) : collectionItems.length ? (
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                  {collectionItems.map((item) => (
-                    <div key={item.id} className="rounded-2xl overflow-hidden bg-white/4 ring-1 ring-white/10">
-                      <div className="aspect-square bg-black/20">
+                  {collectionItems.map((item, index) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => openCollectionPreview(index)}
+                      className="group relative overflow-hidden rounded-2xl bg-white/4 text-left ring-1 ring-white/10 transition hover:-translate-y-0.5 hover:bg-white/6 hover:ring-cyan-300/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
+                      aria-label={`Ampliar ${item.title || 'miniatura'}`}
+                    >
+                      <div className="relative aspect-square bg-black/20 overflow-hidden">
                         <img
                           src={item.image_url}
                           alt={item.title || 'Miniatura'}
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-cover transition duration-300 group-hover:scale-[1.04]"
                           loading="lazy"
                         />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-70 sm:opacity-0 sm:group-hover:opacity-100 transition" />
+                        <span className="absolute bottom-2 right-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/65 text-white ring-1 ring-white/20 backdrop-blur">
+                          <span className="material-icons text-[18px]">zoom_in</span>
+                        </span>
                       </div>
-                      <div className="p-2">
+                      <div className="p-2.5">
                         <div className="text-xs sm:text-sm font-semibold line-clamp-2">
                           {item.title}
                         </div>
+                        <div className="mt-1 text-[11px] text-cyan-200/80">Toque para ampliar</div>
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               ) : null}
@@ -647,6 +694,60 @@ export default function VipRpgPage({
           </div>
         </div>
       </section>
-    </main>
+      </main>
+
+      <Modal
+        open={Boolean(activeCollectionItem)}
+        onClose={closeCollectionPreview}
+        title={activeCollectionItem?.title || 'Miniatura da coleção'}
+        ariaLabel="Visualização ampliada da miniatura"
+        widthClass="w-[96vw] sm:w-[92vw]"
+        maxWidth="max-w-5xl"
+        bodyClassName="p-2 sm:p-4"
+        panelClassName="bg-[#030b10]"
+        zIndexClass="z-[220]"
+      >
+        {activeCollectionItem ? (
+          <div className="relative">
+            <div className="flex min-h-[55vh] max-h-[76vh] items-center justify-center overflow-hidden rounded-2xl bg-black/40 ring-1 ring-white/10">
+              <img
+                src={activeCollectionItem.image_url}
+                alt={activeCollectionItem.title || 'Miniatura da coleção atual'}
+                className="max-h-[76vh] w-full object-contain"
+              />
+            </div>
+
+            {collectionItems.length > 1 ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => moveCollectionPreview(-1)}
+                  className="absolute left-2 top-1/2 -translate-y-1/2 inline-flex h-11 w-11 items-center justify-center rounded-full bg-black/70 text-white ring-1 ring-white/20 backdrop-blur hover:bg-black/85 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 sm:left-4"
+                  aria-label="Imagem anterior"
+                >
+                  <span className="material-icons">chevron_left</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => moveCollectionPreview(1)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-11 w-11 items-center justify-center rounded-full bg-black/70 text-white ring-1 ring-white/20 backdrop-blur hover:bg-black/85 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 sm:right-4"
+                  aria-label="Próxima imagem"
+                >
+                  <span className="material-icons">chevron_right</span>
+                </button>
+              </>
+            ) : null}
+
+            <div className="mt-3 flex flex-col gap-1 px-1 sm:flex-row sm:items-center sm:justify-between">
+              <div className="text-sm font-semibold text-slate-100">{activeCollectionItem.title || 'Miniatura'}</div>
+              <div className="text-xs text-slate-400">
+                {collectionPreviewIndex + 1} de {collectionItems.length}
+                {collectionItems.length > 1 ? ' • use as setas para navegar' : ''}
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </Modal>
+    </>
   );
 }

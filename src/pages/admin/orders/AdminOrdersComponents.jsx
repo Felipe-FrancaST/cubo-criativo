@@ -51,15 +51,15 @@ export function KpiCard({ label, value, hint }) {
 
 export function SectionTitle({ icon, title, subtitle, right }) {
   return (
-    <div className="flex items-start justify-between gap-3">
-      <div className="flex items-start gap-3">
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex min-w-0 items-start gap-3">
         <span className="material-icons text-slate-200/90">{icon}</span>
         <div>
           <div className="text-lg font-semibold text-white">{title}</div>
           {subtitle ? <div className="text-sm text-slate-400">{subtitle}</div> : null}
         </div>
       </div>
-      {right ? <div className="shrink-0">{right}</div> : null}
+      {right ? <div className="w-full sm:w-auto sm:shrink-0">{right}</div> : null}
     </div>
   );
 }
