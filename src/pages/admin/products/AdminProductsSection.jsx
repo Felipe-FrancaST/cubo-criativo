@@ -485,7 +485,7 @@ export default function AdminProductsSection({ onNotify }) {
       {loadError ? <div className="rounded-2xl bg-red-500/10 px-4 py-3 text-sm text-red-200 ring-1 ring-red-500/30">{loadError}</div> : null}
 
       <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(360px,0.85fr)_minmax(0,1.35fr)]">
-        <form ref={formRef} onSubmit={saveProduct} className="scroll-mt-28 rounded-[28px] bg-gradient-to-br from-white/[0.06] to-white/[0.025] p-4 shadow-[0_20px_60px_rgba(0,0,0,0.25)] ring-1 ring-white/10 sm:p-5 xl:sticky xl:top-24">
+        <form ref={formRef} onSubmit={saveProduct} className="scroll-mt-28 self-start rounded-[28px] bg-gradient-to-br from-white/[0.06] to-white/[0.025] p-4 shadow-[0_20px_60px_rgba(0,0,0,0.25)] ring-1 ring-white/10 sm:p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <div className="text-lg font-black text-white">{editing ? "Editar produto" : "Cadastrar produto"}</div>
