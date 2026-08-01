@@ -838,7 +838,7 @@ setZip2(data?.address2_zip || "");
         .maybeSingle();
       if (upErr) throw upErr;
       setReviewsByOrder((prev) => ({ ...prev, [String(order.id)]: data || payload }));
-      setOk('Avaliação enviada para aprovação ✅');
+      setOk('Pedido avaliado com sucesso ✅');
       setReviewModal({ open: false, order: null, rating: 5, comment: '', busy: false });
     } catch (e) {
       const msg = String(e?.message || e || 'Não foi possível salvar sua avaliação.');

@@ -37,7 +37,7 @@ export default function ReviewsPage({ onGoHome }) {
     <main className="flex-1">
       <section className="container-cc px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div><p className="text-sm font-bold text-cyan-300">Clientes verificados</p><h1 className="mt-2 text-3xl sm:text-4xl font-black">Avaliações da Cubo Criativo</h1><p className="mt-3 max-w-2xl text-slate-300">Somente avaliações vinculadas a pedidos entregues e aprovadas pela equipe aparecem aqui.</p></div>
+          <div><p className="text-sm font-bold text-cyan-300">Clientes verificados</p><h1 className="mt-2 text-3xl sm:text-4xl font-black">Avaliações da Cubo Criativo</h1><p className="mt-3 max-w-2xl text-slate-300">Avaliações reais de clientes que receberam seus pedidos.</p></div>
           <div className="flex flex-wrap gap-3"><div className="rounded-2xl bg-white/5 px-4 py-3 ring-1 ring-white/10"><p className="text-xs text-slate-400">Média</p><p className="text-xl font-black text-amber-300">{average ? average.toFixed(1).replace('.', ',') : '—'} ★</p></div><div className="rounded-2xl bg-white/5 px-4 py-3 ring-1 ring-white/10"><p className="text-xs text-slate-400">Publicadas</p><p className="text-xl font-black">{reviews.length}</p></div></div>
         </div>
 

@@ -149,7 +149,7 @@ export default function ReviewPage({ orderId = '', onRequireLogin, onGoHome }) {
         .single();
       if (response.error) throw response.error;
       setReview(response.data);
-      setSuccess('Avaliação enviada. Ela aparecerá no site depois da aprovação da equipe.');
+      setSuccess('Pedido avaliado com sucesso.');
     } catch (e) {
       const message = String(e?.message || 'Não foi possível enviar a avaliação.');
       setError(message.includes('customer_reviews') ? 'Execute o arquivo SQL_AVALIACOES.sql no Supabase antes de usar esta área.' : message);
@@ -202,7 +202,7 @@ export default function ReviewPage({ orderId = '', onRequireLogin, onGoHome }) {
               </div>
 
               <div className="rounded-[28px] bg-[linear-gradient(180deg,rgba(30,41,59,.88),rgba(2,6,23,.95))] p-5 ring-1 ring-white/10">
-                {review ? <div className={`mb-4 rounded-2xl px-4 py-3 text-sm ring-1 ${review.approved ? 'bg-emerald-500/10 text-emerald-100 ring-emerald-400/25' : 'bg-amber-500/10 text-amber-100 ring-amber-400/25'}`}>{reviewVisibilityLabel(review)}{!review.approved ? ' — alterações também voltam para análise.' : ''}</div> : null}
+                {review ? <div className="mb-4 rounded-2xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100 ring-1 ring-emerald-400/25">{reviewVisibilityLabel(review)}</div> : null}
                 {!delivered ? <div className="rounded-2xl bg-amber-500/10 px-4 py-3 text-sm text-amber-100 ring-1 ring-amber-400/25">A avaliação será liberada depois que o pedido for marcado como entregue.</div> : null}
                 <label className="block"><span className="text-sm font-semibold">Sua nota</span><div className="mt-3 flex gap-1">{[1,2,3,4,5].map((value) => <button key={value} type="button" disabled={!delivered || submitting} onClick={() => setRating(value)} className={`text-3xl ${value <= rating ? 'text-amber-300' : 'text-slate-600'}`} aria-label={`${value} estrelas`}>★</button>)}</div></label>
                 <label className="mt-5 block"><span className="text-sm font-semibold">Conte como foi sua experiência</span><textarea value={comment} onChange={(event) => setComment(event.target.value)} disabled={!delivered || submitting} maxLength={500} rows={6} className="mt-2 w-full rounded-2xl bg-black/25 px-4 py-3 text-slate-100 ring-1 ring-white/10 outline-none focus:ring-amber-300/40" placeholder="Fale sobre acabamento, qualidade, prazo, embalagem e atendimento." /><span className="mt-1 block text-right text-xs text-slate-500">{comment.length}/500</span></label>

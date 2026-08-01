@@ -7,6 +7,7 @@ import {
   clampReviewRating,
   extractReviewProductRefs,
   normalizeReviewComment,
+  reviewVisibilityLabel,
 } from '../src/lib/reviews.js';
 import { buildOrderDetailsUrl, buildReviewUrl, buildVipAreaUrl } from '../server/orderLinks.js';
 
@@ -41,6 +42,23 @@ test('nome público não expõe e-mail e reduz sobrenome', () => {
   assert.equal(buildPublicReviewName('Felipe França'), 'Felipe F.');
   assert.equal(buildPublicReviewName('cliente@example.com'), 'Cliente verificado');
   assert.equal(buildPublicReviewName('Ana'), 'Ana');
+});
+
+
+test('cliente vê apenas o status Avaliado, sem informação sobre moderação', async () => {
+  assert.equal(reviewVisibilityLabel({ approved: false }), 'Avaliado');
+  assert.equal(reviewVisibilityLabel({ approved: true, featured: true }), 'Avaliado');
+
+  const { readFile } = await import('node:fs/promises');
+  const customerFiles = [
+    '../src/pages/ReviewPage.jsx',
+    '../src/components/OrdersModal.jsx',
+    '../src/components/ProfileSettingsModal.jsx',
+  ];
+  for (const relativePath of customerFiles) {
+    const source = await readFile(new URL(relativePath, import.meta.url), 'utf8');
+    assert.doesNotMatch(source, /aguardando aprovação|enviada para aprovação|depois da aprovação|depois da moderação|voltam para análise/i);
+  }
 });
 
 test('SQL exige pedido entregue, moderação e exposição apenas de avaliações aprovadas', async () => {

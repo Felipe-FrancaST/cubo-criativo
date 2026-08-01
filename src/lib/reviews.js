@@ -44,9 +44,8 @@ export function extractReviewProductRefs(items = []) {
   };
 }
 
-export function reviewVisibilityLabel(review) {
-  if (review?.approved) return review?.featured ? 'Publicada e destacada' : 'Publicada';
-  return 'Aguardando aprovação';
+export function reviewVisibilityLabel() {
+  return 'Avaliado';
 }
 
 export function buildCustomerOrderPath(orderId = '') {

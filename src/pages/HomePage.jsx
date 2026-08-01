@@ -426,7 +426,7 @@ export default function HomePage({
             </div>
           ) : depoimentos.length === 0 ? (
             <div className="rounded-2xl p-5 ring-1 ring-white/10 bg-white/4 text-slate-300">
-              Ainda não há avaliações públicas aprovadas.
+              Ainda não há avaliações publicadas.
             </div>
           ) : (
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">

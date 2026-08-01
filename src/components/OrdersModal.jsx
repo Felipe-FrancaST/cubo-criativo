@@ -318,7 +318,7 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
 
       setReviewsByOrder((prev) => ({ ...prev, [String(order.id)]: normalized }));
       trackEvent("review_submitted", { order_id: order.id, rating });
-      setReviewModal((s) => ({ ...s, submitting: false, success: "Avaliação enviada para aprovação. Ela aparecerá no site depois da moderação.", error: "" }));
+      setReviewModal((s) => ({ ...s, submitting: false, success: "Pedido avaliado com sucesso.", error: "" }));
     } catch (e) {
       console.error(e);
       const msg = String(e?.message || "");
@@ -1209,7 +1209,7 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold text-emerald-100">Sua avaliação</p>
-                <p className="mt-0.5 text-[11px] text-slate-300">{reviewsByOrder[String(o.id)]?.approved ? "Publicada no site" : "Aguardando aprovação"}</p>
+                <p className="mt-0.5 text-[11px] text-slate-300">Avaliado</p>
               </div>
               <span className="text-amber-300 text-sm">{"★".repeat(Math.max(1, Math.min(5, Number(reviewsByOrder[String(o.id)]?.rating) || 5)))}</span>
             </div>
