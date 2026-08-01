@@ -9,21 +9,24 @@ const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || "";
 
 function assertReady() {
   if (!fs.existsSync(DIST)) {
-    console.error("[prerender] dist/ não encontrado. Rode 'vite build' antes.");
-    process.exit(1);
+    throw new Error("[prerender] dist/ não encontrado. Rode 'vite build' antes.");
   }
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    console.error(
-      "[prerender] Variáveis faltando: VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY (use .env ou variáveis no deploy)."
-    );
-    process.exit(1);
+    const message =
+      "[prerender] Variáveis faltando: VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY (use .env ou variáveis no deploy).";
+    if (process.env.VERCEL) throw new Error(message);
+    console.warn(`${message} Pré-renderização ignorada apenas neste build local.`);
+    return false;
   }
+  return true;
 }
 
 function slugifySafe(s) {
   return String(s || "")
     .trim()
     .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9-]+/g, "-")
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "");
@@ -82,18 +85,41 @@ async function fetchProducts() {
       "category",
       "tags",
       "created_at",
+      "updated_at",
     ].join(",")
   );
   endpoint.searchParams.set("active", "eq.true");
   endpoint.searchParams.set("order", "created_at.desc");
 
-  const res = await fetch(endpoint, {
-    headers: {
-      apikey: SUPABASE_ANON_KEY,
-      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-      Accept: "application/json",
-    },
-  });
+  const headers = {
+    apikey: SUPABASE_ANON_KEY,
+    Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+    Accept: "application/json",
+  };
+
+  let res = await fetch(endpoint, { headers });
+
+  // Compatibilidade com bancos que ainda não possuam a coluna updated_at.
+  if (!res.ok && res.status === 400) {
+    endpoint.searchParams.set(
+      "select",
+      [
+        "id",
+        "slug",
+        "name",
+        "description",
+        "price_cents",
+        "currency",
+        "stock",
+        "active",
+        "image_url",
+        "category",
+        "tags",
+        "created_at",
+      ].join(",")
+    );
+    res = await fetch(endpoint, { headers });
+  }
 
   if (!res.ok) {
     const txt = await res.text().catch(() => "");
@@ -106,7 +132,10 @@ async function fetchProducts() {
 function buildProductJsonLd({ origin, p, urlPath }) {
   const price = Number.isFinite(Number(p?.price_cents)) ? Number(p.price_cents) / 100 : 0;
   const inStock = p?.stock === null || p?.stock === undefined ? true : Number(p.stock) > 0;
-  const image = p?.image_url ? (String(p.image_url).startsWith("http") ? p.image_url : `${origin}${p.image_url}`) : undefined;
+  const imageRaw = p?.image_url ? String(p.image_url) : "";
+  const image = imageRaw
+    ? (/^https?:\/\//i.test(imageRaw) ? imageRaw : `${origin}${imageRaw.startsWith("/") ? imageRaw : `/${imageRaw}`}`)
+    : undefined;
   const category = p?.category || (Array.isArray(p?.tags) && p.tags[0]) || "Miniatura";
 
   return {
@@ -184,24 +213,13 @@ function injectMeta(baseHtml, { title, description, canonicalUrl, image, jsonLd 
   return html;
 }
 
-function buildSitemap({ origin, pages }) {
-  const now = new Date().toISOString();
-  const urls = pages
-    .map((p) => {
-      return `  <url>\n    <loc>${origin}${p.loc}</loc>\n    <lastmod>${now}</lastmod>\n    <changefreq>${p.changefreq}</changefreq>\n    <priority>${p.priority}</priority>\n  </url>`;
-    })
-    .join("\n");
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`;
-}
-
 async function main() {
-  assertReady();
+  if (!assertReady()) return;
   const baseHtml = fs.readFileSync(path.join(DIST, "index.html"), "utf8");
 
   const origin = "https://www.cubocriativo3d.com.br";
   const products = await fetchProducts();
 
-  const productPages = [];
   let rendered = 0;
   for (const row of products) {
     const slug = row?.slug ? String(row.slug) : slugifySafe(row?.name);
@@ -212,7 +230,8 @@ async function main() {
     const description =
       truncate(normalizeDescription(row?.description), 155) ||
       "Miniatura em resina com pintura artística. Peça colecionável com envio para todo o Brasil.";
-    const image = row?.image_url ? String(row.image_url) : "/images/logo.png";
+    const imageRaw = row?.image_url ? String(row.image_url) : "/images/logo.png";
+    const image = /^https?:\/\//i.test(imageRaw) ? imageRaw : `${origin}${imageRaw.startsWith("/") ? imageRaw : `/${imageRaw}`}`;
     const canonicalUrl = `${origin}${urlPath}`;
 
     const jsonLd = buildProductJsonLd({ origin, p: row, urlPath });
@@ -220,29 +239,9 @@ async function main() {
 
     writeFile(path.join(DIST, "p", slug, "index.html"), html);
     rendered++;
-    productPages.push({ loc: urlPath, changefreq: "weekly", priority: "0.7" });
   }
 
-  const fixed = [
-    { loc: "/", changefreq: "weekly", priority: "1.0" },
-    { loc: "/estoque", changefreq: "daily", priority: "0.9" },
-    { loc: "/catalogo", changefreq: "weekly", priority: "0.8" },
-    { loc: "/promocoes", changefreq: "weekly", priority: "0.8" },
-    { loc: "/cupom", changefreq: "weekly", priority: "0.6" },
-    { loc: "/vip", changefreq: "weekly", priority: "0.6" },
-    { loc: "/contato", changefreq: "monthly", priority: "0.5" },
-    { loc: "/sobre", changefreq: "monthly", priority: "0.5" },
-    { loc: "/faq", changefreq: "monthly", priority: "0.4" },
-    { loc: "/politica-de-privacidade", changefreq: "yearly", priority: "0.3" },
-    { loc: "/trocas-e-devolucoes", changefreq: "yearly", priority: "0.3" },
-    { loc: "/termos", changefreq: "yearly", priority: "0.3" },
-  ];
-
-  const sitemap = buildSitemap({ origin, pages: [...fixed, ...productPages] });
-  writeFile(path.join(DIST, "sitemap.xml"), sitemap);
-
   console.log(`[prerender] páginas de produto geradas: ${rendered}`);
-  console.log(`[prerender] sitemap.xml atualizado com ${fixed.length + productPages.length} URLs`);
 }
 
 main().catch((err) => {

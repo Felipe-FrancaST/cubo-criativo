@@ -4,6 +4,7 @@ const DEFAULTS = {
     'Miniaturas em resina, pintura artística e peças colecionáveis. Promoções, catálogo e atendimento via WhatsApp para todo o Brasil.',
   image: '/images/logo.png',
   path: '/',
+  robots: 'index,follow',
 };
 
 function ensureMeta(selector, attrs) {
@@ -64,6 +65,7 @@ export function applySeo(input = {}) {
   document.title = data.title;
 
   ensureMeta('meta[name="description"]', { name: 'description', content: data.description });
+  ensureMeta('meta[name="robots"]', { name: 'robots', content: data.robots || DEFAULTS.robots });
 
   // Open Graph
   ensureMeta('meta[property="og:type"]', { property: 'og:type', content: 'website' });

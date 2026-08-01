@@ -28,7 +28,6 @@ const ContactPage = lazy(() => import("./pages/ContactPage.jsx"));
 const AdminOrdersPage = lazy(() => import("./pages/AdminOrdersPage.jsx"));
 const FAQPage = lazy(() => import("./pages/FAQPage.jsx"));
 const TrocasPage = lazy(() => import("./pages/TrocasPage.jsx"));
-const TermosPage = lazy(() => import("./pages/TermosPage.jsx"));
 const CupomGamePage = lazy(() => import("./pages/CupomGamePage.jsx"));
 const VipRpgPage = lazy(() => import("./pages/VipRpgPage.jsx"));
 const VipRedirectPage = lazy(() => import("./pages/VipRedirectPage.jsx"));
@@ -498,14 +497,21 @@ React.useEffect(() => {
       "/sobre": { title: "Sobre nós | Cubo Criativo", description: "Conheça a Cubo Criativo e nosso trabalho com miniaturas e peças personalizadas.", path: "/sobre" },
       "/faq": { title: "FAQ | Cubo Criativo", description: "Perguntas frequentes sobre prazos, envio, pagamento e cuidados com as peças.", path: "/faq" },
       "/trocas-e-devolucoes": { title: "Trocas e devoluções | Cubo Criativo", description: "Informações sobre trocas, devoluções e peças sob encomenda.", path: "/trocas-e-devolucoes" },
-      "/termos": { title: "Termos de uso | Cubo Criativo", description: "Condições gerais de navegação e compra no site da Cubo Criativo.", path: "/termos" },
       "/cupom": { title: "Cubo Game | Cubo Criativo", description: "Jogue 1x por semana no Cubo Game e ganhe cupom para usar no carrinho.", path: "/cupom" },
-      "/vip": { title: "Clube VIP | Cubo Criativo", description: "Acesse a Área VIP ou confira os planos do Clube VIP.", path: "/vip" },
       "/planos-vip": { title: "Planos VIP | Cubo Criativo", description: "Assine o Clube VIP e escolha miniaturas mensais, vote no tema e acompanhe seu ciclo.", path: "/planos-vip" },
-      "/area-vip": { title: "Área VIP | Cubo Criativo", description: "Escolha suas miniaturas do ciclo, vote no tema e acompanhe o status do seu pedido VIP.", path: "/area-vip" },
-      "/perfil": { title: "Minha conta | Cubo Criativo", description: "Edite seu perfil, endereço e dados para compra.", path: "/perfil" },
-      "/configuracoes": { title: "Configurações | Cubo Criativo", description: "Segurança, favoritos, avaliações e cupons.", path: "/configuracoes" },
-      "/redefinir-senha": { title: "Redefinir senha | Cubo Criativo", description: "Defina uma nova senha com segurança a partir do link enviado ao seu e-mail.", path: "/redefinir-senha" },
+
+      // Atalhos, páginas privadas e fluxos de conta não devem aparecer no Google.
+      "/vip": { title: "Clube VIP | Cubo Criativo", description: "Acesso ao Clube VIP da Cubo Criativo.", path: "/vip", robots: "noindex,follow" },
+      "/area-vip": { title: "Área VIP | Cubo Criativo", description: "Área exclusiva para assinantes do Clube VIP.", path: "/area-vip", robots: "noindex,follow" },
+      "/perfil": { title: "Minha conta | Cubo Criativo", description: "Gerenciamento de perfil e dados da conta.", path: "/perfil", robots: "noindex,follow" },
+      "/configuracoes": { title: "Configurações | Cubo Criativo", description: "Configurações privadas da conta.", path: "/configuracoes", robots: "noindex,follow" },
+      "/conta": { title: "Minha conta | Cubo Criativo", description: "Área privada da conta do cliente.", path: "/conta", robots: "noindex,follow" },
+      "/admin": { title: "Administração | Cubo Criativo", description: "Painel administrativo restrito.", path: "/admin", robots: "noindex,nofollow" },
+      "/pagamento-pedido": { title: "Pagamento de pedido | Cubo Criativo", description: "Página segura para pagamento de pedido.", path: "/pagamento-pedido", robots: "noindex,nofollow" },
+      "/redefinir-senha": { title: "Redefinir senha | Cubo Criativo", description: "Página segura para redefinição de senha.", path: "/redefinir-senha", robots: "noindex,nofollow" },
+      "/sob-encomenda": { title: "Catálogo | Cubo Criativo", description: "Catálogo de peças sob encomenda.", path: "/catalogo", robots: "noindex,follow" },
+      "/politica-de-privacidade": { title: "Política de Privacidade | Cubo Criativo", description: "Política de Privacidade da Cubo Criativo.", path: "/privacy.html", robots: "noindex,follow" },
+      "/termos": { title: "Termos de Serviço | Cubo Criativo", description: "Termos de Serviço da Cubo Criativo.", path: "/terms.html", robots: "noindex,follow" },
     };
     // Rotas dinâmicas (/p/:slug) são tratadas em um effect separado para SEO + schema.
     if (String(route || "").startsWith("/p/")) {
@@ -1272,12 +1278,15 @@ React.useEffect(() => {
     const slug = r.slice(3).split("?")[0];
     const found = products.find((p) => String(p?.slug || "") === String(slug));
 
+    // Mantém os metadados pré-renderizados enquanto o catálogo ainda está carregando.
+    if (!found && productsLoading) return;
+
     if (!found) {
       applySeo({
-        title: "Produto | Cubo Criativo",
-        description:
-          "Action figures, miniaturas de RPG e colecionáveis em resina com pintura artística. Confira detalhes e promoções.",
+        title: "Produto não encontrado | Cubo Criativo",
+        description: "Este produto não está disponível no momento.",
         path: r,
+        robots: "noindex,follow",
       });
       clearJsonLd("seo-product");
       return;
@@ -1298,7 +1307,7 @@ React.useEffect(() => {
     const payload = buildProductSchema({ product: found, path: `/p/${found.slug}` });
     if (payload) setJsonLd("seo-product", payload);
     else clearJsonLd("seo-product");
-  }, [route, products]);
+  }, [route, products, productsLoading]);
 
   // ===== Render da página =====
   const page = (() => {
@@ -1390,7 +1399,8 @@ React.useEffect(() => {
       return <TrocasPage onGoHome={() => navigate("/")} />;
     }
     if (route === "/termos") {
-      return <TermosPage onGoHome={() => navigate("/")} />;
+      if (typeof window !== "undefined") window.location.replace("/terms.html");
+      return null;
     }
     if (route === "/cupom") {
       return <CupomGamePage onGoHome={() => navigate("/")} user={user} accessToken={accessToken} onRequireLogin={requireLogin} />;
