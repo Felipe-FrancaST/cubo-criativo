@@ -5,6 +5,7 @@ import { useAuth } from "../auth/AuthProvider.jsx";
 import { supabase } from "../lib/supabaseClient";
 import { fetchAddressFromCep, isValidCep, onlyDigits } from "../lib/cep.js";
 import { useFavorites } from "../state/FavoritesProvider.jsx";
+import { buildPublicReviewName, extractReviewProductRefs } from "../lib/reviews.js";
 
 function Field({ label, children }) {
   return (
@@ -569,7 +570,7 @@ setZip2(data?.address2_zip || "");
       // reviews existentes
       const { data: revs, error: rErr } = await supabase
         .from('customer_reviews')
-        .select('order_id,rating,comment,display_name,created_at')
+        .select('order_id,rating,comment,display_name,approved,featured,created_at,updated_at')
         .eq('user_id', user.id);
       if (rErr && rErr.code !== '42P01') throw rErr; // tabela pode não existir
       const map = {};
@@ -812,34 +813,36 @@ setZip2(data?.address2_zip || "");
     setReviewModal((p) => ({ ...p, busy: true }));
     try {
       const order = reviewModal.order;
-      const productNames = Array.isArray(order?.order_items)
-        ? order.order_items.map((it) => String(it?.product_name || it?.name || '').trim()).filter(Boolean)
-        : [];
+      const refs = extractReviewProductRefs(order?.order_items || []);
       const payload = {
         order_id: order.id,
         user_id: user.id,
         rating,
         comment,
-        display_name: fullName?.trim() || String(user.email || '').split('@')[0],
+        display_name: buildPublicReviewName(fullName || user.user_metadata?.full_name || user.user_metadata?.name),
         city: city?.trim() || null,
         state: stateUF?.trim() || null,
-        approved: true,
+        approved: false,
+        featured: false,
+        approved_at: null,
         order_total: order.total ?? null,
-        product_names: productNames.length ? productNames : null,
+        product_ids: refs.productIds.length ? refs.productIds : null,
+        product_slugs: refs.productSlugs.length ? refs.productSlugs : null,
+        product_names: refs.productNames.length ? refs.productNames : null,
       };
 
       const { data, error: upErr } = await supabase
         .from('customer_reviews')
         .upsert(payload, { onConflict: 'order_id' })
-        .select('order_id,rating,comment,display_name,created_at')
+        .select('order_id,rating,comment,display_name,approved,featured,created_at,updated_at')
         .maybeSingle();
       if (upErr) throw upErr;
       setReviewsByOrder((prev) => ({ ...prev, [String(order.id)]: data || payload }));
-      setOk('Avaliação salva ✅');
+      setOk('Avaliação enviada para aprovação ✅');
       setReviewModal({ open: false, order: null, rating: 5, comment: '', busy: false });
     } catch (e) {
       const msg = String(e?.message || e || 'Não foi possível salvar sua avaliação.');
-      setError(msg.includes('customer_reviews') ? 'Ative a tabela de avaliações no Supabase (SUPABASE_REVIEWS.sql).' : msg);
+      setError(msg.includes('customer_reviews') ? 'Execute o arquivo SQL_AVALIACOES.sql no Supabase.' : msg);
     } finally {
       setReviewModal((p) => ({ ...p, busy: false }));
     }

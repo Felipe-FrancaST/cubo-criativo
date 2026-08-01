@@ -218,6 +218,9 @@ export default function MenuDrawer({
 
   <div className="space-y-2">
     <p className="text-xs font-semibold tracking-wider text-slate-500 uppercase px-1">Ajuda</p>
+    <DrawerButton icon="reviews" onClick={() => { onNavigate("/avaliacoes"); onClose?.(); }}>
+      Avaliações de clientes
+    </DrawerButton>
     <DrawerButton icon="help_outline" onClick={() => { onNavigate("/faq"); onClose?.(); }}>
       FAQ
     </DrawerButton>

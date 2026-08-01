@@ -1,14 +1,62 @@
 import React from "react";
 import { fmtBRL, centsToBRL, getVariantPricingCents, percentOffCents } from "../lib/pricing.js";
+import { supabase } from "../lib/supabaseClient.js";
 
 export default function ProductPage({ slug, product, loading, onBack, addToCart, buyNow, openGallery }) {
   const [imgError, setImgError] = React.useState(false);
   const defaultIndex = Math.max(0, product?.variants?.findIndex((v) => v.label === product.defaultVariant));
   const [selIndex, setSelIndex] = React.useState(defaultIndex);
+  const [productReviews, setProductReviews] = React.useState([]);
+  const [reviewsLoading, setReviewsLoading] = React.useState(false);
 
   React.useEffect(() => {
     setSelIndex(defaultIndex);
   }, [defaultIndex, slug]);
+
+  React.useEffect(() => {
+    let alive = true;
+    if (!product?.id && !product?.slug && !product?.nome) {
+      setProductReviews([]);
+      return undefined;
+    }
+    (async () => {
+      setReviewsLoading(true);
+      try {
+        let response = await supabase
+          .from("customer_reviews_public")
+          .select("id,rating,comment,display_name,city,state,product_ids,product_slugs,product_names,featured,created_at,approved_at")
+          .order("featured", { ascending: false })
+          .order("approved_at", { ascending: false, nullsFirst: false })
+          .order("created_at", { ascending: false })
+          .limit(80);
+        if (response.error && /customer_reviews_public/i.test(String(response.error.message || ""))) {
+          response = await supabase
+            .from("customer_reviews")
+            .select("id,rating,comment,display_name,city,state,product_ids,product_slugs,product_names,featured,created_at")
+            .eq("approved", true)
+            .order("featured", { ascending: false })
+            .order("created_at", { ascending: false })
+            .limit(80);
+        }
+        if (response.error) throw response.error;
+        const id = String(product?.id || "").toLowerCase();
+        const productSlug = String(product?.slug || slug || "").toLowerCase();
+        const name = String(product?.nome || "").trim().toLowerCase();
+        const matches = (response.data || []).filter((review) => {
+          const ids = Array.isArray(review.product_ids) ? review.product_ids.map((value) => String(value).toLowerCase()) : [];
+          const slugs = Array.isArray(review.product_slugs) ? review.product_slugs.map((value) => String(value).toLowerCase()) : [];
+          const names = Array.isArray(review.product_names) ? review.product_names.map((value) => String(value).trim().toLowerCase()) : [];
+          return (id && ids.includes(id)) || (productSlug && slugs.includes(productSlug)) || (name && names.includes(name));
+        }).slice(0, 6);
+        if (alive) setProductReviews(matches);
+      } catch {
+        if (alive) setProductReviews([]);
+      } finally {
+        if (alive) setReviewsLoading(false);
+      }
+    })();
+    return () => { alive = false; };
+  }, [product?.id, product?.slug, product?.nome, slug]);
 
   if (loading) {
     return (
@@ -193,6 +241,26 @@ export default function ProductPage({ slug, product, loading, onBack, addToCart,
             ) : null}
           </div>
         </div>
+
+        <section className="mt-8 rounded-[28px] bg-white/[.035] p-5 ring-1 ring-white/10 sm:p-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-cyan-300">Compras verificadas</p>
+              <h2 className="mt-1 text-2xl font-black text-white">Avaliações deste produto</h2>
+            </div>
+            <a href="/avaliacoes" className="text-sm font-semibold text-slate-200 underline underline-offset-4 hover:text-white">Ver todas</a>
+          </div>
+          {reviewsLoading ? <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{Array.from({ length: 3 }).map((_, index) => <div key={index} className="h-40 animate-pulse rounded-2xl bg-white/5 ring-1 ring-white/10" />)}</div> : null}
+          {!reviewsLoading && !productReviews.length ? <div className="mt-5 rounded-2xl bg-black/20 p-4 text-sm text-slate-300 ring-1 ring-white/10">Ainda não há avaliações públicas vinculadas a este produto.</div> : null}
+          {!reviewsLoading && productReviews.length ? <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{productReviews.map((review) => {
+            const location = [review.city, review.state].filter(Boolean).join('/');
+            return <article key={review.id} className={`rounded-2xl p-4 ring-1 ${review.featured ? 'bg-amber-400/[.06] ring-amber-300/20' : 'bg-black/20 ring-white/10'}`}>
+              <div className="text-amber-300" aria-label={`${review.rating} estrelas`}>{'★'.repeat(Math.max(1, Math.min(5, Number(review.rating) || 5)))}</div>
+              <p className="mt-3 text-sm leading-6 text-slate-200">“{review.comment}”</p>
+              <p className="mt-4 text-xs text-slate-400">{review.display_name || 'Cliente verificado'}{location ? ` • ${location}` : ''}</p>
+            </article>;
+          })}</div> : null}
+        </section>
       </section>
     </main>
   );

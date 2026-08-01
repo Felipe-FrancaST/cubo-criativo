@@ -8,6 +8,7 @@ test('sitemap inclui páginas públicas canônicas e exclui atalhos privados', (
   assert.match(xml, /https:\/\/www\.cubocriativo3d\.com\.br\/planos-vip/)
   assert.match(xml, /https:\/\/www\.cubocriativo3d\.com\.br\/privacy\.html/)
   assert.match(xml, /https:\/\/www\.cubocriativo3d\.com\.br\/terms\.html/)
+  assert.match(xml, /https:\/\/www\.cubocriativo3d\.com\.br\/avaliacoes/)
   assert.doesNotMatch(xml, /<loc>[^<]*\/vip<\/loc>/)
   assert.doesNotMatch(xml, /politica-de-privacidade/)
   assert.doesNotMatch(xml, /<loc>[^<]*\/termos<\/loc>/)

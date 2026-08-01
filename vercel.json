@@ -88,6 +88,24 @@
           "value": "noindex, nofollow"
         }
       ]
+    },
+    {
+      "source": "/meus-pedidos",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, follow"
+        }
+      ]
+    },
+    {
+      "source": "/avaliar-pedido",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, follow"
+        }
+      ]
     }
   ],
   "rewrites": [

@@ -5,6 +5,7 @@ import { useAuth } from "../auth/AuthProvider.jsx";
 import brand from "../data/config.js";
 import { trackEvent } from "../lib/analytics.js";
 import { buildTrackingUrl, resolveTrackingCarrier, trackingCarrierLabel } from "../lib/tracking";
+import { buildPublicReviewName, extractReviewProductRefs } from "../lib/reviews.js";
 
 const fmtBRL = (n) =>
   typeof n === "number" && isFinite(n)
@@ -89,7 +90,7 @@ function productionMessage(status, hasTracking) {
   return "Recebemos seu pedido e ele seguirá para produção assim que a etapa atual for concluída.";
 }
 
-export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequireLogin }) {
+export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequireLogin, initialOrderId = "" }) {
   const { user, session } = useAuth();
 
 
@@ -274,27 +275,29 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
         .maybeSingle();
       if (!prof.error) profile = prof.data || null;
 
-      const itemNames = Array.isArray(order.order_items)
-        ? order.order_items.map((it) => String(it?.name || "").trim()).filter(Boolean)
-        : [];
+      const refs = extractReviewProductRefs(order.order_items || []);
 
       const payload = {
         order_id: order.id,
         user_id: user.id,
         rating,
         comment,
-        display_name: String(profile?.full_name || user?.user_metadata?.full_name || user?.email || "Cliente").slice(0, 80),
+        display_name: buildPublicReviewName(profile?.full_name || user?.user_metadata?.full_name || user?.user_metadata?.name),
         city: String(profile?.city || "").slice(0, 60) || null,
         state: String(profile?.state || "").slice(0, 2).toUpperCase() || null,
-        approved: true,
+        approved: false,
+        featured: false,
+        approved_at: null,
         order_total: Number(order.total) || null,
-        product_names: itemNames.length ? itemNames : null,
+        product_ids: refs.productIds.length ? refs.productIds : null,
+        product_slugs: refs.productSlugs.length ? refs.productSlugs : null,
+        product_names: refs.productNames.length ? refs.productNames : null,
       };
 
       const { data, error } = await supabase
         .from("customer_reviews")
         .upsert(payload, { onConflict: "order_id" })
-        .select("id, order_id, rating, comment, display_name, city, state, approved, created_at")
+        .select("id, order_id, rating, comment, display_name, city, state, approved, featured, created_at, updated_at")
         .single();
 
       if (error) throw error;
@@ -307,13 +310,15 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
         display_name: String(data?.display_name || payload.display_name || "Cliente"),
         city: data?.city || payload.city || null,
         state: data?.state || payload.state || null,
-        approved: data?.approved !== false,
+        approved: data?.approved === true,
+        featured: data?.featured === true,
         created_at: data?.created_at || new Date().toISOString(),
+        updated_at: data?.updated_at || new Date().toISOString(),
       };
 
       setReviewsByOrder((prev) => ({ ...prev, [String(order.id)]: normalized }));
       trackEvent("review_submitted", { order_id: order.id, rating });
-      setReviewModal((s) => ({ ...s, submitting: false, success: "Avaliação enviada com sucesso!", error: "" }));
+      setReviewModal((s) => ({ ...s, submitting: false, success: "Avaliação enviada para aprovação. Ela aparecerá no site depois da moderação.", error: "" }));
     } catch (e) {
       console.error(e);
       const msg = String(e?.message || "");
@@ -901,13 +906,17 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
     }
 
     setOrders(merged);
-    setExpandedOrderId((current) => current || (merged[0]?.id ?? null));
+    setExpandedOrderId((current) => {
+      const requested = String(initialOrderId || '').trim();
+      if (requested && merged.some((order) => String(order.id) === requested)) return requested;
+      return current || (merged[0]?.id ?? null);
+    });
 
     // 4) Carrega avaliações do usuário para exibir botão "Editar avaliação" e pré-preencher modal
     try {
       const { data: revs } = await supabase
         .from("customer_reviews")
-        .select("id, order_id, rating, comment, display_name, city, state, approved, created_at")
+        .select("id, order_id, rating, comment, display_name, city, state, approved, featured, created_at, updated_at")
         .eq("user_id", user.id)
         .in("order_id", ids);
 
@@ -921,7 +930,16 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
     }
 
     setLoading(false);
-  }, [user]);
+  }, [user, accessToken, initialOrderId]);
+
+  React.useEffect(() => {
+    if (!open || !initialOrderId || !orders.length) return;
+    const timer = window.setTimeout(() => {
+      const target = document.querySelector(`[data-order-id="${String(initialOrderId)}"]`);
+      target?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+    }, 180);
+    return () => window.clearTimeout(timer);
+  }, [open, initialOrderId, orders.length]);
 
   React.useEffect(() => {
     if (!open || !user) return;
@@ -1011,7 +1029,7 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
   const paymentLabel = isMercadoPagoProvider(o.payment_provider) ? "Mercado Pago" : (o.payment_provider || "Loja");
   const createdLabel = new Date(o.created_at).toLocaleString("pt-BR");
   return (
-  <div key={o.id} className="overflow-hidden rounded-[28px] border border-white/10 bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.08),transparent_42%),linear-gradient(180deg,rgba(15,23,42,0.98),rgba(2,6,23,0.98))] shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
+  <div key={o.id} data-order-id={String(o.id)} className="overflow-hidden rounded-[28px] border border-white/10 bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.08),transparent_42%),linear-gradient(180deg,rgba(15,23,42,0.98),rgba(2,6,23,0.98))] shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
     <button
       type="button"
       onClick={() => setExpandedOrderId((current) => (current === o.id ? null : o.id))}
@@ -1177,19 +1195,22 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
           ) : null}
 
           {String(o.production_status || "").toLowerCase() === "entregue" ? (
-            <button
-              onClick={() => openReview(o)}
+            <a
+              href={`/avaliar-pedido?pedido=${encodeURIComponent(String(o.id))}`}
               className="rounded-2xl bg-amber-400 px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-amber-300"
             >
               {reviewsByOrder?.[String(o.id)] ? "Editar avaliação" : "Avaliar pedido"}
-            </button>
+            </a>
           ) : null}
         </div>
 
         {String(o.production_status || "").toLowerCase() === "entregue" && reviewsByOrder?.[String(o.id)] ? (
           <div className="mt-3 rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3">
             <div className="flex items-center justify-between gap-3">
-              <p className="text-sm font-semibold text-emerald-100">Sua avaliação</p>
+              <div>
+                <p className="text-sm font-semibold text-emerald-100">Sua avaliação</p>
+                <p className="mt-0.5 text-[11px] text-slate-300">{reviewsByOrder[String(o.id)]?.approved ? "Publicada no site" : "Aguardando aprovação"}</p>
+              </div>
               <span className="text-amber-300 text-sm">{"★".repeat(Math.max(1, Math.min(5, Number(reviewsByOrder[String(o.id)]?.rating) || 5)))}</span>
             </div>
             <p className="mt-1 text-sm text-slate-200">{reviewsByOrder[String(o.id)]?.comment}</p>

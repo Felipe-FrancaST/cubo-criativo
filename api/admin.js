@@ -21,6 +21,7 @@ import { rateLimit } from '../server/rateLimit.js';
 import { formatRewardLabel } from '../server/couponGame.js';
 import { buildControlNumber, buildManualPaymentLink, ensureManualOrderCustomerAccount, normalizeCpf } from '../server/manualOrder.js';
 import { cleanupOrder3dModel, shouldCleanupOrder3dForStatus } from '../server/order3dCleanup.js';
+import { buildOrderDetailsUrl, buildReviewUrl, buildVipAreaUrl } from '../server/orderLinks.js';
 
 export const config = { runtime: "nodejs" };
 
@@ -371,7 +372,7 @@ async function handleManualOrderCreate(req, res) {
           supportEmail,
           whatsapp,
           siteUrl,
-          orderUrl: `${siteUrl}/conta`,
+          orderUrl: buildOrderDetailsUrl(siteUrl, orderId),
         })
       : renderManualOrderPaymentEmail({
           brandName: process.env.BRAND_NAME || 'Cubo Criativo',
@@ -379,7 +380,7 @@ async function handleManualOrderCreate(req, res) {
           customerName: fullName,
           total,
           paymentUrl: paymentLink,
-          orderUrl: `${siteUrl}/conta`,
+          orderUrl: buildOrderDetailsUrl(siteUrl, orderId),
           siteUrl,
           items: emailItems,
           supportEmail,
@@ -785,10 +786,9 @@ async function notifyStatus({
   )
     .trim()
     .replace(/\/$/, '');
-  const orderUrl = baseUrl ? `${baseUrl}/conta` : '';
-  const reviewLink = String(order?.order_type || '').toLowerCase() === 'vip'
-    ? (baseUrl ? `${baseUrl}/area-vip` : '')
-    : orderUrl;
+  const orderUrl = buildOrderDetailsUrl(baseUrl, order?.id);
+  const reviewUrl = buildReviewUrl(baseUrl, order?.id);
+  const vipAreaUrl = buildVipAreaUrl(baseUrl);
 
   const brandName = process.env.BRAND_NAME || 'Cubo Criativo';
   const supportEmail = process.env.SUPPORT_EMAIL || process.env.ORDER_EMAIL_TO || '';
@@ -806,7 +806,8 @@ async function notifyStatus({
     trackingUrl: order?.tracking_url || '',
     productionEta: production_eta || order?.production_eta || '',
     cancelledBy: cancelled_by || '',
-    reviewLink,
+    reviewUrl,
+    vipAreaUrl,
     orderUrl,
     siteUrl: baseUrl,
     supportEmail,

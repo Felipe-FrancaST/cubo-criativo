@@ -31,6 +31,7 @@ export default function HomePage({
   onGoPoliticas,
   onGoCupom,
   onGoVipPlans,
+  onGoReviews,
   onRequireLogin,
 }) {
   const [depoimentos, setDepoimentos] = React.useState([]);
@@ -104,15 +105,25 @@ export default function HomePage({
     (async () => {
       try {
         setLoadingDepoimentos(true);
-        const { data, error } = await supabase
-          .from("customer_reviews")
-          .select("id, rating, comment, display_name, city, state, created_at")
-          .eq("approved", true)
+        let response = await supabase
+          .from("customer_reviews_public")
+          .select("id,rating,comment,display_name,city,state,product_names,product_slugs,featured,created_at,approved_at")
+          .order("featured", { ascending: false })
+          .order("approved_at", { ascending: false, nullsFirst: false })
           .order("created_at", { ascending: false })
           .limit(6);
-        if (error) throw error;
+        if (response.error && /customer_reviews_public/i.test(String(response.error.message || ""))) {
+          response = await supabase
+            .from("customer_reviews")
+            .select("id,rating,comment,display_name,city,state,product_names,product_slugs,featured,created_at")
+            .eq("approved", true)
+            .order("featured", { ascending: false })
+            .order("created_at", { ascending: false })
+            .limit(6);
+        }
+        if (response.error) throw response.error;
         if (!alive) return;
-        setDepoimentos(Array.isArray(data) ? data : []);
+        setDepoimentos(Array.isArray(response.data) ? response.data : []);
       } catch (e) {
         if (!alive) return;
         console.warn("Não foi possível carregar depoimentos:", e?.message || e);
@@ -397,11 +408,14 @@ export default function HomePage({
 
       <section className="container-cc px-4 sm:px-6 lg:px-8 pb-12">
         <div className="rounded-3xl ring-1 ring-white/10 bg-gradient-to-br from-slate-900 via-slate-900 to-black p-5 sm:p-7">
-          <div className="flex items-end justify-between gap-4 mb-4 sm:mb-6">
+          <div className="flex flex-col gap-4 mb-4 sm:mb-6 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="text-cyan-300 font-semibold text-sm">Quem já comprou</p>
               <h2 className="text-2xl sm:text-3xl font-black">Avaliações e comentários</h2>
             </div>
+            <button type="button" onClick={onGoReviews} className="self-start rounded-xl px-4 py-2 text-sm font-semibold text-slate-100 ring-1 ring-white/15 hover:bg-white/5 sm:self-auto">
+              Ver todas as avaliações
+            </button>
           </div>
 
           {loadingDepoimentos ? (
@@ -431,7 +445,19 @@ export default function HomePage({
                     <p className="mt-3 text-sm leading-6 text-slate-200">
                       “{d.comment || "Compra aprovada."}”
                     </p>
-                    <p className="mt-4 text-xs text-slate-400">{author || "Cliente verificado"}</p>
+                    {Array.isArray(d.product_names) && d.product_names.length ? (
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {d.product_names.slice(0, 3).map((name, index) => {
+                          const productSlug = Array.isArray(d.product_slugs) && d.product_slugs.length === d.product_names.length ? d.product_slugs[index] : "";
+                          return productSlug ? (
+                            <a key={`${name}-${productSlug}`} href={`/p/${encodeURIComponent(productSlug)}`} className="rounded-full bg-cyan-400/10 px-2.5 py-1 text-xs text-cyan-100 ring-1 ring-cyan-300/20 hover:bg-cyan-400/15">{name}</a>
+                          ) : (
+                            <span key={`${name}-${index}`} className="rounded-full bg-white/5 px-2.5 py-1 text-xs text-cyan-100 ring-1 ring-white/10">{name}</span>
+                          );
+                        })}
+                      </div>
+                    ) : null}
+                    <p className="mt-3 text-xs text-slate-400">{author || "Cliente verificado"}</p>
                   </article>
                 );
               })}

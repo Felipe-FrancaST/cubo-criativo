@@ -3,6 +3,7 @@ import { getUserFromAuthHeader, supabaseAdmin } from "../supabase.js";
 import { renderOrderStatusEmail } from "../emailTemplates.js";
 import { rateLimit } from '../rateLimit.js';
 import { cleanupOrder3dModel } from '../order3dCleanup.js';
+import { buildOrderDetailsUrl, buildReviewUrl, buildVipAreaUrl } from '../orderLinks.js';
 
 async function sendResendEmail({ to, subject, html }) {
   const apiKey = String(process.env.RESEND_API_KEY || '').trim();
@@ -40,7 +41,9 @@ function buildCancelEmail(kind, order) {
     orderType: order?.order_type || 'shop',
     vipPlanId: order?.vip_plan_id || '',
     siteUrl,
-    orderUrl: siteUrl ? `${siteUrl}/conta` : '',
+    orderUrl: buildOrderDetailsUrl(siteUrl, order?.id),
+    reviewUrl: buildReviewUrl(siteUrl, order?.id),
+    vipAreaUrl: buildVipAreaUrl(siteUrl),
   });
 }
 

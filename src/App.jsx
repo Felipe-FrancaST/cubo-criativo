@@ -34,6 +34,9 @@ const VipRedirectPage = lazy(() => import("./pages/VipRedirectPage.jsx"));
 const VipAreaPage = lazy(() => import("./pages/VipAreaPage.jsx"));
 const PasswordResetPage = lazy(() => import("./pages/PasswordResetPage.jsx"));
 const ManualOrderPaymentPage = lazy(() => import("./pages/ManualOrderPaymentPage.jsx"));
+const CustomerOrdersLandingPage = lazy(() => import("./pages/CustomerOrdersLandingPage.jsx"));
+const ReviewPage = lazy(() => import("./pages/ReviewPage.jsx"));
+const ReviewsPage = lazy(() => import("./pages/ReviewsPage.jsx"));
 import { fetchAdminStatus } from "./lib/admin.js";
 import { applySeo, setJsonLd, clearJsonLd } from "./lib/seo.js";
 import { trackEvent } from "./lib/analytics.js";
@@ -369,6 +372,11 @@ function normalizePathname(pathname) {
   return p;
 }
 
+function getSearchParam(name) {
+  if (typeof window === "undefined") return "";
+  try { return new URLSearchParams(window.location.search).get(name) || ""; } catch { return ""; }
+}
+
 function getRouteFromLocation() {
   // Preferimos rotas limpas (sem #). Mantemos fallback do hash se existir.
   const h = typeof window !== "undefined" ? String(window.location.hash || "") : "";
@@ -506,6 +514,9 @@ React.useEffect(() => {
       "/perfil": { title: "Minha conta | Cubo Criativo", description: "Gerenciamento de perfil e dados da conta.", path: "/perfil", robots: "noindex,follow" },
       "/configuracoes": { title: "Configurações | Cubo Criativo", description: "Configurações privadas da conta.", path: "/configuracoes", robots: "noindex,follow" },
       "/conta": { title: "Minha conta | Cubo Criativo", description: "Área privada da conta do cliente.", path: "/conta", robots: "noindex,follow" },
+      "/meus-pedidos": { title: "Meus pedidos | Cubo Criativo", description: "Acompanhamento privado de pedidos.", path: "/meus-pedidos", robots: "noindex,follow" },
+      "/avaliar-pedido": { title: "Avaliar pedido | Cubo Criativo", description: "Área privada para avaliar uma compra entregue.", path: "/avaliar-pedido", robots: "noindex,follow" },
+      "/avaliacoes": { title: "Avaliações | Cubo Criativo", description: "Avaliações verificadas de clientes da Cubo Criativo.", path: "/avaliacoes" },
       "/admin": { title: "Administração | Cubo Criativo", description: "Painel administrativo restrito.", path: "/admin", robots: "noindex,nofollow" },
       "/pagamento-pedido": { title: "Pagamento de pedido | Cubo Criativo", description: "Página segura para pagamento de pedido.", path: "/pagamento-pedido", robots: "noindex,nofollow" },
       "/redefinir-senha": { title: "Redefinir senha | Cubo Criativo", description: "Página segura para redefinição de senha.", path: "/redefinir-senha", robots: "noindex,nofollow" },
@@ -650,6 +661,15 @@ React.useEffect(() => {
     },
     []
   );
+
+  React.useEffect(() => {
+    if (route !== "/meus-pedidos") return;
+    if (user) {
+      setOrdersOpen(true);
+      return;
+    }
+    requireLogin("Faça login para acessar o pedido indicado no e-mail.");
+  }, [route, user, requireLogin]);
 
 
   // Persiste carrinho (mantém itens após recarregar)
@@ -1459,6 +1479,15 @@ React.useEffect(() => {
         />
       );
     }
+    if (route === "/meus-pedidos") {
+      return <CustomerOrdersLandingPage user={user} orderId={getSearchParam("pedido")} onOpenOrders={() => setOrdersOpen(true)} onRequireLogin={requireLogin} onGoHome={() => navigate("/")} />;
+    }
+    if (route === "/avaliar-pedido") {
+      return <ReviewPage orderId={getSearchParam("pedido")} onRequireLogin={requireLogin} onGoHome={() => navigate("/")} />;
+    }
+    if (route === "/avaliacoes") {
+      return <ReviewsPage onGoHome={() => navigate("/")} />;
+    }
     if (route === "/conta") {
       return <AccountPage onGoHome={() => navigate("/")} />;
     }
@@ -1480,6 +1509,8 @@ React.useEffect(() => {
         onGoFaq={() => navigate("/faq")}
         onGoPoliticas={() => { if (typeof window !== "undefined") window.location.href = "/privacy.html"; }}
         onGoCupom={() => navigate("/cupom")}
+        onGoReviews={() => navigate("/avaliacoes")}
+        onGoVipPlans={() => navigate("/planos-vip")}
         onGoSobEncomenda={() => navigate("/catalogo?tipo=rpg")}
       
           onRequireLogin={(msg) => requireLogin(msg)}
@@ -1660,6 +1691,7 @@ React.useEffect(() => {
                 <li><a href="/catalogo" className="underline decoration-dotted">Catálogo</a></li>
                 <li><a href="/promocoes" className="underline decoration-dotted">Promoções</a></li>
                 <li><a href="/faq" className="underline decoration-dotted">FAQ</a></li>
+                <li><a href="/avaliacoes" className="underline decoration-dotted">Avaliações</a></li>
                 <li><a href="/trocas-e-devolucoes" className="underline decoration-dotted">Trocas / devoluções</a></li>
                 <li><a href="/privacy.html" className="underline decoration-dotted">Política de Privacidade</a></li>
                 <li><a href="/terms.html" className="underline decoration-dotted">Termos</a></li>
@@ -1728,6 +1760,7 @@ React.useEffect(() => {
 
       {ordersOpen ? (<Suspense fallback={null}><OrdersModal
         open={ordersOpen}
+        initialOrderId={route === "/meus-pedidos" ? getSearchParam("pedido") : ""}
         onRequireLogin={requireLogin}
         onClose={() => setOrdersOpen(false)}
         onPaymentFinalized={() => {

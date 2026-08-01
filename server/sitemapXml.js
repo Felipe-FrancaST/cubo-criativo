@@ -10,6 +10,7 @@ const FIXED_PATHS = [
   "/contato",
   "/sobre",
   "/faq",
+  "/avaliacoes",
   "/trocas-e-devolucoes",
   "/privacy.html",
   "/terms.html",

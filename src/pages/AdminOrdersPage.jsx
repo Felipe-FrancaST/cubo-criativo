@@ -6,6 +6,7 @@ import { TRACKING_CARRIERS, inferTrackingCarrierFromUrl, normalizeTrackingCarrie
 import { fetchAddressFromCep } from "../lib/cep.js";
 import { supabase } from "../lib/supabaseClient.js";
 import AdminProductsSection from "./admin/products/AdminProductsSection.jsx";
+import AdminReviewsSection from "./admin/reviews/AdminReviewsSection.jsx";
 
 
 function safeStorageFileName(name = 'modelo.glb') {
@@ -2842,6 +2843,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
           ["finance", "payments", "Financeiro"],
           ["clients", "groups", "Clientes"],
           ["products", "inventory", "Produtos"],
+          ["reviews", "reviews", "Avaliações"],
           ["coupons", "sell", "Cupons"],
           ["vip", "workspace_premium", "VIP"],
         ].map(([key, icon, label]) => (
@@ -2894,6 +2896,11 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
             <div className="mt-2">
               <SidebarItem active={section === "products"} icon="inventory" onClick={() => setSection("products")}>
                 Produtos
+              </SidebarItem>
+            </div>
+            <div className="mt-2">
+              <SidebarItem active={section === "reviews"} icon="reviews" onClick={() => setSection("reviews")}>
+                Avaliações
               </SidebarItem>
             </div>
             <div className="mt-2">
@@ -3572,6 +3579,8 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
             </div>
           ) : section === "products" ? (
             <AdminProductsSection onNotify={showToast} />
+          ) : section === "reviews" ? (
+            <AdminReviewsSection onToast={showToast} />
           ) : section === "coupons" ? (
             <div className="space-y-4">
               <SectionTitle

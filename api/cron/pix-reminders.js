@@ -18,6 +18,7 @@
 import { supabaseAdmin } from "../../server/supabase.js";
 import { cleanupOrder3dModel, shouldCleanupOrder3dForStatus } from "../../server/order3dCleanup.js";
 import { renderPixReminderEmail } from "../../server/emailTemplates.js";
+import { buildOrderDetailsUrl } from "../../server/orderLinks.js";
 
 export const config = { runtime: "nodejs" };
 
@@ -172,7 +173,7 @@ export default async function handler(req, res) {
         customerName: o.customer_name || '',
         total: amount,
         paymentUrl: ticketUrl,
-        orderUrl: siteUrl ? `${siteUrl}/conta` : '',
+        orderUrl: buildOrderDetailsUrl(siteUrl, orderId),
         siteUrl,
         supportEmail: process.env.SUPPORT_EMAIL || process.env.ORDER_EMAIL_TO || '',
         whatsapp: process.env.WHATSAPP_NUMBER || process.env.SUPPORT_WHATSAPP || '',

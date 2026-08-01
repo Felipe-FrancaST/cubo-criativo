@@ -2,6 +2,7 @@ import { renderOwnerOrderEmail, renderCustomerOrderEmail, renderOwnerVipWelcomeE
 import { getVipPlanById } from "../server/vipPlans.js";
 import { applyStockDeductionWithClaim } from "../server/inventory.js";
 import { cleanupOrder3dModel, shouldCleanupOrder3dForStatus } from "../server/order3dCleanup.js";
+import { buildOrderDetailsUrl, buildVipAreaUrl } from "../server/orderLinks.js";
 /**
  * Vercel Serverless Function
  * Route: /api/mp-webhook
@@ -202,7 +203,7 @@ async function sendVipActivationEmail(sb, { order, payment, forceTo } = {}) {
 
     const apiKey = String(process.env.RESEND_API_KEY || '').trim();
     const from = String(process.env.RESEND_FROM || '').trim();
-    const baseUrl = String(process.env.APP_URL || process.env.NEXT_PUBLIC_SITE_URL || '').trim().replace(/\/$/, '');
+    const baseUrl = String(process.env.SITE_URL || process.env.APP_URL || process.env.NEXT_PUBLIC_SITE_URL || '').trim().replace(/\/$/, '');
     const planId = String(order?.vip_plan_id || payment?.metadata?.vip_plan_id || 'CUBO_L1_RPG').trim();
     const purchasedCycleKey = String(payment?.metadata?.vip_cycle_key || '').trim() || null;
     if (!isValidEmail(to)) return { ok: false, skipped: true, reason: 'invalid_customer_email', to };
@@ -213,7 +214,7 @@ async function sendVipActivationEmail(sb, { order, payment, forceTo } = {}) {
       brandName: process.env.BRAND_NAME || 'Cubo Criativo',
       orderId: order?.id,
       customerName: emailMeta?.customer_name || order?.customer_name || payment?.payer?.first_name || 'cliente',
-      reviewLink: baseUrl ? `${baseUrl}/area-vip` : '',
+      reviewLink: buildVipAreaUrl(baseUrl),
       supportEmail: process.env.SUPPORT_EMAIL || process.env.ORDER_EMAIL_TO || '',
       whatsapp: process.env.WHATSAPP_NUMBER || process.env.SUPPORT_WHATSAPP || '',
       vipPlanId: planId,
@@ -282,13 +283,13 @@ async function sendVipUpgradeEmail(sb, { order, payment, forceTo } = {}) {
       } catch {}
     }
 
-    const baseUrl = String(process.env.APP_URL || process.env.NEXT_PUBLIC_SITE_URL || '').trim().replace(/\/$/, '');
+    const baseUrl = String(process.env.SITE_URL || process.env.APP_URL || process.env.NEXT_PUBLIC_SITE_URL || '').trim().replace(/\/$/, '');
     const chargedNow = Number(emailMeta?.total || order?.total || 0) || undefined;
     const mail = renderVipUpgradeEmail({
       brandName: process.env.BRAND_NAME || 'Cubo Criativo',
       orderId: order.id,
       customerName: emailMeta?.customer_name || order?.customer_name || payment?.payer?.first_name || 'cliente',
-      reviewLink: baseUrl ? `${baseUrl}/area-vip` : '',
+      reviewLink: buildVipAreaUrl(baseUrl),
       supportEmail: process.env.SUPPORT_EMAIL || process.env.ORDER_EMAIL_TO || '',
       whatsapp: process.env.WHATSAPP_NUMBER || process.env.SUPPORT_WHATSAPP || '',
       fromPlanName: fromPlan?.name || fromPlan?.short_name || fromPlanId || 'Plano atual',
@@ -875,7 +876,7 @@ export default async function handler(req, res) {
       supportEmail: process.env.SUPPORT_EMAIL || process.env.ORDER_EMAIL_TO || '',
       whatsapp: process.env.WHATSAPP_NUMBER || process.env.SUPPORT_WHATSAPP || '',
       siteUrl,
-      orderUrl: siteUrl ? `${siteUrl}/conta` : '',
+      orderUrl: buildOrderDetailsUrl(siteUrl, orderCode),
     };
 
     let ownerMail;

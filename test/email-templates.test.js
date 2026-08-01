@@ -18,13 +18,14 @@ test('confirmação de pedido usa layout padronizado e dados do cliente', () => 
     customer: { name: 'Cliente Teste', address: 'Rua A, 10' },
     items: [{ name: 'Miniatura', qty: 1, price: 150, scale: '1/10' }],
     siteUrl: 'https://www.cubocriativo3d.com.br',
-    orderUrl: 'https://www.cubocriativo3d.com.br/conta',
+    orderUrl: 'https://www.cubocriativo3d.com.br/meus-pedidos?pedido=12345678-abcd',
   });
 
   assert.match(mail.subject, /Pedido confirmado — 12345678/);
   assert.match(mail.html, /Cliente Teste/);
   assert.match(mail.html, /Cartão de crédito/);
   assert.match(mail.html, /Acompanhar meu pedido/);
+  assert.match(mail.html, /meus-pedidos\?pedido=12345678-abcd/);
   assert.match(mail.html, /images\/logo\.png/);
   assert.doesNotMatch(mail.html, /WhatsApp:<\/b>\s*<\/div>/);
 });
@@ -77,4 +78,44 @@ test('lembrete Pix e pedido manual usam o mesmo padrão visual', () => {
   }
   assert.match(pix.html, /Abrir pagamento Pix/);
   assert.match(manual.html, /Pagar meu pedido/);
+});
+
+test('e-mail de entrega abre a área exata de avaliação do pedido', () => {
+  const mail = renderOrderStatusEmail({
+    brandName: 'Cubo Criativo',
+    orderId: '11111111-2222-4333-8444-555555555555',
+    customerName: 'Cliente',
+    nextStatus: 'entregue',
+    orderType: 'shop',
+    siteUrl: 'https://www.cubocriativo3d.com.br',
+    orderUrl: 'https://www.cubocriativo3d.com.br/meus-pedidos?pedido=11111111-2222-4333-8444-555555555555',
+    reviewUrl: 'https://www.cubocriativo3d.com.br/avaliar-pedido?pedido=11111111-2222-4333-8444-555555555555',
+  });
+
+  assert.match(mail.html, /avaliar-pedido\?pedido=11111111-2222-4333-8444-555555555555/);
+  assert.match(mail.html, />Avaliar pedido</);
+  assert.match(mail.html, /meus-pedidos\?pedido=11111111-2222-4333-8444-555555555555/);
+});
+
+test('e-mail VIP usa Área VIP e avaliação dedicada nas etapas corretas', () => {
+  const production = renderOrderStatusEmail({
+    orderId: 'vip-order',
+    nextStatus: 'em_producao',
+    orderType: 'vip',
+    siteUrl: 'https://www.cubocriativo3d.com.br',
+    vipAreaUrl: 'https://www.cubocriativo3d.com.br/area-vip',
+    reviewUrl: 'https://www.cubocriativo3d.com.br/avaliar-pedido?pedido=vip-order',
+  });
+  const delivered = renderOrderStatusEmail({
+    orderId: 'vip-order',
+    nextStatus: 'entregue',
+    orderType: 'vip',
+    siteUrl: 'https://www.cubocriativo3d.com.br',
+    vipAreaUrl: 'https://www.cubocriativo3d.com.br/area-vip',
+    reviewUrl: 'https://www.cubocriativo3d.com.br/avaliar-pedido?pedido=vip-order',
+  });
+
+  assert.match(production.html, /href="https:\/\/www\.cubocriativo3d\.com\.br\/area-vip"/);
+  assert.doesNotMatch(production.html, /avaliar-pedido\?pedido=vip-order/);
+  assert.match(delivered.html, /avaliar-pedido\?pedido=vip-order/);
 });

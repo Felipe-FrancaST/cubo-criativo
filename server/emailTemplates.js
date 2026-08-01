@@ -114,7 +114,7 @@ function renderLayout({ title, preheader, brandName, contentHtml, footerNote, si
   const baseUrl = getSiteUrl(siteUrl);
   const logoUrl = baseUrl ? `${baseUrl}/images/logo.png` : '';
   const homeUrl = baseUrl || '';
-  const accountUrl = baseUrl ? `${baseUrl}/#/conta` : '';
+  const accountUrl = baseUrl ? `${baseUrl}/meus-pedidos` : '';
 
   return `<!doctype html>
 <html lang="pt-BR">
@@ -403,7 +403,7 @@ export function renderCustomerOrderEmail(payload) {
   const { date, time } = formatDateTimeBR(createdAt);
   const shortId = orderId ? String(orderId).slice(0, 8) : '-';
   const baseUrl = getSiteUrl(siteUrl);
-  const accountUrl = String(orderUrl || (baseUrl ? `${baseUrl}/#/conta` : '')).trim();
+  const accountUrl = String(orderUrl || (baseUrl ? `${baseUrl}/meus-pedidos` : '')).trim();
 
   const meta = renderKeyValueCard('Resumo do pedido', [
     { label: 'Pedido', value: shortId },
@@ -504,6 +504,8 @@ export function renderOrderStatusEmail(payload) {
     productionEta,
     cancelledBy,
     reviewLink,
+    reviewUrl,
+    vipAreaUrl,
     orderUrl,
     siteUrl,
     supportEmail,
@@ -521,7 +523,10 @@ export function renderOrderStatusEmail(payload) {
   const kind = String(notificationKind || 'status').toLowerCase();
   const isVipOrder = String(orderType || '').toLowerCase() === 'vip';
   const baseUrl = getSiteUrl(siteUrl);
-  const accountUrl = String(orderUrl || (baseUrl ? `${baseUrl}/#/conta` : '')).trim();
+  const accountUrl = String(orderUrl || (baseUrl ? `${baseUrl}/meus-pedidos` : '')).trim();
+  const resolvedReviewUrl = String(reviewUrl || (!isVipOrder ? reviewLink : '') || (baseUrl ? `${baseUrl}/avaliar-pedido?pedido=${encodeURIComponent(String(orderId || ''))}` : '') || accountUrl).trim();
+  const resolvedVipAreaUrl = String(vipAreaUrl || (isVipOrder ? reviewLink : '') || (baseUrl ? `${baseUrl}/area-vip` : '')).trim();
+  const detailUrl = isVipOrder ? (resolvedVipAreaUrl || accountUrl) : accountUrl;
   const selectedVipItems = Array.isArray(vipSelection?.selected_options) ? vipSelection.selected_options : [];
   const regularItems = Array.isArray(items) ? items : [];
   const hasVisualItems = isVipOrder ? selectedVipItems.length > 0 : regularItems.length > 0;
@@ -559,8 +564,8 @@ export function renderOrderStatusEmail(payload) {
     highlight = shippingTracking
       ? `Novo código de rastreio: ${shippingTracking}${carrierLabel ? ` • ${carrierLabel}` : ''}.`
       : 'Os dados de transporte foram atualizados pela nossa equipe.';
-    ctaHref = trackingUrl || accountUrl;
-    ctaText = trackingUrl ? 'Acompanhar entrega' : 'Ver meu pedido';
+    ctaHref = trackingUrl || detailUrl;
+    ctaText = trackingUrl ? 'Acompanhar entrega' : (isVipOrder ? 'Abrir Área VIP' : 'Ver meu pedido');
     accent = 'rgba(168,85,247,.12)';
     accentBorder = 'rgba(168,85,247,.25)';
     accentColor = '#ddd6fe';
@@ -569,8 +574,8 @@ export function renderOrderStatusEmail(payload) {
     highlight = productionEta
       ? `Nova estimativa: ${productionEta}.`
       : 'Consulte a área de pedidos para acompanhar a estimativa mais recente.';
-    ctaHref = accountUrl;
-    ctaText = 'Ver andamento do pedido';
+    ctaHref = detailUrl;
+    ctaText = isVipOrder ? 'Abrir Área VIP' : 'Ver andamento do pedido';
     accent = 'rgba(245,158,11,.12)';
     accentBorder = 'rgba(245,158,11,.25)';
     accentColor = '#fde68a';
@@ -580,8 +585,8 @@ export function renderOrderStatusEmail(payload) {
       highlight = hasVisualItems
         ? 'Sua seleção foi registrada. Avisaremos quando as miniaturas entrarem em produção.'
         : 'Acesse a Área VIP para conferir o ciclo e registrar suas escolhas.';
-      ctaHref = reviewLink || accountUrl;
-      ctaText = reviewLink ? 'Abrir Área VIP' : 'Ver meu pedido';
+      ctaHref = resolvedVipAreaUrl || accountUrl;
+      ctaText = resolvedVipAreaUrl ? 'Abrir Área VIP' : 'Ver meu pedido';
     } else {
       intro = 'Seu pedido foi recebido e está aguardando a próxima etapa do atendimento.';
       highlight = 'Você será avisado quando a produção começar.';
@@ -598,7 +603,7 @@ export function renderOrderStatusEmail(payload) {
     highlight = isVipOrder
       ? 'Selecione as miniaturas dentro do prazo do ciclo para que a produção siga sem atrasos.'
       : 'Acompanhe a área de pedidos ou aguarde o contato da nossa equipe.';
-    ctaHref = reviewLink || accountUrl;
+    ctaHref = isVipOrder ? (resolvedVipAreaUrl || accountUrl) : accountUrl;
     ctaText = isVipOrder ? 'Escolher miniaturas' : 'Ver meu pedido';
     accent = 'rgba(168,85,247,.12)';
     accentBorder = 'rgba(168,85,247,.25)';
@@ -610,15 +615,15 @@ export function renderOrderStatusEmail(payload) {
     highlight = productionEta
       ? `Estimativa atual: ${productionEta}.`
       : 'Avisaremos assim que a produção for concluída.';
-    ctaHref = accountUrl;
-    ctaText = 'Ver andamento';
+    ctaHref = detailUrl;
+    ctaText = isVipOrder ? 'Abrir Área VIP' : 'Ver andamento';
   } else if (status === 'pronto') {
     intro = isVipOrder
       ? 'As miniaturas do seu ciclo ficaram prontas e estão em preparação para postagem.'
       : 'Seu pedido ficou pronto e está em preparação para envio.';
     highlight = 'Quando a postagem for realizada, enviaremos o código de rastreio por e-mail.';
-    ctaHref = accountUrl;
-    ctaText = 'Ver meu pedido';
+    ctaHref = detailUrl;
+    ctaText = isVipOrder ? 'Abrir Área VIP' : 'Ver meu pedido';
     accent = 'rgba(245,158,11,.12)';
     accentBorder = 'rgba(245,158,11,.25)';
     accentColor = '#fde68a';
@@ -629,8 +634,8 @@ export function renderOrderStatusEmail(payload) {
     highlight = shippingTracking
       ? `Código de rastreio: ${shippingTracking}${carrierLabel ? ` • ${carrierLabel}` : ''}.`
       : 'A postagem foi registrada. O rastreio pode levar algum tempo para aparecer no sistema da transportadora.';
-    ctaHref = trackingUrl || accountUrl;
-    ctaText = trackingUrl ? 'Acompanhar entrega' : 'Ver meu pedido';
+    ctaHref = trackingUrl || detailUrl;
+    ctaText = trackingUrl ? 'Acompanhar entrega' : (isVipOrder ? 'Abrir Área VIP' : 'Ver meu pedido');
     accent = 'rgba(168,85,247,.12)';
     accentBorder = 'rgba(168,85,247,.25)';
     accentColor = '#ddd6fe';
@@ -639,8 +644,8 @@ export function renderOrderStatusEmail(payload) {
       ? 'Seu envio VIP foi marcado como entregue. Esperamos que você aproveite muito as miniaturas.'
       : 'Seu pedido foi marcado como entregue. Esperamos que você tenha gostado da sua peça.';
     highlight = 'Sua avaliação ajuda a Cubo Criativo e também outros clientes.';
-    ctaHref = reviewLink || accountUrl;
-    ctaText = reviewLink ? (isVipOrder ? 'Avaliar envio VIP' : 'Avaliar pedido') : 'Ver meu pedido';
+    ctaHref = resolvedReviewUrl || accountUrl;
+    ctaText = resolvedReviewUrl ? (isVipOrder ? 'Avaliar envio VIP' : 'Avaliar pedido') : 'Ver meu pedido';
     accent = 'rgba(34,197,94,.12)';
     accentBorder = 'rgba(34,197,94,.25)';
     accentColor = '#bbf7d0';
@@ -649,16 +654,16 @@ export function renderOrderStatusEmail(payload) {
       ? 'Registramos sua solicitação de cancelamento.'
       : 'Seu pedido foi cancelado pela loja.';
     highlight = 'Se houve pagamento, a análise e o reembolso seguirão as condições informadas para o pedido.';
-    ctaHref = accountUrl;
-    ctaText = 'Consultar pedido';
+    ctaHref = detailUrl;
+    ctaText = isVipOrder ? 'Abrir Área VIP' : 'Consultar pedido';
     accent = 'rgba(239,68,68,.12)';
     accentBorder = 'rgba(239,68,68,.25)';
     accentColor = '#fecaca';
   } else if (status === 'reembolsado') {
     intro = 'O reembolso do seu pedido foi registrado.';
     highlight = 'O prazo para o valor aparecer depende da forma de pagamento, do banco ou da operadora.';
-    ctaHref = accountUrl;
-    ctaText = 'Consultar pedido';
+    ctaHref = detailUrl;
+    ctaText = isVipOrder ? 'Abrir Área VIP' : 'Consultar pedido';
     accent = 'rgba(245,158,11,.12)';
     accentBorder = 'rgba(245,158,11,.25)';
     accentColor = '#fde68a';
@@ -709,8 +714,8 @@ export function renderOrderStatusEmail(payload) {
         );
 
   const primaryAction = ctaHref && ctaText ? renderActionButton(ctaHref, ctaText) : '';
-  const secondaryAction = accountUrl && ctaHref && accountUrl !== ctaHref
-    ? renderActionButton(accountUrl, 'Ver detalhes do pedido', { secondary: true })
+  const secondaryAction = detailUrl && ctaHref && detailUrl !== ctaHref
+    ? renderActionButton(detailUrl, isVipOrder ? 'Abrir Área VIP' : 'Ver detalhes do pedido', { secondary: true })
     : '';
 
   const contentHtml = `
@@ -764,7 +769,7 @@ export function renderPixReminderEmail(payload) {
   } = payload || {};
   const shortId = orderId ? String(orderId).slice(0, 8) : '-';
   const baseUrl = getSiteUrl(siteUrl);
-  const accountUrl = String(orderUrl || (baseUrl ? `${baseUrl}/#/conta` : '')).trim();
+  const accountUrl = String(orderUrl || (baseUrl ? `${baseUrl}/meus-pedidos` : '')).trim();
 
   const contentHtml = `
     ${renderEmailSummaryBanner({
@@ -821,7 +826,7 @@ export function renderManualOrderPaymentEmail(payload) {
   } = payload || {};
   const shortId = orderId ? String(orderId).slice(0, 8) : '-';
   const baseUrl = getSiteUrl(siteUrl);
-  const accountUrl = String(orderUrl || (baseUrl ? `${baseUrl}/#/conta` : '')).trim();
+  const accountUrl = String(orderUrl || (baseUrl ? `${baseUrl}/meus-pedidos` : '')).trim();
 
   const contentHtml = `
     ${renderEmailSummaryBanner({
