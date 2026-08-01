@@ -48,6 +48,20 @@ function withBrandSubject(brandName, subject) {
   return `${brand} • ${core}`;
 }
 
+function formatPaymentLabel(value) {
+  const raw = String(value || '').trim();
+  const normalized = raw.toLowerCase();
+  return ({
+    mercado_pago: 'Mercado Pago',
+    mercadopago: 'Mercado Pago',
+    admin_manual: 'Pagamento manual',
+    manual: 'Pagamento manual',
+    pix: 'Pix',
+    credit_card: 'Cartão de crédito',
+    debit_card: 'Cartão de débito',
+  })[normalized] || raw.replaceAll('_', ' ');
+}
+
 function renderEmailSummaryBanner({ eyebrow = 'Atualização', title = '', description = '' } = {}) {
   if (!title && !description) return '';
   return `
@@ -58,61 +72,109 @@ function renderEmailSummaryBanner({ eyebrow = 'Atualização', title = '', descr
     </div>`;
 }
 
-function renderLayout({ title, preheader, brandName, contentHtml, footerNote }) {
-  const safeTitle = esc(title);
-  const safeBrand = esc(brandName || "Cubo Criativo");
-  const safePre = esc(preheader || "");
+function getSiteUrl(explicitUrl = '') {
+  return String(
+    explicitUrl ||
+      process.env.SITE_URL ||
+      process.env.APP_URL ||
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      ''
+  )
+    .trim()
+    .replace(/\/$/, '');
+}
 
-  // CSS inline para compatibilidade com email clients
+function renderActionButton(href, label, { secondary = false } = {}) {
+  const url = String(href || '').trim();
+  const text = String(label || '').trim();
+  if (!url || !text) return '';
+  const background = secondary ? '#172033' : 'linear-gradient(135deg,#22c55e,#06b6d4)';
+  const color = secondary ? '#e2e8f0' : '#04110d';
+  const border = secondary ? '1px solid rgba(255,255,255,.14)' : '1px solid rgba(103,232,249,.28)';
+  return `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer" style="display:inline-block;margin:0 8px 8px 0;padding:12px 17px;border-radius:12px;background:${background};border:${border};color:${color};text-decoration:none;font-size:13px;font-weight:800;line-height:1.2;">${esc(text)}</a>`;
+}
+
+function renderSupportCard({ supportEmail = '', whatsapp = '' } = {}) {
+  const email = String(supportEmail || '').trim();
+  const phone = String(whatsapp || '').trim();
+  const rows = [];
+  if (phone) rows.push(`<div style="margin-top:4px;color:#e2e8f0;"><b>WhatsApp:</b> ${esc(phone)}</div>`);
+  if (email) rows.push(`<div style="margin-top:4px;color:#e2e8f0;"><b>E-mail:</b> ${esc(email)}</div>`);
+  return `
+    <div style="margin-top:16px;padding:13px 15px;border-radius:14px;background:#111a2d;border:1px solid rgba(255,255,255,.09);color:#aebcd0;font-size:12px;line-height:1.6;">
+      <div style="color:#f8fafc;font-weight:800;">Precisa de ajuda?</div>
+      ${rows.length ? rows.join('') : '<div style="margin-top:4px;">Responda este e-mail e nossa equipe ajudará você.</div>'}
+    </div>`;
+}
+
+function renderLayout({ title, preheader, brandName, contentHtml, footerNote, siteUrl }) {
+  const safeTitle = esc(title);
+  const safeBrand = esc(brandName || 'Cubo Criativo');
+  const safePre = esc(preheader || '');
+  const baseUrl = getSiteUrl(siteUrl);
+  const logoUrl = baseUrl ? `${baseUrl}/images/logo.png` : '';
+  const homeUrl = baseUrl || '';
+  const accountUrl = baseUrl ? `${baseUrl}/#/conta` : '';
+
   return `<!doctype html>
 <html lang="pt-BR">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="supported-color-schemes" content="dark" />
     <title>${safeTitle}</title>
+    <style>
+      @media only screen and (max-width: 640px) {
+        .email-shell { padding: 12px 6px !important; }
+        .email-card { border-radius: 14px !important; }
+        .email-pad { padding-left: 16px !important; padding-right: 16px !important; }
+        .email-title { font-size: 20px !important; }
+        .email-hide-mobile { display: none !important; }
+      }
+    </style>
   </head>
-  <body style="margin:0;padding:0;background:#0b1020;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#0f172a;">
-    <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${safePre}</div>
+  <body style="margin:0;padding:0;background:#080d18;font-family:Inter,Arial,Helvetica,sans-serif;color:#e2e8f0;-webkit-text-size-adjust:100%;">
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;mso-hide:all;">${safePre}&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;</div>
 
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0b1020;padding:24px 12px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="email-shell" style="width:100%;background:#080d18;padding:26px 12px;">
       <tr>
         <td align="center">
-          <table role="presentation" width="640" cellpadding="0" cellspacing="0" style="width:100%;max-width:640px;background:#0f172a;border:1px solid rgba(255,255,255,.08);border-radius:18px;overflow:hidden;">
+          <table role="presentation" width="640" cellpadding="0" cellspacing="0" border="0" class="email-card" style="width:100%;max-width:640px;background:#0f1728;border:1px solid #263248;border-radius:20px;overflow:hidden;box-shadow:0 20px 55px rgba(0,0,0,.30);">
             <tr>
-              <td style="padding:22px 22px 12px;">
-                <div style="display:flex;align-items:center;gap:12px;">
-                  <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#22c55e,#06b6d4);box-shadow:0 10px 30px rgba(6,182,212,.15);"></div>
-                  <div>
-                    <div style="font-size:14px;letter-spacing:.14em;text-transform:uppercase;color:#94a3b8;">${safeBrand}</div>
-                    <div style="font-size:22px;font-weight:800;color:#e2e8f0;margin-top:2px;">${safeTitle}</div>
-                  </div>
-                </div>
+              <td class="email-pad" style="padding:22px 24px 18px;background:linear-gradient(135deg,#111c30,#0c1627);border-bottom:1px solid #263248;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td width="56" valign="middle">
+                      ${logoUrl
+                        ? `<img src="${esc(logoUrl)}" alt="${safeBrand}" width="48" height="48" style="display:block;width:48px;height:48px;border-radius:13px;object-fit:contain;background:#070b13;border:1px solid rgba(103,232,249,.20);" />`
+                        : `<div style="width:48px;height:48px;line-height:48px;text-align:center;border-radius:13px;background:linear-gradient(135deg,#22c55e,#06b6d4);color:#04110d;font-size:17px;font-weight:900;">CC</div>`}
+                    </td>
+                    <td valign="middle" style="padding-left:13px;">
+                      <div style="font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#7dd3fc;font-weight:800;">${safeBrand}</div>
+                      <div class="email-title" style="font-size:23px;font-weight:850;color:#f8fafc;margin-top:4px;line-height:1.25;">${safeTitle}</div>
+                    </td>
+                  </tr>
+                </table>
               </td>
             </tr>
 
             <tr>
-              <td style="padding:0 22px 18px;">
-                <div style="height:1px;background:rgba(255,255,255,.08);"></div>
-              </td>
-            </tr>
-
-            <tr>
-              <td style="padding:0 22px 22px;">
+              <td class="email-pad" style="padding:22px 24px 24px;">
                 ${contentHtml}
               </td>
             </tr>
 
             <tr>
-              <td style="padding:16px 22px;background:rgba(255,255,255,.03);border-top:1px solid rgba(255,255,255,.08);">
-                <div style="font-size:12px;line-height:1.5;color:#94a3b8;">
-                  ${esc(footerNote || "Mensagem automática para controle de pedidos.")}
-                </div>
+              <td class="email-pad" style="padding:17px 24px;background:#0b1322;border-top:1px solid #263248;">
+                <div style="font-size:12px;line-height:1.55;color:#8ea0b8;">${esc(footerNote || 'Mensagem automática da Cubo Criativo.')}</div>
+                ${homeUrl || accountUrl ? `<div style="margin-top:9px;font-size:12px;line-height:1.6;">${homeUrl ? `<a href="${esc(homeUrl)}" style="color:#67e8f9;text-decoration:none;font-weight:700;">Visitar o site</a>` : ''}${homeUrl && accountUrl ? `<span style="color:#46556d;"> &nbsp;•&nbsp; </span>` : ''}${accountUrl ? `<a href="${esc(accountUrl)}" style="color:#67e8f9;text-decoration:none;font-weight:700;">Meus pedidos</a>` : ''}</div>` : ''}
               </td>
             </tr>
           </table>
 
-          <div style="max-width:640px;margin-top:14px;font-size:11px;color:#64748b;line-height:1.4;">
-            Dica: se as imagens não aparecerem, verifique se o seu provedor bloqueia conteúdo remoto por padrão.
+          <div style="max-width:640px;margin-top:13px;padding:0 8px;font-size:11px;color:#52627a;line-height:1.5;text-align:center;">
+            Este e-mail foi enviado porque houve uma ação relacionada a um pedido ou serviço da Cubo Criativo.
           </div>
         </td>
       </tr>
@@ -334,66 +396,68 @@ export function renderCustomerOrderEmail(payload) {
     items,
     supportEmail,
     whatsapp,
+    siteUrl,
+    orderUrl,
   } = payload || {};
 
   const { date, time } = formatDateTimeBR(createdAt);
+  const shortId = orderId ? String(orderId).slice(0, 8) : '-';
+  const baseUrl = getSiteUrl(siteUrl);
+  const accountUrl = String(orderUrl || (baseUrl ? `${baseUrl}/#/conta` : '')).trim();
 
-  const intro = `
-    <div style="color:#cbd5e1;font-size:13px;line-height:1.6;">
-      Olá <b style="color:#e2e8f0;">${esc(customer?.name || "cliente")}</b>! ✅<br/>
-      Recebemos o seu pedido com sucesso. Assim que ele entrar em produção, você será notificado por email.
-    </div>
-  `;
-
-  const meta = renderKeyValueCard("Detalhes do pedido", [
-    { label: "Pedido", value: orderId ? String(orderId).slice(0, 8) : "-" },
-    { label: "Data", value: date },
-    { label: "Hora", value: time },
-    { label: "Pagamento", value: paymentMethod || "-" },
-    { label: "Total", value: fmtBRL(total) },
+  const meta = renderKeyValueCard('Resumo do pedido', [
+    { label: 'Pedido', value: shortId },
+    { label: 'Data', value: date },
+    { label: 'Hora', value: time },
+    { label: 'Pagamento', value: paymentMethod || '-' },
+    { label: 'Total', value: fmtBRL(total) },
+    { label: 'Status', value: 'Pagamento confirmado' },
   ]);
 
   const itemsTable = `
-    <div style="margin:14px 0 0;">
-      <div style="font-size:13px;font-weight:800;color:#e2e8f0;margin-bottom:6px;">Itens</div>
+    <div style="margin:16px 0 0;">
+      <div style="font-size:13px;font-weight:800;color:#f8fafc;margin-bottom:7px;">Itens do pedido</div>
       ${renderItemsTable(items)}
-    </div>
-  `;
+    </div>`;
 
   const delivery = customer?.address
-    ? renderKeyValueCard("Endereço de entrega", [{ label: "Endereço", value: customer.address }])
-    : "";
-
-  const help = `
-    <div style="margin-top:14px;padding:12px 14px;border-radius:14px;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.18);color:#bbf7d0;font-size:12px;line-height:1.55;">
-      Qualquer dúvida, responda este email ou fale no WhatsApp <b style="color:#e2e8f0;">${esc(whatsapp || "")}</b>.
-      ${supportEmail ? `<br/>Contato: <b style="color:#e2e8f0;">${esc(supportEmail)}</b>` : ""}
-    </div>
-  `;
+    ? renderKeyValueCard('Endereço de entrega', [{ label: 'Destino', value: customer.address }])
+    : '';
 
   const contentHtml = `
-    <div style="display:flex;gap:10px;flex-wrap:wrap;margin:0 0 12px;">
-      <span style="display:inline-block;padding:6px 10px;border-radius:999px;background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.25);color:#bbf7d0;font-weight:800;font-size:12px;">PEDIDO CONFIRMADO</span>
-      <span style="display:inline-block;padding:6px 10px;border-radius:999px;background:rgba(6,182,212,.12);border:1px solid rgba(6,182,212,.25);color:#a5f3fc;font-weight:800;font-size:12px;">${esc(paymentMethod || "Pagamento")}</span>
+    ${renderEmailSummaryBanner({
+      eyebrow: 'Pagamento aprovado',
+      title: `Pedido ${shortId} confirmado`,
+      description: 'Recebemos seu pagamento e o pedido já entrou na fila de atendimento da Cubo Criativo.',
+    })}
+    ${renderMetaPills([
+      { label: 'Status', value: 'Confirmado' },
+      { label: 'Pagamento', value: paymentMethod || 'Aprovado' },
+      { label: 'Total', value: fmtBRL(total) },
+    ])}
+    <div style="margin-top:6px;color:#cbd5e1;font-size:14px;line-height:1.7;">
+      Olá <b style="color:#f8fafc;">${esc(customer?.name || 'cliente')}</b>! Seu pedido foi confirmado com sucesso.
+      Agora nossa equipe fará a conferência e avisará você quando a produção começar.
     </div>
-    ${intro}
     ${meta}
     ${delivery}
     ${itemsTable}
-    <div style="margin-top:14px;padding:12px 14px;border-radius:14px;background:rgba(6,182,212,.08);border:1px solid rgba(6,182,212,.18);color:#cffafe;font-size:12px;line-height:1.55;">Você pode acompanhar o andamento do pedido pela aba <b style="color:#e2e8f0;">Meus pedidos</b> no site.</div>
-    ${help}
+    <div style="margin-top:16px;padding:14px 15px;border-radius:14px;background:rgba(6,182,212,.09);border:1px solid rgba(103,232,249,.20);color:#cffafe;font-size:12px;line-height:1.65;">
+      <b style="color:#f8fafc;">Próximas atualizações:</b> início da produção, peça pronta, postagem com rastreio e confirmação de entrega.
+    </div>
+    ${accountUrl ? `<div style="margin-top:17px;">${renderActionButton(accountUrl, 'Acompanhar meu pedido')}</div>` : ''}
+    ${renderSupportCard({ supportEmail, whatsapp })}
   `;
 
-  const subject = withBrandSubject(brandName, "Seu pedido foi confirmado");
-
   return {
-    subject,
+    subject: withBrandSubject(brandName, `Pedido confirmado — ${shortId}`),
     html: renderLayout({
-      title: "Pedido confirmado",
-      preheader: `Pedido ${orderId ? String(orderId).slice(0, 8) : ""} • ${fmtBRL(total)} • ${paymentMethod || ""}`,
+      title: 'Pedido confirmado',
+      preheader: `Pedido ${shortId} • ${fmtBRL(total)} • pagamento aprovado`,
       brandName,
       contentHtml,
-      footerNote: "Obrigado por comprar com a gente 💚",
+      footerNote: 'Confirmação automática de pagamento e criação do pedido.',
+      siteUrl: baseUrl,
     }),
   };
 }
@@ -433,11 +497,15 @@ export function renderOrderStatusEmail(payload) {
     orderId,
     customerName,
     nextStatus,
+    notificationKind = 'status',
     shippingTracking,
+    shippingCarrier,
     trackingUrl,
     productionEta,
     cancelledBy,
     reviewLink,
+    orderUrl,
+    siteUrl,
     supportEmail,
     whatsapp,
     total,
@@ -450,24 +518,33 @@ export function renderOrderStatusEmail(payload) {
 
   const shortId = orderId ? String(orderId).slice(0, 8) : '-';
   const status = String(nextStatus || '').toLowerCase();
+  const kind = String(notificationKind || 'status').toLowerCase();
   const isVipOrder = String(orderType || '').toLowerCase() === 'vip';
+  const baseUrl = getSiteUrl(siteUrl);
+  const accountUrl = String(orderUrl || (baseUrl ? `${baseUrl}/#/conta` : '')).trim();
   const selectedVipItems = Array.isArray(vipSelection?.selected_options) ? vipSelection.selected_options : [];
   const regularItems = Array.isArray(items) ? items : [];
   const hasVisualItems = isVipOrder ? selectedVipItems.length > 0 : regularItems.length > 0;
+  const carrierRaw = String(shippingCarrier || '').trim().toLowerCase();
+  const carrierLabel = ({ correios: 'Correios', jadlog: 'Jadlog', loggi: 'Loggi' })[carrierRaw] || String(shippingCarrier || '').trim();
+  const paymentLabel = formatPaymentLabel(paymentMethod);
+
   const titleByStatus = {
-    recebido: isVipOrder ? 'Seu ciclo VIP foi confirmado' : 'Pedido recebido',
-    editavel: 'Seu ciclo VIP está aberto para escolhas',
-    em_producao: isVipOrder ? 'Suas miniaturas VIP entraram em produção' : 'Seu pedido entrou em produção',
-    pronto: isVipOrder ? 'Seu envio VIP está pronto' : 'Seu pedido está pronto',
-    enviado: isVipOrder ? 'Seu envio VIP foi despachado' : 'Seu pedido foi enviado',
-    entregue: isVipOrder ? 'Seu envio VIP foi entregue' : 'Pedido entregue',
+    recebido: isVipOrder ? 'Ciclo VIP confirmado' : 'Pedido recebido',
+    editavel: isVipOrder ? 'Escolhas do ciclo liberadas' : 'Pedido aguardando ajustes',
+    em_producao: isVipOrder ? 'Miniaturas VIP em produção' : 'Pedido em produção',
+    pronto: isVipOrder ? 'Envio VIP pronto' : 'Pedido pronto',
+    enviado: isVipOrder ? 'Envio VIP despachado' : 'Pedido enviado',
+    entregue: isVipOrder ? 'Envio VIP entregue' : 'Pedido entregue',
     cancelado: 'Pedido cancelado',
     reembolsado: 'Pedido reembolsado',
   };
-  const baseTitle = titleByStatus[status] || 'Atualização do pedido';
-  const subject = withBrandSubject(brandName, `${baseTitle} — Pedido ${shortId}`);
 
-  let intro = 'Seu pedido teve uma atualização de status.';
+  let baseTitle = titleByStatus[status] || 'Atualização do pedido';
+  if (kind === 'tracking') baseTitle = 'Rastreio atualizado';
+  if (kind === 'eta') baseTitle = 'Previsão de produção atualizada';
+
+  let intro = 'Seu pedido recebeu uma atualização.';
   let highlight = '';
   let ctaHref = '';
   let ctaText = '';
@@ -475,144 +552,320 @@ export function renderOrderStatusEmail(payload) {
   let accentBorder = 'rgba(6,182,212,.25)';
   let accentColor = '#a5f3fc';
 
-  if (status === 'recebido') {
+  if (kind === 'tracking') {
+    intro = isVipOrder
+      ? 'Atualizamos os dados de rastreio do seu envio VIP.'
+      : 'Atualizamos os dados de rastreio do seu pedido.';
+    highlight = shippingTracking
+      ? `Novo código de rastreio: ${shippingTracking}${carrierLabel ? ` • ${carrierLabel}` : ''}.`
+      : 'Os dados de transporte foram atualizados pela nossa equipe.';
+    ctaHref = trackingUrl || accountUrl;
+    ctaText = trackingUrl ? 'Acompanhar entrega' : 'Ver meu pedido';
+    accent = 'rgba(168,85,247,.12)';
+    accentBorder = 'rgba(168,85,247,.25)';
+    accentColor = '#ddd6fe';
+  } else if (kind === 'eta') {
+    intro = 'A previsão informada para a produção do seu pedido foi atualizada.';
+    highlight = productionEta
+      ? `Nova estimativa: ${productionEta}.`
+      : 'Consulte a área de pedidos para acompanhar a estimativa mais recente.';
+    ctaHref = accountUrl;
+    ctaText = 'Ver andamento do pedido';
+    accent = 'rgba(245,158,11,.12)';
+    accentBorder = 'rgba(245,158,11,.25)';
+    accentColor = '#fde68a';
+  } else if (status === 'recebido') {
     if (isVipOrder) {
-      intro = 'Seu ciclo VIP foi confirmado e em breve vamos produzir as miniaturas escolhidas para este mês.';
+      intro = 'Seu ciclo VIP foi confirmado e já está registrado em nossa fila.';
       highlight = hasVisualItems
-        ? 'Assim que sua seleção estiver liberada para produção, você receberá novas atualizações por aqui.'
-        : 'Seu acesso VIP já está ativo. Vá até a Área VIP para conferir o ciclo e suas escolhas.';
-      ctaHref = reviewLink || '';
-      ctaText = 'Abrir Área VIP';
+        ? 'Sua seleção foi registrada. Avisaremos quando as miniaturas entrarem em produção.'
+        : 'Acesse a Área VIP para conferir o ciclo e registrar suas escolhas.';
+      ctaHref = reviewLink || accountUrl;
+      ctaText = reviewLink ? 'Abrir Área VIP' : 'Ver meu pedido';
     } else {
-      intro = 'Recebemos seu pedido e o pagamento foi confirmado. Agora ele entrou na nossa fila de atendimento.';
-      highlight = 'Avisaremos por e-mail quando a produção começar e quando seu envio estiver pronto para postagem.';
+      intro = 'Seu pedido foi recebido e está aguardando a próxima etapa do atendimento.';
+      highlight = 'Você será avisado quando a produção começar.';
+      ctaHref = accountUrl;
+      ctaText = 'Acompanhar pedido';
     }
-    accent = 'rgba(34,197,94,.12)'; accentBorder = 'rgba(34,197,94,.25)'; accentColor = '#bbf7d0';
+    accent = 'rgba(34,197,94,.12)';
+    accentBorder = 'rgba(34,197,94,.25)';
+    accentColor = '#bbf7d0';
   } else if (status === 'editavel') {
-    intro = 'Seu ciclo VIP está aberto para personalização.';
-    highlight = 'Escolha suas miniaturas na Área VIP para que possamos seguir para produção sem atrasos.';
-    ctaHref = reviewLink || '';
-    ctaText = 'Escolher minhas miniaturas';
-    accent = 'rgba(168,85,247,.12)'; accentBorder = 'rgba(168,85,247,.25)'; accentColor = '#ddd6fe';
+    intro = isVipOrder
+      ? 'As escolhas do seu ciclo VIP estão liberadas.'
+      : 'Seu pedido está aguardando a confirmação de alguns detalhes antes da produção.';
+    highlight = isVipOrder
+      ? 'Selecione as miniaturas dentro do prazo do ciclo para que a produção siga sem atrasos.'
+      : 'Acompanhe a área de pedidos ou aguarde o contato da nossa equipe.';
+    ctaHref = reviewLink || accountUrl;
+    ctaText = isVipOrder ? 'Escolher miniaturas' : 'Ver meu pedido';
+    accent = 'rgba(168,85,247,.12)';
+    accentBorder = 'rgba(168,85,247,.25)';
+    accentColor = '#ddd6fe';
   } else if (status === 'em_producao') {
     intro = isVipOrder
-      ? 'Suas miniaturas escolhidas já estão em processo de produção no estúdio.'
-      : 'Seu pedido já entrou em produção e estamos trabalhando na sua peça.';
+      ? 'As miniaturas selecionadas já entraram em produção no estúdio.'
+      : 'Seu pedido entrou em produção e nossa equipe já está trabalhando nele.';
     highlight = productionEta
-      ? `Estimativa informada pela loja: ${productionEta}.`
-      : (isVipOrder
-        ? 'Assim que finalizarmos a produção, você receberá um novo aviso por e-mail com a próxima etapa.'
-        : 'Em breve enviaremos a próxima atualização com o andamento do pedido.');
+      ? `Estimativa atual: ${productionEta}.`
+      : 'Avisaremos assim que a produção for concluída.';
+    ctaHref = accountUrl;
+    ctaText = 'Ver andamento';
   } else if (status === 'pronto') {
     intro = isVipOrder
-      ? 'Suas miniaturas VIP ficaram prontas e estão em preparação final para postagem.'
-      : 'Sua peça ficou pronta e agora está sendo preparada para envio.';
-    highlight = 'Assim que o pedido for postado, você receberá o código de rastreio por e-mail.';
-    accent = 'rgba(245,158,11,.12)'; accentBorder = 'rgba(245,158,11,.25)'; accentColor = '#fde68a';
+      ? 'As miniaturas do seu ciclo ficaram prontas e estão em preparação para postagem.'
+      : 'Seu pedido ficou pronto e está em preparação para envio.';
+    highlight = 'Quando a postagem for realizada, enviaremos o código de rastreio por e-mail.';
+    ctaHref = accountUrl;
+    ctaText = 'Ver meu pedido';
+    accent = 'rgba(245,158,11,.12)';
+    accentBorder = 'rgba(245,158,11,.25)';
+    accentColor = '#fde68a';
   } else if (status === 'enviado') {
     intro = isVipOrder
-      ? 'Seu envio VIP foi despachado e já está a caminho do seu endereço.'
-      : 'Seu pedido foi enviado e já está a caminho do seu endereço.';
+      ? 'Seu envio VIP foi despachado e está a caminho.'
+      : 'Seu pedido foi despachado e está a caminho do endereço informado.';
     highlight = shippingTracking
-      ? `Código de rastreio: ${shippingTracking}`
-      : 'O envio foi realizado. Se o rastreio ainda não apareceu, ele pode ser atualizado em breve.';
-    ctaHref = trackingUrl || '';
-    ctaText = trackingUrl ? 'Acompanhar envio' : '';
-    accent = 'rgba(168,85,247,.12)'; accentBorder = 'rgba(168,85,247,.25)'; accentColor = '#ddd6fe';
+      ? `Código de rastreio: ${shippingTracking}${carrierLabel ? ` • ${carrierLabel}` : ''}.`
+      : 'A postagem foi registrada. O rastreio pode levar algum tempo para aparecer no sistema da transportadora.';
+    ctaHref = trackingUrl || accountUrl;
+    ctaText = trackingUrl ? 'Acompanhar entrega' : 'Ver meu pedido';
+    accent = 'rgba(168,85,247,.12)';
+    accentBorder = 'rgba(168,85,247,.25)';
+    accentColor = '#ddd6fe';
   } else if (status === 'entregue') {
     intro = isVipOrder
-      ? 'Seu envio VIP foi marcado como entregue. Esperamos que você tenha curtido muito as miniaturas 💚'
-      : 'Seu pedido foi marcado como entregue. Esperamos que você tenha curtido sua peça 💚';
-    highlight = 'Sua avaliação ajuda muito nossa loja e outros clientes.';
-    ctaHref = reviewLink || '';
-    ctaText = isVipOrder ? 'Avaliar meu envio VIP' : 'Avaliar meu pedido';
-    accent = 'rgba(34,197,94,.12)'; accentBorder = 'rgba(34,197,94,.25)'; accentColor = '#bbf7d0';
+      ? 'Seu envio VIP foi marcado como entregue. Esperamos que você aproveite muito as miniaturas.'
+      : 'Seu pedido foi marcado como entregue. Esperamos que você tenha gostado da sua peça.';
+    highlight = 'Sua avaliação ajuda a Cubo Criativo e também outros clientes.';
+    ctaHref = reviewLink || accountUrl;
+    ctaText = reviewLink ? (isVipOrder ? 'Avaliar envio VIP' : 'Avaliar pedido') : 'Ver meu pedido';
+    accent = 'rgba(34,197,94,.12)';
+    accentBorder = 'rgba(34,197,94,.25)';
+    accentColor = '#bbf7d0';
   } else if (status === 'cancelado') {
     intro = cancelledBy === 'customer'
-      ? 'Recebemos sua solicitação de cancelamento. Se houve pagamento, o reembolso seguirá conforme a forma de pagamento.'
-      : 'Seu pedido foi cancelado pela loja. Se houve pagamento, o reembolso seguirá conforme a forma de pagamento.';
-    highlight = cancelledBy === 'customer'
-      ? 'Se precisar de ajuda para refazer o pedido, conte com a gente.'
-      : 'Se precisar de suporte ou quiser refazer o pedido, estamos à disposição.';
-    accent = 'rgba(239,68,68,.12)'; accentBorder = 'rgba(239,68,68,.25)'; accentColor = '#fecaca';
+      ? 'Registramos sua solicitação de cancelamento.'
+      : 'Seu pedido foi cancelado pela loja.';
+    highlight = 'Se houve pagamento, a análise e o reembolso seguirão as condições informadas para o pedido.';
+    ctaHref = accountUrl;
+    ctaText = 'Consultar pedido';
+    accent = 'rgba(239,68,68,.12)';
+    accentBorder = 'rgba(239,68,68,.25)';
+    accentColor = '#fecaca';
   } else if (status === 'reembolsado') {
-    intro = 'Seu pedido foi reembolsado com sucesso.';
-    highlight = 'O valor será devolvido conforme o prazo da sua forma de pagamento e da operadora/banco.';
-    accent = 'rgba(245,158,11,.12)'; accentBorder = 'rgba(245,158,11,.25)'; accentColor = '#fde68a';
+    intro = 'O reembolso do seu pedido foi registrado.';
+    highlight = 'O prazo para o valor aparecer depende da forma de pagamento, do banco ou da operadora.';
+    ctaHref = accountUrl;
+    ctaText = 'Consultar pedido';
+    accent = 'rgba(245,158,11,.12)';
+    accentBorder = 'rgba(245,158,11,.25)';
+    accentColor = '#fde68a';
   }
 
   const pills = `
-    <div style="display:flex;gap:10px;flex-wrap:wrap;margin:0 0 12px;">
-      <span style="display:inline-block;padding:6px 10px;border-radius:999px;background:${accent};border:1px solid ${accentBorder};color:${accentColor};font-weight:800;font-size:12px;">${esc(statusLabelPt(status))}</span>
-      ${isVipOrder ? `<span style="display:inline-block;padding:6px 10px;border-radius:999px;background:rgba(168,85,247,.12);border:1px solid rgba(168,85,247,.25);color:#ddd6fe;font-weight:800;font-size:12px;">Clube VIP</span>` : `<span style="display:inline-block;padding:6px 10px;border-radius:999px;background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.25);color:#bbf7d0;font-weight:800;font-size:12px;">Loja</span>`}
-      ${vipPlanId ? `<span style="display:inline-block;padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);color:#e2e8f0;font-weight:800;font-size:12px;">${esc(String(vipPlanId).replaceAll('_', ' '))}</span>` : ''}
-      ${paymentMethod ? `<span style="display:inline-block;padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);color:#e2e8f0;font-weight:800;font-size:12px;">${esc(paymentMethod)}</span>` : ''}
-      ${Number.isFinite(Number(total)) ? `<span style="display:inline-block;padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);color:#e2e8f0;font-weight:800;font-size:12px;">${esc(fmtBRL(total))}</span>` : ''}
+    <div style="margin:0 0 6px;">
+      <span style="display:inline-block;padding:7px 11px;border-radius:999px;background:${accent};border:1px solid ${accentBorder};color:${accentColor};font-weight:800;font-size:12px;margin:0 7px 8px 0;">${esc(statusLabelPt(status))}</span>
+      <span style="display:inline-block;padding:7px 11px;border-radius:999px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.10);color:#e2e8f0;font-weight:800;font-size:12px;margin:0 7px 8px 0;">${isVipOrder ? 'Clube VIP' : 'Loja'}</span>
+      ${paymentLabel ? `<span style="display:inline-block;padding:7px 11px;border-radius:999px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.10);color:#e2e8f0;font-weight:800;font-size:12px;margin:0 7px 8px 0;">${esc(paymentLabel)}</span>` : ''}
+      ${Number.isFinite(Number(total)) ? `<span style="display:inline-block;padding:7px 11px;border-radius:999px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.10);color:#e2e8f0;font-weight:800;font-size:12px;margin:0 7px 8px 0;">${esc(fmtBRL(total))}</span>` : ''}
     </div>`;
 
   const meta = renderKeyValueCard(isVipOrder ? 'Resumo do ciclo' : 'Resumo do pedido', [
     { label: 'Pedido', value: shortId },
     { label: 'Status', value: statusLabelPt(status) },
+    { label: 'Plano VIP', value: vipPlanId ? String(vipPlanId).replaceAll('_', ' ') : '' },
     { label: 'Estimativa', value: productionEta || '' },
+    { label: 'Transportadora', value: carrierLabel || '' },
     { label: 'Rastreio', value: shippingTracking || '' },
-    { label: 'Link do rastreio', value: trackingUrl || '' },
+    { label: 'Total', value: Number.isFinite(Number(total)) ? fmtBRL(total) : '' },
   ]);
 
-  const shouldShowItemImages = status === 'recebido' || status === 'em_producao';
-
+  const shouldShowItemImages = kind === 'status' && (status === 'recebido' || status === 'em_producao');
   const visualBlock = !shouldShowItemImages
     ? ''
     : isVipOrder
       ? renderShowcaseGrid(
-          selectedVipItems.map((it) => ({ name: it?.title || it?.name, image_url: it?.image_url || it?.img, subtitle: 'Miniatura selecionada' })),
+          selectedVipItems.map((it) => ({
+            name: it?.title || it?.name,
+            image_url: it?.image_url || it?.img,
+            subtitle: 'Miniatura selecionada',
+          })),
           {
-            title: status === 'em_producao' ? 'Miniaturas que já estão em produção' : 'Miniaturas selecionadas para este ciclo',
-            emptyText: status === 'em_producao' ? 'As miniaturas deste ciclo já estão em produção. Assim que houver novas imagens ou rastreio, avisaremos por aqui.' : '',
+            title: status === 'em_producao' ? 'Miniaturas em produção' : 'Miniaturas selecionadas',
+            emptyText: status === 'em_producao'
+              ? 'As miniaturas deste ciclo já estão em produção. Avisaremos quando houver uma nova etapa.'
+              : '',
           }
         )
       : renderShowcaseGrid(
-          regularItems.map((it) => ({ name: it?.name || it?.product_name, image_url: it?.img || it?.product_image_url, subtitle: it?.scale ? `Escala ${it.scale}` : '' })),
-          {
-            title: status === 'em_producao' ? 'Itens em produção' : 'Itens do seu pedido',
-            emptyText: '',
-          }
+          regularItems.map((it) => ({
+            name: it?.name || it?.product_name,
+            image_url: it?.img || it?.product_image_url,
+            subtitle: it?.scale ? `Escala ${it.scale}` : '',
+          })),
+          { title: status === 'em_producao' ? 'Itens em produção' : 'Itens do pedido' }
         );
 
-  const supportBox = `
-    <div style="margin-top:14px;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);color:#cbd5e1;font-size:12px;line-height:1.55;">
-      ${whatsapp ? `WhatsApp: <b style="color:#e2e8f0;">${esc(whatsapp)}</b>` : ''}
-      ${whatsapp && supportEmail ? '<br/>' : ''}
-      ${supportEmail ? `Email: <b style="color:#e2e8f0;">${esc(supportEmail)}</b>` : ''}
-      ${!whatsapp && !supportEmail ? 'Se precisar de ajuda, responda este e-mail.' : ''}
-    </div>`;
-
-  const cta = ctaHref && ctaText ? `
-    <div style="margin-top:16px;">
-      <a href="${esc(ctaHref)}" style="display:inline-block;padding:11px 16px;border-radius:12px;background:linear-gradient(135deg,#22c55e,#06b6d4);color:#04110d;text-decoration:none;font-weight:800;">${esc(ctaText)}</a>
-    </div>` : '';
+  const primaryAction = ctaHref && ctaText ? renderActionButton(ctaHref, ctaText) : '';
+  const secondaryAction = accountUrl && ctaHref && accountUrl !== ctaHref
+    ? renderActionButton(accountUrl, 'Ver detalhes do pedido', { secondary: true })
+    : '';
 
   const contentHtml = `
-    <div style="color:#cbd5e1;font-size:13px;line-height:1.65;">Olá <b style="color:#e2e8f0;">${esc(customerName || 'cliente')}</b>!<br/>${esc(intro)}</div>
-    <div style="margin-top:14px;padding:12px 14px;border-radius:14px;background:${accent};border:1px solid ${accentBorder};color:${accentColor};font-size:12px;line-height:1.55;">${esc(highlight)}</div>
+    ${renderEmailSummaryBanner({
+      eyebrow: kind === 'tracking' ? 'Transporte' : kind === 'eta' ? 'Produção' : 'Atualização do pedido',
+      title: baseTitle,
+      description: `Pedido ${shortId}`,
+    })}
+    ${pills}
+    <div style="color:#cbd5e1;font-size:14px;line-height:1.7;">
+      Olá <b style="color:#f8fafc;">${esc(customerName || 'cliente')}</b>! ${esc(intro)}
+    </div>
+    <div style="margin-top:14px;padding:13px 15px;border-radius:14px;background:${accent};border:1px solid ${accentBorder};color:${accentColor};font-size:12px;line-height:1.65;">${esc(highlight)}</div>
+    ${meta}
     ${visualBlock}
-    ${cta}
-    ${supportBox}
+    ${primaryAction || secondaryAction ? `<div style="margin-top:18px;">${primaryAction}${secondaryAction}</div>` : ''}
+    ${renderSupportCard({ supportEmail, whatsapp })}
   `;
 
+  const subjectPrefix = kind === 'tracking'
+    ? 'Rastreio atualizado'
+    : kind === 'eta'
+      ? 'Previsão atualizada'
+      : baseTitle;
+
   return {
-    subject,
+    subject: withBrandSubject(brandName, `${subjectPrefix} — ${shortId}`),
     html: renderLayout({
       title: baseTitle,
-      preheader: `Pedido ${shortId} • ${statusLabelPt(status)}`,
+      preheader: `Pedido ${shortId} • ${kind === 'tracking' ? 'rastreio atualizado' : kind === 'eta' ? 'previsão atualizada' : statusLabelPt(status)}`,
       brandName,
       contentHtml,
-      footerNote: 'Mensagem automática com atualização do seu pedido.',
+      footerNote: 'Notificação automática sobre o andamento do seu pedido.',
+      siteUrl: baseUrl,
     }),
   };
 }
 
 
+export function renderPixReminderEmail(payload) {
+  const {
+    brandName,
+    orderId,
+    customerName,
+    total,
+    paymentUrl,
+    orderUrl,
+    siteUrl,
+    supportEmail,
+    whatsapp,
+  } = payload || {};
+  const shortId = orderId ? String(orderId).slice(0, 8) : '-';
+  const baseUrl = getSiteUrl(siteUrl);
+  const accountUrl = String(orderUrl || (baseUrl ? `${baseUrl}/#/conta` : '')).trim();
 
+  const contentHtml = `
+    ${renderEmailSummaryBanner({
+      eyebrow: 'Pagamento pendente',
+      title: 'Seu Pix ainda não foi confirmado',
+      description: `Pedido ${shortId} • ${fmtBRL(total)}`,
+    })}
+    ${renderMetaPills([
+      { label: 'Pedido', value: shortId },
+      { label: 'Valor', value: fmtBRL(total) },
+      { label: 'Status', value: 'Aguardando Pix' },
+    ])}
+    <div style="margin-top:6px;color:#cbd5e1;font-size:14px;line-height:1.7;">
+      Olá <b style="color:#f8fafc;">${esc(customerName || 'cliente')}</b>! O pagamento Pix do seu pedido ainda aparece como pendente.
+    </div>
+    <div style="margin-top:14px;padding:13px 15px;border-radius:14px;background:rgba(245,158,11,.10);border:1px solid rgba(245,158,11,.24);color:#fde68a;font-size:12px;line-height:1.65;">
+      Se você já realizou o pagamento, pode ignorar esta mensagem. A confirmação pode levar alguns minutos.
+    </div>
+    ${renderKeyValueCard('Resumo do pagamento', [
+      { label: 'Pedido', value: shortId },
+      { label: 'Forma', value: 'Pix' },
+      { label: 'Valor', value: fmtBRL(total) },
+      { label: 'Status', value: 'Pendente' },
+    ])}
+    ${paymentUrl || accountUrl ? `<div style="margin-top:18px;">${renderActionButton(paymentUrl || accountUrl, paymentUrl ? 'Abrir pagamento Pix' : 'Ver pedido')}${paymentUrl && accountUrl ? renderActionButton(accountUrl, 'Ver meus pedidos', { secondary: true }) : ''}</div>` : ''}
+    ${renderSupportCard({ supportEmail, whatsapp })}
+  `;
+
+  return {
+    subject: withBrandSubject(brandName, `Pix pendente — pedido ${shortId}`),
+    html: renderLayout({
+      title: 'Lembrete de pagamento Pix',
+      preheader: `Pedido ${shortId} • Pix pendente • ${fmtBRL(total)}`,
+      brandName,
+      contentHtml,
+      footerNote: 'Lembrete automático de pagamento pendente. Se o Pix já foi pago, desconsidere.',
+      siteUrl: baseUrl,
+    }),
+  };
+}
+
+export function renderManualOrderPaymentEmail(payload) {
+  const {
+    brandName,
+    orderId,
+    customerName,
+    total,
+    paymentUrl,
+    orderUrl,
+    siteUrl,
+    items,
+    supportEmail,
+    whatsapp,
+  } = payload || {};
+  const shortId = orderId ? String(orderId).slice(0, 8) : '-';
+  const baseUrl = getSiteUrl(siteUrl);
+  const accountUrl = String(orderUrl || (baseUrl ? `${baseUrl}/#/conta` : '')).trim();
+
+  const contentHtml = `
+    ${renderEmailSummaryBanner({
+      eyebrow: 'Pedido preparado pela equipe',
+      title: 'Seu link de pagamento está pronto',
+      description: `Pedido ${shortId} • ${fmtBRL(total)}`,
+    })}
+    ${renderMetaPills([
+      { label: 'Pedido', value: shortId },
+      { label: 'Total', value: fmtBRL(total) },
+      { label: 'Status', value: 'Aguardando pagamento' },
+    ])}
+    <div style="margin-top:6px;color:#cbd5e1;font-size:14px;line-height:1.7;">
+      Olá <b style="color:#f8fafc;">${esc(customerName || 'cliente')}</b>! A equipe da Cubo Criativo preparou um pedido para você.
+      Confira os itens abaixo e use o botão para concluir o pagamento com segurança.
+    </div>
+    ${renderKeyValueCard('Resumo do pedido', [
+      { label: 'Pedido', value: shortId },
+      { label: 'Total', value: fmtBRL(total) },
+      { label: 'Status', value: 'Aguardando pagamento' },
+    ])}
+    <div style="margin-top:16px;">
+      <div style="font-size:13px;font-weight:800;color:#f8fafc;margin-bottom:7px;">Itens</div>
+      ${renderItemsTable(items)}
+    </div>
+    <div style="margin-top:14px;padding:13px 15px;border-radius:14px;background:rgba(6,182,212,.09);border:1px solid rgba(103,232,249,.20);color:#cffafe;font-size:12px;line-height:1.65;">
+      Sua conta de acompanhamento já está vinculada a este e-mail. Depois do pagamento, o pedido aparecerá em <b>Meus pedidos</b>.
+    </div>
+    ${paymentUrl || accountUrl ? `<div style="margin-top:18px;">${renderActionButton(paymentUrl || accountUrl, paymentUrl ? 'Pagar meu pedido' : 'Ver pedido')}${paymentUrl && accountUrl ? renderActionButton(accountUrl, 'Acessar minha conta', { secondary: true }) : ''}</div>` : ''}
+    ${renderSupportCard({ supportEmail, whatsapp })}
+  `;
+
+  return {
+    subject: withBrandSubject(brandName, `Pedido criado para você — ${shortId}`),
+    html: renderLayout({
+      title: 'Pedido aguardando pagamento',
+      preheader: `Pedido ${shortId} • ${fmtBRL(total)} • link de pagamento`,
+      brandName,
+      contentHtml,
+      footerNote: 'Mensagem automática referente a um pedido criado pela equipe da Cubo Criativo.',
+      siteUrl: baseUrl,
+    }),
+  };
+}
 
 export function renderOwnerVipWelcomeEmail(payload) {
   const p = payload || {};

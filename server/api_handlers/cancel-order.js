@@ -4,23 +4,43 @@ import { renderOrderStatusEmail } from "../emailTemplates.js";
 import { rateLimit } from '../rateLimit.js';
 import { cleanupOrder3dModel } from '../order3dCleanup.js';
 
-async function sendResendEmail({to,subject,html}){
-  const apiKey=String(process.env.RESEND_API_KEY||"" ).trim(); const from=String(process.env.RESEND_FROM||"" ).trim();
-  if(!apiKey||!from||!to) return;
-  try { await fetch("https://api.resend.com/emails",{method:"POST",headers:{Authorization:`Bearer ${apiKey}`,"Content-Type":"application/json"},body:JSON.stringify({from,to:[to],subject,html})}); } catch {}
+async function sendResendEmail({ to, subject, html }) {
+  const apiKey = String(process.env.RESEND_API_KEY || '').trim();
+  const from = String(process.env.RESEND_FROM || '').trim();
+  if (!apiKey || !from || !to) return { ok: false, skipped: true };
+  try {
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from, to: [to], subject, html }),
+    });
+    return { ok: response.ok, status: response.status, data: await response.json().catch(() => ({})) };
+  } catch (error) {
+    console.error('cancel order email error', error);
+    return { ok: false, error: error?.message || String(error) };
+  }
 }
+
 function buildCancelEmail(kind, order) {
   const brandName = process.env.BRAND_NAME || 'Cubo Criativo';
-  const supportEmail = process.env.SUPPORT_EMAIL || process.env.RESEND_FROM || '';
+  const supportEmail = process.env.SUPPORT_EMAIL || process.env.ORDER_EMAIL_TO || '';
   const whatsapp = process.env.WHATSAPP_NUMBER || process.env.SUPPORT_WHATSAPP || '';
+  const siteUrl = String(process.env.SITE_URL || process.env.APP_URL || process.env.NEXT_PUBLIC_SITE_URL || '').trim().replace(/\/$/, '');
   return renderOrderStatusEmail({
     brandName,
     orderId: order?.id,
     customerName: order?.customer_name || '',
     nextStatus: 'cancelado',
+    notificationKind: 'status',
     cancelledBy: kind === 'customer' ? 'customer' : 'admin',
     supportEmail,
     whatsapp,
+    total: order?.total,
+    paymentMethod: order?.payment_provider || '',
+    orderType: order?.order_type || 'shop',
+    vipPlanId: order?.vip_plan_id || '',
+    siteUrl,
+    orderUrl: siteUrl ? `${siteUrl}/conta` : '',
   });
 }
 
@@ -50,7 +70,7 @@ if (req.method !== "POST") return res.status(405).json({ error: "Method not allo
 
     const attemptNew = await sb
       .from("orders")
-      .select("id, user_id, status, production_status, customer_email, refund_requested, refund_requested_at, model_3d_url, model_3d_name")
+      .select("id, user_id, status, production_status, customer_email, customer_name, total, payment_provider, order_type, vip_plan_id, refund_requested, refund_requested_at, model_3d_url, model_3d_name")
       .eq("id", orderId)
       .maybeSingle();
 
@@ -60,7 +80,7 @@ if (req.method !== "POST") return res.status(405).json({ error: "Method not allo
     if (ordErr && /refund_requested/i.test(String(ordErr.message || ""))) {
       const attemptOld = await sb
         .from("orders")
-        .select("id, user_id, status, production_status, customer_email")
+        .select("id, user_id, status, production_status, customer_email, customer_name, total, payment_provider, order_type, vip_plan_id")
         .eq("id", orderId)
         .maybeSingle();
       order = attemptOld?.data || null;
@@ -116,8 +136,7 @@ if (req.method !== "POST") return res.status(405).json({ error: "Method not allo
           return res.status(500).json({ error: mark.error.message || "DB error" });
         }
       }
-      { const mail = buildCancelEmail('customer', { ...order, id: orderId }); await sendResendEmail({ to: order.customer_email, subject: mail.subject, html: mail.html }); }
-      return res.status(200).json({ ok: true, order: { ...order, refund_requested: true }, refund_mode: refundMode || "info" });
+      return res.status(200).json({ ok: true, order: { ...order, refund_requested: true }, refund_mode: refundMode || "info", email: { skipped: true, reason: 'already_cancelled' } });
     }
 
     // Se não for recebido, só cancela com confirmação.
@@ -195,8 +214,29 @@ if (req.method !== "POST") return res.status(405).json({ error: "Method not allo
     } catch (rollbackErr) {
       console.error('coupon rollback on cancel error', rollbackErr);
     }
-    { const mail = buildCancelEmail('customer', { ...order, id: orderId }); await sendResendEmail({ to: order.customer_email, subject: mail.subject, html: mail.html }); }
-    return res.status(200).json({ ok: true, order: updated, refund_mode: refundMode });
+    const cancelMail = buildCancelEmail('customer', { ...order, id: orderId });
+    const emailResult = await sendResendEmail({ to: order.customer_email || user.email, subject: cancelMail.subject, html: cancelMail.html });
+    try {
+      const auditPatch = emailResult?.ok
+        ? {
+            last_email_type: 'order_status:cancelado',
+            last_email_status: 'sent',
+            last_email_sent_at: new Date().toISOString(),
+            last_email_error: null,
+          }
+        : {
+            last_email_type: 'order_status:cancelado',
+            last_email_status: emailResult?.skipped ? 'skipped' : 'failed',
+            last_email_error: emailResult?.data?.message || emailResult?.error || null,
+          };
+      const audit = await sb.from('orders').update(auditPatch).eq('id', orderId);
+      if (audit?.error && !/last_email_|column/i.test(String(audit.error.message || ''))) {
+        console.error('cancel order email audit error', audit.error);
+      }
+    } catch (auditError) {
+      console.error('cancel order email audit error', auditError);
+    }
+    return res.status(200).json({ ok: true, order: updated, refund_mode: refundMode, email: emailResult });
   } catch (e) {
     console.error(e);
     return res.status(500).json({ error: "Internal error" });

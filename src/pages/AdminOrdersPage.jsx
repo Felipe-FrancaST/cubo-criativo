@@ -1435,7 +1435,7 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
       if (!resp.ok) throw new Error(json?.error || 'Não foi possível criar o pedido.');
       setResult(json);
       setShowFinalizeChoices(false);
-      showToast?.(paymentAction === 'mark_paid' ? 'Pedido lançado como pago com sucesso.' : 'Pedido criado com sucesso.');
+      showToast?.(json?.email?.ok ? (paymentAction === 'mark_paid' ? 'Pedido pago lançado e confirmação enviada por e-mail.' : 'Pedido criado e link enviado por e-mail.') : (paymentAction === 'mark_paid' ? 'Pedido lançado como pago com sucesso.' : 'Pedido criado com sucesso.'));
       onCreated?.();
     } catch (e) {
       setError(e?.message || 'Erro ao criar pedido.');
@@ -1463,7 +1463,7 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
           <div className="mt-5 grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4 items-start">
             <div className="rounded-3xl bg-emerald-500/10 ring-1 ring-emerald-400/20 p-5">
               <div className="text-emerald-100 text-xl font-extrabold">{result?.payment_link ? 'Pedido criado' : 'Pedido lançado como pago'}</div>
-              <div className="mt-2 text-sm text-emerald-50/90">{result?.payment_link ? 'Compartilhe o link abaixo com o cliente para ele pagar com Pix ou cartão.' : 'O pedido já entrou no sistema como pago e pronto para seguir no fluxo de produção.'}</div>
+              <div className="mt-2 text-sm text-emerald-50/90">{result?.payment_link ? (result?.email?.ok ? 'O link de pagamento foi enviado automaticamente para o e-mail do cliente. Você também pode copiá-lo abaixo.' : 'Compartilhe o link abaixo com o cliente para ele pagar com Pix ou cartão.') : (result?.email?.ok ? 'O pedido entrou no sistema como pago e a confirmação foi enviada para o cliente.' : 'O pedido já entrou no sistema como pago e pronto para seguir no fluxo de produção.')}</div>
               {result?.payment_link ? (
                 <>
                   <div className="mt-4 rounded-2xl bg-black/20 ring-1 ring-white/10 p-4 break-all text-sm text-slate-100">{result?.payment_link}</div>
@@ -2343,7 +2343,9 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
 
       const data = await resp.json().catch(() => ({}));
       if (!resp.ok) throw new Error(data?.error || "Não foi possível atualizar.");
-      showToast("✅ Atualizado!");
+      if (data?.email?.ok) showToast("✅ Atualizado e e-mail enviado ao cliente!");
+      else if (data?.email && !data.email.skipped) showToast("⚠️ Pedido atualizado, mas o e-mail não foi enviado.");
+      else showToast("✅ Atualizado!");
       if (data?.order) {
         setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, ...patch, ...data.order } : o)));
       } else {

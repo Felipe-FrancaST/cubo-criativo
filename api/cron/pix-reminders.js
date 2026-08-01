@@ -17,6 +17,7 @@
 
 import { supabaseAdmin } from "../../server/supabase.js";
 import { cleanupOrder3dModel, shouldCleanupOrder3dForStatus } from "../../server/order3dCleanup.js";
+import { renderPixReminderEmail } from "../../server/emailTemplates.js";
 
 export const config = { runtime: "nodejs" };
 
@@ -62,31 +63,6 @@ async function sendResendEmail({ apiKey, from, to, subject, html }) {
   return { ok: resp.ok, status: resp.status, data };
 }
 
-function renderHtml({ title, bodyHtml, actionUrl }) {
-  const safeTitle = String(title || "");
-  const safeBody = String(bodyHtml || "");
-  const safeUrl = String(actionUrl || "").trim();
-
-  const btn = safeUrl
-    ? `<div style="margin:20px 0">
-         <a href="${safeUrl}" target="_blank" rel="noreferrer"
-            style="display:inline-block;background:#10b981;color:#000;padding:12px 18px;border-radius:10px;text-decoration:none;font-weight:700">
-            Abrir pagamento Pix
-         </a>
-       </div>`
-    : "";
-
-  return `
-  <div style="font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Ubuntu;max-width:640px;margin:0 auto;padding:20px">
-    <h2 style="margin:0 0 12px 0">${safeTitle}</h2>
-    <div style="font-size:14px;line-height:1.55;color:#111">
-      ${safeBody}
-      ${btn}
-      <p style="color:#334155">Você também pode abrir o site e ir em <b>Pedidos</b> para clicar em <b>Pagar</b>.</p>
-      <p style="color:#64748b;font-size:12px">Este é um e-mail automático do Cubo Criativo.</p>
-    </div>
-  </div>`;
-}
 
 export default async function handler(req, res) {
   try {
@@ -117,7 +93,7 @@ export default async function handler(req, res) {
     const attempt = await sb
       .from("orders")
       .select(
-        "id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,created_at,pix_reminder_sent_at"
+        "id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,created_at,pix_reminder_sent_at"
       )
       .eq("payment_provider", "mercado_pago")
       .eq("status", "pending")
@@ -130,7 +106,7 @@ export default async function handler(req, res) {
       queryError = attempt.error;
       const fallback = await sb
         .from("orders")
-        .select("id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,created_at")
+        .select("id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,created_at")
         .eq("payment_provider", "mercado_pago")
         .eq("status", "pending")
         .not("provider_payment_id", "is", null)
@@ -189,25 +165,25 @@ export default async function handler(req, res) {
       }
 
       const amount = typeof o.total === "number" ? o.total : Number(o.total) || 0;
-      const bodyHtml = `
-        <p>Seu pagamento via <b>Pix</b> ainda está pendente.</p>
-        <p><b>Pedido:</b> ${orderId}<br/>
-           <b>Valor:</b> R$ ${amount.toFixed(2).replace(".", ",")}</p>
-        <p>Se você já pagou, pode ignorar este lembrete.</p>
-      `;
-
-      const html = renderHtml({
-        title: "Lembrete: Pix pendente",
-        bodyHtml,
-        actionUrl: ticketUrl,
+      const siteUrl = String(process.env.SITE_URL || process.env.APP_URL || process.env.NEXT_PUBLIC_SITE_URL || '').trim().replace(/\/$/, '');
+      const mail = renderPixReminderEmail({
+        brandName: process.env.BRAND_NAME || 'Cubo Criativo',
+        orderId,
+        customerName: o.customer_name || '',
+        total: amount,
+        paymentUrl: ticketUrl,
+        orderUrl: siteUrl ? `${siteUrl}/conta` : '',
+        siteUrl,
+        supportEmail: process.env.SUPPORT_EMAIL || process.env.ORDER_EMAIL_TO || '',
+        whatsapp: process.env.WHATSAPP_NUMBER || process.env.SUPPORT_WHATSAPP || '',
       });
 
       const emailResp = await sendResendEmail({
         apiKey: resendKey,
         from: resendFrom,
         to,
-        subject: "Lembrete: seu Pix ainda está pendente",
-        html,
+        subject: mail.subject,
+        html: mail.html,
       });
 
       if (!emailResp.ok) {

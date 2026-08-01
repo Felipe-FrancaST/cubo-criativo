@@ -27,6 +27,16 @@ function fmtBRL(value) {
   return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
+function formatPaymentMethod(payment) {
+  const method = String(payment?.payment_method_id || '').trim().toLowerCase();
+  const type = String(payment?.payment_type_id || '').trim().toLowerCase();
+  if (method === 'pix' || type === 'bank_transfer') return 'Pix';
+  if (type === 'credit_card') return method ? `Cartão de crédito (${method.toUpperCase()})` : 'Cartão de crédito';
+  if (type === 'debit_card') return method ? `Cartão de débito (${method.toUpperCase()})` : 'Cartão de débito';
+  if (type === 'ticket') return 'Boleto';
+  return method ? `Mercado Pago (${method})` : 'Mercado Pago';
+}
+
 function escapeHtml(str) {
   return String(str || "")
     .replace(/&/g, "&amp;")
@@ -101,12 +111,19 @@ async function loadOrderSnapshot(sb, orderId) {
 
   let profile = null;
   if (order?.user_id) {
-    const { data: p } = await sb
+    let profileResp = await sb
       .from("profiles")
-      .select("full_name,phone,address_line1,address_line2,neighborhood,city,state,zip")
+      .select("full_name,phone,address_line1,address_number,address_line2,neighborhood,city,state,zip")
       .eq("id", order.user_id)
       .maybeSingle();
-    profile = p || null;
+    if (profileResp?.error && /address_number|column/i.test(String(profileResp.error.message || ''))) {
+      profileResp = await sb
+        .from("profiles")
+        .select("full_name,phone,address_line1,address_line2,neighborhood,city,state,zip")
+        .eq("id", order.user_id)
+        .maybeSingle();
+    }
+    profile = profileResp?.data || null;
   }
 
   // Itens: schema novo -> antigo
@@ -196,8 +213,8 @@ async function sendVipActivationEmail(sb, { order, payment, forceTo } = {}) {
       brandName: process.env.BRAND_NAME || 'Cubo Criativo',
       orderId: order?.id,
       customerName: emailMeta?.customer_name || order?.customer_name || payment?.payer?.first_name || 'cliente',
-      reviewLink: baseUrl ? `${baseUrl}/#/conta` : '',
-      supportEmail: process.env.SUPPORT_EMAIL || process.env.RESEND_FROM || '',
+      reviewLink: baseUrl ? `${baseUrl}/area-vip` : '',
+      supportEmail: process.env.SUPPORT_EMAIL || process.env.ORDER_EMAIL_TO || '',
       whatsapp: process.env.WHATSAPP_NUMBER || process.env.SUPPORT_WHATSAPP || '',
       vipPlanId: planId,
       planName: vipPlan?.name || vipPlan?.short_name || planId,
@@ -213,7 +230,7 @@ async function sendVipActivationEmail(sb, { order, payment, forceTo } = {}) {
         'Acesso ao Cubo Game e benefícios exclusivos do clube',
       ].filter(Boolean),
       total: Number(emailMeta?.total || order?.total) || undefined,
-      paymentMethod: String(payment?.payment_method_id || '').toLowerCase() === 'pix' ? 'Pix' : 'Mercado Pago',
+      paymentMethod: formatPaymentMethod(payment),
     });
     const sendResp = await sendResendEmail({ apiKey, from, to: [to], subject: mail.subject, html: mail.html });
     if (sendResp?.ok) {
@@ -271,8 +288,8 @@ async function sendVipUpgradeEmail(sb, { order, payment, forceTo } = {}) {
       brandName: process.env.BRAND_NAME || 'Cubo Criativo',
       orderId: order.id,
       customerName: emailMeta?.customer_name || order?.customer_name || payment?.payer?.first_name || 'cliente',
-      reviewLink: baseUrl ? `${baseUrl}/#/conta` : '',
-      supportEmail: process.env.SUPPORT_EMAIL || process.env.RESEND_FROM || '',
+      reviewLink: baseUrl ? `${baseUrl}/area-vip` : '',
+      supportEmail: process.env.SUPPORT_EMAIL || process.env.ORDER_EMAIL_TO || '',
       whatsapp: process.env.WHATSAPP_NUMBER || process.env.SUPPORT_WHATSAPP || '',
       fromPlanName: fromPlan?.name || fromPlan?.short_name || fromPlanId || 'Plano atual',
       toPlanName: toPlan?.name || toPlan?.short_name || toPlanId || 'Novo plano VIP',
@@ -285,7 +302,7 @@ async function sendVipUpgradeEmail(sb, { order, payment, forceTo } = {}) {
       bossCount: Number(toPlan?.boss_count || 0) || undefined,
       scale: toPlan?.scale || '',
       recurrenceLabel: 'Mensal',
-      paymentMethod: String(payment?.payment_method_id || '').toLowerCase() === 'pix' ? 'Pix' : 'Mercado Pago',
+      paymentMethod: formatPaymentMethod(payment),
       upgradeHighlights: [
         fromPlan?.name && toPlan?.name ? `Mudança de ${fromPlan.name} para ${toPlan.name}` : null,
         Number(toPlan?.miniatures_count || 0) ? `${Number(toPlan.miniatures_count)} miniatura${Number(toPlan.miniatures_count) > 1 ? 's' : ''}${toPlan?.scale ? ` em ${toPlan.scale}` : ''} por ciclo` : null,
@@ -822,22 +839,25 @@ export default async function handler(req, res) {
     const customerName = String(order?.customer_name || profile?.full_name || "").trim();
     const customerPhone = String(order?.customer_phone || profile?.phone || "").trim();
 
+    const firstAddressLine = [profile?.address_line1, profile?.address_number].filter(Boolean).join(', ');
     const addressLines = [
-      profile?.address_line1,
+      firstAddressLine,
       profile?.address_line2,
       profile?.neighborhood,
       [profile?.city, profile?.state].filter(Boolean).join(" - "),
-      profile?.zip,
+      profile?.zip ? `CEP ${profile.zip}` : '',
     ]
       .map((x) => String(x || "").trim())
       .filter(Boolean);
-    const addressText = addressLines.join("\n");
+    const addressText = addressLines.join(" • ");
+    const siteUrl = String(process.env.SITE_URL || process.env.APP_URL || process.env.NEXT_PUBLIC_SITE_URL || '').trim().replace(/\/$/, '');
+    const paymentMethodLabel = formatPaymentMethod(payment);
 
     const customerPayload = {
-      brandName: 'Cubo Criativo',
+      brandName: process.env.BRAND_NAME || 'Cubo Criativo',
       orderId: orderCode,
       createdAt: order?.created_at || payment?.date_approved || new Date().toISOString(),
-      paymentMethod: 'Pix (Mercado Pago)',
+      paymentMethod: paymentMethodLabel,
       total: totalBRL,
       customer: {
         name: customerName,
@@ -853,7 +873,9 @@ export default async function handler(req, res) {
         img: it?.img || it?.image_url || '',
       })),
       supportEmail: process.env.SUPPORT_EMAIL || process.env.ORDER_EMAIL_TO || '',
-      whatsapp: process.env.WHATSAPP_NUMBER || '',
+      whatsapp: process.env.WHATSAPP_NUMBER || process.env.SUPPORT_WHATSAPP || '',
+      siteUrl,
+      orderUrl: siteUrl ? `${siteUrl}/conta` : '',
     };
 
     let ownerMail;
@@ -865,10 +887,10 @@ export default async function handler(req, res) {
         vipPlanId ? getVipPlanById(sb, vipPlanId) : Promise.resolve(null),
       ]);
       ownerMail = renderOwnerVipUpgradeEmail({
-        brandName: 'Cubo Criativo',
+        brandName: process.env.BRAND_NAME || 'Cubo Criativo',
         orderId: orderCode,
         createdAt: order?.created_at || payment?.date_approved || new Date().toISOString(),
-        paymentMethod: 'Pix (Mercado Pago)',
+        paymentMethod: paymentMethodLabel,
         amountCharged: totalBRL,
         fromPlanName: fromPlan?.name || fromPlan?.short_name || fromPlanId || 'Plano anterior',
         toPlanName: toPlan?.name || toPlan?.short_name || vipPlanId || 'Novo plano VIP',
@@ -882,10 +904,10 @@ export default async function handler(req, res) {
       const vipPlanId = String(order?.vip_plan_id || payment?.metadata?.vip_plan_id || '').trim();
       const vipPlan = vipPlanId ? await getVipPlanById(sb, vipPlanId) : null;
       ownerMail = renderOwnerVipWelcomeEmail({
-        brandName: 'Cubo Criativo',
+        brandName: process.env.BRAND_NAME || 'Cubo Criativo',
         orderId: orderCode,
         createdAt: order?.created_at || payment?.date_approved || new Date().toISOString(),
-        paymentMethod: 'Pix (Mercado Pago)',
+        paymentMethod: paymentMethodLabel,
         total: totalBRL,
         planName: vipPlan?.name || vipPlan?.short_name || vipPlanId || 'Plano VIP',
         planDescription: vipPlan?.description || '',

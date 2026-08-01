@@ -186,7 +186,7 @@ async function applyVipFromOrder(sb, order, payment) {
         }
       }
       if (isValidEmail(to) && !alreadySent) {
-        const baseUrl = String(process.env.APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "").trim().replace(/\/$/, "");
+        const baseUrl = String(process.env.SITE_URL || process.env.APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "").trim().replace(/\/$/, "");
         const paymentMethod = String(payment?.payment_method_id || '').toLowerCase() === 'pix' ? 'Pix' : 'Mercado Pago';
         let mail;
         if (orderTypeNorm === 'vip_upgrade') {
@@ -197,8 +197,8 @@ async function applyVipFromOrder(sb, order, payment) {
             brandName: process.env.BRAND_NAME || "Cubo Criativo",
             orderId: order.id,
             customerName: emailMeta?.customer_name || order.customer_name || payment?.payer?.first_name || "cliente",
-            reviewLink: baseUrl ? `${baseUrl}/#/conta` : "",
-            supportEmail: process.env.SUPPORT_EMAIL || process.env.RESEND_FROM || "",
+            reviewLink: baseUrl ? `${baseUrl}/area-vip` : "",
+            supportEmail: process.env.SUPPORT_EMAIL || process.env.ORDER_EMAIL_TO || "",
             whatsapp: process.env.WHATSAPP_NUMBER || process.env.SUPPORT_WHATSAPP || "",
             fromPlanName: fromPlan?.name || fromPlan?.short_name || fromPlanId || 'Plano atual',
             toPlanName: vipPlan?.name || vipPlan?.short_name || planId,
@@ -224,8 +224,8 @@ async function applyVipFromOrder(sb, order, payment) {
             brandName: process.env.BRAND_NAME || "Cubo Criativo",
             orderId: order.id,
             customerName: emailMeta?.customer_name || order.customer_name || payment?.payer?.first_name || "cliente",
-            reviewLink: baseUrl ? `${baseUrl}/#/conta` : "",
-            supportEmail: process.env.SUPPORT_EMAIL || process.env.RESEND_FROM || "",
+            reviewLink: baseUrl ? `${baseUrl}/area-vip` : "",
+            supportEmail: process.env.SUPPORT_EMAIL || process.env.ORDER_EMAIL_TO || "",
             whatsapp: process.env.WHATSAPP_NUMBER || process.env.SUPPORT_WHATSAPP || "",
             vipPlanId: planId,
             planName: vipPlan?.name || vipPlan?.short_name || planId,

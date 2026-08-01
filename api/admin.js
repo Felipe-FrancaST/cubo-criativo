@@ -15,7 +15,8 @@
 import crypto from "crypto";
 import { supabaseAdmin } from "../server/supabase.js";
 import { requireAdmin } from "../server/admin/adminAuth.js";
-import { renderOrderStatusEmail } from "../server/emailTemplates.js";
+import { renderCustomerOrderEmail, renderManualOrderPaymentEmail, renderOrderStatusEmail } from "../server/emailTemplates.js";
+import { decideOrderEmailNotification } from "../server/orderEmailNotifications.js";
 import { rateLimit } from '../server/rateLimit.js';
 import { formatRewardLabel } from '../server/couponGame.js';
 import { buildControlNumber, buildManualPaymentLink, ensureManualOrderCustomerAccount, normalizeCpf } from '../server/manualOrder.js';
@@ -326,7 +327,8 @@ async function handleManualOrderCreate(req, res) {
     }
   }
 
-  const paymentLink = isPaidManually ? null : buildManualPaymentLink({ baseUrl: getBaseUrl(req), orderId });
+  const siteUrl = getBaseUrl(req);
+  const paymentLink = isPaidManually ? null : buildManualPaymentLink({ baseUrl: siteUrl, orderId });
   await recordOrderEvent(sb, {
     order_id: orderId,
     event_type: isPaidManually ? 'payment_confirmed' : 'order_created',
@@ -337,11 +339,90 @@ async function handleManualOrderCreate(req, res) {
     actor_label: 'Admin',
     metadata: { account_mode: account?.existing ? 'existing' : 'new', total, items_count: cleanedItems.length, payment_action: paymentAction, shipping_carrier: freightCarrier || null, has_model_3d: Boolean(model3dUrl) },
   });
+
+  let customerEmailResult = { ok: false, skipped: true, reason: 'email_not_configured' };
+  try {
+    const emailItems = cleanedItems.map((it) => ({
+      name: it.name,
+      qty: it.qty,
+      scale: it.scale || '',
+      price: it.unit_price_brl,
+      img: it.img || '',
+    }));
+    const supportEmail = process.env.SUPPORT_EMAIL || process.env.ORDER_EMAIL_TO || '';
+    const whatsapp = process.env.WHATSAPP_NUMBER || process.env.SUPPORT_WHATSAPP || '';
+    const addressText = [
+      `${address.address_line1}, ${address.address_number}`,
+      address.address_line2,
+      address.neighborhood,
+      `${address.city}/${address.state}`,
+      `CEP ${address.zip}`,
+    ].filter(Boolean).join(' • ');
+
+    const mail = isPaidManually
+      ? renderCustomerOrderEmail({
+          brandName: process.env.BRAND_NAME || 'Cubo Criativo',
+          orderId,
+          createdAt: new Date().toISOString(),
+          paymentMethod: 'Pagamento confirmado pela equipe',
+          total,
+          customer: { name: fullName, email, phone, address: addressText },
+          items: emailItems,
+          supportEmail,
+          whatsapp,
+          siteUrl,
+          orderUrl: `${siteUrl}/conta`,
+        })
+      : renderManualOrderPaymentEmail({
+          brandName: process.env.BRAND_NAME || 'Cubo Criativo',
+          orderId,
+          customerName: fullName,
+          total,
+          paymentUrl: paymentLink,
+          orderUrl: `${siteUrl}/conta`,
+          siteUrl,
+          items: emailItems,
+          supportEmail,
+          whatsapp,
+        });
+
+    customerEmailResult = await sendResendEmail({ to: email, subject: mail.subject, html: mail.html });
+    const emailType = isPaidManually ? 'manual_order:confirmed' : 'manual_order:payment_link';
+    if (customerEmailResult?.ok) {
+      const stamp = new Date().toISOString();
+      await updateOrderEmailAudit(sb, orderId, {
+        last_email_type: emailType,
+        last_email_status: 'sent',
+        last_email_sent_at: stamp,
+        last_email_error: null,
+      });
+      await recordOrderEvent(sb, {
+        order_id: orderId,
+        event_type: 'email_sent',
+        title: isPaidManually ? 'Confirmação enviada ao cliente' : 'Link de pagamento enviado ao cliente',
+        description: `E-mail enviado para ${email}.`,
+        actor_label: 'Sistema',
+        metadata: { email_type: emailType, email_to: email, provider: 'resend', resend_id: customerEmailResult?.data?.id || null },
+      });
+    } else if (!customerEmailResult?.skipped) {
+      const message = customerEmailResult?.data?.message || customerEmailResult?.data?.error || 'Falha ao enviar e-mail.';
+      await updateOrderEmailAudit(sb, orderId, {
+        last_email_type: emailType,
+        last_email_status: 'failed',
+        last_email_error: message,
+      });
+    }
+  } catch (emailError) {
+    console.error('manual order customer email error', emailError);
+    customerEmailResult = { ok: false, error: emailError?.message || String(emailError) };
+  }
+
   return res.status(200).json({
     ok: true,
     order: { id: orderId, order_number: buildControlNumber(orderId), total, customer_name: fullName, customer_email: email, status: orderPayload.status },
     payment_link: paymentLink,
     account: account?.existing ? { email, existing: true } : { email, password: cpf },
+    email: customerEmailResult,
   });
 }
 
@@ -672,51 +753,77 @@ async function loadOrderEmailContext(sb, order) {
   return out;
 }
 
-async function notifyStatus({ sb, order, nextStatus, shipping_tracking, production_eta, cancelled_by }) {
+async function notifyStatus({
+  sb,
+  order,
+  nextStatus,
+  notificationKind = 'status',
+  shipping_tracking,
+  shipping_carrier,
+  production_eta,
+  cancelled_by,
+}) {
   const to = await resolveCustomerEmail(sb, order);
+  const normalizedKind = String(notificationKind || 'status').toLowerCase();
+  const normalizedStatus = String(nextStatus || order?.production_status || 'recebido').toLowerCase();
+  const emailType = normalizedKind === 'status'
+    ? `order_status:${normalizedStatus}`
+    : `order_${normalizedKind}:${normalizedStatus}`;
+
   if (!to) {
     await updateOrderEmailAudit(sb, order?.id, {
-      last_email_type: 'order_status',
+      last_email_type: emailType,
       last_email_status: 'skipped',
       last_email_error: 'Cliente sem e-mail válido para notificação.',
     });
-    return { ok: false, skipped: true, reason: 'missing_email' };
+    return { ok: false, skipped: true, reason: 'missing_email', emailType };
   }
 
-  const shortId = String(order.id || "").slice(0, 8);
-  const baseUrl = String(process.env.APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "")
+  const shortId = String(order?.id || '').slice(0, 8);
+  const baseUrl = String(
+    process.env.SITE_URL || process.env.APP_URL || process.env.NEXT_PUBLIC_SITE_URL || ''
+  )
     .trim()
-    .replace(/\/$/, "");
-  const reviewLink = baseUrl ? `${baseUrl}/#/conta` : "";
+    .replace(/\/$/, '');
+  const orderUrl = baseUrl ? `${baseUrl}/conta` : '';
+  const reviewLink = String(order?.order_type || '').toLowerCase() === 'vip'
+    ? (baseUrl ? `${baseUrl}/area-vip` : '')
+    : orderUrl;
 
-  const brandName = process.env.BRAND_NAME || "Cubo Criativo";
-  const supportEmail = process.env.SUPPORT_EMAIL || process.env.RESEND_FROM || "";
-  const whatsapp = process.env.WHATSAPP_NUMBER || process.env.SUPPORT_WHATSAPP || "";
-
+  const brandName = process.env.BRAND_NAME || 'Cubo Criativo';
+  const supportEmail = process.env.SUPPORT_EMAIL || process.env.ORDER_EMAIL_TO || '';
+  const whatsapp = process.env.WHATSAPP_NUMBER || process.env.SUPPORT_WHATSAPP || '';
   const emailContext = await loadOrderEmailContext(sb, order);
 
   const mail = renderOrderStatusEmail({
     brandName,
     orderId: order?.id,
     customerName: order?.customer_name,
-    nextStatus,
-    shippingTracking: shipping_tracking || order?.shipping_tracking || order?.tracking_code || "",
-    trackingUrl: order?.tracking_url || "",
-    productionEta: production_eta || order?.production_eta || "",
-    cancelledBy: cancelled_by || "",
+    nextStatus: normalizedStatus,
+    notificationKind: normalizedKind,
+    shippingTracking: shipping_tracking || order?.shipping_tracking || order?.tracking_code || '',
+    shippingCarrier: shipping_carrier || order?.shipping_carrier || '',
+    trackingUrl: order?.tracking_url || '',
+    productionEta: production_eta || order?.production_eta || '',
+    cancelledBy: cancelled_by || '',
     reviewLink,
+    orderUrl,
+    siteUrl: baseUrl,
     supportEmail,
     whatsapp,
     total: order?.total,
     paymentMethod: order?.payment_provider || '',
-    orderType: order?.order_type || "shop",
-    vipPlanId: order?.vip_plan_id || "",
+    orderType: order?.order_type || 'shop',
+    vipPlanId: order?.vip_plan_id || '',
     items: emailContext.items,
     vipSelection: emailContext.vipSelection,
   });
 
-  const emailType = `order_status:${String(nextStatus || '').toLowerCase() || 'updated'}`;
-  const result = await sendResendEmail({ to, subject: mail.subject || `Atualização do pedido — ${shortId}`, html: mail.html });
+  const result = await sendResendEmail({
+    to,
+    subject: mail.subject || `Atualização do pedido — ${shortId}`,
+    html: mail.html,
+  });
 
   if (result?.ok) {
     const stamp = new Date().toISOString();
@@ -729,10 +836,19 @@ async function notifyStatus({ sb, order, nextStatus, shipping_tracking, producti
     await recordOrderEvent(sb, {
       order_id: order?.id,
       event_type: 'email_sent',
-      title: 'E-mail enviado ao cliente',
+      title: normalizedKind === 'tracking'
+        ? 'E-mail de rastreio enviado'
+        : normalizedKind === 'eta'
+          ? 'E-mail de previsão enviado'
+          : 'E-mail de status enviado',
       description: `Template ${emailType} enviado para ${to}.`,
       actor_label: 'Sistema',
-      metadata: { email_type: emailType, email_to: to, provider: 'resend', resend_id: result?.data?.id || null },
+      metadata: {
+        email_type: emailType,
+        email_to: to,
+        provider: 'resend',
+        resend_id: result?.data?.id || null,
+      },
     });
     return { ok: true, to, emailType, provider: result?.data || null };
   }
@@ -2387,6 +2503,7 @@ async function handleUpdateOrder(req, res) {
     next.created_at = parsedCreatedAt.toISOString();
   }
 
+  const hasProductionEtaInput = Object.prototype.hasOwnProperty.call(body || {}, 'production_eta');
   const production_eta = String(body.production_eta || "").trim();
   const cancelled_by = String(body.cancelled_by || "").trim().toLowerCase();
   if (Object.keys(next).length === 0 && !production_eta)
@@ -2403,6 +2520,12 @@ async function handleUpdateOrder(req, res) {
   }
 
   if (production_eta) next.production_eta = production_eta;
+
+  const emailDecision = decideOrderEmailNotification({
+    currentOrder,
+    patch: next,
+    productionEta: hasProductionEtaInput ? production_eta : undefined,
+  });
 
   let updateResp = await sb.from("orders").update(next).eq("id", order_id);
 
@@ -2500,18 +2623,21 @@ async function handleUpdateOrder(req, res) {
 
   const { data: order } = await fetchOrderForAdmin(sb, order_id);
 
-  if (next.production_status) {
-    await notifyStatus({
+  let emailResult = { ok: false, skipped: true, reason: 'no_relevant_change' };
+  if (emailDecision.shouldSend) {
+    emailResult = await notifyStatus({
       sb,
       order: { ...currentOrder, ...order, id: order_id },
-      nextStatus: next.production_status,
-      shipping_tracking: next.shipping_tracking ?? order?.shipping_tracking,
-      production_eta,
+      nextStatus: emailDecision.status,
+      notificationKind: emailDecision.kind,
+      shipping_tracking: next.shipping_tracking ?? next.tracking_code ?? order?.shipping_tracking ?? order?.tracking_code,
+      shipping_carrier: next.shipping_carrier ?? order?.shipping_carrier,
+      production_eta: production_eta || order?.production_eta || '',
       cancelled_by,
     });
   }
 
-  return res.status(200).json({ ok: true });
+  return res.status(200).json({ ok: true, order: order || null, email: emailResult });
 }
 
 
