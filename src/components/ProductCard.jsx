@@ -172,7 +172,6 @@ export default function ProductCard({ p, addToCart, buyNow, openGallery, onRequi
 
         {hasVariants && (
           <div className="mt-3">
-            <label className="text-xs text-slate-400">Escala / Preço</label>
             <select
               className="mt-1 w-full rounded-lg bg-[#0c2430]/68 ring-1 ring-white/10 px-3 py-2 text-xs sm:text-sm"
               value={selIndex}

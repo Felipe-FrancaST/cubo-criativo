@@ -588,7 +588,6 @@ export default function VipRpgPage({
 
                 <div className="rounded-2xl bg-white/4 ring-1 ring-white/10 p-5">
                   <p className="text-sm font-extrabold">Assinar agora</p>
-                  <p className="mt-2 text-sm text-slate-300">Você precisa estar logado e com CPF/endereço preenchidos para garantir o envio.</p>
 
                   {error ? (
                     <div className="mt-3 rounded-2xl bg-rose-500/10 ring-1 ring-rose-500/20 p-3 text-sm text-rose-100">{error}</div>

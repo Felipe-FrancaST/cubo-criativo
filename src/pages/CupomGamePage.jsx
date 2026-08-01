@@ -223,7 +223,6 @@ export default function CupomGamePage({ onGoHome, accessToken, onRequireLogin })
                 <div>
                   <p className="text-xs uppercase tracking-wide text-emerald-200/80">Cupom da semana</p>
                   <p className="mt-1 font-extrabold text-lg text-emerald-100">{status.weekly_reward?.label || 'Carregando...'}</p>
-                  <p className="mt-2 text-sm text-emerald-100/90">Partida perfeita (0 erros) libera cupom especial de 20% OFF.</p>
                 </div>
                 <span className="material-icons text-emerald-200">workspace_premium</span>
               </div>

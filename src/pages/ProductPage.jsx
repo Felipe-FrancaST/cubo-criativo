@@ -187,7 +187,6 @@ export default function ProductPage({ slug, product, loading, onBack, addToCart,
 
             {hasVariants ? (
               <div className="mt-5">
-                <label className="text-sm text-slate-300">Escala / Preço</label>
                 <select
                   className="mt-2 w-full rounded-lg bg-[#0c2430]/68 ring-1 ring-white/10 px-3 py-3 text-base"
                   value={selIndex}
