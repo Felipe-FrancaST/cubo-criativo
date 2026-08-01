@@ -5,6 +5,7 @@ import { badgeBase, copyToClipboard, daysBetween, emailAuditBadge, endOfDay, exp
 import { TRACKING_CARRIERS, inferTrackingCarrierFromUrl, normalizeTrackingCarrier, resolveTrackingCarrier, trackingCarrierLabel } from "../lib/tracking";
 import { fetchAddressFromCep } from "../lib/cep.js";
 import { supabase } from "../lib/supabaseClient.js";
+import AdminProductsSection from "./admin/products/AdminProductsSection.jsx";
 
 
 function safeStorageFileName(name = 'modelo.glb') {
@@ -2802,7 +2803,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <div className="text-2xl font-semibold text-white">Admin</div>
-          <div className="text-sm text-slate-400">Pedidos, produção, rastreio e votação VIP — tudo em um painel.</div>
+          <div className="text-sm text-slate-400">Pedidos, produtos, produção, rastreio e VIP — tudo em um painel.</div>
         </div>
         <div className="grid w-full grid-cols-3 gap-2 sm:flex sm:w-auto sm:items-center">
           <button
@@ -2838,6 +2839,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
           ["production", "view_kanban", "Produção"],
           ["finance", "payments", "Financeiro"],
           ["clients", "groups", "Clientes"],
+          ["products", "inventory", "Produtos"],
           ["coupons", "sell", "Cupons"],
           ["vip", "workspace_premium", "VIP"],
         ].map(([key, icon, label]) => (
@@ -2885,6 +2887,11 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
             <div className="mt-2">
               <SidebarItem active={section === "clients"} icon="groups" onClick={() => setSection("clients")}>
                 Clientes
+              </SidebarItem>
+            </div>
+            <div className="mt-2">
+              <SidebarItem active={section === "products"} icon="inventory" onClick={() => setSection("products")}>
+                Produtos
               </SidebarItem>
             </div>
             <div className="mt-2">
@@ -3563,6 +3570,8 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                 </div>
               </div>
             </div>
+          ) : section === "products" ? (
+            <AdminProductsSection onNotify={showToast} />
           ) : section === "coupons" ? (
             <div className="space-y-4">
               <SectionTitle

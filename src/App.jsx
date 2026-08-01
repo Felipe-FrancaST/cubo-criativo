@@ -1112,6 +1112,13 @@ React.useEffect(() => {
   const [products, setProducts] = React.useState([]);
   const [productsLoading, setProductsLoading] = React.useState(true);
   const [productsError, setProductsError] = React.useState("");
+  const [productsRefreshKey, setProductsRefreshKey] = React.useState(0);
+
+  React.useEffect(() => {
+    const refreshProducts = () => setProductsRefreshKey((current) => current + 1);
+    window.addEventListener("products:changed", refreshProducts);
+    return () => window.removeEventListener("products:changed", refreshProducts);
+  }, []);
 
   React.useEffect(() => {
     let alive = true;
@@ -1150,7 +1157,7 @@ React.useEffect(() => {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [productsRefreshKey]);
 
 
   React.useEffect(() => {
