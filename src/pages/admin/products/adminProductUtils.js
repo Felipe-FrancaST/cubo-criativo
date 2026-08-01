@@ -15,7 +15,17 @@ export const EMPTY_PRODUCT_FORM = {
   sortOrder: "1000",
   imageUrl: "",
   existingImages: [],
+  variants: [],
+  defaultVariantIndex: 0,
 };
+
+export function createEmptyProductForm() {
+  return {
+    ...EMPTY_PRODUCT_FORM,
+    existingImages: [],
+    variants: [],
+  };
+}
 
 export function slugifyProduct(value) {
   return String(value || "")
@@ -83,13 +93,26 @@ export function productRowToForm(row) {
   const promo = Boolean(row?.promo);
   const normalPriceCents = Number(row?.original_price_cents || row?.price_cents || 0);
   const promoPriceCents = promo ? Number(row?.price_cents || 0) : 0;
+  const variants = Array.isArray(row?.variants)
+    ? row.variants
+        .filter(Boolean)
+        .map((variant) => ({
+          label: String(variant?.label || ""),
+          price: centsToInput(variant?.price_cents),
+        }))
+        .filter((variant) => variant.label || variant.price)
+    : [];
+  const savedDefaultVariant = String(row?.default_variant || "");
+  const matchingDefaultIndex = variants.findIndex((variant) => variant.label === savedDefaultVariant);
+  const defaultVariantIndex = variants.length ? (matchingDefaultIndex >= 0 ? matchingDefaultIndex : 0) : 0;
+  const defaultVariantPrice = variants[defaultVariantIndex]?.price || "";
 
   return {
     id: String(row?.id || ""),
     name: String(row?.name || ""),
     slug: String(row?.slug || ""),
     description: String(row?.description || ""),
-    normalPrice: centsToInput(normalPriceCents),
+    normalPrice: defaultVariantPrice || centsToInput(normalPriceCents),
     promo,
     promoPrice: centsToInput(promoPriceCents),
     featured: Boolean(row?.featured),
@@ -103,6 +126,8 @@ export function productRowToForm(row) {
     existingImages: Array.isArray(row?.images)
       ? row.images.filter(Boolean).map(String)
       : (row?.image_url ? [String(row.image_url)] : []),
+    variants,
+    defaultVariantIndex,
   };
 }
 

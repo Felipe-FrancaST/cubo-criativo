@@ -2860,7 +2860,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
       <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-[240px_minmax(0,1fr)] xl:grid-cols-[260px_minmax(0,1fr)]">
         {/* Sidebar */}
         <aside className="hidden lg:block">
-          <div className="sticky top-24 rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-3">
+          <div className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto rounded-2xl bg-white/[0.03] p-3 ring-1 ring-white/10">
             <SidebarItem active={section === "dashboard"} icon="space_dashboard" onClick={() => setSection("dashboard")}>
               Dashboard
             </SidebarItem>
@@ -2904,13 +2904,11 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                 VIP Controle
               </SidebarItem>
             </div>
-            <div className="mt-2">
-            </div>
-          </div>
 
-          <div className="mt-3 rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-3">
-            <div className="text-xs text-slate-500">Conta admin</div>
-            <div className="mt-1 text-sm text-slate-200 break-words">{user?.email}</div>
+            <div className="mt-3 rounded-2xl bg-black/20 p-3 ring-1 ring-white/10">
+              <div className="text-xs text-slate-500">Conta admin</div>
+              <div className="mt-1 break-words text-sm text-slate-200">{user?.email}</div>
+            </div>
           </div>
         </aside>
 

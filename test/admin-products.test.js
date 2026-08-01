@@ -34,3 +34,24 @@ test("mapeia preço promocional para o formulário sem perder imagens", () => {
   assert.equal(form.promoPrice, "199,90");
   assert.equal(form.existingImages.length, 2);
 });
+
+test("carrega escalas, preços e escala padrão no formulário", () => {
+  const form = productRowToForm({
+    id: "2",
+    name: "Miniatura RPG",
+    price_cents: 2500,
+    original_price_cents: 2500,
+    default_variant: "32 mm",
+    variants: [
+      { label: "28 mm", price_cents: 2000 },
+      { label: "32 mm", price_cents: 2500 },
+    ],
+  });
+
+  assert.deepEqual(form.variants, [
+    { label: "28 mm", price: "20,00" },
+    { label: "32 mm", price: "25,00" },
+  ]);
+  assert.equal(form.defaultVariantIndex, 1);
+  assert.equal(form.normalPrice, "25,00");
+});

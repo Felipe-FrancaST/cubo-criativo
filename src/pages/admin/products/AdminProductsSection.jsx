@@ -2,7 +2,7 @@ import React from "react";
 import { supabase } from "../../../lib/supabaseClient.js";
 import { SectionTitle } from "../orders/AdminOrdersComponents.jsx";
 import {
-  EMPTY_PRODUCT_FORM,
+  createEmptyProductForm,
   formatCents,
   getNormalPriceCents,
   parseBrlToCents,
@@ -41,6 +41,8 @@ const PRODUCT_SELECT = [
   "images",
   "status",
   "tags",
+  "default_variant",
+  "variants",
   "category",
   "sort_order",
   "created_at",
@@ -70,6 +72,91 @@ function Toggle({ checked, onChange, label, hint }) {
         {hint ? <span className="mt-0.5 block text-xs text-slate-400">{hint}</span> : null}
       </span>
     </label>
+  );
+}
+
+function VariantEditor({ variants, defaultVariantIndex, onAdd, onUpdate, onRemove, onSetDefault }) {
+  const rows = Array.isArray(variants) ? variants : [];
+
+  return (
+    <section className="rounded-2xl bg-black/20 p-3 ring-1 ring-white/10 sm:p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <div className="text-sm font-bold text-white">Escalas e valores</div>
+          <div className="mt-1 text-xs leading-relaxed text-slate-400">
+            Adicione uma linha para cada escala. A escala marcada como padrão define o preço principal do produto.
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onAdd}
+          disabled={rows.length >= 20}
+          className="shrink-0 rounded-xl bg-cyan-300/10 px-3 py-2 text-xs font-bold text-cyan-100 ring-1 ring-cyan-300/25 hover:bg-cyan-300/15 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <span className="material-icons mr-1 align-middle text-[16px]">add</span>
+          Adicionar escala
+        </button>
+      </div>
+
+      {rows.length ? (
+        <div className="mt-3 space-y-2">
+          {rows.map((variant, index) => (
+            <div key={`variant-${index}`} className="rounded-2xl bg-white/[0.035] p-3 ring-1 ring-white/10">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(150px,0.7fr)_auto] sm:items-end">
+                <label className="block">
+                  <span className="text-xs font-medium text-slate-300">Escala ou opção</span>
+                  <input
+                    value={variant?.label || ""}
+                    onChange={(event) => onUpdate(index, "label", event.target.value)}
+                    placeholder="Ex.: 32 mm"
+                    className="mt-1.5 w-full rounded-xl bg-black/25 px-3 py-2.5 text-sm text-white ring-1 ring-white/10 outline-none focus:ring-cyan-300/40"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-xs font-medium text-slate-300">Valor normal</span>
+                  <div className="mt-1.5 flex rounded-xl bg-black/25 ring-1 ring-white/10 focus-within:ring-cyan-300/40">
+                    <span className="grid place-items-center border-r border-white/10 px-3 text-xs text-slate-400">R$</span>
+                    <input
+                      value={variant?.price || ""}
+                      onChange={(event) => onUpdate(index, "price", event.target.value)}
+                      inputMode="decimal"
+                      placeholder="25,00"
+                      className="min-w-0 flex-1 bg-transparent px-3 py-2.5 text-sm text-white outline-none"
+                    />
+                  </div>
+                </label>
+
+                <button
+                  type="button"
+                  onClick={() => onRemove(index)}
+                  className="rounded-xl px-3 py-2.5 text-xs font-semibold text-rose-200 ring-1 ring-rose-300/20 hover:bg-rose-400/10"
+                  aria-label={`Remover escala ${index + 1}`}
+                >
+                  <span className="material-icons align-middle text-[17px]">delete</span>
+                  <span className="ml-1 sm:hidden">Remover</span>
+                </button>
+              </div>
+
+              <label className="mt-2 inline-flex cursor-pointer items-center gap-2 rounded-full bg-black/20 px-3 py-1.5 text-xs text-slate-300 ring-1 ring-white/10">
+                <input
+                  type="radio"
+                  name="default-product-variant"
+                  checked={Number(defaultVariantIndex) === index}
+                  onChange={() => onSetDefault(index)}
+                  className="h-4 w-4 accent-cyan-300"
+                />
+                Usar como escala padrão
+              </label>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="mt-3 rounded-2xl border border-dashed border-white/15 px-4 py-5 text-center text-sm text-slate-400">
+          Este produto terá um único valor. Use <strong className="text-slate-200">Adicionar escala</strong> para criar preços como 28 mm, 32 mm, 1/10 ou outras opções.
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -133,6 +220,11 @@ function ProductCard({ product, onEdit, onToggleActive, busyId }) {
             <span className="rounded-full bg-white/[0.04] px-2 py-1 ring-1 ring-white/10">{product.status === "estoque" ? "Pronta entrega" : "Catálogo"}</span>
             <span className="rounded-full bg-white/[0.04] px-2 py-1 ring-1 ring-white/10">Estoque: {Number(product.stock || 0)}</span>
             {product.category ? <span className="rounded-full bg-white/[0.04] px-2 py-1 ring-1 ring-white/10">{product.category}</span> : null}
+            {Array.isArray(product.variants) && product.variants.length ? (
+              <span className="rounded-full bg-cyan-300/10 px-2 py-1 text-cyan-100 ring-1 ring-cyan-300/20">
+                {product.variants.length} escala(s){product.default_variant ? ` • padrão: ${product.default_variant}` : ""}
+              </span>
+            ) : null}
           </div>
         </div>
       </div>
@@ -173,7 +265,7 @@ export default function AdminProductsSection({ onNotify }) {
   const [products, setProducts] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [loadError, setLoadError] = React.useState("");
-  const [form, setForm] = React.useState(EMPTY_PRODUCT_FORM);
+  const [form, setForm] = React.useState(() => createEmptyProductForm());
   const [imageFile, setImageFile] = React.useState(null);
   const [imagePreview, setImagePreview] = React.useState("");
   const [formError, setFormError] = React.useState("");
@@ -230,8 +322,59 @@ export default function AdminProductsSection({ onNotify }) {
     }));
   }
 
+  function addVariant() {
+    setForm((current) => {
+      const variants = [...(Array.isArray(current.variants) ? current.variants : []), { label: "", price: "" }];
+      return {
+        ...current,
+        variants,
+        defaultVariantIndex: variants.length === 1 ? 0 : Number(current.defaultVariantIndex || 0),
+      };
+    });
+  }
+
+  function updateVariant(index, field, value) {
+    setForm((current) => {
+      const variants = (Array.isArray(current.variants) ? current.variants : []).map((variant, rowIndex) => (
+        rowIndex === index ? { ...variant, [field]: value } : variant
+      ));
+      const isDefault = Number(current.defaultVariantIndex || 0) === index;
+      return {
+        ...current,
+        variants,
+        normalPrice: isDefault && field === "price" ? value : current.normalPrice,
+      };
+    });
+  }
+
+  function removeVariant(index) {
+    setForm((current) => {
+      const variants = (Array.isArray(current.variants) ? current.variants : []).filter((_, rowIndex) => rowIndex !== index);
+      const currentDefault = Number(current.defaultVariantIndex || 0);
+      let defaultVariantIndex = currentDefault;
+      if (!variants.length) defaultVariantIndex = 0;
+      else if (index < currentDefault) defaultVariantIndex = currentDefault - 1;
+      else if (index === currentDefault) defaultVariantIndex = Math.min(index, variants.length - 1);
+
+      return {
+        ...current,
+        variants,
+        defaultVariantIndex,
+        normalPrice: variants.length ? (variants[defaultVariantIndex]?.price || current.normalPrice) : current.normalPrice,
+      };
+    });
+  }
+
+  function setDefaultVariant(index) {
+    setForm((current) => ({
+      ...current,
+      defaultVariantIndex: index,
+      normalPrice: current.variants?.[index]?.price || current.normalPrice,
+    }));
+  }
+
   function resetForm() {
-    setForm(EMPTY_PRODUCT_FORM);
+    setForm(createEmptyProductForm());
     setImageFile(null);
     setImagePreview("");
     setFormError("");
@@ -314,16 +457,34 @@ export default function AdminProductsSection({ onNotify }) {
 
     const name = String(form.name || "").trim();
     const description = String(form.description || "").trim();
-    const normalPriceCents = parseBrlToCents(form.normalPrice);
+    const variantDrafts = Array.isArray(form.variants) ? form.variants : [];
+    const normalizedVariants = variantDrafts.map((variant) => ({
+      label: String(variant?.label || "").trim(),
+      price_cents: parseBrlToCents(variant?.price),
+    }));
+    const defaultVariantIndex = normalizedVariants.length
+      ? Math.min(Math.max(0, Number(form.defaultVariantIndex || 0)), normalizedVariants.length - 1)
+      : 0;
+    const defaultVariant = normalizedVariants[defaultVariantIndex]?.label || "";
+    let normalPriceCents = parseBrlToCents(form.normalPrice);
     const promoPriceCents = form.promo ? parseBrlToCents(form.promoPrice) : 0;
     const stock = Math.max(0, Math.trunc(Number(form.stock || 0)));
     const sortOrder = Math.trunc(Number(form.sortOrder || 1000));
 
     if (name.length < 2) return setFormError("Informe o nome do produto.");
     if (description.length < 10) return setFormError("Escreva uma descrição com pelo menos 10 caracteres.");
+    if (normalizedVariants.length) {
+      const invalidLabelIndex = normalizedVariants.findIndex((variant) => !variant.label);
+      if (invalidLabelIndex >= 0) return setFormError(`Informe o nome da escala ${invalidLabelIndex + 1}.`);
+      const invalidPriceIndex = normalizedVariants.findIndex((variant) => variant.price_cents <= 0);
+      if (invalidPriceIndex >= 0) return setFormError(`Informe um valor válido para a escala ${normalizedVariants[invalidPriceIndex].label || invalidPriceIndex + 1}.`);
+      const normalizedLabels = normalizedVariants.map((variant) => variant.label.toLocaleLowerCase("pt-BR"));
+      if (new Set(normalizedLabels).size !== normalizedLabels.length) return setFormError("Não repita o mesmo nome de escala.");
+      normalPriceCents = normalizedVariants[defaultVariantIndex].price_cents;
+    }
     if (normalPriceCents <= 0) return setFormError("Informe um valor normal válido.");
-    if (form.promo && promoPriceCents <= 0) return setFormError("Informe o valor promocional.");
-    if (form.promo && promoPriceCents >= normalPriceCents) return setFormError("O valor promocional precisa ser menor que o valor normal.");
+    if (form.promo && promoPriceCents <= 0) return setFormError("Informe o valor promocional da escala padrão.");
+    if (form.promo && promoPriceCents >= normalPriceCents) return setFormError("O valor promocional precisa ser menor que o valor normal da escala padrão.");
     if (!form.id && !imageFile && !form.imageUrl) return setFormError("Selecione a imagem do produto.");
 
     let uploadedUrl = "";
@@ -354,6 +515,8 @@ export default function AdminProductsSection({ onNotify }) {
             : (uploadedUrl ? [uploadedUrl] : [])),
         status: form.status === "estoque" ? "estoque" : "catalogo",
         tags: splitTags(form.tags),
+        default_variant: defaultVariant || null,
+        variants: normalizedVariants,
         category: String(form.category || "").trim() || null,
         sort_order: Number.isFinite(sortOrder) ? sortOrder : 1000,
       };
@@ -384,7 +547,7 @@ export default function AdminProductsSection({ onNotify }) {
       window.dispatchEvent(new CustomEvent("products:changed", { detail: { product: saved } }));
 
       if (!form.id) {
-        setForm({ ...EMPTY_PRODUCT_FORM, slug: "" });
+        setForm(createEmptyProductForm());
         setImageFile(null);
         setSlugTouched(false);
         if (fileInputRef.current) fileInputRef.current.value = "";
@@ -548,12 +711,20 @@ export default function AdminProductsSection({ onNotify }) {
             </label>
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <label className="block">
-                <FieldLabel required>Valor normal</FieldLabel>
+              <label className={`block ${form.variants?.length ? "opacity-60" : ""}`}>
+                <FieldLabel required>{form.variants?.length ? "Valor da escala padrão" : "Valor normal"}</FieldLabel>
                 <div className="mt-2 flex rounded-xl bg-black/20 ring-1 ring-white/10 focus-within:ring-cyan-300/40">
                   <span className="grid place-items-center border-r border-white/10 px-3 text-sm text-slate-400">R$</span>
-                  <input value={form.normalPrice} onChange={(event) => updateForm("normalPrice", event.target.value)} inputMode="decimal" placeholder="250,00" className="min-w-0 flex-1 bg-transparent px-3 py-3 text-white outline-none" />
+                  <input
+                    disabled={Boolean(form.variants?.length)}
+                    value={form.normalPrice}
+                    onChange={(event) => updateForm("normalPrice", event.target.value)}
+                    inputMode="decimal"
+                    placeholder="250,00"
+                    className="min-w-0 flex-1 bg-transparent px-3 py-3 text-white outline-none disabled:cursor-not-allowed"
+                  />
                 </div>
+                {form.variants?.length ? <span className="mt-1 block text-xs text-slate-500">Esse valor é preenchido pela escala marcada como padrão.</span> : null}
               </label>
 
               <label className={`block ${form.promo ? "" : "opacity-50"}`}>
@@ -562,8 +733,18 @@ export default function AdminProductsSection({ onNotify }) {
                   <span className="grid place-items-center border-r border-white/10 px-3 text-sm text-slate-400">R$</span>
                   <input disabled={!form.promo} value={form.promoPrice} onChange={(event) => updateForm("promoPrice", event.target.value)} inputMode="decimal" placeholder="199,90" className="min-w-0 flex-1 bg-transparent px-3 py-3 text-white outline-none disabled:cursor-not-allowed" />
                 </div>
+                {form.promo && form.variants?.length ? <span className="mt-1 block text-xs text-slate-500">Informe o promocional da escala padrão; o mesmo percentual será aplicado às demais.</span> : null}
               </label>
             </div>
+
+            <VariantEditor
+              variants={form.variants}
+              defaultVariantIndex={form.defaultVariantIndex}
+              onAdd={addVariant}
+              onUpdate={updateVariant}
+              onRemove={removeVariant}
+              onSetDefault={setDefaultVariant}
+            />
 
             <div className="grid gap-3 sm:grid-cols-2">
               <Toggle checked={form.promo} onChange={(checked) => updateForm("promo", checked)} label="Está em promoção" hint="Exibe o preço normal riscado e o valor promocional." />
