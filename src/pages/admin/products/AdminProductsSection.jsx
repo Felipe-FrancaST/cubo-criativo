@@ -5,6 +5,7 @@ import {
   createEmptyProductForm,
   formatCents,
   getNormalPriceCents,
+  normalizeProductImageUrls,
   parseBrlToCents,
   productRowToForm,
   safeImageFileName,
@@ -22,6 +23,15 @@ function productStoragePathFromUrl(value) {
   } catch {
     return url.slice(index + marker.length);
   }
+}
+
+const MAX_PRODUCT_IMAGES = 12;
+
+function makeNewImageId(file) {
+  const random = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  return `${random}-${String(file?.name || "imagem")}`;
 }
 
 const PRODUCT_SELECT = [
@@ -160,6 +170,114 @@ function VariantEditor({ variants, defaultVariantIndex, onAdd, onUpdate, onRemov
   );
 }
 
+function ProductImageEditor({
+  items,
+  primaryKey,
+  onSelectFiles,
+  onSetPrimary,
+  onRemove,
+  fileInputRef,
+  disabled,
+}) {
+  const rows = Array.isArray(items) ? items : [];
+  const remaining = Math.max(0, MAX_PRODUCT_IMAGES - rows.length);
+
+  return (
+    <section className="rounded-2xl bg-black/20 p-3 ring-1 ring-white/10 sm:p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <div className="text-sm font-bold text-white">Imagens do produto <span className="text-cyan-300">*</span></div>
+          <div className="mt-1 text-xs leading-relaxed text-slate-400">
+            Envie até {MAX_PRODUCT_IMAGES} imagens. A imagem principal aparece nos cards; as demais ficam disponíveis na galeria da página do produto.
+          </div>
+        </div>
+
+        <label className={`shrink-0 rounded-xl bg-cyan-300/10 px-3 py-2 text-center text-xs font-bold text-cyan-100 ring-1 ring-cyan-300/25 transition ${disabled || remaining <= 0 ? "cursor-not-allowed opacity-50" : "cursor-pointer hover:bg-cyan-300/15"}`}>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/avif"
+            multiple
+            disabled={disabled || remaining <= 0}
+            onChange={(event) => onSelectFiles(event.target.files)}
+            className="sr-only"
+          />
+          <span className="material-icons mr-1 align-middle text-[16px]">add_photo_alternate</span>
+          {rows.length ? "Adicionar imagens" : "Selecionar imagens"}
+        </label>
+      </div>
+
+      {rows.length ? (
+        <>
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {rows.map((item, index) => {
+              const isPrimary = item.key === primaryKey;
+              return (
+                <article
+                  key={item.key}
+                  className={`overflow-hidden rounded-2xl bg-slate-950/50 ring-1 transition ${isPrimary ? "ring-cyan-300/60" : "ring-white/10"}`}
+                >
+                  <div className="relative aspect-square overflow-hidden bg-black/30">
+                    <img src={item.url} alt={`Imagem ${index + 1} do produto`} className="h-full w-full object-contain" />
+                    {isPrimary ? (
+                      <span className="absolute left-2 top-2 rounded-full bg-cyan-300 px-2 py-1 text-[10px] font-black text-slate-950 shadow-lg">
+                        PRINCIPAL
+                      </span>
+                    ) : null}
+                    {item.isNew ? (
+                      <span className="absolute right-2 top-2 rounded-full bg-emerald-400/90 px-2 py-1 text-[10px] font-black text-black">
+                        NOVA
+                      </span>
+                    ) : null}
+                  </div>
+
+                  <div className="grid grid-cols-[1fr_auto] gap-1.5 p-2">
+                    <button
+                      type="button"
+                      disabled={disabled || isPrimary}
+                      onClick={() => onSetPrimary(item.key)}
+                      className="min-w-0 rounded-lg px-2 py-2 text-[11px] font-semibold text-slate-200 ring-1 ring-white/10 hover:bg-white/[0.06] disabled:cursor-default disabled:text-cyan-200 disabled:opacity-80"
+                    >
+                      <span className="material-icons mr-1 align-middle text-[14px]">{isPrimary ? "star" : "star_border"}</span>
+                      {isPrimary ? "Principal" : "Tornar principal"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={disabled}
+                      onClick={() => onRemove(item)}
+                      className="rounded-lg px-2 py-2 text-rose-200 ring-1 ring-rose-300/20 hover:bg-rose-400/10 disabled:opacity-50"
+                      aria-label={`Remover imagem ${index + 1}`}
+                    >
+                      <span className="material-icons align-middle text-[16px]">delete</span>
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+            <span>{rows.length} de {MAX_PRODUCT_IMAGES} imagem(ns)</span>
+            <span>A primeira imagem da galeria será a principal.</span>
+          </div>
+        </>
+      ) : (
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => fileInputRef.current?.click()}
+          className={`mt-3 grid min-h-48 w-full place-items-center rounded-2xl border border-dashed border-white/15 px-4 py-7 text-center transition ${disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer hover:border-cyan-300/35 hover:bg-white/[0.025]"}`}
+        >
+          <span>
+            <span className="material-icons text-4xl text-cyan-200">collections</span>
+            <span className="mt-2 block font-semibold text-white">Toque para selecionar uma ou várias imagens</span>
+            <span className="mt-1 block text-xs text-slate-400">JPG, PNG, WEBP ou AVIF • até 10 MB por imagem</span>
+          </span>
+        </button>
+      )}
+    </section>
+  );
+}
+
 function ProductStat({ label, value, icon }) {
   return (
     <div className="rounded-2xl bg-gradient-to-br from-white/[0.06] to-white/[0.025] p-4 ring-1 ring-white/10">
@@ -177,6 +295,7 @@ function ProductStat({ label, value, icon }) {
 function ProductCard({ product, onEdit, onToggleActive, busyId }) {
   const normalCents = getNormalPriceCents(product);
   const currentCents = Number(product?.price_cents || 0);
+  const imageCount = normalizeProductImageUrls(product?.images, product?.image_url).length;
   const isBusy = busyId === product.id;
 
   return (
@@ -219,6 +338,7 @@ function ProductCard({ product, onEdit, onToggleActive, busyId }) {
           <div className="mt-2 flex flex-wrap gap-1.5 text-[11px] text-slate-400">
             <span className="rounded-full bg-white/[0.04] px-2 py-1 ring-1 ring-white/10">{product.status === "estoque" ? "Pronta entrega" : "Catálogo"}</span>
             <span className="rounded-full bg-white/[0.04] px-2 py-1 ring-1 ring-white/10">Estoque: {Number(product.stock || 0)}</span>
+            <span className="rounded-full bg-white/[0.04] px-2 py-1 ring-1 ring-white/10">{imageCount} foto(s)</span>
             {product.category ? <span className="rounded-full bg-white/[0.04] px-2 py-1 ring-1 ring-white/10">{product.category}</span> : null}
             {Array.isArray(product.variants) && product.variants.length ? (
               <span className="rounded-full bg-cyan-300/10 px-2 py-1 text-cyan-100 ring-1 ring-cyan-300/20">
@@ -266,8 +386,8 @@ export default function AdminProductsSection({ onNotify }) {
   const [loading, setLoading] = React.useState(true);
   const [loadError, setLoadError] = React.useState("");
   const [form, setForm] = React.useState(() => createEmptyProductForm());
-  const [imageFile, setImageFile] = React.useState(null);
-  const [imagePreview, setImagePreview] = React.useState("");
+  const [newImages, setNewImages] = React.useState([]);
+  const [primaryImageKey, setPrimaryImageKey] = React.useState("");
   const [formError, setFormError] = React.useState("");
   const [saving, setSaving] = React.useState(false);
   const [busyId, setBusyId] = React.useState("");
@@ -277,6 +397,8 @@ export default function AdminProductsSection({ onNotify }) {
   const [lastSaved, setLastSaved] = React.useState(null);
   const fileInputRef = React.useRef(null);
   const formRef = React.useRef(null);
+  const originalImagesRef = React.useRef([]);
+  const newImagesRef = React.useRef([]);
 
   const loadProducts = React.useCallback(async () => {
     try {
@@ -301,14 +423,28 @@ export default function AdminProductsSection({ onNotify }) {
   }, [loadProducts]);
 
   React.useEffect(() => {
-    if (!imageFile) {
-      setImagePreview(form.imageUrl || "");
-      return undefined;
-    }
-    const objectUrl = URL.createObjectURL(imageFile);
-    setImagePreview(objectUrl);
-    return () => URL.revokeObjectURL(objectUrl);
-  }, [imageFile, form.imageUrl]);
+    newImagesRef.current = newImages;
+  }, [newImages]);
+
+  React.useEffect(() => () => {
+    newImagesRef.current.forEach((item) => URL.revokeObjectURL(item.preview));
+  }, []);
+
+  const galleryItems = React.useMemo(() => [
+    ...(Array.isArray(form.existingImages) ? form.existingImages : []).map((url) => ({
+      key: `existing:${url}`,
+      url,
+      isNew: false,
+      name: "Imagem cadastrada",
+    })),
+    ...newImages.map((item) => ({
+      key: `new:${item.id}`,
+      url: item.preview,
+      isNew: true,
+      name: item.file?.name || "Nova imagem",
+      id: item.id,
+    })),
+  ], [form.existingImages, newImages]);
 
   function updateForm(field, value) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -373,10 +509,18 @@ export default function AdminProductsSection({ onNotify }) {
     }));
   }
 
+  function clearNewImages() {
+    setNewImages((current) => {
+      current.forEach((item) => URL.revokeObjectURL(item.preview));
+      return [];
+    });
+  }
+
   function resetForm() {
+    clearNewImages();
     setForm(createEmptyProductForm());
-    setImageFile(null);
-    setImagePreview("");
+    setPrimaryImageKey("");
+    originalImagesRef.current = [];
     setFormError("");
     setSlugTouched(false);
     setLastSaved(null);
@@ -384,8 +528,11 @@ export default function AdminProductsSection({ onNotify }) {
   }
 
   function startEdit(product) {
-    setForm(productRowToForm(product));
-    setImageFile(null);
+    const nextForm = productRowToForm(product);
+    clearNewImages();
+    setForm(nextForm);
+    originalImagesRef.current = [...nextForm.existingImages];
+    setPrimaryImageKey(nextForm.imageUrl ? `existing:${nextForm.imageUrl}` : (nextForm.existingImages[0] ? `existing:${nextForm.existingImages[0]}` : ""));
     setFormError("");
     setSlugTouched(true);
     setLastSaved(null);
@@ -393,24 +540,90 @@ export default function AdminProductsSection({ onNotify }) {
     window.requestAnimationFrame(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
   }
 
-  function handleFile(file) {
+  function handleFiles(fileList) {
     setFormError("");
-    if (!file) {
-      setImageFile(null);
-      return;
-    }
+    const incoming = Array.from(fileList || []);
+    if (!incoming.length) return;
+
     const allowed = new Set(["image/jpeg", "image/png", "image/webp", "image/avif"]);
-    if (!allowed.has(String(file.type || "").toLowerCase())) {
-      setFormError("Envie uma imagem JPG, PNG, WEBP ou AVIF.");
+    const currentCount = galleryItems.length;
+    const availableSlots = Math.max(0, MAX_PRODUCT_IMAGES - currentCount);
+    if (availableSlots <= 0) {
+      setFormError(`O produto pode ter no máximo ${MAX_PRODUCT_IMAGES} imagens.`);
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
-    if (Number(file.size || 0) > 10 * 1024 * 1024) {
-      setFormError("A imagem deve ter no máximo 10 MB.");
-      if (fileInputRef.current) fileInputRef.current.value = "";
-      return;
+
+    const existingSignatures = new Set(newImages.map((item) => `${item.file?.name}|${item.file?.size}|${item.file?.lastModified}`));
+    const rejected = [];
+    const additions = [];
+
+    for (const file of incoming) {
+      if (additions.length >= availableSlots) {
+        rejected.push("limite");
+        continue;
+      }
+      if (!allowed.has(String(file.type || "").toLowerCase())) {
+        rejected.push("formato");
+        continue;
+      }
+      if (Number(file.size || 0) > 10 * 1024 * 1024) {
+        rejected.push("tamanho");
+        continue;
+      }
+      const signature = `${file.name}|${file.size}|${file.lastModified}`;
+      if (existingSignatures.has(signature)) continue;
+      existingSignatures.add(signature);
+      additions.push({
+        id: makeNewImageId(file),
+        file,
+        preview: URL.createObjectURL(file),
+      });
     }
-    setImageFile(file);
+
+    if (additions.length) {
+      setNewImages((current) => [...current, ...additions]);
+      if (!primaryImageKey) setPrimaryImageKey(`new:${additions[0].id}`);
+    }
+
+    if (rejected.includes("limite")) setFormError(`Algumas imagens não foram adicionadas porque o limite é de ${MAX_PRODUCT_IMAGES}.`);
+    else if (rejected.includes("tamanho")) setFormError("Algumas imagens não foram adicionadas porque ultrapassam 10 MB.");
+    else if (rejected.includes("formato")) setFormError("Alguns arquivos foram ignorados. Use apenas JPG, PNG, WEBP ou AVIF.");
+
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  function setPrimaryImage(key) {
+    setPrimaryImageKey(key);
+    if (String(key).startsWith("existing:")) {
+      const url = String(key).slice("existing:".length);
+      setForm((current) => ({ ...current, imageUrl: url }));
+    }
+  }
+
+  function removeGalleryImage(item) {
+    const remaining = galleryItems.filter((candidate) => candidate.key !== item.key);
+    if (item.isNew) {
+      setNewImages((current) => current.filter((candidate) => {
+        if (candidate.id !== item.id) return true;
+        URL.revokeObjectURL(candidate.preview);
+        return false;
+      }));
+    } else {
+      setForm((current) => ({
+        ...current,
+        existingImages: (current.existingImages || []).filter((url) => url !== item.url),
+        imageUrl: current.imageUrl === item.url ? "" : current.imageUrl,
+      }));
+    }
+
+    if (primaryImageKey === item.key) {
+      const next = remaining[0];
+      setPrimaryImageKey(next?.key || "");
+      if (next && !next.isNew) {
+        setForm((current) => ({ ...current, imageUrl: next.url }));
+      }
+    }
   }
 
   async function ensureUniqueSlug(rawSlug, editingId) {
@@ -432,10 +645,9 @@ export default function AdminProductsSection({ onNotify }) {
     return `${base}-${index}`;
   }
 
-  async function uploadImage(file, slug) {
-    if (!file) return { url: form.imageUrl || "", path: "" };
+  async function uploadImage(file, slug, index = 0) {
     const fileName = safeImageFileName(file.name);
-    const path = `admin/${slug}/${Date.now()}-${Math.random().toString(36).slice(2, 9)}-${fileName}`;
+    const path = `admin/${slug}/${Date.now()}-${index}-${Math.random().toString(36).slice(2, 9)}-${fileName}`;
     const { error } = await supabase.storage.from("product-images").upload(path, file, {
       cacheControl: "31536000",
       upsert: false,
@@ -485,16 +697,28 @@ export default function AdminProductsSection({ onNotify }) {
     if (normalPriceCents <= 0) return setFormError("Informe um valor normal válido.");
     if (form.promo && promoPriceCents <= 0) return setFormError("Informe o valor promocional da escala padrão.");
     if (form.promo && promoPriceCents >= normalPriceCents) return setFormError("O valor promocional precisa ser menor que o valor normal da escala padrão.");
-    if (!form.id && !imageFile && !form.imageUrl) return setFormError("Selecione a imagem do produto.");
+    if (!galleryItems.length) return setFormError("Selecione pelo menos uma imagem do produto.");
 
-    let uploadedUrl = "";
-    let uploadedPath = "";
+    const uploadedResults = [];
     try {
       setSaving(true);
       const slug = await ensureUniqueSlug(form.slug, form.id);
-      const uploadResult = await uploadImage(imageFile, slug);
-      uploadedUrl = uploadResult.url;
-      uploadedPath = uploadResult.path;
+      for (let index = 0; index < newImages.length; index += 1) {
+        const item = newImages[index];
+        const uploaded = await uploadImage(item.file, slug, index);
+        uploadedResults.push({ ...uploaded, key: `new:${item.id}` });
+      }
+
+      const finalImageEntries = [
+        ...(Array.isArray(form.existingImages) ? form.existingImages : []).map((url) => ({ key: `existing:${url}`, url })),
+        ...uploadedResults.map((item) => ({ key: item.key, url: item.url })),
+      ];
+      const selectedPrimary = finalImageEntries.find((item) => item.key === primaryImageKey) || finalImageEntries[0];
+      if (!selectedPrimary?.url) throw new Error("Não foi possível definir a imagem principal do produto.");
+      const finalImages = normalizeProductImageUrls(
+        finalImageEntries.filter((item) => item.key !== selectedPrimary.key).map((item) => item.url),
+        selectedPrimary.url
+      ).slice(0, MAX_PRODUCT_IMAGES);
 
       const payload = {
         name,
@@ -507,12 +731,8 @@ export default function AdminProductsSection({ onNotify }) {
         active: Boolean(form.active),
         featured: Boolean(form.featured),
         promo: Boolean(form.promo),
-        image_url: uploadedUrl,
-        images: imageFile
-          ? [uploadedUrl]
-          : (Array.isArray(form.existingImages) && form.existingImages.length
-            ? form.existingImages
-            : (uploadedUrl ? [uploadedUrl] : [])),
+        image_url: selectedPrimary.url,
+        images: finalImages,
         status: form.status === "estoque" ? "estoque" : "catalogo",
         tags: splitTags(form.tags),
         default_variant: defaultVariant || null,
@@ -531,11 +751,13 @@ export default function AdminProductsSection({ onNotify }) {
 
       const saved = response.data;
 
-      if (imageFile && form.imageUrl && form.imageUrl !== uploadedUrl) {
-        const previousPath = productStoragePathFromUrl(form.imageUrl);
-        if (previousPath) {
-          supabase.storage.from("product-images").remove([previousPath]).catch(() => {});
-        }
+      const finalImageSet = new Set(finalImages);
+      const removedPaths = originalImagesRef.current
+        .filter((url) => !finalImageSet.has(url))
+        .map(productStoragePathFromUrl)
+        .filter(Boolean);
+      if (removedPaths.length) {
+        await supabase.storage.from("product-images").remove(removedPaths).catch(() => {});
       }
 
       setProducts((current) => {
@@ -546,20 +768,25 @@ export default function AdminProductsSection({ onNotify }) {
       onNotify?.(form.id ? "✅ Produto atualizado com sucesso." : "✅ Produto cadastrado e publicado no site.");
       window.dispatchEvent(new CustomEvent("products:changed", { detail: { product: saved } }));
 
+      clearNewImages();
       if (!form.id) {
         setForm(createEmptyProductForm());
-        setImageFile(null);
+        setPrimaryImageKey("");
+        originalImagesRef.current = [];
         setSlugTouched(false);
         if (fileInputRef.current) fileInputRef.current.value = "";
       } else {
-        setForm(productRowToForm(saved));
-        setImageFile(null);
+        const savedForm = productRowToForm(saved);
+        setForm(savedForm);
+        originalImagesRef.current = [...savedForm.existingImages];
+        setPrimaryImageKey(savedForm.imageUrl ? `existing:${savedForm.imageUrl}` : "");
         setSlugTouched(true);
         if (fileInputRef.current) fileInputRef.current.value = "";
       }
     } catch (error) {
-      if (uploadedPath) {
-        await supabase.storage.from("product-images").remove([uploadedPath]).catch(() => {});
+      const rollbackPaths = uploadedResults.map((item) => item.path).filter(Boolean);
+      if (rollbackPaths.length) {
+        await supabase.storage.from("product-images").remove(rollbackPaths).catch(() => {});
       }
       const message = String(error?.message || "Não foi possível salvar o produto.");
       if (/row-level security|policy|permission|not authorized/i.test(message)) {
@@ -623,7 +850,7 @@ export default function AdminProductsSection({ onNotify }) {
       <SectionTitle
         icon="inventory"
         title="Produtos"
-        subtitle="Cadastre produtos, envie a imagem e controle publicação, promoção, destaque e estoque."
+        subtitle="Cadastre produtos, envie uma galeria de imagens e controle publicação, promoção, destaque e estoque."
         right={(
           <div className="flex w-full gap-2 sm:w-auto">
             <button type="button" onClick={loadProducts} disabled={loading} className="flex-1 rounded-xl px-3 py-2 text-sm text-slate-200 ring-1 ring-white/10 hover:bg-white/[0.05] disabled:opacity-50 sm:flex-none">
@@ -669,26 +896,15 @@ export default function AdminProductsSection({ onNotify }) {
           ) : null}
 
           <div className="mt-5 space-y-4">
-            <div>
-              <FieldLabel required>Imagem do produto</FieldLabel>
-              <label className="mt-2 block cursor-pointer overflow-hidden rounded-2xl bg-black/20 ring-1 ring-white/10 transition hover:ring-cyan-300/30">
-                <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={(event) => handleFile(event.target.files?.[0] || null)} className="sr-only" />
-                <div className="grid min-h-52 place-items-center p-3">
-                  {imagePreview ? (
-                    <div className="relative h-52 w-full overflow-hidden rounded-xl bg-slate-950/60">
-                      <img src={imagePreview} alt="Pré-visualização do produto" className="h-full w-full object-contain" />
-                      <span className="absolute bottom-2 right-2 rounded-full bg-black/75 px-2 py-1 text-[11px] text-white ring-1 ring-white/15">Trocar imagem</span>
-                    </div>
-                  ) : (
-                    <div className="py-8 text-center">
-                      <span className="material-icons text-4xl text-cyan-200">add_photo_alternate</span>
-                      <div className="mt-2 font-semibold text-white">Toque para selecionar a imagem</div>
-                      <div className="mt-1 text-xs text-slate-400">JPG, PNG, WEBP ou AVIF • máximo 10 MB</div>
-                    </div>
-                  )}
-                </div>
-              </label>
-            </div>
+            <ProductImageEditor
+              items={galleryItems}
+              primaryKey={primaryImageKey}
+              onSelectFiles={handleFiles}
+              onSetPrimary={setPrimaryImage}
+              onRemove={removeGalleryImage}
+              fileInputRef={fileInputRef}
+              disabled={saving}
+            />
 
             <label className="block">
               <FieldLabel required>Nome do produto</FieldLabel>

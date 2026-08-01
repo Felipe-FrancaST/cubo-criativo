@@ -89,6 +89,13 @@ export function splitTags(value) {
   ).slice(0, 30);
 }
 
+export function normalizeProductImageUrls(images, mainImageUrl = "") {
+  const candidates = [mainImageUrl, ...(Array.isArray(images) ? images : [])]
+    .map((value) => String(value || "").trim())
+    .filter(Boolean);
+  return Array.from(new Set(candidates));
+}
+
 export function productRowToForm(row) {
   const promo = Boolean(row?.promo);
   const normalPriceCents = Number(row?.original_price_cents || row?.price_cents || 0);
@@ -106,6 +113,7 @@ export function productRowToForm(row) {
   const matchingDefaultIndex = variants.findIndex((variant) => variant.label === savedDefaultVariant);
   const defaultVariantIndex = variants.length ? (matchingDefaultIndex >= 0 ? matchingDefaultIndex : 0) : 0;
   const defaultVariantPrice = variants[defaultVariantIndex]?.price || "";
+  const existingImages = normalizeProductImageUrls(row?.images, row?.image_url);
 
   return {
     id: String(row?.id || ""),
@@ -122,10 +130,8 @@ export function productRowToForm(row) {
     category: String(row?.category || "action figures"),
     tags: Array.isArray(row?.tags) ? row.tags.join(", ") : "",
     sortOrder: String(Number.isFinite(Number(row?.sort_order)) ? Math.trunc(Number(row.sort_order)) : 1000),
-    imageUrl: String(row?.image_url || ""),
-    existingImages: Array.isArray(row?.images)
-      ? row.images.filter(Boolean).map(String)
-      : (row?.image_url ? [String(row.image_url)] : []),
+    imageUrl: existingImages[0] || "",
+    existingImages,
     variants,
     defaultVariantIndex,
   };

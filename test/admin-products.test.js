@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  normalizeProductImageUrls,
   parseBrlToCents,
   productRowToForm,
   slugifyProduct,
@@ -54,4 +55,15 @@ test("carrega escalas, preços e escala padrão no formulário", () => {
   ]);
   assert.equal(form.defaultVariantIndex, 1);
   assert.equal(form.normalPrice, "25,00");
+});
+
+
+test("organiza a imagem principal antes da galeria e remove duplicações", () => {
+  assert.deepEqual(
+    normalizeProductImageUrls(
+      ["https://example.com/extra.png", "https://example.com/main.png", "https://example.com/extra.png"],
+      "https://example.com/main.png"
+    ),
+    ["https://example.com/main.png", "https://example.com/extra.png"]
+  );
 });
