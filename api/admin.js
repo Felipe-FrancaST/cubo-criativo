@@ -237,11 +237,14 @@ async function resolveManualVipItem(sb, item) {
     return !cycleKey || optionCycleKey <= cycleKey;
   });
   const requestedIds = Array.from(new Set((Array.isArray(item?.selected_option_ids) ? item.selected_option_ids : []).map(String).filter(Boolean)));
-  const selectedOptions = isLevel3VipPlan(plan)
-    ? activeCycleOptions
-    : requestedIds.map((id) => selectableOptions.find((option) => String(option.id) === id)).filter(Boolean);
+  const effectiveRequestedIds = requestedIds.length
+    ? requestedIds
+    : (isLevel3VipPlan(plan) ? activeCycleOptions.map((option) => String(option.id)) : []);
+  const selectedOptions = effectiveRequestedIds
+    .map((id) => selectableOptions.find((option) => String(option.id) === String(id)))
+    .filter(Boolean);
 
-  if (!isLevel3VipPlan(plan) && selectedOptions.length !== requestedIds.length) {
+  if (selectedOptions.length !== effectiveRequestedIds.length) {
     throw new Error('Uma das miniaturas selecionadas não pertence a um ciclo VIP cadastrado.');
   }
 
@@ -253,7 +256,7 @@ async function resolveManualVipItem(sb, item) {
     return acc;
   }, { miniatures: 0, bosses: 0, total: 0 });
 
-  if (!isLevel3VipPlan(plan) && (counts.miniatures !== limits.miniatures || counts.bosses !== limits.bosses || counts.total !== limits.total)) {
+  if (counts.miniatures !== limits.miniatures || counts.bosses !== limits.bosses || counts.total !== limits.total) {
     throw new Error(`Escolha exatamente ${limits.total} item(ns): ${limits.miniatures} miniatura(s)${limits.bosses ? ` e ${limits.bosses} boss(es)` : ''}.`);
   }
   if (!selectedOptions.length) throw new Error('Selecione as miniaturas que farão parte da assinatura VIP.');

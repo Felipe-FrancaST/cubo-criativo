@@ -343,6 +343,17 @@ async function isLevel3PlanId(planId) {
 
 async function syncLevel3Selections(sb, { userId, cycleKey, savedAt } = {}) {
   if (!sb || !userId || !cycleKey) return;
+  const { data: existingSelection } = await sb
+    .from('vip_mini_selections')
+    .select('selected_option_ids,saved_at')
+    .eq('user_id', userId)
+    .eq('cycle_key', cycleKey)
+    .maybeSingle();
+  const existingIds = Array.isArray(existingSelection?.selected_option_ids)
+    ? existingSelection.selected_option_ids.filter(Boolean)
+    : [];
+  if (existingIds.length) return;
+
   const { data: options, error } = await sb
     .from('vip_mini_options')
     .select('id')

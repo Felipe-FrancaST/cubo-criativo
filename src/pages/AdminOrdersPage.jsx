@@ -1432,6 +1432,18 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
   function getActiveVipOptions() {
     return vipOptions.filter((option) => String(option?.cycle_key || '').trim() === String(vipCycleKey || '').trim() && option?.active !== false);
   }
+  function getDefaultVipSelection(plan) {
+    if (!isLevel3VipPlan(plan)) return [];
+    const limits = getVipPlanLimits(plan);
+    const activeOptions = getActiveVipOptions();
+    const miniatures = activeOptions
+      .filter((option) => String(option?.item_type || 'miniature').toLowerCase() !== 'boss')
+      .slice(0, limits.miniatures);
+    const bosses = activeOptions
+      .filter((option) => String(option?.item_type || 'miniature').toLowerCase() === 'boss')
+      .slice(0, limits.bosses);
+    return [...miniatures, ...bosses].map((option) => option.id);
+  }
   function formatVipCycleLabel(cycleKey) {
     const raw = String(cycleKey || '').trim();
     const match = raw.match(/^(\d{4})-(\d{2})$/);
@@ -1470,13 +1482,13 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
       setError(vipDataError || 'Nenhum plano VIP ativo foi encontrado.');
       return;
     }
-    const selectedIds = isLevel3VipPlan(plan) ? getActiveVipOptions().map((option) => option.id) : [];
+    const selectedIds = getDefaultVipSelection(plan);
     setError('');
     setItems([{ id: crypto?.randomUUID?.() || String(Date.now()+Math.random()), mode: 'vip', vip_plan_id: plan.id, selected_option_ids: selectedIds, cycle_key: vipCycleKey }]);
   }
   function changeVipPlan(itemId, planId) {
     const plan = vipPlans.find((row) => String(row.id) === String(planId));
-    const selectedIds = isLevel3VipPlan(plan) ? getActiveVipOptions().map((option) => option.id) : [];
+    const selectedIds = getDefaultVipSelection(plan);
     updateItem(itemId, { vip_plan_id: planId, selected_option_ids: selectedIds, cycle_key: vipCycleKey });
     setError('');
   }
@@ -1489,7 +1501,6 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
       return;
     }
     const plan = vipPlans.find((row) => String(row.id) === String(item.vip_plan_id));
-    if (isLevel3VipPlan(plan)) return;
     const limits = getVipPlanLimits(plan);
     const counts = getVipSelectedCounts(item);
     const option = vipOptions.find((row) => String(row.id) === optionKey);
@@ -1550,8 +1561,7 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
         if (!plan) throw new Error('Selecione um plano VIP válido.');
         const counts = getVipSelectedCounts(vipItem);
         const limits = getVipPlanLimits(plan);
-        if (isLevel3VipPlan(plan) && !getActiveVipOptions().length) throw new Error('Nenhuma miniatura está ativa no ciclo VIP atual.');
-        if (!isLevel3VipPlan(plan) && (counts.total !== limits.total || counts.miniatures !== limits.miniatures || counts.bosses !== limits.bosses)) {
+        if (counts.total !== limits.total || counts.miniatures !== limits.miniatures || counts.bosses !== limits.bosses) {
           throw new Error(`Selecione exatamente ${limits.miniatures} miniatura(s)${limits.bosses ? ` e ${limits.bosses} boss(es)` : ''} para este plano.`);
         }
       }
@@ -1811,7 +1821,7 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
                               {counts.total}/{limits.total} • Mini {counts.miniatures}/{limits.miniatures}{limits.bosses ? ` • Boss ${counts.bosses}/${limits.bosses}` : ''}
                             </div>
                           </div>
-                          {level3 ? <div className="mt-3 rounded-xl bg-violet-500/10 px-3 py-2 text-xs text-violet-100 ring-1 ring-violet-400/20">Este plano inclui automaticamente todas as opções disponíveis no ciclo ativo.</div> : null}
+                          {level3 ? <div className="mt-3 rounded-xl bg-violet-500/10 px-3 py-2 text-xs text-violet-100 ring-1 ring-violet-400/20">O Level 3 vem preenchido com a coleção ativa, mas você pode desmarcar itens e substituí-los por miniaturas ou bosses de ciclos anteriores.</div> : null}
 
                           <div className="mt-3">
                             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1829,9 +1839,8 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
                                   <button
                                     key={option.id}
                                     type="button"
-                                    disabled={level3}
                                     onClick={() => toggleVipOption(it, option.id)}
-                                    className={`flex items-center gap-3 rounded-xl p-2 text-left ring-1 transition ${selected ? 'bg-violet-400/15 ring-violet-300/50' : 'bg-white/[0.03] ring-white/10 hover:bg-white/[0.06]'} disabled:cursor-default`}
+                                    className={`flex items-center gap-3 rounded-xl p-2 text-left ring-1 transition ${selected ? 'bg-violet-400/15 ring-violet-300/50' : 'bg-white/[0.03] ring-white/10 hover:bg-white/[0.06]'}`}
                                   >
                                     {option.image_url ? <img src={option.image_url} alt="" className="h-14 w-14 shrink-0 rounded-lg object-cover ring-1 ring-white/10" loading="lazy" /> : <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-black/30 text-slate-500 ring-1 ring-white/10"><span className="material-icons">image</span></div>}
                                     <div className="min-w-0 flex-1">
@@ -1846,8 +1855,7 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
                             {!activeOptions.length ? <div className="mt-3 rounded-xl bg-amber-500/10 px-3 py-2 text-sm text-amber-100 ring-1 ring-amber-400/20">Nenhuma miniatura está ativa no ciclo VIP atual.</div> : null}
                           </div>
 
-                          {!level3 ? (
-                            <div className="mt-4 rounded-2xl bg-amber-500/[0.04] p-3 ring-1 ring-amber-400/20">
+                          <div className="mt-4 rounded-2xl bg-amber-500/[0.04] p-3 ring-1 ring-amber-400/20">
                               <div className="flex flex-wrap items-end justify-between gap-3">
                                 <div>
                                   <div className="text-sm font-semibold text-amber-100">Miniaturas de ciclos anteriores</div>
@@ -1908,7 +1916,6 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
                                 </div>
                               ) : <div className="mt-3 rounded-xl bg-white/[0.03] px-3 py-2 text-sm text-slate-400 ring-1 ring-white/10">Ainda não existem ciclos anteriores cadastrados.</div>}
                             </div>
-                          ) : null}
                         </div>
                       </div>
                     );

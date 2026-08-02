@@ -214,6 +214,14 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
   }, [isLevel3Plan, options]);
   const level3AutoSet = React.useMemo(() => new Set(level3AutoIds), [level3AutoIds]);
   const isLevel3AutoMode = isLevel3Plan && hasCurrentCycleAccess && level3AutoIds.length > 0;
+  const level3EffectiveIds = React.useMemo(
+    () => (Array.isArray(savedSelected) && savedSelected.length ? savedSelected : level3AutoIds),
+    [savedSelected, level3AutoIds]
+  );
+  const hasLevel3CustomSelection = React.useMemo(() => {
+    if (!isLevel3Plan || !Array.isArray(savedSelected) || !savedSelected.length) return false;
+    return savedSelected.length !== level3AutoIds.length || savedSelected.some((id) => !level3AutoSet.has(id));
+  }, [isLevel3Plan, savedSelected, level3AutoIds, level3AutoSet]);
 
 
   const openEditingMode = React.useCallback(() => {
@@ -233,14 +241,14 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
   const selectedCounts = React.useMemo(() => {
     let mini = 0;
     let boss = 0;
-    const sourceIds = isLevel3AutoMode ? level3AutoIds : displaySelected;
+    const sourceIds = isLevel3AutoMode ? level3EffectiveIds : displaySelected;
     for (const id of (sourceIds || [])) {
       const t = optionTypeById.get(id) || 'miniature';
       if (t === 'boss') boss += 1;
       else mini += 1;
     }
     return { mini, boss, total: (mini + boss) };
-  }, [displaySelected, optionTypeById, isLevel3AutoMode, level3AutoIds]);
+  }, [displaySelected, optionTypeById, isLevel3AutoMode, level3EffectiveIds]);
 
   const progress = React.useMemo(() => {
     const safePct = (value, limit) => {
@@ -832,6 +840,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
 
   React.useEffect(() => {
     if (!isOpen || !user?.id || !isLevel3AutoMode) return;
+    if (Array.isArray(savedSelected) && savedSelected.length) return;
     const ids = level3AutoIds;
     if (!ids.length) return;
     setSavedSelected((prev) => {
@@ -853,7 +862,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
       }
     })();
     return () => { cancelled = true; };
-  }, [isOpen, user?.id, isLevel3AutoMode, level3AutoIds, level3AutoSet, cycle]);
+  }, [isOpen, user?.id, isLevel3AutoMode, level3AutoIds, level3AutoSet, cycle, savedSelected]);
 
 
   React.useEffect(() => {
@@ -1881,7 +1890,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
                     <div>
                       <div className="text-xs uppercase tracking-[0.24em] text-emerald-200/80">Level 3 ativo</div>
                       <div className="mt-2 text-xl font-extrabold text-emerald-50">Parabéns por assinar o plano Level 3</div>
-                      <p className="mt-3 text-sm leading-6 text-emerald-50/85">Você receberá todas as miniaturas dessa coleção.</p>
+                      <p className="mt-3 text-sm leading-6 text-emerald-50/85">{hasLevel3CustomSelection ? 'As miniaturas desta assinatura foram definidas pela equipe, incluindo itens de outras coleções.' : 'Você receberá todas as miniaturas dessa coleção.'}</p>
                     </div>
                   </div>
                 </div>
