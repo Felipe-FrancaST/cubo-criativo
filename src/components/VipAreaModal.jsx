@@ -792,6 +792,27 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
   }, [isOpen, authLoading, user?.id, cycle]);
 
   React.useEffect(() => {
+    if (!isOpen || !Array.isArray(savedSelected) || !savedSelected.length) return;
+    const knownIds = new Set((options || []).map((option) => String(option?.id || '')));
+    const missingIds = savedSelected.map(String).filter((id) => id && !knownIds.has(id));
+    if (!missingIds.length) return;
+    let active = true;
+    fetch(`/api/core?action=vip-cycle&option_ids=${encodeURIComponent(missingIds.join(','))}`)
+      .then((response) => response.json().catch(() => ({})).then((json) => ({ ok: response.ok, json })))
+      .then(({ ok, json }) => {
+        const data = Array.isArray(json?.items) ? json.items : [];
+        if (!active || !ok || !data.length) return;
+        setOptions((current) => {
+          const map = new Map((Array.isArray(current) ? current : []).map((option) => [String(option?.id), option]));
+          data.forEach((option) => map.set(String(option.id), { ...option, from_previous_cycle: true }));
+          return Array.from(map.values());
+        });
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [isOpen, savedSelected, options]);
+
+  React.useEffect(() => {
     if (!cacheKey || !editing) return;
     const draft = readVipCache(`${cacheKey}:draft`, null);
     if (!draft || !Array.isArray(draft.selected_option_ids)) return;

@@ -224,19 +224,25 @@ async function resolveManualVipItem(sb, item) {
   const { data: availableOptions, error: optionsError } = await sb
     .from('vip_mini_options')
     .select('id,title,image_url,item_type,active,cycle_key,sort_order')
-    .eq('active', true)
-    .eq('cycle_key', cycleKey)
     .order('sort_order', { ascending: true });
-  if (optionsError) throw new Error(optionsError.message || 'Não foi possível carregar as miniaturas do ciclo VIP.');
+  if (optionsError) throw new Error(optionsError.message || 'Não foi possível carregar a biblioteca de miniaturas VIP.');
 
-  const options = Array.isArray(availableOptions) ? availableOptions : [];
+  const options = (Array.isArray(availableOptions) ? availableOptions : [])
+    .filter((option) => String(option?.cycle_key || '').trim());
+  const activeCycleOptions = options.filter((option) =>
+    String(option?.cycle_key || '').trim() === cycleKey && option?.active !== false
+  );
+  const selectableOptions = options.filter((option) => {
+    const optionCycleKey = String(option?.cycle_key || '').trim();
+    return !cycleKey || optionCycleKey <= cycleKey;
+  });
   const requestedIds = Array.from(new Set((Array.isArray(item?.selected_option_ids) ? item.selected_option_ids : []).map(String).filter(Boolean)));
   const selectedOptions = isLevel3VipPlan(plan)
-    ? options
-    : requestedIds.map((id) => options.find((option) => String(option.id) === id)).filter(Boolean);
+    ? activeCycleOptions
+    : requestedIds.map((id) => selectableOptions.find((option) => String(option.id) === id)).filter(Boolean);
 
   if (!isLevel3VipPlan(plan) && selectedOptions.length !== requestedIds.length) {
-    throw new Error('Uma das miniaturas selecionadas não pertence ao ciclo VIP ativo.');
+    throw new Error('Uma das miniaturas selecionadas não pertence a um ciclo VIP cadastrado.');
   }
 
   const limits = vipPlanLimits(plan);

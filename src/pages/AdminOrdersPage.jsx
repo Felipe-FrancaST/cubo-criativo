@@ -1250,6 +1250,7 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
   const [vipPlans, setVipPlans] = React.useState([]);
   const [vipOptions, setVipOptions] = React.useState([]);
   const [vipCycleKey, setVipCycleKey] = React.useState('');
+  const [vipPastCycleKey, setVipPastCycleKey] = React.useState('');
   const [loadingVipData, setLoadingVipData] = React.useState(false);
   const [vipDataError, setVipDataError] = React.useState('');
 
@@ -1268,6 +1269,7 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
     setModel3dFile(null);
     setModel3dError('');
     setVipDataError('');
+    setVipPastCycleKey('');
     setForm(emptyForm);
     setItems([]);
   }, [open, emptyForm]);
@@ -1289,21 +1291,30 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
   }, [open, accessToken]);
 
   React.useEffect(() => {
-    if (!open) return;
+    if (!open || !accessToken) return;
     let active = true;
     setLoadingVipData(true);
     setVipDataError('');
     Promise.all([
       fetch('/api/vip-plans').then((r) => r.json().catch(() => ({})).then((json) => ({ ok: r.ok, json }))),
-      fetch('/api/core?action=vip-cycle').then((r) => r.json().catch(() => ({})).then((json) => ({ ok: r.ok, json }))),
+      fetch('/api/admin?action=vip-control', { headers: { Authorization: `Bearer ${accessToken}` } })
+        .then((r) => r.json().catch(() => ({})).then((json) => ({ ok: r.ok, json }))),
     ])
       .then(([plansResp, cycleResp]) => {
         if (!active) return;
         if (!plansResp.ok) throw new Error(plansResp.json?.error || 'Não foi possível carregar os planos VIP.');
         if (!cycleResp.ok) throw new Error(cycleResp.json?.error || 'Não foi possível carregar as miniaturas VIP.');
+        const activeCycleKey = String(cycleResp.json?.active_cycle_key || '').trim();
+        const library = (Array.isArray(cycleResp.json?.library) ? cycleResp.json.library : [])
+          .filter((option) => String(option?.cycle_key || '').trim());
+        const pastCycles = Array.from(new Set(library
+          .map((option) => String(option?.cycle_key || '').trim())
+          .filter((cycleKey) => cycleKey && cycleKey !== activeCycleKey && (!activeCycleKey || cycleKey < activeCycleKey))))
+          .sort((a, b) => b.localeCompare(a));
         setVipPlans(Array.isArray(plansResp.json?.plans) ? plansResp.json.plans : []);
-        setVipOptions(Array.isArray(cycleResp.json?.items) ? cycleResp.json.items : []);
-        setVipCycleKey(String(cycleResp.json?.active_cycle_key || '').trim());
+        setVipOptions(library);
+        setVipCycleKey(activeCycleKey);
+        setVipPastCycleKey((current) => pastCycles.includes(current) ? current : (pastCycles[0] || ''));
       })
       .catch((e) => {
         if (!active) return;
@@ -1313,7 +1324,7 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
       })
       .finally(() => active && setLoadingVipData(false));
     return () => { active = false; };
-  }, [open]);
+  }, [open, accessToken]);
 
   React.useEffect(() => {
     if (!open || !accessToken || customerMode !== 'existing') return;
@@ -1418,6 +1429,17 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
       return acc;
     }, { miniatures: 0, bosses: 0, total: 0 });
   }
+  function getActiveVipOptions() {
+    return vipOptions.filter((option) => String(option?.cycle_key || '').trim() === String(vipCycleKey || '').trim() && option?.active !== false);
+  }
+  function formatVipCycleLabel(cycleKey) {
+    const raw = String(cycleKey || '').trim();
+    const match = raw.match(/^(\d{4})-(\d{2})$/);
+    if (!match) return raw || 'Sem ciclo';
+    const date = new Date(Number(match[1]), Number(match[2]) - 1, 1);
+    const label = date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+    return label.charAt(0).toUpperCase() + label.slice(1);
+  }
   function ensureRegularOrderMode() {
     if (items.some((item) => item.mode === 'vip')) {
       setError('A assinatura VIP deve ficar em um pedido separado. Remova a assinatura para adicionar outros itens.');
@@ -1448,13 +1470,13 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
       setError(vipDataError || 'Nenhum plano VIP ativo foi encontrado.');
       return;
     }
-    const selectedIds = isLevel3VipPlan(plan) ? vipOptions.map((option) => option.id) : [];
+    const selectedIds = isLevel3VipPlan(plan) ? getActiveVipOptions().map((option) => option.id) : [];
     setError('');
     setItems([{ id: crypto?.randomUUID?.() || String(Date.now()+Math.random()), mode: 'vip', vip_plan_id: plan.id, selected_option_ids: selectedIds, cycle_key: vipCycleKey }]);
   }
   function changeVipPlan(itemId, planId) {
     const plan = vipPlans.find((row) => String(row.id) === String(planId));
-    const selectedIds = isLevel3VipPlan(plan) ? vipOptions.map((option) => option.id) : [];
+    const selectedIds = isLevel3VipPlan(plan) ? getActiveVipOptions().map((option) => option.id) : [];
     updateItem(itemId, { vip_plan_id: planId, selected_option_ids: selectedIds, cycle_key: vipCycleKey });
     setError('');
   }
@@ -1528,7 +1550,7 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
         if (!plan) throw new Error('Selecione um plano VIP válido.');
         const counts = getVipSelectedCounts(vipItem);
         const limits = getVipPlanLimits(plan);
-        if (!vipOptions.length) throw new Error('Nenhuma miniatura está ativa no ciclo VIP atual.');
+        if (isLevel3VipPlan(plan) && !getActiveVipOptions().length) throw new Error('Nenhuma miniatura está ativa no ciclo VIP atual.');
         if (!isLevel3VipPlan(plan) && (counts.total !== limits.total || counts.miniatures !== limits.miniatures || counts.bosses !== limits.bosses)) {
           throw new Error(`Selecione exatamente ${limits.miniatures} miniatura(s)${limits.bosses ? ` e ${limits.bosses} boss(es)` : ''} para este plano.`);
         }
@@ -1746,6 +1768,15 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
                     const counts = getVipSelectedCounts(it);
                     const selectedIds = Array.isArray(it.selected_option_ids) ? it.selected_option_ids.map(String) : [];
                     const level3 = isLevel3VipPlan(plan);
+                    const activeOptions = vipOptions.filter((option) => String(option?.cycle_key || '').trim() === String(vipCycleKey || '').trim() && option?.active !== false);
+                    const pastCycleKeys = Array.from(new Set(
+                      vipOptions
+                        .map((option) => String(option?.cycle_key || '').trim())
+                        .filter((cycleKey) => cycleKey && cycleKey !== String(vipCycleKey || '').trim() && (!vipCycleKey || cycleKey < String(vipCycleKey).trim()))
+                    )).sort((a, b) => b.localeCompare(a));
+                    const selectedPastCycleKey = pastCycleKeys.includes(vipPastCycleKey) ? vipPastCycleKey : (pastCycleKeys[0] || '');
+                    const pastOptions = vipOptions.filter((option) => String(option?.cycle_key || '').trim() === selectedPastCycleKey);
+                    const selectedPastOptions = vipOptions.filter((option) => selectedIds.includes(String(option.id)) && String(option?.cycle_key || '').trim() !== String(vipCycleKey || '').trim());
                     return (
                       <div key={it.id} className="rounded-2xl bg-violet-500/5 p-4 ring-1 ring-violet-400/25">
                         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -1780,30 +1811,104 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
                               {counts.total}/{limits.total} • Mini {counts.miniatures}/{limits.miniatures}{limits.bosses ? ` • Boss ${counts.bosses}/${limits.bosses}` : ''}
                             </div>
                           </div>
-                          {level3 ? <div className="mt-3 rounded-xl bg-violet-500/10 px-3 py-2 text-xs text-violet-100 ring-1 ring-violet-400/20">Este plano inclui automaticamente todas as opções disponíveis no ciclo.</div> : null}
-                          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                            {vipOptions.map((option) => {
-                              const selected = selectedIds.includes(String(option.id));
-                              const isBoss = String(option?.item_type || 'miniature').toLowerCase() === 'boss';
-                              return (
-                                <button
-                                  key={option.id}
-                                  type="button"
-                                  disabled={level3}
-                                  onClick={() => toggleVipOption(it, option.id)}
-                                  className={`flex items-center gap-3 rounded-xl p-2 text-left ring-1 transition ${selected ? 'bg-violet-400/15 ring-violet-300/50' : 'bg-white/[0.03] ring-white/10 hover:bg-white/[0.06]'} disabled:cursor-default`}
-                                >
-                                  {option.image_url ? <img src={option.image_url} alt="" className="h-14 w-14 shrink-0 rounded-lg object-cover ring-1 ring-white/10" loading="lazy" /> : <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-black/30 text-slate-500 ring-1 ring-white/10"><span className="material-icons">image</span></div>}
-                                  <div className="min-w-0 flex-1">
-                                    <div className="truncate text-sm font-semibold text-slate-100">{option.title || 'Miniatura VIP'}</div>
-                                    <div className="mt-1 text-[11px] uppercase tracking-wide text-slate-400">{isBoss ? 'Boss' : 'Miniatura'}</div>
-                                  </div>
-                                  <span className={`material-icons text-[20px] ${selected ? 'text-violet-200' : 'text-slate-600'}`}>{selected ? 'check_circle' : 'radio_button_unchecked'}</span>
-                                </button>
-                              );
-                            })}
+                          {level3 ? <div className="mt-3 rounded-xl bg-violet-500/10 px-3 py-2 text-xs text-violet-100 ring-1 ring-violet-400/20">Este plano inclui automaticamente todas as opções disponíveis no ciclo ativo.</div> : null}
+
+                          <div className="mt-3">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div>
+                                <div className="text-xs font-bold uppercase tracking-wide text-violet-100">Ciclo ativo</div>
+                                <div className="text-xs text-slate-500">{formatVipCycleLabel(vipCycleKey)}</div>
+                              </div>
+                              <div className="rounded-full bg-violet-500/10 px-2.5 py-1 text-[11px] text-violet-100 ring-1 ring-violet-400/20">{activeOptions.length} opção(ões)</div>
+                            </div>
+                            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                              {activeOptions.map((option) => {
+                                const selected = selectedIds.includes(String(option.id));
+                                const isBoss = String(option?.item_type || 'miniature').toLowerCase() === 'boss';
+                                return (
+                                  <button
+                                    key={option.id}
+                                    type="button"
+                                    disabled={level3}
+                                    onClick={() => toggleVipOption(it, option.id)}
+                                    className={`flex items-center gap-3 rounded-xl p-2 text-left ring-1 transition ${selected ? 'bg-violet-400/15 ring-violet-300/50' : 'bg-white/[0.03] ring-white/10 hover:bg-white/[0.06]'} disabled:cursor-default`}
+                                  >
+                                    {option.image_url ? <img src={option.image_url} alt="" className="h-14 w-14 shrink-0 rounded-lg object-cover ring-1 ring-white/10" loading="lazy" /> : <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-black/30 text-slate-500 ring-1 ring-white/10"><span className="material-icons">image</span></div>}
+                                    <div className="min-w-0 flex-1">
+                                      <div className="truncate text-sm font-semibold text-slate-100">{option.title || 'Miniatura VIP'}</div>
+                                      <div className="mt-1 text-[11px] uppercase tracking-wide text-slate-400">{isBoss ? 'Boss' : 'Miniatura'}</div>
+                                    </div>
+                                    <span className={`material-icons text-[20px] ${selected ? 'text-violet-200' : 'text-slate-600'}`}>{selected ? 'check_circle' : 'radio_button_unchecked'}</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                            {!activeOptions.length ? <div className="mt-3 rounded-xl bg-amber-500/10 px-3 py-2 text-sm text-amber-100 ring-1 ring-amber-400/20">Nenhuma miniatura está ativa no ciclo VIP atual.</div> : null}
                           </div>
-                          {!vipOptions.length ? <div className="mt-3 rounded-xl bg-amber-500/10 px-3 py-2 text-sm text-amber-100 ring-1 ring-amber-400/20">Nenhuma miniatura está ativa no ciclo VIP atual.</div> : null}
+
+                          {!level3 ? (
+                            <div className="mt-4 rounded-2xl bg-amber-500/[0.04] p-3 ring-1 ring-amber-400/20">
+                              <div className="flex flex-wrap items-end justify-between gap-3">
+                                <div>
+                                  <div className="text-sm font-semibold text-amber-100">Miniaturas de ciclos anteriores</div>
+                                  <div className="text-xs text-slate-400">Você pode misturar opções antigas com as do ciclo ativo, respeitando a quantidade do plano.</div>
+                                </div>
+                                {pastCycleKeys.length ? (
+                                  <label className="min-w-[220px] text-xs text-slate-300">
+                                    Escolher ciclo
+                                    <select value={selectedPastCycleKey} onChange={(e) => setVipPastCycleKey(e.target.value)} className="mt-1 w-full rounded-xl bg-black/30 px-3 py-2 text-white ring-1 ring-white/10">
+                                      {pastCycleKeys.map((cycleKey) => <option key={cycleKey} value={cycleKey}>{formatVipCycleLabel(cycleKey)}</option>)}
+                                    </select>
+                                  </label>
+                                ) : null}
+                              </div>
+
+                              {selectedPastOptions.length ? (
+                                <div className="mt-3 rounded-xl bg-emerald-500/5 p-2 ring-1 ring-emerald-400/20">
+                                  <div className="px-1 pb-2 text-xs font-semibold text-emerald-100">Selecionadas de ciclos anteriores</div>
+                                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                    {selectedPastOptions.map((option) => {
+                                      const isBoss = String(option?.item_type || 'miniature').toLowerCase() === 'boss';
+                                      return (
+                                        <button key={`selected-past-${option.id}`} type="button" onClick={() => toggleVipOption(it, option.id)} className="flex items-center gap-3 rounded-xl bg-emerald-400/10 p-2 text-left ring-1 ring-emerald-300/30">
+                                          {option.image_url ? <img src={option.image_url} alt="" className="h-12 w-12 shrink-0 rounded-lg object-cover ring-1 ring-white/10" loading="lazy" /> : <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-black/30 text-slate-500 ring-1 ring-white/10"><span className="material-icons">image</span></div>}
+                                          <div className="min-w-0 flex-1">
+                                            <div className="truncate text-sm font-semibold text-slate-100">{option.title || 'Miniatura VIP'}</div>
+                                            <div className="mt-1 text-[10px] uppercase tracking-wide text-emerald-200/80">{formatVipCycleLabel(option.cycle_key)} • {isBoss ? 'Boss' : 'Miniatura'}</div>
+                                          </div>
+                                          <span className="material-icons text-[20px] text-emerald-200">check_circle</span>
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              ) : null}
+
+                              {pastCycleKeys.length ? (
+                                <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                  {pastOptions.map((option) => {
+                                    const selected = selectedIds.includes(String(option.id));
+                                    const isBoss = String(option?.item_type || 'miniature').toLowerCase() === 'boss';
+                                    return (
+                                      <button
+                                        key={`past-${option.id}`}
+                                        type="button"
+                                        onClick={() => toggleVipOption(it, option.id)}
+                                        className={`flex items-center gap-3 rounded-xl p-2 text-left ring-1 transition ${selected ? 'bg-amber-400/15 ring-amber-300/50' : 'bg-white/[0.03] ring-white/10 hover:bg-white/[0.06]'}`}
+                                      >
+                                        {option.image_url ? <img src={option.image_url} alt="" className="h-14 w-14 shrink-0 rounded-lg object-cover ring-1 ring-white/10" loading="lazy" /> : <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-black/30 text-slate-500 ring-1 ring-white/10"><span className="material-icons">image</span></div>}
+                                        <div className="min-w-0 flex-1">
+                                          <div className="truncate text-sm font-semibold text-slate-100">{option.title || 'Miniatura VIP'}</div>
+                                          <div className="mt-1 text-[11px] uppercase tracking-wide text-slate-400">{isBoss ? 'Boss' : 'Miniatura'}{option?.active === false ? ' • Arquivada' : ''}</div>
+                                        </div>
+                                        <span className={`material-icons text-[20px] ${selected ? 'text-amber-200' : 'text-slate-600'}`}>{selected ? 'check_circle' : 'radio_button_unchecked'}</span>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              ) : <div className="mt-3 rounded-xl bg-white/[0.03] px-3 py-2 text-sm text-slate-400 ring-1 ring-white/10">Ainda não existem ciclos anteriores cadastrados.</div>}
+                            </div>
+                          ) : null}
                         </div>
                       </div>
                     );
