@@ -362,3 +362,475 @@ footer::before{ top: 0; }
     letter-spacing: .03em;
   }
 }
+
+/* ========================================================================
+   DECORAÇÕES SAZONAIS
+   Camada visual leve, sem bloquear cliques ou leitura do site.
+   ======================================================================== */
+.seasonal-decorations{
+  --season-primary: #d9b85f;
+  --season-secondary: #2fa2b6;
+  --season-accent: #f8efcb;
+  --season-dark: #0b2630;
+  --season-opacity: .72;
+  --season-particle-opacity: .58;
+  --season-particle-count: 20;
+  pointer-events: none;
+  overflow: hidden;
+  contain: layout paint style;
+  isolation: isolate;
+}
+
+.seasonal-decorations--overlay{
+  position: fixed;
+  inset: 0;
+  z-index: 78;
+}
+
+.seasonal-decorations--preview{
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+}
+
+.seasonal-decorations--christmas{
+  --season-primary: #e7c76c;
+  --season-secondary: #2c947a;
+  --season-accent: #fff5cf;
+  --season-dark: #0b3028;
+}
+
+.seasonal-decorations--sao_joao{
+  --season-primary: #f0b84f;
+  --season-secondary: #2fa2b6;
+  --season-accent: #e95f5b;
+  --season-dark: #123f63;
+}
+
+.seasonal-decorations--easter{
+  --season-primary: #deb0e8;
+  --season-secondary: #8dd8c2;
+  --season-accent: #f4c3d8;
+  --season-dark: #594069;
+}
+
+.seasonal-decorations--halloween{
+  --season-primary: #f3a13b;
+  --season-secondary: #8f64d8;
+  --season-accent: #dcc7ff;
+  --season-dark: #231638;
+}
+
+.seasonal-decorations--carnival{
+  --season-primary: #f0c45e;
+  --season-secondary: #34c7d2;
+  --season-accent: #dc5ca8;
+  --season-dark: #3b1d55;
+}
+
+.seasonal-decorations--subtle{
+  --season-opacity: .43;
+  --season-particle-opacity: .34;
+}
+
+.seasonal-decorations--elegant{
+  --season-opacity: .72;
+  --season-particle-opacity: .58;
+}
+
+.seasonal-decorations--festive{
+  --season-opacity: .94;
+  --season-particle-opacity: .82;
+}
+
+.seasonal-decorations--subtle .seasonal-particle:nth-child(n+11){ display: none; }
+.seasonal-decorations--elegant .seasonal-particle:nth-child(n+21){ display: none; }
+
+.seasonal-ambient{
+  position: absolute;
+  top: 5rem;
+  width: min(35vw, 430px);
+  height: min(35vw, 430px);
+  border-radius: 50%;
+  opacity: calc(var(--season-opacity) * .16);
+  filter: blur(70px);
+  background: radial-gradient(circle, var(--season-primary), transparent 68%);
+}
+
+.seasonal-ambient--left{ left: -18vw; }
+.seasonal-ambient--right{
+  right: -18vw;
+  background: radial-gradient(circle, var(--season-secondary), transparent 68%);
+}
+
+.seasonal-top{
+  position: absolute;
+  top: 102px;
+  left: 0;
+  right: 0;
+  height: 74px;
+  opacity: var(--season-opacity);
+  filter: drop-shadow(0 10px 18px rgba(0,0,0,.24));
+}
+
+.seasonal-decorations--preview .seasonal-top{
+  top: 0;
+  transform: scale(.78);
+  transform-origin: top center;
+}
+
+.seasonal-corner{
+  position: absolute;
+  top: 132px;
+  width: clamp(54px, 7vw, 112px);
+  height: clamp(86px, 12vw, 170px);
+  opacity: calc(var(--season-opacity) * .72);
+  filter: drop-shadow(0 12px 18px rgba(0,0,0,.28));
+}
+
+.seasonal-corner--left{ left: -14px; }
+.seasonal-corner--right{ right: -14px; transform: scaleX(-1); }
+
+.seasonal-decorations--preview .seasonal-corner{
+  top: 34px;
+  transform: scale(.72);
+  transform-origin: top left;
+}
+.seasonal-decorations--preview .seasonal-corner--right{
+  transform: scaleX(-1) scale(.72);
+  transform-origin: top right;
+}
+
+.seasonal-corner::before,
+.seasonal-corner::after{
+  content: "";
+  position: absolute;
+}
+
+.seasonal-corner::before{
+  inset: 0 18% 22% 0;
+  border-left: 3px solid color-mix(in oklab, var(--season-secondary) 78%, transparent);
+  border-bottom: 3px solid color-mix(in oklab, var(--season-primary) 72%, transparent);
+  border-radius: 0 0 0 90%;
+  transform: rotate(-9deg);
+}
+
+.seasonal-corner::after{
+  left: 19%;
+  bottom: 12%;
+  width: 54%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 38% 35%, var(--season-accent) 0 7%, transparent 8%),
+    radial-gradient(circle at 63% 38%, var(--season-primary) 0 8%, transparent 9%),
+    radial-gradient(circle at 50% 65%, var(--season-secondary) 0 9%, transparent 10%),
+    radial-gradient(circle, color-mix(in oklab, var(--season-dark) 70%, transparent), transparent 67%);
+  box-shadow: 0 0 25px color-mix(in oklab, var(--season-primary) 28%, transparent);
+}
+
+.seasonal-particles{
+  position: absolute;
+  inset: 0;
+}
+
+.seasonal-particle{
+  position: absolute;
+  top: -24px;
+  left: var(--particle-x);
+  width: var(--particle-size);
+  height: var(--particle-size);
+  opacity: var(--season-particle-opacity);
+  background: var(--season-primary);
+  border-radius: 50%;
+  box-shadow: 0 0 10px color-mix(in oklab, var(--season-primary) 52%, transparent);
+  transform: rotate(var(--particle-rotation));
+}
+
+.seasonal-decorations--animated .seasonal-particle{
+  animation: seasonal-fall var(--particle-duration) linear var(--particle-delay) infinite;
+}
+
+.seasonal-decorations--still .seasonal-particle{
+  top: calc(7% + var(--particle-index) * 3.05%);
+}
+
+.seasonal-decorations--preview .seasonal-particle{
+  animation-duration: 13s;
+}
+
+@keyframes seasonal-fall{
+  0%{ transform: translate3d(0,-6vh,0) rotate(var(--particle-rotation)); opacity: 0; }
+  8%{ opacity: var(--season-particle-opacity); }
+  92%{ opacity: var(--season-particle-opacity); }
+  100%{ transform: translate3d(var(--particle-drift),108vh,0) rotate(calc(var(--particle-rotation) + 430deg)); opacity: 0; }
+}
+
+/* Natal */
+.seasonal-garland-line{
+  position: absolute;
+  left: 5%;
+  right: 5%;
+  top: 10px;
+  height: 25px;
+  border-top: 3px solid color-mix(in oklab, var(--season-secondary) 78%, black 12%);
+  border-radius: 50%;
+}
+
+.seasonal-lights{
+  position: absolute;
+  inset: 0 5%;
+}
+
+.seasonal-light{
+  position: absolute;
+  top: calc(11px + (var(--light-index) % 2) * 5px);
+  left: calc(4% + var(--light-index) * 6.55%);
+  width: 7px;
+  height: 11px;
+  border-radius: 55% 55% 50% 50%;
+  background: var(--season-primary);
+  box-shadow: 0 0 12px var(--season-primary), 0 0 24px color-mix(in oklab, var(--season-primary) 54%, transparent);
+}
+
+.seasonal-light:nth-child(3n+2){ background: var(--season-secondary); box-shadow: 0 0 12px var(--season-secondary); }
+.seasonal-light:nth-child(3n){ background: var(--season-accent); box-shadow: 0 0 12px var(--season-accent); }
+
+.seasonal-decorations--animated .seasonal-light{
+  animation: seasonal-twinkle 2.4s ease-in-out calc(var(--light-index) * -.17s) infinite alternate;
+}
+
+@keyframes seasonal-twinkle{ from{ opacity:.55; transform:scale(.82); } to{ opacity:1; transform:scale(1.13); } }
+
+.seasonal-pine{
+  position: absolute;
+  top: 1px;
+  width: 78px;
+  height: 38px;
+  background:
+    linear-gradient(145deg, transparent 44%, color-mix(in oklab, var(--season-secondary) 78%, #163f34) 45% 56%, transparent 57%) 0 0/24px 18px repeat-x,
+    linear-gradient(35deg, transparent 44%, color-mix(in oklab, var(--season-secondary) 64%, #0b2922) 45% 56%, transparent 57%) 10px 10px/24px 18px repeat-x;
+}
+.seasonal-pine--left{ left: 1%; transform: rotate(-5deg); }
+.seasonal-pine--right{ right: 1%; transform: scaleX(-1) rotate(-5deg); }
+
+.seasonal-decorations--christmas .seasonal-particle{
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+}
+.seasonal-decorations--christmas .seasonal-particle::before,
+.seasonal-decorations--christmas .seasonal-particle::after{
+  content:"";
+  position:absolute;
+  left:50%; top:50%;
+  width:100%; height:1px;
+  background: var(--season-accent);
+  box-shadow: 0 0 7px var(--season-accent);
+}
+.seasonal-decorations--christmas .seasonal-particle::before{ transform:translate(-50%,-50%) rotate(45deg); }
+.seasonal-decorations--christmas .seasonal-particle::after{ transform:translate(-50%,-50%) rotate(-45deg); }
+
+/* São João */
+.seasonal-bunting-line{
+  position:absolute;
+  left:3%; right:3%; top:4px;
+  height:18px;
+  border-top:2px solid rgba(255,244,209,.7);
+  border-radius:50%;
+}
+.seasonal-bunting{ position:absolute; inset:0 3%; }
+.seasonal-flag{
+  position:absolute;
+  top: calc(5px + (var(--flag-index) % 3) * 3px);
+  left: calc(1% + var(--flag-index) * 6.05%);
+  width:18px; height:26px;
+  clip-path: polygon(0 0,100% 0,50% 100%);
+  background: var(--season-primary);
+  filter: drop-shadow(0 5px 4px rgba(0,0,0,.2));
+  transform-origin: top center;
+}
+.seasonal-flag:nth-child(3n+2){ background: var(--season-secondary); }
+.seasonal-flag:nth-child(3n){ background: var(--season-accent); }
+.seasonal-decorations--animated .seasonal-flag{ animation: seasonal-flag-wave 2.2s ease-in-out calc(var(--flag-index) * -.08s) infinite alternate; }
+@keyframes seasonal-flag-wave{ from{ transform:rotate(-2deg) skewX(-1deg); } to{ transform:rotate(3deg) skewX(4deg); } }
+
+.seasonal-balloon{
+  position:absolute;
+  top:8px;
+  width:29px; height:39px;
+  border-radius:50% 50% 46% 46%;
+  background: linear-gradient(135deg, var(--season-primary), var(--season-accent));
+  box-shadow: inset -6px -8px 12px rgba(0,0,0,.18), 0 0 18px color-mix(in oklab, var(--season-primary) 32%, transparent);
+}
+.seasonal-balloon::before{ content:""; position:absolute; left:50%; top:100%; width:1px; height:25px; background:rgba(255,255,255,.45); }
+.seasonal-balloon::after{ content:""; position:absolute; left:45%; top:97%; border-left:4px solid transparent; border-right:4px solid transparent; border-top:7px solid var(--season-accent); }
+.seasonal-balloon--left{ left:1.8%; transform:rotate(-9deg); }
+.seasonal-balloon--right{ right:1.8%; transform:rotate(9deg); }
+
+.seasonal-decorations--sao_joao .seasonal-particle{
+  border-radius:2px;
+  background: var(--season-primary);
+  clip-path: polygon(50% 0,100% 50%,50% 100%,0 50%);
+}
+.seasonal-decorations--sao_joao .seasonal-particle:nth-child(3n+2){ background:var(--season-secondary); }
+.seasonal-decorations--sao_joao .seasonal-particle:nth-child(3n){ background:var(--season-accent); }
+
+/* Páscoa */
+.seasonal-easter-vine{
+  position:absolute;
+  left:7%; right:7%; top:11px;
+  height:22px;
+  border-top:2px solid color-mix(in oklab, var(--season-secondary) 55%, transparent);
+  border-radius:50%;
+}
+.seasonal-easter-ornaments{ position:absolute; inset:0 7%; }
+.seasonal-egg,
+.seasonal-flower{
+  position:absolute;
+  left:calc(3% + var(--egg-index) * 9.2%);
+  top:calc(8px + (var(--egg-index) % 2) * 5px);
+}
+.seasonal-egg{
+  width:16px; height:21px;
+  border-radius:50% 50% 46% 46%;
+  background:linear-gradient(145deg,var(--season-primary),var(--season-accent));
+  box-shadow:inset -4px -5px 7px rgba(62,32,75,.18),0 0 12px color-mix(in oklab,var(--season-primary) 30%,transparent);
+}
+.seasonal-egg::after{
+  content:""; position:absolute; left:2px; right:2px; top:9px; height:3px;
+  border-top:2px dotted rgba(255,255,255,.72);
+}
+.seasonal-flower{
+  width:17px; height:17px;
+  border-radius:50%;
+  background:radial-gradient(circle,var(--season-primary) 0 23%,transparent 24%),
+    radial-gradient(circle at 50% 0,var(--season-accent) 0 28%,transparent 30%),
+    radial-gradient(circle at 100% 50%,var(--season-accent) 0 28%,transparent 30%),
+    radial-gradient(circle at 50% 100%,var(--season-accent) 0 28%,transparent 30%),
+    radial-gradient(circle at 0 50%,var(--season-accent) 0 28%,transparent 30%);
+}
+.seasonal-bunny-ear{
+  position:absolute; top:2px; width:19px; height:42px;
+  border:4px solid var(--season-primary);
+  border-radius:80% 80% 55% 55%;
+  background:color-mix(in oklab,var(--season-accent) 38%,transparent);
+}
+.seasonal-bunny-ear::after{ content:""; position:absolute; width:19px; height:42px; left:15px; top:3px; border:4px solid var(--season-secondary); border-radius:80% 80% 55% 55%; transform:rotate(12deg); }
+.seasonal-bunny-ear--left{ left:1.5%; transform:rotate(-16deg); }
+.seasonal-bunny-ear--right{ right:3.5%; transform:scaleX(-1) rotate(-16deg); }
+
+.seasonal-decorations--easter .seasonal-particle{
+  width:calc(var(--particle-size) * .8);
+  height:var(--particle-size);
+  border-radius:90% 20% 90% 20%;
+  background:var(--season-accent);
+}
+.seasonal-decorations--easter .seasonal-particle:nth-child(3n+2){ background:var(--season-primary); }
+.seasonal-decorations--easter .seasonal-particle:nth-child(3n){ background:var(--season-secondary); }
+
+/* Halloween */
+.seasonal-web{
+  position:absolute; top:-15px; width:94px; height:94px; opacity:.78;
+  border-radius:50%;
+  background:
+    repeating-radial-gradient(circle at 0 0,transparent 0 13px,color-mix(in oklab,var(--season-accent) 46%,transparent) 14px 15px),
+    conic-gradient(from 0deg at 0 0,color-mix(in oklab,var(--season-accent) 45%,transparent) 0 1deg,transparent 1deg 44deg,color-mix(in oklab,var(--season-accent) 45%,transparent) 44deg 46deg,transparent 46deg 89deg,color-mix(in oklab,var(--season-accent) 45%,transparent) 89deg 91deg,transparent 91deg 134deg,color-mix(in oklab,var(--season-accent) 45%,transparent) 134deg 136deg,transparent 136deg 179deg);
+}
+.seasonal-web--left{ left:0; }
+.seasonal-web--right{ right:0; transform:scaleX(-1); }
+.seasonal-moon{
+  position:absolute; top:2px; left:50%; width:38px; height:38px; border-radius:50%;
+  background:var(--season-primary);
+  box-shadow:0 0 24px color-mix(in oklab,var(--season-primary) 65%,transparent);
+  transform:translateX(-50%);
+}
+.seasonal-moon::after{ content:""; position:absolute; width:36px; height:36px; top:-7px; left:12px; border-radius:50%; background:#091018; }
+.seasonal-bats{ position:absolute; inset:0 12%; }
+.seasonal-bat{
+  position:absolute;
+  top:calc(9px + (var(--bat-index) % 3) * 12px);
+  left:calc(3% + var(--bat-index) * 13.1%);
+  width:24px; height:11px;
+  background:var(--season-secondary);
+  clip-path:polygon(0 30%,18% 0,38% 35%,50% 12%,62% 35%,82% 0,100% 30%,84% 100%,57% 67%,50% 100%,43% 67%,16% 100%);
+  filter:drop-shadow(0 4px 5px rgba(0,0,0,.4));
+}
+.seasonal-decorations--animated .seasonal-bat{ animation:seasonal-bat-fly 2.8s ease-in-out calc(var(--bat-index) * -.23s) infinite alternate; }
+@keyframes seasonal-bat-fly{ from{ transform:translateY(0) scale(.85); } to{ transform:translateY(-7px) scale(1.04); } }
+
+.seasonal-decorations--halloween .seasonal-particle{
+  width:calc(var(--particle-size) * 1.35);
+  height:calc(var(--particle-size) * .7);
+  border-radius:0;
+  background:var(--season-secondary);
+  clip-path:polygon(0 35%,20% 0,40% 35%,50% 15%,60% 35%,80% 0,100% 35%,78% 100%,55% 67%,50% 100%,45% 67%,22% 100%);
+  box-shadow:none;
+}
+.seasonal-decorations--halloween .seasonal-particle:nth-child(4n){ background:var(--season-primary); border-radius:50%; clip-path:none; box-shadow:0 0 11px var(--season-primary); }
+
+/* Carnaval */
+.seasonal-carnival-thread{
+  position:absolute; left:4%; right:4%; top:8px; height:18px;
+  border-top:2px solid color-mix(in oklab,var(--season-primary) 70%,transparent);
+  border-radius:50%;
+}
+.seasonal-streamers{ position:absolute; inset:0 5%; }
+.seasonal-streamer{
+  position:absolute;
+  left:calc(4% + var(--stream-index) * 11.2%);
+  top:5px;
+  width:9px; height:53px;
+  border-radius:50%;
+  border-left:3px solid var(--season-primary);
+  transform:rotate(calc(-18deg + var(--stream-index) * 4deg));
+}
+.seasonal-streamer:nth-child(3n+2){ border-color:var(--season-secondary); }
+.seasonal-streamer:nth-child(3n){ border-color:var(--season-accent); }
+.seasonal-decorations--animated .seasonal-streamer{ animation:seasonal-streamer-dance 2.7s ease-in-out calc(var(--stream-index) * -.18s) infinite alternate; }
+@keyframes seasonal-streamer-dance{ from{ height:43px; transform:rotate(-9deg) skewX(-3deg); } to{ height:58px; transform:rotate(11deg) skewX(4deg); } }
+
+.seasonal-mask{
+  position:absolute; top:4px; width:54px; height:27px;
+  border-radius:54% 54% 62% 62%;
+  background:linear-gradient(135deg,var(--season-accent),var(--season-secondary));
+  box-shadow:0 0 18px color-mix(in oklab,var(--season-accent) 32%,transparent);
+  transform:rotate(-8deg);
+}
+.seasonal-mask::before,
+.seasonal-mask::after{ content:""; position:absolute; top:8px; width:13px; height:7px; border-radius:50%; background:#07161d; }
+.seasonal-mask::before{ left:9px; }
+.seasonal-mask::after{ right:9px; }
+.seasonal-mask i,
+.seasonal-mask b{ position:absolute; display:block; width:2px; height:25px; top:-19px; background:var(--season-primary); transform-origin:bottom; }
+.seasonal-mask i{ left:15px; transform:rotate(-24deg); }
+.seasonal-mask b{ right:15px; transform:rotate(24deg); }
+.seasonal-mask--left{ left:1.2%; }
+.seasonal-mask--right{ right:1.2%; transform:scaleX(-1) rotate(-8deg); }
+
+.seasonal-decorations--carnival .seasonal-particle{
+  border-radius:2px;
+  background:var(--season-primary);
+  box-shadow:none;
+}
+.seasonal-decorations--carnival .seasonal-particle:nth-child(3n+2){ background:var(--season-secondary); }
+.seasonal-decorations--carnival .seasonal-particle:nth-child(3n){ background:var(--season-accent); }
+
+@media (max-width: 720px){
+  .seasonal-top{ top:94px; height:58px; }
+  .seasonal-corner{ top:118px; opacity:calc(var(--season-opacity) * .56); }
+  .seasonal-light{ left:calc(2% + var(--light-index) * 6.7%); }
+  .seasonal-flag{ width:13px; height:20px; left:calc(1% + var(--flag-index) * 6.05%); }
+  .seasonal-bat{ transform:scale(.72); }
+  .seasonal-mask{ transform:scale(.78) rotate(-8deg); }
+  .seasonal-mask--right{ transform:scaleX(-1) scale(.78) rotate(-8deg); }
+  .seasonal-balloon{ transform:scale(.78) rotate(-9deg); }
+  .seasonal-balloon--right{ transform:scale(.78) rotate(9deg); }
+  .seasonal-bunny-ear{ transform:scale(.78) rotate(-16deg); }
+  .seasonal-bunny-ear--right{ transform:scaleX(-1) scale(.78) rotate(-16deg); }
+}
+
+@media (prefers-reduced-motion: reduce){
+  .seasonal-decorations *{ animation:none !important; }
+}

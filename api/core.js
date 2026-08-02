@@ -11,6 +11,7 @@ import handleSitemap from '../server/api_handlers/sitemap.js';
 import handleVipPlans from '../server/api_handlers/vip-plans.js';
 import handleVipPresent from '../server/api_handlers/vip-present.js';
 import handleVipCycle from '../server/api_handlers/vip-cycle.js';
+import handleSeasonalTheme from '../server/api_handlers/seasonal-theme.js';
 
 export const config = { runtime: 'nodejs' };
 
@@ -28,6 +29,7 @@ const ACTIONS = {
   'vip-plans': handleVipPlans,
   'vip-present': handleVipPresent,
   'vip-cycle': handleVipCycle,
+  'seasonal-theme': handleSeasonalTheme,
 };
 
 export default async function handler(req, res) {

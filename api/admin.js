@@ -3397,12 +3397,115 @@ async function handleSetAdminLevel(req, res) {
   return res.status(200).json({ ok: true, admins, audit_logs });
 }
 
+
+
+const VALID_SEASONAL_THEMES = new Set(['christmas', 'sao_joao', 'easter', 'halloween', 'carnival']);
+const VALID_SEASONAL_INTENSITIES = new Set(['subtle', 'elegant', 'festive']);
+const DEFAULT_SEASONAL_THEME_SETTINGS = Object.freeze({
+  enabled: false,
+  theme: 'christmas',
+  intensity: 'elegant',
+  animations_enabled: true,
+  updated_at: null,
+  updated_by: null,
+});
+
+function normalizeSeasonalThemeSettings(value = {}) {
+  const theme = String(value?.theme || '').trim().toLowerCase();
+  const intensity = String(value?.intensity || '').trim().toLowerCase();
+  return {
+    enabled: value?.enabled === true,
+    theme: VALID_SEASONAL_THEMES.has(theme) ? theme : DEFAULT_SEASONAL_THEME_SETTINGS.theme,
+    intensity: VALID_SEASONAL_INTENSITIES.has(intensity) ? intensity : DEFAULT_SEASONAL_THEME_SETTINGS.intensity,
+    animations_enabled: value?.animations_enabled !== false,
+    updated_at: value?.updated_at || null,
+    updated_by: value?.updated_by || null,
+  };
+}
+
+function seasonalThemeTableMissing(error) {
+  return /site_seasonal_theme|relation|does not exist|schema cache/i.test(String(error?.message || ''));
+}
+
+async function loadSeasonalThemeSettings(sb) {
+  const response = await sb
+    .from('site_seasonal_theme')
+    .select('enabled,theme,intensity,animations_enabled,updated_at,updated_by')
+    .eq('id', 'default')
+    .maybeSingle();
+  if (response?.error) throw response.error;
+  return normalizeSeasonalThemeSettings(response?.data || DEFAULT_SEASONAL_THEME_SETTINGS);
+}
+
+async function handleSeasonalTheme(req, res) {
+  const auth = await requireAdmin(req, ADMIN_LEVEL.OWNER);
+  if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
+  const sb = supabaseAdmin();
+
+  if (req.method === 'GET') {
+    try {
+      const settings = await loadSeasonalThemeSettings(sb);
+      return res.status(200).json({ ok: true, settings, setup_required: false });
+    } catch (error) {
+      if (seasonalThemeTableMissing(error)) {
+        return res.status(409).json({
+          error: 'A tabela de decorações ainda não foi criada. Execute o arquivo SQL_DECORACOES_SAZONAIS.sql no Supabase.',
+          settings: DEFAULT_SEASONAL_THEME_SETTINGS,
+          setup_required: true,
+        });
+      }
+      return res.status(500).json({ error: error?.message || 'Não foi possível carregar as decorações.' });
+    }
+  }
+
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  const body = await readJsonBody(req);
+  const theme = String(body?.theme || '').trim().toLowerCase();
+  const intensity = String(body?.intensity || '').trim().toLowerCase();
+  if (!VALID_SEASONAL_THEMES.has(theme)) return res.status(400).json({ error: 'Tema sazonal inválido.' });
+  if (!VALID_SEASONAL_INTENSITIES.has(intensity)) return res.status(400).json({ error: 'Intensidade inválida.' });
+
+  const payload = {
+    id: 'default',
+    enabled: body?.enabled === true,
+    theme,
+    intensity,
+    animations_enabled: body?.animations_enabled !== false,
+    updated_by: auth.user.id,
+    updated_at: new Date().toISOString(),
+  };
+
+  try {
+    const response = await sb
+      .from('site_seasonal_theme')
+      .upsert(payload, { onConflict: 'id' })
+      .select('enabled,theme,intensity,animations_enabled,updated_at,updated_by')
+      .single();
+    if (response?.error) throw response.error;
+    return res.status(200).json({
+      ok: true,
+      settings: normalizeSeasonalThemeSettings(response?.data || payload),
+      setup_required: false,
+    });
+  } catch (error) {
+    if (seasonalThemeTableMissing(error)) {
+      return res.status(409).json({
+        error: 'A tabela de decorações ainda não foi criada. Execute o arquivo SQL_DECORACOES_SAZONAIS.sql no Supabase.',
+        setup_required: true,
+      });
+    }
+    return res.status(500).json({ error: error?.message || 'Não foi possível salvar a decoração.' });
+  }
+}
+
 export default async function handler(req, res) {
   
   if (!rateLimit(req, res, { key: 'api:admin', limit: 60, windowMs: 60000 })) return;
   try {
     const action = String(req.query?.action || "").trim().toLowerCase();
 
+    if (action === "seasonal-theme") return await handleSeasonalTheme(req, res);
     if (action === "admins-list") return await handleAdminsList(req, res);
     if (action === "admin-users-search") return await handleAdminUsersSearch(req, res);
     if (action === "set-admin-level") return await handleSetAdminLevel(req, res);

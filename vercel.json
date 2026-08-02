@@ -364,6 +364,10 @@
       "destination": "/api/core?api_action=pix-payment"
     },
     {
+      "source": "/api/seasonal-theme",
+      "destination": "/api/core?api_action=seasonal-theme"
+    },
+    {
       "source": "/api/profile",
       "destination": "/api/core?api_action=profile"
     },
