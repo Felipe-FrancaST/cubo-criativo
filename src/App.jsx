@@ -397,6 +397,8 @@ export default function App() {
   const { user, session, signOut, isPasswordRecovery, needsGoogleTermsAcceptance } = useAuth();
   const accessToken = session?.access_token || "";
   const [isAdmin, setIsAdmin] = React.useState(false);
+  const [adminLevel, setAdminLevel] = React.useState(0);
+  const [adminRole, setAdminRole] = React.useState("Sem acesso");
   const [isAdminLoading, setIsAdminLoading] = React.useState(false);
 
   React.useEffect(() => {
@@ -404,6 +406,8 @@ export default function App() {
 
     if (!accessToken) {
       setIsAdmin(false);
+      setAdminLevel(0);
+      setAdminRole("Sem acesso");
       setIsAdminLoading(false);
       return () => {
         alive = false;
@@ -415,9 +419,17 @@ export default function App() {
     (async () => {
       try {
         const result = await fetchAdminStatus(accessToken);
-        if (alive) setIsAdmin(Boolean(result?.isAdmin));
+        if (alive) {
+          setIsAdmin(Boolean(result?.isAdmin));
+          setAdminLevel(Number(result?.adminLevel || 0));
+          setAdminRole(String(result?.adminRole || "Sem acesso"));
+        }
       } catch {
-        if (alive) setIsAdmin(false);
+        if (alive) {
+          setIsAdmin(false);
+          setAdminLevel(0);
+          setAdminRole("Sem acesso");
+            }
       } finally {
         if (alive) setIsAdminLoading(false);
       }
@@ -1395,7 +1407,7 @@ React.useEffect(() => {
       );
     }
     if (route === "/admin") {
-      return <AdminOrdersPage user={user} accessToken={accessToken} isAdmin={isAdmin} isAdminLoading={isAdminLoading} onNavigateHome={() => navigate("/")} onRequireLogin={requireLogin} />;
+      return <AdminOrdersPage user={user} accessToken={accessToken} isAdmin={isAdmin} adminLevel={adminLevel} adminRole={adminRole} isAdminLoading={isAdminLoading} onNavigateHome={() => navigate("/")} onRequireLogin={requireLogin} />;
     }
     if (route === "/promocoes") {
       return (

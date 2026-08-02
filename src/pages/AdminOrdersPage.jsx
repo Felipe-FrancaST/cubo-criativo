@@ -7,6 +7,8 @@ import { fetchAddressFromCep } from "../lib/cep.js";
 import { supabase } from "../lib/supabaseClient.js";
 import AdminProductsSection from "./admin/products/AdminProductsSection.jsx";
 import AdminReviewsSection from "./admin/reviews/AdminReviewsSection.jsx";
+import AdminManagementSection from "./admin/admins/AdminManagementSection.jsx";
+import { ADMIN_LEVEL, adminLevelLabel, normalizeAdminLevel } from "../lib/admin.js";
 
 
 function safeStorageFileName(name = 'modelo.glb') {
@@ -72,7 +74,7 @@ function dateTimeLocalToIso(value) {
   return Number.isNaN(d.getTime()) ? "" : d.toISOString();
 }
 
-function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTracking, onUpdateCreatedAt, onRequestRefund, onDeleteOrder, onResendEmail, onAddNote, resendBusy, toast, adminQuickSearch, setAdminQuickSearch, runAdminQuickSearch }) {
+function OrderDetailsModal({ open, order, canManageBusiness = false, onClose, onUpdateStatus, onUpdateTracking, onUpdateCreatedAt, onRequestRefund, onDeleteOrder, onResendEmail, onAddNote, resendBusy, toast, adminQuickSearch, setAdminQuickSearch, runAdminQuickSearch }) {
   if (!open) return null;
   const p = order?.profile || null;
   const address = fmtAddress(p);
@@ -159,7 +161,8 @@ function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTrack
                     if (!iso) return;
                     onUpdateCreatedAt?.(order, iso);
                   }}
-                  disabled={!launchDateDraft || dateTimeLocalToIso(launchDateDraft) === order?.created_at}
+                  disabled={!canManageBusiness || !launchDateDraft || dateTimeLocalToIso(launchDateDraft) === order?.created_at}
+                  title={!canManageBusiness ? "Exige nível 2 (Gerente)" : undefined}
                   className="rounded-xl px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-white/4 ring-1 ring-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Alterar data
@@ -228,13 +231,15 @@ function OrderDetailsModal({ open, order, onClose, onUpdateStatus, onUpdateTrack
                 <span className="material-icons text-[16px] align-middle mr-1">payments</span>
                 Copiar ID pagamento
               </button>
-              <button
-                onClick={() => setConfirmDeleteOpen(true)}
-                className="rounded-2xl bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-100 ring-1 ring-red-500/30 transition hover:bg-red-500/15 hover:-translate-y-0.5"
-              >
-                <span className="material-icons text-[16px] align-middle mr-1">delete</span>
-                Excluir
-              </button>
+              {canManageBusiness ? (
+                <button
+                  onClick={() => setConfirmDeleteOpen(true)}
+                  className="rounded-2xl bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-100 ring-1 ring-red-500/30 transition hover:bg-red-500/15 hover:-translate-y-0.5"
+                >
+                  <span className="material-icons text-[16px] align-middle mr-1">delete</span>
+                  Excluir
+                </button>
+              ) : null}
             </div>
           </div>
 
@@ -685,7 +690,7 @@ function ConfirmDangerModal({ open, title, message, details, confirmLabel = "Con
   );
 }
 
-function StatusModal({ open, mode, order, onClose, onSubmit }) {
+function StatusModal({ open, mode, order, canManageBusiness = false, onClose, onSubmit }) {
   const [productionStatus, setProductionStatus] = React.useState("recebido");
   const [eta, setEta] = React.useState("3 a 7 dias úteis");
   const [tracking, setTracking] = React.useState("");
@@ -751,8 +756,8 @@ function StatusModal({ open, mode, order, onClose, onSubmit }) {
                   <option value="pronto">Pronto</option>
                   <option value="enviado">Enviado</option>
                   <option value="entregue">Entregue</option>
-                  <option value="cancelado">Cancelado</option>
-                  <option value="reembolsado">Reembolsado</option>
+                  {canManageBusiness ? <option value="cancelado">Cancelado</option> : null}
+                  {canManageBusiness ? <option value="reembolsado">Reembolsado</option> : null}
                 </select>
               </label>
 
@@ -844,7 +849,7 @@ function StatusModal({ open, mode, order, onClose, onSubmit }) {
 }
 
 
-function BulkActionModal({ open, mode, count, busy = false, onClose, onSubmit }) {
+function BulkActionModal({ open, mode, count, busy = false, canManageBusiness = false, onClose, onSubmit }) {
   const [productionStatus, setProductionStatus] = React.useState("recebido");
   const [tracking, setTracking] = React.useState("");
 
@@ -912,8 +917,8 @@ function BulkActionModal({ open, mode, count, busy = false, onClose, onSubmit })
                   <option value="pronto">Pronto</option>
                   <option value="enviado">Enviado</option>
                   <option value="entregue">Entregue</option>
-                  <option value="cancelado">Cancelado</option>
-                  <option value="reembolsado">Reembolsado</option>
+                  {canManageBusiness ? <option value="cancelado">Cancelado</option> : null}
+                  {canManageBusiness ? <option value="reembolsado">Reembolsado</option> : null}
                 </select>
               </label>
 
@@ -2108,8 +2113,12 @@ function CreateClientModal({ open, accessToken, onClose, onCreated, showToast })
   );
 }
 
-export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoading = false, onNavigateHome, onRequireLogin }) {
+export default function AdminOrdersPage({ user, accessToken, isAdmin, adminLevel = 0, adminRole = "", isAdminLoading = false, onNavigateHome, onRequireLogin }) {
   const { loading: authLoading } = useAuth();
+  const normalizedAdminLevel = normalizeAdminLevel(adminLevel);
+  const canOperate = normalizedAdminLevel >= ADMIN_LEVEL.OPERATOR;
+  const canManageBusiness = normalizedAdminLevel >= ADMIN_LEVEL.MANAGER;
+  const canManageAdmins = normalizedAdminLevel >= ADMIN_LEVEL.OWNER;
   const [section, setSection] = React.useState("dashboard");
 
   const [orders, setOrders] = React.useState([]);
@@ -2194,6 +2203,12 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
     window.clearTimeout(showToast._t);
     showToast._t = window.setTimeout(() => setToast(""), 2000);
   };
+
+  React.useEffect(() => {
+    const businessSections = new Set(["finance", "clients", "products", "reviews", "coupons", "vip"]);
+    if (businessSections.has(section) && !canManageBusiness) setSection("dashboard");
+    if (section === "admins" && !canManageAdmins) setSection("dashboard");
+  }, [section, canManageBusiness, canManageAdmins]);
 
   React.useEffect(() => {
     // Evita abrir login durante a restauração de sessão após refresh.
@@ -3172,7 +3187,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <div className="text-2xl font-semibold text-white">Admin</div>
-          <div className="text-sm text-slate-400">Pedidos, produtos, produção, rastreio e VIP — tudo em um painel.</div>
+          <div className="text-sm text-slate-400">Nível {normalizedAdminLevel} — {adminRole || adminLevelLabel(normalizedAdminLevel)}. Permissões aplicadas no painel e na API.</div>
         </div>
         <div className="grid w-full grid-cols-3 gap-2 sm:flex sm:w-auto sm:items-center">
           <button
@@ -3203,16 +3218,17 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
       {/* Mobile tabs */}
       <div className="sticky top-[68px] z-[80] mt-4 flex gap-2 overflow-x-auto rounded-2xl bg-[#07161d]/95 p-2 shadow-[0_12px_35px_rgba(0,0,0,0.35)] ring-1 ring-white/10 backdrop-blur lg:hidden">
         {[
-          ["dashboard", "space_dashboard", "Dashboard"],
-          ["orders", "inventory_2", "Pedidos"],
-          ["production", "view_kanban", "Produção"],
-          ["finance", "payments", "Financeiro"],
-          ["clients", "groups", "Clientes"],
-          ["products", "inventory", "Produtos"],
-          ["reviews", "reviews", "Avaliações"],
-          ["coupons", "sell", "Cupons"],
-          ["vip", "workspace_premium", "VIP"],
-        ].map(([key, icon, label]) => (
+          ["dashboard", "space_dashboard", "Dashboard", true],
+          ["orders", "inventory_2", "Pedidos", canOperate],
+          ["production", "view_kanban", "Produção", canOperate],
+          ["finance", "payments", "Financeiro", canManageBusiness],
+          ["clients", "groups", "Clientes", canManageBusiness],
+          ["products", "inventory", "Produtos", canManageBusiness],
+          ["reviews", "reviews", "Avaliações", canManageBusiness],
+          ["coupons", "sell", "Cupons", canManageBusiness],
+          ["vip", "workspace_premium", "VIP", canManageBusiness],
+          ["admins", "admin_panel_settings", "Admins", canManageAdmins],
+        ].filter((item) => item[3]).map(([key, icon, label]) => (
           <button
             key={key}
             onClick={() => setSection(key)}
@@ -3249,40 +3265,46 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                 Produção
               </SidebarItem>
             </div>
-            <div className="mt-2">
+            {canManageBusiness ? <div className="mt-2">
               <SidebarItem active={section === "finance"} icon="payments" onClick={() => setSection("finance")}>
                 Centro financeiro
               </SidebarItem>
-            </div>
-            <div className="mt-2">
+            </div> : null}
+            {canManageBusiness ? <div className="mt-2">
               <SidebarItem active={section === "clients"} icon="groups" onClick={() => setSection("clients")}>
                 Clientes
               </SidebarItem>
-            </div>
-            <div className="mt-2">
+            </div> : null}
+            {canManageBusiness ? <div className="mt-2">
               <SidebarItem active={section === "products"} icon="inventory" onClick={() => setSection("products")}>
                 Produtos
               </SidebarItem>
-            </div>
-            <div className="mt-2">
+            </div> : null}
+            {canManageBusiness ? <div className="mt-2">
               <SidebarItem active={section === "reviews"} icon="reviews" onClick={() => setSection("reviews")}>
                 Avaliações
               </SidebarItem>
-            </div>
-            <div className="mt-2">
+            </div> : null}
+            {canManageBusiness ? <div className="mt-2">
               <SidebarItem active={section === "coupons"} icon="sell" onClick={() => setSection("coupons")}>
                 Cupons — Cubo Game
               </SidebarItem>
-            </div>
-            <div className="mt-2">
+            </div> : null}
+            {canManageBusiness ? <div className="mt-2">
               <SidebarItem active={section === "vip"} icon="workspace_premium" onClick={() => setSection("vip")}>
                 VIP Controle
               </SidebarItem>
-            </div>
+            </div> : null}
+            {canManageAdmins ? <div className="mt-2">
+              <SidebarItem active={section === "admins"} icon="admin_panel_settings" onClick={() => setSection("admins")}>
+                Administradores
+              </SidebarItem>
+            </div> : null}
 
             <div className="mt-3 rounded-2xl bg-black/20 p-3 ring-1 ring-white/10">
               <div className="text-xs text-slate-500">Conta admin</div>
               <div className="mt-1 break-words text-sm text-slate-200">{user?.email}</div>
+              <div className="mt-2 inline-flex rounded-full bg-violet-400/10 px-2.5 py-1 text-[11px] font-bold text-violet-100 ring-1 ring-violet-300/20">Nível {normalizedAdminLevel} — {adminRole || adminLevelLabel(normalizedAdminLevel)}</div>
             </div>
           </div>
         </aside>
@@ -3300,7 +3322,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
               <SectionTitle
                 icon="space_dashboard"
                 title="Dashboard"
-                subtitle="Visão rápida da operação, gargalos e receita."
+                subtitle={canManageBusiness ? "Visão rápida da operação, gargalos e receita." : "Visão rápida dos pedidos e da operação."}
                 right={
                   <button
                     onClick={() => exportCsv(filteredOrders)}
@@ -3316,13 +3338,13 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                 <KpiCard label="Pedidos" value={stats.total} hint="Total carregado" />
                 <KpiCard label="Pagos" value={stats.paid} hint="Prontos para produção/envio" />
                 <KpiCard label="Pendentes" value={stats.pending} hint="Aguardando pagamento" />
-                <KpiCard label="Faturamento (pagos)" value={fmtBRL(stats.revenue)} hint="Soma dos pedidos pagos" />
-                <KpiCard label="VIP" value={stats.vipCount} hint="Pedidos do tipo VIP" />
-                <KpiCard label="Reembolso solicitado" value={stats.refundReq} hint="Monitorar e tratar" />
+                {canManageBusiness ? <KpiCard label="Faturamento (pagos)" value={fmtBRL(stats.revenue)} hint="Soma dos pedidos pagos" /> : null}
+                {canManageBusiness ? <KpiCard label="VIP" value={stats.vipCount} hint="Pedidos do tipo VIP" /> : null}
+                {canManageBusiness ? <KpiCard label="Reembolso solicitado" value={stats.refundReq} hint="Monitorar e tratar" /> : null}
                 <KpiCard label="Atrasados" value={stats.overdueCount} hint="Pedidos fora do prazo operacional" />
-                <KpiCard label="Receita hoje" value={fmtBRL(stats.paidToday)} hint="Pagamentos confirmados no dia" />
-                <KpiCard label="Receita do mês" value={fmtBRL(stats.paidMonth)} hint="Pagamentos confirmados no mês" />
-                <KpiCard label="Ticket médio" value={fmtBRL(stats.averageTicket)} hint="Média dos pedidos pagos" />
+                {canManageBusiness ? <KpiCard label="Receita hoje" value={fmtBRL(stats.paidToday)} hint="Pagamentos confirmados no dia" /> : null}
+                {canManageBusiness ? <KpiCard label="Receita do mês" value={fmtBRL(stats.paidMonth)} hint="Pagamentos confirmados no mês" /> : null}
+                {canManageBusiness ? <KpiCard label="Ticket médio" value={fmtBRL(stats.averageTicket)} hint="Média dos pedidos pagos" /> : null}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
@@ -3574,20 +3596,24 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                         >
                           Status em lote
                         </button>
-                        <button
-                          onClick={() => setBulkModal({ open: true, mode: "refund_on" })}
-                          disabled={!selectedOrderIds.length || bulkBusy}
-                          className="rounded-xl px-3 py-2 text-sm text-slate-100 hover:bg-white/4 ring-1 ring-white/10 disabled:opacity-50"
-                        >
-                          Marcar reembolso
-                        </button>
-                        <button
-                          onClick={() => setBulkModal({ open: true, mode: "refund_off" })}
-                          disabled={!selectedOrderIds.length || bulkBusy}
-                          className="rounded-xl px-3 py-2 text-sm text-slate-100 hover:bg-white/4 ring-1 ring-white/10 disabled:opacity-50"
-                        >
-                          Limpar reembolso
-                        </button>
+                        {canManageBusiness ? (
+                          <>
+                            <button
+                              onClick={() => setBulkModal({ open: true, mode: "refund_on" })}
+                              disabled={!selectedOrderIds.length || bulkBusy}
+                              className="rounded-xl px-3 py-2 text-sm text-slate-100 hover:bg-white/4 ring-1 ring-white/10 disabled:opacity-50"
+                            >
+                              Marcar reembolso
+                            </button>
+                            <button
+                              onClick={() => setBulkModal({ open: true, mode: "refund_off" })}
+                              disabled={!selectedOrderIds.length || bulkBusy}
+                              className="rounded-xl px-3 py-2 text-sm text-slate-100 hover:bg-white/4 ring-1 ring-white/10 disabled:opacity-50"
+                            >
+                              Limpar reembolso
+                            </button>
+                          </>
+                        ) : null}
                         <button
                           onClick={bulkResendEmails}
                           disabled={!selectedPaidOrders.length || bulkBusy}
@@ -3595,13 +3621,15 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                         >
                           Reenviar e-mails
                         </button>
-                        <button
-                          onClick={() => setBulkModal({ open: true, mode: "delete" })}
-                          disabled={!selectedOrderIds.length || bulkBusy}
-                          className="rounded-xl px-3 py-2 text-sm text-red-100 hover:bg-red-500/10 ring-1 ring-red-500/30 disabled:opacity-50"
-                        >
-                          Excluir pedidos
-                        </button>
+                        {canManageBusiness ? (
+                          <button
+                            onClick={() => setBulkModal({ open: true, mode: "delete" })}
+                            disabled={!selectedOrderIds.length || bulkBusy}
+                            className="rounded-xl px-3 py-2 text-sm text-red-100 hover:bg-red-500/10 ring-1 ring-red-500/30 disabled:opacity-50"
+                          >
+                            Excluir pedidos
+                          </button>
+                        ) : null}
                         <button
                           onClick={() => setSelectedOrderIds([])}
                           className="rounded-xl px-3 py-2 text-sm text-slate-100 hover:bg-white/4 ring-1 ring-white/10"
@@ -4163,6 +4191,13 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                 </div>
               </div>
             </div>
+          ) : section === "admins" && canManageAdmins ? (
+            <AdminManagementSection
+              accessToken={accessToken}
+              currentUserId={user?.id}
+              currentLevel={normalizedAdminLevel}
+              onToast={showToast}
+            />
           ) : section === "vip" ? (
             <div className="space-y-4">
               <SectionTitle
@@ -4719,6 +4754,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
       <OrderDetailsModal
         open={details.open}
         order={activeOrder}
+        canManageBusiness={canManageBusiness}
         onClose={() => setDetails({ open: false, orderId: null })}
         onUpdateStatus={(o) => setActionModal({ open: true, mode: "status", orderId: o?.id })}
         onUpdateTracking={(o) => setActionModal({ open: true, mode: "tracking", orderId: o?.id })}
@@ -4737,6 +4773,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
         open={actionModal.open}
         mode={actionModal.mode}
         order={activeActionOrder}
+        canManageBusiness={canManageBusiness}
         onClose={() => setActionModal({ open: false, mode: "status", orderId: null })}
         onSubmit={(patch) => {
           const id = activeActionOrder?.id;
@@ -4750,6 +4787,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
         mode={bulkModal.mode}
         count={selectedOrderIds.length}
         busy={bulkBusy}
+        canManageBusiness={canManageBusiness}
         onClose={() => setBulkModal({ open: false, mode: "status" })}
         onSubmit={(patch) => {
           if (bulkModal.mode === "delete") {

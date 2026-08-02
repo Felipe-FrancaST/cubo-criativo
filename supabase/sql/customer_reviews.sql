@@ -78,7 +78,7 @@ security definer
 set search_path = public
 as $$
 declare
-  is_admin boolean := exists (select 1 from public.admins a where a.user_id = auth.uid());
+  is_admin boolean := exists (select 1 from public.admins a where a.user_id = auth.uid() and a.admin_level >= 2);
 begin
   if not is_admin then
     new.approved := false;
@@ -152,18 +152,18 @@ with check (
 create policy customer_reviews_admin_select
 on public.customer_reviews for select
 to authenticated
-using (exists (select 1 from public.admins a where a.user_id = auth.uid()));
+using (exists (select 1 from public.admins a where a.user_id = auth.uid() and a.admin_level >= 2));
 
 create policy customer_reviews_admin_update
 on public.customer_reviews for update
 to authenticated
-using (exists (select 1 from public.admins a where a.user_id = auth.uid()))
-with check (exists (select 1 from public.admins a where a.user_id = auth.uid()));
+using (exists (select 1 from public.admins a where a.user_id = auth.uid() and a.admin_level >= 2))
+with check (exists (select 1 from public.admins a where a.user_id = auth.uid() and a.admin_level >= 2));
 
 create policy customer_reviews_admin_delete
 on public.customer_reviews for delete
 to authenticated
-using (exists (select 1 from public.admins a where a.user_id = auth.uid()));
+using (exists (select 1 from public.admins a where a.user_id = auth.uid() and a.admin_level >= 2));
 
 -- Visão pública sem IDs privados de usuário/pedido.
 create or replace view public.customer_reviews_public

@@ -14,7 +14,7 @@
 
 import crypto from "crypto";
 import { supabaseAdmin } from "../server/supabase.js";
-import { requireAdmin } from "../server/admin/adminAuth.js";
+import { ADMIN_LEVEL, adminLevelLabel, normalizeAdminLevel, requireAdmin } from "../server/admin/adminAuth.js";
 import { renderCustomerOrderEmail, renderManualOrderPaymentEmail, renderOrderStatusEmail, renderVipWelcomeEmail } from "../server/emailTemplates.js";
 import { decideOrderEmailNotification } from "../server/orderEmailNotifications.js";
 import { rateLimit } from '../server/rateLimit.js';
@@ -273,7 +273,7 @@ async function resolveManualVipItem(sb, item) {
 
 async function handleManualOrderProducts(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
-  const auth = await requireAdmin(req);
+  const auth = await requireAdmin(req, ADMIN_LEVEL.OPERATOR);
   if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
   const sb = supabaseAdmin();
   const { data, error } = await sb.from('products').select('id,name,image_url,images,category,variants,default_variant,price_cents,original_price_cents,promo,active').eq('active', true).order('name');
@@ -298,7 +298,7 @@ async function handleManualOrderProducts(req, res) {
 
 async function handleManualOrderCreate(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-  const auth = await requireAdmin(req);
+  const auth = await requireAdmin(req, ADMIN_LEVEL.OPERATOR);
   if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
   const body = await readJsonBody(req);
   const paymentAction = String(body?.payment_action || body?.paymentAction || 'payment_link').trim().toLowerCase();
@@ -1088,7 +1088,7 @@ async function notifyStatus({
 async function handleGetGameCoupon(req, res) {
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
 
-  const auth = await requireAdmin(req);
+  const auth = await requireAdmin(req, ADMIN_LEVEL.MANAGER);
   if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
 
   const sb = supabaseAdmin();
@@ -1118,7 +1118,7 @@ async function handleGetGameCoupon(req, res) {
 async function handleSaveGameCoupon(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const auth = await requireAdmin(req);
+  const auth = await requireAdmin(req, ADMIN_LEVEL.MANAGER);
   if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
 
   const body = await readJsonBody(req);
@@ -1275,7 +1275,7 @@ async function selectGeneratedCouponsCount(sb) {
 async function handleGameCouponMetrics(req, res) {
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
 
-  const auth = await requireAdmin(req);
+  const auth = await requireAdmin(req, ADMIN_LEVEL.MANAGER);
   if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
 
   const sb = supabaseAdmin();
@@ -1382,7 +1382,7 @@ function applyOrderFilters(builder, filters = {}) {
 async function handleOrders(req, res) {
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
 
-  const auth = await requireAdmin(req);
+  const auth = await requireAdmin(req, ADMIN_LEVEL.OPERATOR);
   if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
 
   const sb = supabaseAdmin();
@@ -2050,7 +2050,7 @@ async function deleteOrderById(sb, orderId) {
 async function handleDeleteOrder(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const auth = await requireAdmin(req);
+  const auth = await requireAdmin(req, ADMIN_LEVEL.MANAGER);
   if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
 
   const body = await readJsonBody(req);
@@ -2067,7 +2067,7 @@ async function handleDeleteOrder(req, res) {
 async function handleBulkDeleteOrders(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const auth = await requireAdmin(req);
+  const auth = await requireAdmin(req, ADMIN_LEVEL.MANAGER);
   if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
 
   const body = await readJsonBody(req);
@@ -2117,7 +2117,7 @@ async function fetchVipVotingImageLibrary(sb) {
 async function handleVipVotingImageLibrary(req, res) {
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
 
-  const auth = await requireAdmin(req);
+  const auth = await requireAdmin(req, ADMIN_LEVEL.MANAGER);
   if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
 
   const sb = supabaseAdmin();
@@ -2212,7 +2212,7 @@ function groupVipCyclesFromLibrary(items = [], activeCycleKey = null) {
 async function handleVipControl(req, res) {
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
 
-  const auth = await requireAdmin(req);
+  const auth = await requireAdmin(req, ADMIN_LEVEL.MANAGER);
   if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
 
   const sb = supabaseAdmin();
@@ -2259,7 +2259,7 @@ async function handleVipControl(req, res) {
 async function handleVipSaveCycle(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const auth = await requireAdmin(req);
+  const auth = await requireAdmin(req, ADMIN_LEVEL.MANAGER);
   if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
 
   const body = await readJsonBody(req);
@@ -2311,7 +2311,7 @@ async function handleVipSaveCycle(req, res) {
 async function handleVipSetActiveCycle(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const auth = await requireAdmin(req);
+  const auth = await requireAdmin(req, ADMIN_LEVEL.MANAGER);
   if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
 
   const body = await readJsonBody(req);
@@ -2341,7 +2341,7 @@ async function handleVipSetActiveCycle(req, res) {
 async function handleVipDeleteCycle(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const auth = await requireAdmin(req);
+  const auth = await requireAdmin(req, ADMIN_LEVEL.MANAGER);
   if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
 
   const body = await readJsonBody(req);
@@ -2381,7 +2381,7 @@ async function handleVipDeleteCycle(req, res) {
 async function handleVipVoting(req, res) {
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
 
-  const auth = await requireAdmin(req);
+  const auth = await requireAdmin(req, ADMIN_LEVEL.MANAGER);
   if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
 
   const sb = supabaseAdmin();
@@ -2474,7 +2474,7 @@ async function handleVipVoting(req, res) {
 async function handleVipCloseVoting(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const auth = await requireAdmin(req);
+  const auth = await requireAdmin(req, ADMIN_LEVEL.MANAGER);
   if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
 
   const body = await readJsonBody(req);
@@ -2522,7 +2522,7 @@ async function handleVipCloseVoting(req, res) {
 async function handleVipStartVoting(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const auth = await requireAdmin(req);
+  const auth = await requireAdmin(req, ADMIN_LEVEL.MANAGER);
   if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
 
   const body = await readJsonBody(req);
@@ -2640,7 +2640,7 @@ async function handleVipStartVoting(req, res) {
 async function handleVipDeleteVoting(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const auth = await requireAdmin(req);
+  const auth = await requireAdmin(req, ADMIN_LEVEL.MANAGER);
   if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
 
   const body = await readJsonBody(req);
@@ -2666,10 +2666,15 @@ async function handleVipDeleteVoting(req, res) {
 async function handleUpdateOrder(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const auth = await requireAdmin(req);
+  const auth = await requireAdmin(req, ADMIN_LEVEL.OPERATOR);
   if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
 
   const body = await readJsonBody(req);
+  const requestedStatus = String(body?.production_status || "").trim().toLowerCase();
+  const sensitiveOrderChange = ["cancelado", "reembolsado"].includes(requestedStatus) || body?.created_at !== undefined || body?.refund_requested !== undefined;
+  if (sensitiveOrderChange && auth.adminLevel < ADMIN_LEVEL.MANAGER) {
+    return res.status(403).json({ error: "Cancelamentos, reembolsos e alteração da data do pedido exigem nível 2 (Gerente)." });
+  }
   const order_id = String(body.order_id || "").trim();
   if (!order_id) return res.status(400).json({ error: "Missing order_id" });
 
@@ -2853,7 +2858,7 @@ async function handleUpdateOrder(req, res) {
 
 async function handleClients(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
-  const auth = await requireAdmin(req);
+  const auth = await requireAdmin(req, ADMIN_LEVEL.MANAGER);
   if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
   const sb = supabaseAdmin();
   const q = String(req.query?.q || '').trim().toLowerCase();
@@ -2967,7 +2972,7 @@ async function handleClients(req, res) {
 
 async function handleCreateClient(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-  const auth = await requireAdmin(req);
+  const auth = await requireAdmin(req, ADMIN_LEVEL.MANAGER);
   if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
   const body = await readJsonBody(req);
   const email = normalizeEmail(body?.email || '');
@@ -2998,7 +3003,7 @@ async function handleCreateClient(req, res) {
 
 async function handleUpdateClient(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-  const auth = await requireAdmin(req);
+  const auth = await requireAdmin(req, ADMIN_LEVEL.MANAGER);
   if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
   const body = await readJsonBody(req);
   const clientId = String(body?.client_id || '').trim();
@@ -3033,7 +3038,7 @@ async function handleUpdateClient(req, res) {
 
 async function handleClientVipStatus(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-  const auth = await requireAdmin(req);
+  const auth = await requireAdmin(req, ADMIN_LEVEL.MANAGER);
   if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
   const body = await readJsonBody(req);
   const clientId = String(body?.client_id || '').trim();
@@ -3091,7 +3096,7 @@ async function handleClientVipStatus(req, res) {
 
 async function handleDeleteClient(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-  const auth = await requireAdmin(req);
+  const auth = await requireAdmin(req, ADMIN_LEVEL.MANAGER);
   if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
   const body = await readJsonBody(req);
   const clientId = String(body?.client_id || '').trim();
@@ -3104,7 +3109,7 @@ async function handleDeleteClient(req, res) {
 
 async function handleAddOrderNote(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-  const auth = await requireAdmin(req);
+  const auth = await requireAdmin(req, ADMIN_LEVEL.OPERATOR);
   if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
   const body = await readJsonBody(req);
   const order_id = String(body?.order_id || '').trim();
@@ -3120,7 +3125,7 @@ async function handleAddOrderNote(req, res) {
 async function handleResendOrderEmail(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const auth = await requireAdmin(req);
+  const auth = await requireAdmin(req, ADMIN_LEVEL.OPERATOR);
   if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
 
   const body = await readJsonBody(req);
@@ -3154,12 +3159,253 @@ async function handleResendOrderEmail(req, res) {
   return res.status(200).json({ ok: true, order: refreshed || null, email: result });
 }
 
+
+function adminDirectoryRow({ row, authUser, profile }) {
+  const metadata = authUser?.user_metadata && typeof authUser.user_metadata === 'object' ? authUser.user_metadata : {};
+  const level = normalizeAdminLevel(row?.admin_level || 0);
+  return {
+    user_id: String(row?.user_id || authUser?.id || profile?.id || ''),
+    email: String(authUser?.email || '').trim(),
+    full_name: String(profile?.full_name || metadata?.full_name || metadata?.name || '').trim(),
+    admin_level: level,
+    admin_role: adminLevelLabel(level),
+    created_by: row?.created_by || null,
+    created_at: row?.created_at || null,
+    updated_at: row?.updated_at || null,
+    last_sign_in_at: authUser?.last_sign_in_at || null,
+  };
+}
+
+async function loadAuthUsersMap(sb, userIds = []) {
+  const ids = Array.from(new Set((userIds || []).map((id) => String(id || '').trim()).filter(Boolean)));
+  const map = new Map();
+  await Promise.all(ids.map(async (id) => {
+    try {
+      const response = await sb.auth.admin.getUserById(id);
+      const user = response?.data?.user || null;
+      if (user) map.set(id, user);
+    } catch {}
+  }));
+  return map;
+}
+
+async function loadAdminDirectory(sb) {
+  const adminResp = await sb
+    .from('admins')
+    .select('user_id,admin_level,created_by,created_at,updated_at')
+    .order('admin_level', { ascending: false })
+    .order('created_at', { ascending: true });
+  if (adminResp?.error) throw new Error(adminResp.error.message || 'Falha ao carregar administradores.');
+
+  const rows = Array.isArray(adminResp.data) ? adminResp.data : [];
+  const ids = rows.map((row) => String(row?.user_id || '')).filter(Boolean);
+  const profilesResp = ids.length
+    ? await sb.from('profiles').select('id,full_name').in('id', ids)
+    : { data: [], error: null };
+  const profileMap = new Map((profilesResp?.data || []).map((profile) => [String(profile.id), profile]));
+  const authMap = await loadAuthUsersMap(sb, ids);
+
+  return rows.map((row) => adminDirectoryRow({
+    row,
+    authUser: authMap.get(String(row.user_id)),
+    profile: profileMap.get(String(row.user_id)),
+  }));
+}
+
+async function loadAdminAudit(sb, limit = 80) {
+  const resp = await sb
+    .from('admin_audit_logs')
+    .select('id,actor_user_id,target_user_id,action,previous_level,new_level,metadata,created_at')
+    .order('created_at', { ascending: false })
+    .limit(Math.min(200, Math.max(1, Number(limit || 80))));
+  if (resp?.error) {
+    if (/admin_audit_logs|relation|does not exist/i.test(String(resp.error.message || ''))) return [];
+    throw new Error(resp.error.message || 'Falha ao carregar histórico de administradores.');
+  }
+  const rows = Array.isArray(resp.data) ? resp.data : [];
+  const ids = rows.flatMap((row) => [row.actor_user_id, row.target_user_id]).filter(Boolean);
+  const authMap = await loadAuthUsersMap(sb, ids);
+  return rows.map((row) => ({
+    ...row,
+    actor_email: authMap.get(String(row.actor_user_id || ''))?.email || '',
+    target_email: authMap.get(String(row.target_user_id || ''))?.email || '',
+    previous_role: adminLevelLabel(row.previous_level),
+    new_role: adminLevelLabel(row.new_level),
+  }));
+}
+
+async function recordAdminAudit(sb, payload = {}) {
+  try {
+    await sb.from('admin_audit_logs').insert({
+      actor_user_id: payload.actorUserId || null,
+      target_user_id: payload.targetUserId || null,
+      action: String(payload.action || 'admin_level_changed'),
+      previous_level: normalizeAdminLevel(payload.previousLevel),
+      new_level: normalizeAdminLevel(payload.newLevel),
+      metadata: payload.metadata && typeof payload.metadata === 'object' ? payload.metadata : {},
+    });
+  } catch (error) {
+    console.error('admin audit insert failed', error);
+  }
+}
+
+async function handleAdminsList(req, res) {
+  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+  const auth = await requireAdmin(req, ADMIN_LEVEL.OWNER);
+  if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
+  const sb = supabaseAdmin();
+  try {
+    const [admins, audit_logs] = await Promise.all([loadAdminDirectory(sb), loadAdminAudit(sb, 80)]);
+    return res.status(200).json({ ok: true, admins, audit_logs });
+  } catch (error) {
+    return res.status(500).json({ error: error?.message || 'Falha ao carregar administradores.' });
+  }
+}
+
+async function handleAdminUsersSearch(req, res) {
+  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+  const auth = await requireAdmin(req, ADMIN_LEVEL.OWNER);
+  if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
+  const query = String(req.query?.q || '').trim().toLocaleLowerCase('pt-BR');
+  if (query.length < 2) return res.status(200).json({ ok: true, users: [] });
+
+  const sb = supabaseAdmin();
+  const authUsers = [];
+  let page = 1;
+  while (page <= 20) {
+    const response = await sb.auth.admin.listUsers({ page, perPage: 200 });
+    if (response?.error) return res.status(500).json({ error: response.error.message || 'Falha ao pesquisar usuários.' });
+    const users = Array.isArray(response?.data?.users) ? response.data.users : [];
+    authUsers.push(...users);
+    if (users.length < 200) break;
+    page += 1;
+  }
+
+  const ids = authUsers.map((user) => String(user?.id || '')).filter(Boolean);
+  const [profilesResp, adminsResp] = await Promise.all([
+    ids.length ? sb.from('profiles').select('id,full_name,phone').in('id', ids) : Promise.resolve({ data: [], error: null }),
+    sb.from('admins').select('user_id,admin_level'),
+  ]);
+  const profileMap = new Map((profilesResp?.data || []).map((profile) => [String(profile.id), profile]));
+  const adminMap = new Map((adminsResp?.data || []).map((row) => [String(row.user_id), normalizeAdminLevel(row.admin_level)]));
+
+  const users = authUsers.map((user) => {
+    const id = String(user?.id || '');
+    const profile = profileMap.get(id) || {};
+    const metadata = user?.user_metadata && typeof user.user_metadata === 'object' ? user.user_metadata : {};
+    const fullName = String(profile?.full_name || metadata?.full_name || metadata?.name || '').trim();
+    return {
+      id,
+      email: String(user?.email || '').trim(),
+      full_name: fullName,
+      phone: String(profile?.phone || '').trim(),
+      admin_level: adminMap.get(id) || ADMIN_LEVEL.NONE,
+      admin_role: adminLevelLabel(adminMap.get(id) || ADMIN_LEVEL.NONE),
+      last_sign_in_at: user?.last_sign_in_at || null,
+    };
+  }).filter((user) => {
+    const haystack = [user.email, user.full_name, user.phone, user.id].join(' | ').toLocaleLowerCase('pt-BR');
+    return haystack.includes(query);
+  }).slice(0, 30);
+
+  return res.status(200).json({ ok: true, users });
+}
+
+async function handleSetAdminLevel(req, res) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  const auth = await requireAdmin(req, ADMIN_LEVEL.OWNER);
+  if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
+  const body = await readJsonBody(req);
+  const targetUserId = String(body?.user_id || body?.target_user_id || '').trim();
+  const rawDesiredLevel = Number(body?.admin_level);
+  if (!targetUserId) return res.status(400).json({ error: 'Selecione um usuário.' });
+  if (!Number.isInteger(rawDesiredLevel) || rawDesiredLevel < ADMIN_LEVEL.NONE || rawDesiredLevel > ADMIN_LEVEL.OWNER) {
+    return res.status(400).json({ error: 'Nível de administrador inválido.' });
+  }
+  const desiredLevel = normalizeAdminLevel(rawDesiredLevel);
+
+  const sb = supabaseAdmin();
+  const targetUserResp = await sb.auth.admin.getUserById(targetUserId);
+  const targetUser = targetUserResp?.data?.user || null;
+  if (targetUserResp?.error || !targetUser) return res.status(404).json({ error: 'Usuário não encontrado.' });
+
+  const currentResp = await sb
+    .from('admins')
+    .select('user_id,admin_level,created_by,created_at')
+    .eq('user_id', targetUserId)
+    .maybeSingle();
+  if (currentResp?.error) return res.status(500).json({ error: currentResp.error.message || 'Falha ao consultar administrador.' });
+  const currentLevel = normalizeAdminLevel(currentResp?.data?.admin_level || 0);
+
+  if (targetUserId === String(auth.user?.id || '') && desiredLevel < ADMIN_LEVEL.OWNER) {
+    return res.status(400).json({ error: 'Sua conta proprietária não pode remover ou reduzir o próprio acesso.' });
+  }
+
+  if (currentLevel === ADMIN_LEVEL.OWNER && desiredLevel < ADMIN_LEVEL.OWNER) {
+    const ownersResp = await sb.from('admins').select('user_id', { count: 'exact', head: true }).eq('admin_level', ADMIN_LEVEL.OWNER);
+    if (ownersResp?.error) return res.status(500).json({ error: ownersResp.error.message || 'Falha ao validar proprietários.' });
+    if (Number(ownersResp.count || 0) <= 1) {
+      return res.status(400).json({ error: 'O último proprietário não pode ser removido ou rebaixado.' });
+    }
+  }
+
+  if (desiredLevel === currentLevel) {
+    const admins = await loadAdminDirectory(sb);
+    return res.status(200).json({ ok: true, unchanged: true, admins });
+  }
+
+  if (desiredLevel === ADMIN_LEVEL.NONE) {
+    const deleteResp = await sb.from('admins').delete().eq('user_id', targetUserId);
+    if (deleteResp?.error) return res.status(500).json({ error: deleteResp.error.message || 'Falha ao remover acesso administrativo.' });
+  } else if (currentResp?.data?.user_id) {
+    const updateResp = await sb.from('admins').update({
+      admin_level: desiredLevel,
+      updated_at: new Date().toISOString(),
+    }).eq('user_id', targetUserId);
+    if (updateResp?.error) return res.status(500).json({ error: updateResp.error.message || 'Falha ao alterar nível administrativo.' });
+  } else {
+    const insertResp = await sb.from('admins').insert({
+      user_id: targetUserId,
+      admin_level: desiredLevel,
+      created_by: auth.user.id,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+    if (insertResp?.error) return res.status(500).json({ error: insertResp.error.message || 'Falha ao conceder acesso administrativo.' });
+  }
+
+  const action = desiredLevel === ADMIN_LEVEL.NONE
+    ? 'admin_access_removed'
+    : currentLevel === ADMIN_LEVEL.NONE
+      ? 'admin_access_granted'
+      : desiredLevel > currentLevel
+        ? 'admin_promoted'
+        : 'admin_demoted';
+  await recordAdminAudit(sb, {
+    actorUserId: auth.user.id,
+    targetUserId,
+    action,
+    previousLevel: currentLevel,
+    newLevel: desiredLevel,
+    metadata: {
+      actor_email: auth.user?.email || '',
+      target_email: targetUser?.email || '',
+    },
+  });
+
+  const [admins, audit_logs] = await Promise.all([loadAdminDirectory(sb), loadAdminAudit(sb, 80)]);
+  return res.status(200).json({ ok: true, admins, audit_logs });
+}
+
 export default async function handler(req, res) {
   
   if (!rateLimit(req, res, { key: 'api:admin', limit: 60, windowMs: 60000 })) return;
   try {
     const action = String(req.query?.action || "").trim().toLowerCase();
 
+    if (action === "admins-list") return await handleAdminsList(req, res);
+    if (action === "admin-users-search") return await handleAdminUsersSearch(req, res);
+    if (action === "set-admin-level") return await handleSetAdminLevel(req, res);
     if (action === "orders") return await handleOrders(req, res);
     if (action === "update-order") return await handleUpdateOrder(req, res);
     if (action === "resend-order-email") return await handleResendOrderEmail(req, res);

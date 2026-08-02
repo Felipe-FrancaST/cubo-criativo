@@ -22,6 +22,7 @@ with check (
     select 1
     from public.admins a
     where a.user_id = auth.uid()
+      and a.admin_level >= 2
   )
 );
 
@@ -37,6 +38,7 @@ using (
     select 1
     from public.admins a
     where a.user_id = auth.uid()
+      and a.admin_level >= 2
   )
 )
 with check (
@@ -45,6 +47,7 @@ with check (
     select 1
     from public.admins a
     where a.user_id = auth.uid()
+      and a.admin_level >= 2
   )
 );
 
@@ -60,6 +63,7 @@ using (
     select 1
     from public.admins a
     where a.user_id = auth.uid()
+      and a.admin_level >= 2
   )
 );
 
