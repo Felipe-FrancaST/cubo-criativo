@@ -1566,7 +1566,7 @@ React.useEffect(() => {
 
   return (
     <RouteErrorBoundary routeKey={route}>
-    <div className="min-h-screen w-full overflow-x-clip flex flex-col bg-[radial-gradient(circle_at_top,rgba(122,35,65,.14),transparent_24%),linear-gradient(180deg,#120809_0%,#090506_48%,#050304_100%)] text-cyan-50">
+    <div className="relative min-h-screen w-full overflow-x-clip flex flex-col bg-[radial-gradient(circle_at_top,rgba(122,35,65,.14),transparent_24%),linear-gradient(180deg,#120809_0%,#090506_48%,#050304_100%)] text-cyan-50">
       <Toast open={toastOpen}>{toastMsg}</Toast>
       <SeasonalDecorations route={route} />
 

@@ -25,26 +25,30 @@ function cacheSettings(settings) {
   } catch {}
 }
 
-function buildParticles(count = 28) {
+function buildEdgeParticles(count = 26) {
   return Array.from({ length: count }, (_, index) => ({
     id: index,
-    x: (index * 37 + 11) % 100,
-    drift: ((index * 29) % 27) - 13,
-    delay: -((index * 0.73) % 10),
-    duration: 8 + ((index * 17) % 9),
+    side: index % 2 === 0 ? "left" : "right",
+    x: 7 + ((index * 37 + 9) % 84),
+    y: 5 + ((index * 29 + 13) % 88),
+    driftX: ((index * 17) % 19) - 9,
+    driftY: ((index * 11) % 13) - 6,
+    delay: -((index * 0.51) % 7),
+    duration: 4.8 + ((index * 13) % 7) * 0.55,
     size: 4 + ((index * 7) % 8),
     rotation: (index * 47) % 360,
   }));
 }
 
-const PARTICLES = buildParticles();
+const EDGE_PARTICLES = buildEdgeParticles();
 
 function ChristmasTop() {
   return (
     <div className="seasonal-top seasonal-top--christmas">
+      <div className="seasonal-garland-line seasonal-garland-line--back" />
       <div className="seasonal-garland-line" />
       <div className="seasonal-lights">
-        {Array.from({ length: 15 }, (_, index) => (
+        {Array.from({ length: 19 }, (_, index) => (
           <span key={index} className="seasonal-light" style={{ "--light-index": index }} />
         ))}
       </div>
@@ -57,9 +61,10 @@ function ChristmasTop() {
 function SaoJoaoTop() {
   return (
     <div className="seasonal-top seasonal-top--sao-joao">
+      <div className="seasonal-bunting-line seasonal-bunting-line--back" />
       <div className="seasonal-bunting-line" />
       <div className="seasonal-bunting">
-        {Array.from({ length: 17 }, (_, index) => (
+        {Array.from({ length: 21 }, (_, index) => (
           <span key={index} className="seasonal-flag" style={{ "--flag-index": index }} />
         ))}
       </div>
@@ -72,10 +77,15 @@ function SaoJoaoTop() {
 function EasterTop() {
   return (
     <div className="seasonal-top seasonal-top--easter">
+      <div className="seasonal-easter-vine seasonal-easter-vine--back" />
       <div className="seasonal-easter-vine" />
       <div className="seasonal-easter-ornaments">
-        {Array.from({ length: 11 }, (_, index) => (
-          <span key={index} className={index % 3 === 1 ? "seasonal-flower" : "seasonal-egg"} style={{ "--egg-index": index }} />
+        {Array.from({ length: 13 }, (_, index) => (
+          <span
+            key={index}
+            className={index % 3 === 1 ? "seasonal-flower" : "seasonal-egg"}
+            style={{ "--egg-index": index }}
+          />
         ))}
       </div>
       <span className="seasonal-bunny-ear seasonal-bunny-ear--left" />
@@ -91,7 +101,9 @@ function HalloweenTop() {
       <span className="seasonal-web seasonal-web--right" />
       <span className="seasonal-moon" />
       <div className="seasonal-bats">
-        {Array.from({ length: 8 }, (_, index) => <span key={index} className="seasonal-bat" style={{ "--bat-index": index }} />)}
+        {Array.from({ length: 10 }, (_, index) => (
+          <span key={index} className="seasonal-bat" style={{ "--bat-index": index }} />
+        ))}
       </div>
     </div>
   );
@@ -100,9 +112,12 @@ function HalloweenTop() {
 function CarnivalTop() {
   return (
     <div className="seasonal-top seasonal-top--carnival">
+      <div className="seasonal-carnival-thread seasonal-carnival-thread--back" />
       <div className="seasonal-carnival-thread" />
       <div className="seasonal-streamers">
-        {Array.from({ length: 9 }, (_, index) => <span key={index} className="seasonal-streamer" style={{ "--stream-index": index }} />)}
+        {Array.from({ length: 11 }, (_, index) => (
+          <span key={index} className="seasonal-streamer" style={{ "--stream-index": index }} />
+        ))}
       </div>
       <span className="seasonal-mask seasonal-mask--left"><i /><b /></span>
       <span className="seasonal-mask seasonal-mask--right"><i /><b /></span>
@@ -116,6 +131,45 @@ function ThemeTop({ theme }) {
   if (theme === SEASONAL_THEME.HALLOWEEN) return <HalloweenTop />;
   if (theme === SEASONAL_THEME.CARNIVAL) return <CarnivalTop />;
   return <ChristmasTop />;
+}
+
+function SeasonalEmblem({ side }) {
+  return (
+    <div className={`seasonal-emblem seasonal-emblem--${side}`}>
+      <span className="seasonal-emblem-glow" />
+      <span className="seasonal-emblem-ring" />
+      <span className="seasonal-emblem-core">
+        <i className="seasonal-emblem-detail seasonal-emblem-detail--one" />
+        <i className="seasonal-emblem-detail seasonal-emblem-detail--two" />
+        <i className="seasonal-emblem-detail seasonal-emblem-detail--three" />
+      </span>
+      <span className="seasonal-emblem-tail" />
+    </div>
+  );
+}
+
+function EdgeParticles({ side }) {
+  return (
+    <div className={`seasonal-particles seasonal-particles--${side}`}>
+      {EDGE_PARTICLES.filter((particle) => particle.side === side).map((particle) => (
+        <span
+          key={particle.id}
+          className="seasonal-particle"
+          style={{
+            "--particle-index": particle.id,
+            "--particle-x": `${particle.x}%`,
+            "--particle-y": `${particle.y}%`,
+            "--particle-drift-x": `${particle.driftX}px`,
+            "--particle-drift-y": `${particle.driftY}px`,
+            "--particle-delay": `${particle.delay}s`,
+            "--particle-duration": `${particle.duration}s`,
+            "--particle-size": `${particle.size}px`,
+            "--particle-rotation": `${particle.rotation}deg`,
+          }}
+        />
+      ))}
+    </div>
+  );
 }
 
 export function SeasonalDecorationScene({ settings, preview = false }) {
@@ -132,27 +186,20 @@ export function SeasonalDecorationScene({ settings, preview = false }) {
 
   return (
     <div className={classes} aria-hidden="true">
-      <div className="seasonal-ambient seasonal-ambient--left" />
-      <div className="seasonal-ambient seasonal-ambient--right" />
-      <ThemeTop theme={normalized.theme} />
-      <span className="seasonal-corner seasonal-corner--left" />
-      <span className="seasonal-corner seasonal-corner--right" />
-      <div className="seasonal-particles">
-        {PARTICLES.map((particle) => (
-          <span
-            key={particle.id}
-            className="seasonal-particle"
-            style={{
-              "--particle-index": particle.id,
-              "--particle-x": `${particle.x}%`,
-              "--particle-drift": `${particle.drift}vw`,
-              "--particle-delay": `${particle.delay}s`,
-              "--particle-duration": `${particle.duration}s`,
-              "--particle-size": `${particle.size}px`,
-              "--particle-rotation": `${particle.rotation}deg`,
-            }}
-          />
-        ))}
+      <div className="seasonal-stage">
+        <div className="seasonal-ambient seasonal-ambient--left" />
+        <div className="seasonal-ambient seasonal-ambient--right" />
+        <div className="seasonal-frame" />
+        <ThemeTop theme={normalized.theme} />
+        <SeasonalEmblem side="left" />
+        <SeasonalEmblem side="right" />
+        <EdgeParticles side="left" />
+        <EdgeParticles side="right" />
+        <div className="seasonal-bottom-flourish">
+          <span />
+          <i />
+          <span />
+        </div>
       </div>
     </div>
   );

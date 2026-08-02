@@ -43,3 +43,18 @@ test('SQL cria configuração única e bloqueia escrita direta do navegador', as
   assert.match(sql, /revoke all on table public\.site_seasonal_theme from anon, authenticated/i);
   assert.match(sql, /grant all on table public\.site_seasonal_theme to service_role/i);
 });
+
+
+test('decoração fica concentrada no topo e não acompanha a rolagem', async () => {
+  const css = await readFile(new URL('../src/index.css', import.meta.url), 'utf8');
+  const component = await readFile(new URL('../src/components/SeasonalDecorations.jsx', import.meta.url), 'utf8');
+
+  const overlayBlock = css.match(/\.seasonal-decorations--overlay\s*\{[\s\S]*?\}/)?.[0] || '';
+  assert.match(overlayBlock, /position:\s*absolute/i);
+  assert.doesNotMatch(overlayBlock, /position:\s*fixed/i);
+  assert.match(css, /seasonal-edge-float/);
+  assert.match(component, /seasonal-emblem/);
+  assert.match(component, /seasonal-particles--\$\{side\}/);
+  assert.match(component, /<EdgeParticles side="left"/);
+  assert.match(component, /<EdgeParticles side="right"/);
+});
