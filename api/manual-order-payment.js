@@ -62,7 +62,7 @@ async function loadManualOrder({ orderId, sig }) {
     throw err;
   }
   const sb = supabaseAdmin();
-  const { data: order, error } = await sb.from('orders').select('id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,production_status,order_type,model_3d_url,model_3d_name').eq('id', orderId).maybeSingle();
+  const { data: order, error } = await sb.from('orders').select('id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,production_status,order_type,vip_plan_id,model_3d_url,model_3d_name').eq('id', orderId).maybeSingle();
   if (error) throw error;
   if (!order) {
     const err = new Error('Pedido não encontrado.');
@@ -96,6 +96,57 @@ async function loadManualOrder({ orderId, sig }) {
   return { sb, order, items };
 }
 
+async function loadVipCycleKey(sb, userId) {
+  if (!userId) return '';
+  try {
+    const { data } = await sb.from('profiles').select('vip_cycle_key').eq('id', userId).maybeSingle();
+    return String(data?.vip_cycle_key || '').trim();
+  } catch {
+    return '';
+  }
+}
+
+async function activateVipAccessForManualOrder(sb, order) {
+  if (!sb || !order || String(order.order_type || '').toLowerCase() !== 'vip' || !order.user_id || !order.vip_plan_id) return;
+  const cycleKey = await loadVipCycleKey(sb, order.user_id);
+  const now = new Date();
+  const { data: profile } = await sb.from('profiles').select('vip_until').eq('id', order.user_id).maybeSingle();
+  const currentUntil = profile?.vip_until ? new Date(profile.vip_until).getTime() : 0;
+  let endsAt = null;
+  try {
+    const { data: existing } = await sb.from('vip_subscriptions').select('id,ends_at,status').eq('order_id', order.id).maybeSingle();
+    if (existing?.id) {
+      const existingStatus = String(existing.status || '').toLowerCase();
+      if (existingStatus !== 'active') return;
+      const existingUntil = existing?.ends_at ? new Date(existing.ends_at).getTime() : 0;
+      if (!Number.isFinite(existingUntil) || existingUntil <= 0) return;
+      endsAt = new Date(existingUntil);
+    } else {
+      const base = Math.max(Date.now(), Number.isFinite(currentUntil) ? currentUntil : 0);
+      endsAt = new Date(base + 30 * 86400000);
+      await sb.from('vip_subscriptions').insert({
+        user_id: order.user_id,
+        plan_id: order.vip_plan_id,
+        order_id: order.id,
+        starts_at: now.toISOString(),
+        ends_at: endsAt.toISOString(),
+        status: 'active',
+      });
+    }
+  } catch (error) {
+    console.error('manual payment vip subscription activation failed', error);
+  }
+  if (!endsAt) return;
+  const patch = { vip_until: endsAt.toISOString(), vip_plan: order.vip_plan_id };
+  if (cycleKey) patch.vip_cycle_key = cycleKey;
+  let profileResp = await sb.from('profiles').update(patch).eq('id', order.user_id);
+  if (profileResp?.error && /vip_cycle_key|column|schema cache/i.test(String(profileResp.error.message || ''))) {
+    delete patch.vip_cycle_key;
+    profileResp = await sb.from('profiles').update(patch).eq('id', order.user_id);
+  }
+  if (profileResp?.error) throw new Error(profileResp.error.message || 'Não foi possível liberar a Área VIP.');
+}
+
 function serializePublic(order, items, baseUrl) {
   return {
     order_id: order.id,
@@ -108,6 +159,8 @@ function serializePublic(order, items, baseUrl) {
     payment_link: buildManualPaymentLink({ baseUrl, orderId: order.id }),
     model_3d_url: order.model_3d_url || '',
     model_3d_name: order.model_3d_name || '',
+    order_type: order.order_type || 'shop',
+    vip_plan_id: order.vip_plan_id || null,
     items: (items || []).map((it) => ({
       id: it.id,
       name: it.name || 'Item',
@@ -124,9 +177,13 @@ async function handleGet(req, res) {
     const orderId = String(req.query?.order || '').trim();
     const sig = String(req.query?.sig || '').trim();
     const { order, items } = await loadManualOrder({ orderId, sig });
-    if (String(order.status || '').toLowerCase() === 'paid' && String(order.production_status || '').toLowerCase() !== 'recebido') {
-      await supabaseAdmin().from('orders').update({ production_status: 'recebido' }).eq('id', order.id);
-      order.production_status = 'recebido';
+    if (String(order.status || '').toLowerCase() === 'paid') {
+      const nextProductionStatus = String(order.order_type || '').toLowerCase() === 'vip' ? 'editavel' : 'recebido';
+      if (String(order.production_status || '').toLowerCase() !== nextProductionStatus) {
+        await supabaseAdmin().from('orders').update({ production_status: nextProductionStatus }).eq('id', order.id);
+        order.production_status = nextProductionStatus;
+      }
+      await activateVipAccessForManualOrder(supabaseAdmin(), order);
     }
     return res.status(200).json({ ok: true, order: serializePublic(order, items, getBaseUrl(req)), account_email: order.customer_email || '', account_password_hint: 'CPF do cliente' });
   } catch (e) {
@@ -145,6 +202,7 @@ async function createPixPayment(req, res) {
     if (String(order.status || '').toLowerCase() === 'paid') {
       return res.status(200).json({ ok: true, already_paid: true, status: 'paid' });
     }
+    const vipCycleKey = await loadVipCycleKey(sb, order.user_id);
     const paymentResp = await mpFetch(token, 'https://api.mercadopago.com/v1/payments', {
       method: 'POST',
       headers: { 'X-Idempotency-Key': crypto.randomUUID() },
@@ -157,6 +215,9 @@ async function createPixPayment(req, res) {
         metadata: {
           order_id: order.id,
           order_type: order.order_type || 'shop',
+          user_id: order.user_id || null,
+          vip_plan_id: order.vip_plan_id || null,
+          vip_cycle_key: vipCycleKey || null,
           source: 'admin_manual_order',
         },
         notification_url: `${getBaseUrl(req)}/api/mp-webhook`,
@@ -166,7 +227,10 @@ async function createPixPayment(req, res) {
     const mp = paymentResp.data || {};
     const tx = mp.point_of_interaction?.transaction_data || {};
     const mappedStatus = mapOrderStatus(mp.status);
-    await sb.from('orders').update({ status: mappedStatus, payment_provider: 'mercado_pago', provider_payment_id: String(mp.id || '') }).eq('id', order.id);
+    const statusPatch = { status: mappedStatus, payment_provider: 'mercado_pago', provider_payment_id: String(mp.id || '') };
+    if (mappedStatus === 'paid') statusPatch.production_status = String(order.order_type || '').toLowerCase() === 'vip' ? 'editavel' : 'recebido';
+    await sb.from('orders').update(statusPatch).eq('id', order.id);
+    if (mappedStatus === 'paid') await activateVipAccessForManualOrder(sb, order);
     if (shouldCleanupOrder3dForStatus(mappedStatus)) await cleanupOrder3dModel(sb, order).catch((e) => console.error('order 3d cleanup on manual pix status failed', e));
     return res.status(200).json({ ok: true, order: serializePublic(order, items, getBaseUrl(req)), provider_payment_id: String(mp.id || ''), qr_code: tx.qr_code || null, qr_code_base64: tx.qr_code_base64 || null, ticket_url: tx.ticket_url || null, status: mapOrderStatus(mp.status) });
   } catch (e) {
@@ -186,6 +250,7 @@ async function createCardCheckout(req, res) {
       return res.status(200).json({ ok: true, already_paid: true, status: 'paid' });
     }
     const baseUrl = getBaseUrl(req);
+    const vipCycleKey = await loadVipCycleKey(sb, order.user_id);
     const prefResp = await mpFetch(token, 'https://api.mercadopago.com/checkout/preferences', {
       method: 'POST',
       body: JSON.stringify({
@@ -208,6 +273,9 @@ async function createCardCheckout(req, res) {
         metadata: {
           order_id: order.id,
           order_type: order.order_type || 'shop',
+          user_id: order.user_id || null,
+          vip_plan_id: order.vip_plan_id || null,
+          vip_cycle_key: vipCycleKey || null,
           source: 'admin_manual_order',
         },
       }),
@@ -236,8 +304,9 @@ async function verifyStatus(req, res) {
         const mp = paymentResp.data || {};
         const newStatus = mapOrderStatus(mp.status);
         const patch = { status: newStatus };
-        if (newStatus === 'paid') patch.production_status = 'recebido';
+        if (newStatus === 'paid') patch.production_status = String(order.order_type || '').toLowerCase() === 'vip' ? 'editavel' : 'recebido';
         await sb.from('orders').update(patch).eq('id', order.id);
+        if (newStatus === 'paid') await activateVipAccessForManualOrder(sb, order);
         if (shouldCleanupOrder3dForStatus(newStatus)) await cleanupOrder3dModel(sb, order).catch((e) => console.error('order 3d cleanup on manual status verify failed', e));
         order.status = newStatus;
         if (patch.production_status) order.production_status = patch.production_status;

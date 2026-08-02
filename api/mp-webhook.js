@@ -383,24 +383,33 @@ async function applyVipFromOrder(sb, { order, payment }) {
     const planId = String(order?.vip_plan_id || payment?.metadata?.vip_plan_id || 'CUBO_L1_RPG').trim();
     const purchasedCycleKey = String(payment?.metadata?.vip_cycle_key || '').trim() || null;
 
-    const { data: existing } = await sb.from('vip_subscriptions').select('id').eq('order_id', order.id).maybeSingle();
+    const { data: existing } = await sb.from('vip_subscriptions').select('id,status,ends_at').eq('order_id', order.id).maybeSingle();
     const hasSubscription = Boolean(existing?.id);
+    if (orderTypeNorm === 'vip' && hasSubscription && String(existing?.status || '').toLowerCase() !== 'active') return;
 
     if (orderTypeNorm === 'vip') {
       const start = new Date();
-      const end = new Date(start.getTime() + 30 * 24 * 60 * 60 * 1000);
-      if (!hasSubscription) await sb.from('vip_subscriptions').insert({
-        user_id: userId,
-        plan_id: planId,
-        order_id: order.id,
-        starts_at: start.toISOString(),
-        ends_at: end.toISOString(),
-        status: 'active',
-      });
-
       const prof = await loadProfileVipCompat(sb, userId);
       const currentUntil = prof?.vip_until ? new Date(prof.vip_until).getTime() : 0;
-      const nextUntil = Math.max(currentUntil, end.getTime());
+      let end = null;
+      if (hasSubscription) {
+        const existingUntil = existing?.ends_at ? new Date(existing.ends_at).getTime() : 0;
+        if (!Number.isFinite(existingUntil) || existingUntil <= 0) return;
+        end = new Date(existingUntil);
+      } else {
+        const base = Math.max(Date.now(), Number.isFinite(currentUntil) ? currentUntil : 0);
+        end = new Date(base + 30 * 24 * 60 * 60 * 1000);
+        await sb.from('vip_subscriptions').insert({
+          user_id: userId,
+          plan_id: planId,
+          order_id: order.id,
+          starts_at: start.toISOString(),
+          ends_at: end.toISOString(),
+          status: 'active',
+        });
+      }
+
+      const nextUntil = Math.max(Number.isFinite(currentUntil) ? currentUntil : 0, end.getTime());
       const profilePatch = { vip_until: new Date(nextUntil).toISOString(), vip_plan: planId };
       if (purchasedCycleKey) profilePatch.vip_cycle_key = purchasedCycleKey;
       await updateProfileVipCompat(sb, userId, profilePatch);
@@ -733,8 +742,18 @@ export default async function handler(req, res) {
       await applyVipFromOrder(sb, { order, payment });
       await consumeCouponForPaidOrder(sb, { order, payment });
       await applyStockDeductionIfNeeded(sb, order);
-      if (String(payment?.metadata?.source || '').trim().toLowerCase() === 'admin_manual_order' && String(order?.production_status || '').toLowerCase() !== 'recebido') {
-        try { await sb.from('orders').update({ production_status: 'recebido' }).eq('id', order.id); order.production_status = 'recebido'; } catch (e) { console.error('manual order production_status update error', e); }
+      if (String(payment?.metadata?.source || '').trim().toLowerCase() === 'admin_manual_order') {
+        const targetProductionStatus = String(order?.order_type || payment?.metadata?.order_type || '').trim().toLowerCase() === 'vip'
+          ? 'editavel'
+          : 'recebido';
+        if (String(order?.production_status || '').toLowerCase() !== targetProductionStatus) {
+          try {
+            await sb.from('orders').update({ production_status: targetProductionStatus }).eq('id', order.id);
+            order.production_status = targetProductionStatus;
+          } catch (e) {
+            console.error('manual order production_status update error', e);
+          }
+        }
       }
     }
 

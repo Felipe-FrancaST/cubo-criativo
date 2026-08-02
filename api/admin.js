@@ -15,13 +15,14 @@
 import crypto from "crypto";
 import { supabaseAdmin } from "../server/supabase.js";
 import { requireAdmin } from "../server/admin/adminAuth.js";
-import { renderCustomerOrderEmail, renderManualOrderPaymentEmail, renderOrderStatusEmail } from "../server/emailTemplates.js";
+import { renderCustomerOrderEmail, renderManualOrderPaymentEmail, renderOrderStatusEmail, renderVipWelcomeEmail } from "../server/emailTemplates.js";
 import { decideOrderEmailNotification } from "../server/orderEmailNotifications.js";
 import { rateLimit } from '../server/rateLimit.js';
 import { formatRewardLabel } from '../server/couponGame.js';
 import { buildControlNumber, buildManualPaymentLink, ensureManualOrderCustomerAccount, normalizeCpf } from '../server/manualOrder.js';
 import { cleanupOrder3dModel, shouldCleanupOrder3dForStatus } from '../server/order3dCleanup.js';
 import { buildOrderDetailsUrl, buildReviewUrl, buildVipAreaUrl } from '../server/orderLinks.js';
+import { getVipPlanById, listVipPlans } from '../server/vipPlans.js';
 
 export const config = { runtime: "nodejs" };
 
@@ -146,6 +147,121 @@ function buildManualOrderItemFromCustom(item = {}) {
   };
 }
 
+function isLevel3VipPlan(plan) {
+  const raw = [plan?.id, plan?.slug, plan?.short_name, plan?.name]
+    .map((value) => String(value || '').toLowerCase())
+    .join(' | ');
+  return raw.includes('cubo_l3') || raw.includes('level-3') || raw.includes('level 3') || raw.includes('nível 3') || raw.includes('nivel 3');
+}
+
+function vipPlanLimits(plan) {
+  const miniatures = Math.max(0, Number(plan?.miniatures_count ?? plan?.items_per_month ?? 0) || 0);
+  const bosses = Math.max(0, Number(plan?.boss_count ?? 0) || 0);
+  const total = Math.max(0, Number(plan?.items_per_month ?? (miniatures + bosses)) || (miniatures + bosses));
+  return { miniatures, bosses, total };
+}
+
+async function getActiveVipCycleKey(sb) {
+  try {
+    const { data } = await sb.from('vip_cycle_control').select('active_cycle_key').eq('id', 'default').maybeSingle();
+    const key = String(data?.active_cycle_key || '').trim();
+    if (key) return key;
+  } catch {}
+  const now = new Date();
+  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
+async function updateProfileVipCompat(sb, userId, patch) {
+  let resp = await sb.from('profiles').update(patch).eq('id', userId);
+  if (!resp?.error) return resp;
+  if (!/vip_cycle_key|column|schema cache/i.test(String(resp.error.message || ''))) return resp;
+  const fallback = { ...patch };
+  delete fallback.vip_cycle_key;
+  return sb.from('profiles').update(fallback).eq('id', userId);
+}
+
+async function activateVipOrderAccess(sb, { userId, orderId, planId, cycleKey, durationDays = 30 }) {
+  const now = new Date();
+  const { data: profile } = await sb.from('profiles').select('vip_until').eq('id', userId).maybeSingle();
+  const currentUntil = profile?.vip_until ? new Date(profile.vip_until).getTime() : 0;
+  const base = Math.max(Date.now(), Number.isFinite(currentUntil) ? currentUntil : 0);
+  const endsAt = new Date(base + Math.max(1, Number(durationDays || 30)) * 86400000);
+
+  try {
+    const { data: existing } = await sb.from('vip_subscriptions').select('id').eq('order_id', orderId).maybeSingle();
+    if (existing?.id) {
+      await sb.from('vip_subscriptions').update({ plan_id: planId, starts_at: now.toISOString(), ends_at: endsAt.toISOString(), status: 'active' }).eq('id', existing.id);
+    } else {
+      await sb.from('vip_subscriptions').insert({
+        user_id: userId,
+        plan_id: planId,
+        order_id: orderId,
+        starts_at: now.toISOString(),
+        ends_at: endsAt.toISOString(),
+        status: 'active',
+      });
+    }
+  } catch (error) {
+    console.error('manual vip subscription insert failed', error);
+  }
+
+  const profilePatch = { vip_until: endsAt.toISOString(), vip_plan: planId };
+  if (cycleKey) profilePatch.vip_cycle_key = cycleKey;
+  const profileResp = await updateProfileVipCompat(sb, userId, profilePatch);
+  if (profileResp?.error) throw new Error(profileResp.error.message || 'Não foi possível liberar o acesso VIP.');
+  return { vip_until: endsAt.toISOString(), vip_plan: planId, vip_cycle_key: cycleKey || null };
+}
+
+async function resolveManualVipItem(sb, item) {
+  const planId = String(item?.vip_plan_id || item?.plan_id || '').trim();
+  if (!planId) throw new Error('Selecione um plano VIP.');
+  const plan = await getVipPlanById(sb, planId);
+  if (!plan || plan?.active === false) throw new Error('Plano VIP inválido ou inativo.');
+  const price = Number(plan?.price_brl ?? plan?.price ?? 0);
+  if (!Number.isFinite(price) || price <= 0) throw new Error('O plano VIP selecionado está sem preço válido.');
+
+  const cycleKey = String(item?.cycle_key || '').trim() || await getActiveVipCycleKey(sb);
+  const { data: availableOptions, error: optionsError } = await sb
+    .from('vip_mini_options')
+    .select('id,title,image_url,item_type,active,cycle_key,sort_order')
+    .eq('active', true)
+    .eq('cycle_key', cycleKey)
+    .order('sort_order', { ascending: true });
+  if (optionsError) throw new Error(optionsError.message || 'Não foi possível carregar as miniaturas do ciclo VIP.');
+
+  const options = Array.isArray(availableOptions) ? availableOptions : [];
+  const requestedIds = Array.from(new Set((Array.isArray(item?.selected_option_ids) ? item.selected_option_ids : []).map(String).filter(Boolean)));
+  const selectedOptions = isLevel3VipPlan(plan)
+    ? options
+    : requestedIds.map((id) => options.find((option) => String(option.id) === id)).filter(Boolean);
+
+  if (!isLevel3VipPlan(plan) && selectedOptions.length !== requestedIds.length) {
+    throw new Error('Uma das miniaturas selecionadas não pertence ao ciclo VIP ativo.');
+  }
+
+  const limits = vipPlanLimits(plan);
+  const counts = selectedOptions.reduce((acc, option) => {
+    if (String(option?.item_type || 'miniature').toLowerCase() === 'boss') acc.bosses += 1;
+    else acc.miniatures += 1;
+    acc.total += 1;
+    return acc;
+  }, { miniatures: 0, bosses: 0, total: 0 });
+
+  if (!isLevel3VipPlan(plan) && (counts.miniatures !== limits.miniatures || counts.bosses !== limits.bosses || counts.total !== limits.total)) {
+    throw new Error(`Escolha exatamente ${limits.total} item(ns): ${limits.miniatures} miniatura(s)${limits.bosses ? ` e ${limits.bosses} boss(es)` : ''}.`);
+  }
+  if (!selectedOptions.length) throw new Error('Selecione as miniaturas que farão parte da assinatura VIP.');
+
+  return {
+    plan,
+    cycleKey,
+    selectedOptions,
+    selectedOptionIds: selectedOptions.map((option) => option.id),
+    price: Number(price.toFixed(2)),
+    limits,
+  };
+}
+
 async function handleManualOrderProducts(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
   const auth = await requireAdmin(req);
@@ -208,9 +324,28 @@ async function handleManualOrderCreate(req, res) {
   const sb = supabaseAdmin();
   let resolvedItems = [];
   let freightCarrier = '';
+  let vipContext = null;
   for (const item of itemsRaw) {
     const mode = String(item.mode || item.type || '').trim().toLowerCase();
-    if (mode === 'product') {
+    if (mode === 'vip' || mode === 'subscription' || mode === 'assinatura_vip') {
+      if (itemsRaw.length !== 1 || vipContext) {
+        return res.status(400).json({ error: 'A assinatura VIP deve ser criada em um pedido separado, sem outros itens.' });
+      }
+      try {
+        vipContext = await resolveManualVipItem(sb, item);
+      } catch (error) {
+        return res.status(400).json({ error: error?.message || 'Assinatura VIP inválida.' });
+      }
+      const selectedTitles = vipContext.selectedOptions.map((option) => String(option?.title || '').trim()).filter(Boolean);
+      resolvedItems.push({
+        product_id: `vip:${vipContext.plan.id}`,
+        name: `Assinatura VIP — ${vipContext.plan?.name || vipContext.plan?.short_name || vipContext.plan.id}${selectedTitles.length ? ` — Escolhas: ${selectedTitles.join(', ')}` : ''}`,
+        qty: 1,
+        scale: String(vipContext.plan?.scale || '').trim(),
+        unit_price: vipContext.price,
+        img: String(vipContext.selectedOptions[0]?.image_url || '').trim(),
+      });
+    } else if (mode === 'product') {
       const productId = String(item.product_id || item.id || '').trim();
       if (!productId) return res.status(400).json({ error: 'Produto cadastrado inválido.' });
       const { data: row, error } = await sb.from('products').select('id,name,price_cents,original_price_cents,promo,variants,default_variant,image_url,images').eq('id', productId).maybeSingle();
@@ -265,6 +400,7 @@ async function handleManualOrderCreate(req, res) {
   }
   const orderId = crypto.randomUUID();
   const isPaidManually = paymentAction === 'mark_paid';
+  const isVipOrder = Boolean(vipContext);
   const hasFreightOnly = resolvedItems.length > 0 && resolvedItems.every((it) => String(it.product_id || '').startsWith('freight:'));
   const orderPayload = {
     id: orderId,
@@ -273,9 +409,10 @@ async function handleManualOrderCreate(req, res) {
     currency: 'BRL',
     total,
     payment_provider: isPaidManually ? 'admin_manual' : 'mercado_pago',
-    production_status: isPaidManually ? 'recebido' : 'editavel',
+    production_status: isVipOrder ? 'editavel' : (isPaidManually ? 'recebido' : 'editavel'),
     production_status_updated_at: isPaidManually ? new Date().toISOString() : null,
-    order_type: hasFreightOnly ? 'shipping_payment' : 'shop',
+    order_type: isVipOrder ? 'vip' : (hasFreightOnly ? 'shipping_payment' : 'shop'),
+    vip_plan_id: isVipOrder ? vipContext.plan.id : null,
     customer_email: email,
     customer_name: fullName,
     customer_phone: phone || null,
@@ -328,17 +465,54 @@ async function handleManualOrderCreate(req, res) {
     }
   }
 
+  if (isVipOrder) {
+    const selectionPayload = {
+      user_id: account.userId,
+      cycle_key: vipContext.cycleKey,
+      selected_option_ids: vipContext.selectedOptionIds,
+      saved_at: new Date().toISOString(),
+    };
+    const selectionResp = await sb.from('vip_mini_selections').upsert(selectionPayload, { onConflict: 'user_id,cycle_key' });
+    if (selectionResp?.error) {
+      return res.status(500).json({ error: selectionResp.error.message || 'O pedido foi criado, mas não foi possível salvar as miniaturas da assinatura.' });
+    }
+    const cycleResp = await updateProfileVipCompat(sb, account.userId, { vip_cycle_key: vipContext.cycleKey });
+    if (cycleResp?.error) console.error('manual vip cycle profile update failed', cycleResp.error);
+    if (isPaidManually) {
+      await activateVipOrderAccess(sb, {
+        userId: account.userId,
+        orderId,
+        planId: vipContext.plan.id,
+        cycleKey: vipContext.cycleKey,
+        durationDays: 30,
+      });
+    }
+  }
+
   const siteUrl = getBaseUrl(req);
   const paymentLink = isPaidManually ? null : buildManualPaymentLink({ baseUrl: siteUrl, orderId });
   await recordOrderEvent(sb, {
     order_id: orderId,
     event_type: isPaidManually ? 'payment_confirmed' : 'order_created',
-    title: isPaidManually ? 'Pedido pago lançado pelo admin' : 'Pedido criado pelo admin',
+    title: isVipOrder
+      ? (isPaidManually ? 'Assinatura VIP ativada pelo admin' : 'Pedido de assinatura VIP criado pelo admin')
+      : (isPaidManually ? 'Pedido pago lançado pelo admin' : 'Pedido criado pelo admin'),
     description: isPaidManually
-      ? 'Pedido criado e marcado como pago manualmente no painel administrativo.'
-      : (account?.existing ? 'Pedido lançado para cliente já cadastrado.' : 'Pedido manual criado com conta automática para o cliente.'),
+      ? (isVipOrder ? 'Assinatura VIP criada, marcada como paga e liberada imediatamente.' : 'Pedido criado e marcado como pago manualmente no painel administrativo.')
+      : (isVipOrder ? 'Assinatura VIP criada com link de pagamento e miniaturas definidas pelo administrador.' : (account?.existing ? 'Pedido lançado para cliente já cadastrado.' : 'Pedido manual criado com conta automática para o cliente.')),
     actor_label: 'Admin',
-    metadata: { account_mode: account?.existing ? 'existing' : 'new', total, items_count: cleanedItems.length, payment_action: paymentAction, shipping_carrier: freightCarrier || null, has_model_3d: Boolean(model3dUrl) },
+    metadata: {
+      account_mode: account?.existing ? 'existing' : 'new',
+      total,
+      items_count: cleanedItems.length,
+      payment_action: paymentAction,
+      shipping_carrier: freightCarrier || null,
+      has_model_3d: Boolean(model3dUrl),
+      order_type: orderPayload.order_type,
+      vip_plan_id: vipContext?.plan?.id || null,
+      vip_cycle_key: vipContext?.cycleKey || null,
+      vip_selected_option_ids: vipContext?.selectedOptionIds || [],
+    },
   });
 
   let customerEmailResult = { ok: false, skipped: true, reason: 'email_not_configured' };
@@ -360,7 +534,31 @@ async function handleManualOrderCreate(req, res) {
       `CEP ${address.zip}`,
     ].filter(Boolean).join(' • ');
 
-    const mail = isPaidManually
+    const mail = isPaidManually && isVipOrder
+      ? renderVipWelcomeEmail({
+          brandName: process.env.BRAND_NAME || 'Cubo Criativo',
+          orderId,
+          customerName: fullName,
+          reviewLink: buildVipAreaUrl(siteUrl),
+          supportEmail,
+          whatsapp,
+          vipPlanId: vipContext.plan.id,
+          planName: vipContext.plan?.name || vipContext.plan?.short_name || vipContext.plan.id,
+          planDescription: vipContext.plan?.description || '',
+          monthlyPrice: total,
+          miniaturesCount: vipContext.limits.miniatures,
+          bossCount: vipContext.limits.bosses,
+          scale: vipContext.plan?.scale || '',
+          recurrenceLabel: 'Mensal',
+          benefits: [
+            `${vipContext.limits.miniatures} miniatura(s)${vipContext.limits.bosses ? ` + ${vipContext.limits.bosses} boss(es)` : ''}`,
+            'Miniaturas do ciclo já selecionadas pela equipe',
+            'Acesso imediato à Área VIP e aos benefícios do clube',
+          ],
+          total,
+          paymentMethod: 'Pagamento confirmado pela equipe',
+        })
+      : isPaidManually
       ? renderCustomerOrderEmail({
           brandName: process.env.BRAND_NAME || 'Cubo Criativo',
           orderId,
@@ -388,7 +586,9 @@ async function handleManualOrderCreate(req, res) {
         });
 
     customerEmailResult = await sendResendEmail({ to: email, subject: mail.subject, html: mail.html });
-    const emailType = isPaidManually ? 'manual_order:confirmed' : 'manual_order:payment_link';
+    const emailType = isVipOrder
+      ? (isPaidManually ? 'manual_vip:activated' : 'manual_vip:payment_link')
+      : (isPaidManually ? 'manual_order:confirmed' : 'manual_order:payment_link');
     if (customerEmailResult?.ok) {
       const stamp = new Date().toISOString();
       await updateOrderEmailAudit(sb, orderId, {
@@ -400,7 +600,7 @@ async function handleManualOrderCreate(req, res) {
       await recordOrderEvent(sb, {
         order_id: orderId,
         event_type: 'email_sent',
-        title: isPaidManually ? 'Confirmação enviada ao cliente' : 'Link de pagamento enviado ao cliente',
+        title: isVipOrder && isPaidManually ? 'Boas-vindas VIP enviadas ao cliente' : (isPaidManually ? 'Confirmação enviada ao cliente' : 'Link de pagamento enviado ao cliente'),
         description: `E-mail enviado para ${email}.`,
         actor_label: 'Sistema',
         metadata: { email_type: emailType, email_to: email, provider: 'resend', resend_id: customerEmailResult?.data?.id || null },
@@ -420,7 +620,7 @@ async function handleManualOrderCreate(req, res) {
 
   return res.status(200).json({
     ok: true,
-    order: { id: orderId, order_number: buildControlNumber(orderId), total, customer_name: fullName, customer_email: email, status: orderPayload.status },
+    order: { id: orderId, order_number: buildControlNumber(orderId), total, customer_name: fullName, customer_email: email, status: orderPayload.status, order_type: orderPayload.order_type, vip_plan_id: orderPayload.vip_plan_id || null },
     payment_link: paymentLink,
     account: account?.existing ? { email, existing: true } : { email, password: cpf },
     email: customerEmailResult,
@@ -2822,6 +3022,64 @@ async function handleUpdateClient(req, res) {
   return res.status(200).json({ ok: true });
 }
 
+async function handleClientVipStatus(req, res) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  const auth = await requireAdmin(req);
+  if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
+  const body = await readJsonBody(req);
+  const clientId = String(body?.client_id || '').trim();
+  if (!clientId) return res.status(400).json({ error: 'client_id obrigatório.' });
+
+  const sb = supabaseAdmin();
+  const shouldActivate = body?.active === true || String(body?.active || '').toLowerCase() === 'true';
+  if (!shouldActivate) {
+    const nowIso = new Date().toISOString();
+    try {
+      await sb.from('vip_subscriptions').update({ status: 'admin_disabled', ends_at: nowIso }).eq('user_id', clientId).eq('status', 'active');
+    } catch (error) {
+      console.error('admin vip disable subscriptions failed', error);
+    }
+    const profileResp = await updateProfileVipCompat(sb, clientId, { vip_until: null, vip_plan: null, vip_cycle_key: null });
+    if (profileResp?.error) return res.status(500).json({ error: profileResp.error.message || 'Não foi possível desativar o VIP.' });
+    return res.status(200).json({ ok: true, vip_active: false, vip_until: null, vip_plan: null, vip_cycle_key: null });
+  }
+
+  let planId = String(body?.vip_plan_id || body?.plan_id || '').trim();
+  if (!planId) {
+    const plans = await listVipPlans(sb);
+    planId = String(plans?.[0]?.id || '').trim();
+  }
+  const plan = planId ? await getVipPlanById(sb, planId) : null;
+  if (!plan || plan?.active === false) return res.status(400).json({ error: 'Selecione um plano VIP ativo.' });
+
+  const days = Math.min(365, Math.max(1, Number(body?.duration_days || 30) || 30));
+  const extend = body?.extend === true || String(body?.extend || '').toLowerCase() === 'true';
+  const { data: profile } = await sb.from('profiles').select('vip_until').eq('id', clientId).maybeSingle();
+  const currentUntil = profile?.vip_until ? new Date(profile.vip_until).getTime() : 0;
+  const now = Date.now();
+  const base = extend && Number.isFinite(currentUntil) && currentUntil > now ? currentUntil : now;
+  const vipUntil = new Date(base + days * 86400000).toISOString();
+  const cycleKey = String(body?.cycle_key || '').trim() || await getActiveVipCycleKey(sb);
+
+  try {
+    const { data: latestSubscription } = await sb
+      .from('vip_subscriptions')
+      .select('id')
+      .eq('user_id', clientId)
+      .order('ends_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (latestSubscription?.id) {
+      await sb.from('vip_subscriptions').update({ plan_id: plan.id, status: 'active', starts_at: new Date().toISOString(), ends_at: vipUntil }).eq('id', latestSubscription.id);
+    }
+  } catch (error) {
+    console.error('admin vip update subscriptions failed', error);
+  }
+  const profileResp = await updateProfileVipCompat(sb, clientId, { vip_until: vipUntil, vip_plan: plan.id, vip_cycle_key: cycleKey });
+  if (profileResp?.error) return res.status(500).json({ error: profileResp.error.message || 'Não foi possível ativar o VIP.' });
+  return res.status(200).json({ ok: true, vip_active: true, vip_until: vipUntil, vip_plan: plan.id, vip_cycle_key: cycleKey });
+}
+
 async function handleDeleteClient(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   const auth = await requireAdmin(req);
@@ -2912,6 +3170,7 @@ export default async function handler(req, res) {
     if (action === "clients") return await handleClients(req, res);
     if (action === "create-client") return await handleCreateClient(req, res);
     if (action === "update-client") return await handleUpdateClient(req, res);
+    if (action === "client-vip-status") return await handleClientVipStatus(req, res);
     if (action === "delete-client") return await handleDeleteClient(req, res);
     if (action === "add-order-note") return await handleAddOrderNote(req, res);
     if (action === "game-coupon") return await handleGetGameCoupon(req, res);

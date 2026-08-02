@@ -138,9 +138,18 @@ async function applyVipFromOrder(sb, order, payment) {
     const vipPlan = await getVipPlanById(sb, planId);
 
     if (orderTypeNorm === 'vip') {
-      const { data: existing } = await sb.from("vip_subscriptions").select("id").eq("order_id", order.id).maybeSingle();
-      const end = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-      if (!existing?.id) {
+      const { data: existing } = await sb.from("vip_subscriptions").select("id,status,ends_at").eq("order_id", order.id).maybeSingle();
+      if (existing?.id && String(existing.status || '').toLowerCase() !== 'active') return;
+      const prof = await loadProfileVipCompat(sb, userId);
+      const currentUntil = prof?.vip_until ? new Date(prof.vip_until).getTime() : 0;
+      let end = null;
+      if (existing?.id) {
+        const existingUntil = existing?.ends_at ? new Date(existing.ends_at).getTime() : 0;
+        if (!Number.isFinite(existingUntil) || existingUntil <= 0) return;
+        end = new Date(existingUntil);
+      } else {
+        const base = Math.max(Date.now(), Number.isFinite(currentUntil) ? currentUntil : 0);
+        end = new Date(base + 30 * 24 * 60 * 60 * 1000);
         await sb.from("vip_subscriptions").insert({
           user_id: userId,
           plan_id: planId,
@@ -150,9 +159,7 @@ async function applyVipFromOrder(sb, order, payment) {
           status: "active",
         });
       }
-      const prof = await loadProfileVipCompat(sb, userId);
-      const currentUntil = prof?.vip_until ? new Date(prof.vip_until).getTime() : 0;
-      const nextUntil = Math.max(currentUntil, end.getTime());
+      const nextUntil = Math.max(Number.isFinite(currentUntil) ? currentUntil : 0, end.getTime());
       const profilePatch = { vip_until: new Date(nextUntil).toISOString(), vip_plan: planId };
       if (purchasedCycleKey) profilePatch.vip_cycle_key = purchasedCycleKey;
       await updateProfileVipCompat(sb, userId, profilePatch);

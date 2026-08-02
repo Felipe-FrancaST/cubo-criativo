@@ -1247,6 +1247,11 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
   const [cepError, setCepError] = React.useState('');
   const [model3dFile, setModel3dFile] = React.useState(null);
   const [model3dError, setModel3dError] = React.useState('');
+  const [vipPlans, setVipPlans] = React.useState([]);
+  const [vipOptions, setVipOptions] = React.useState([]);
+  const [vipCycleKey, setVipCycleKey] = React.useState('');
+  const [loadingVipData, setLoadingVipData] = React.useState(false);
+  const [vipDataError, setVipDataError] = React.useState('');
 
   React.useEffect(() => {
     if (!open) return;
@@ -1262,6 +1267,7 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
     setCepError('');
     setModel3dFile(null);
     setModel3dError('');
+    setVipDataError('');
     setForm(emptyForm);
     setItems([]);
   }, [open, emptyForm]);
@@ -1281,6 +1287,33 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
       .finally(() => active && setLoadingProducts(false));
     return () => { active = false; };
   }, [open, accessToken]);
+
+  React.useEffect(() => {
+    if (!open) return;
+    let active = true;
+    setLoadingVipData(true);
+    setVipDataError('');
+    Promise.all([
+      fetch('/api/vip-plans').then((r) => r.json().catch(() => ({})).then((json) => ({ ok: r.ok, json }))),
+      fetch('/api/core?action=vip-cycle').then((r) => r.json().catch(() => ({})).then((json) => ({ ok: r.ok, json }))),
+    ])
+      .then(([plansResp, cycleResp]) => {
+        if (!active) return;
+        if (!plansResp.ok) throw new Error(plansResp.json?.error || 'Não foi possível carregar os planos VIP.');
+        if (!cycleResp.ok) throw new Error(cycleResp.json?.error || 'Não foi possível carregar as miniaturas VIP.');
+        setVipPlans(Array.isArray(plansResp.json?.plans) ? plansResp.json.plans : []);
+        setVipOptions(Array.isArray(cycleResp.json?.items) ? cycleResp.json.items : []);
+        setVipCycleKey(String(cycleResp.json?.active_cycle_key || '').trim());
+      })
+      .catch((e) => {
+        if (!active) return;
+        setVipPlans([]);
+        setVipOptions([]);
+        setVipDataError(e?.message || 'Erro ao carregar dados da assinatura VIP.');
+      })
+      .finally(() => active && setLoadingVipData(false));
+    return () => { active = false; };
+  }, [open]);
 
   React.useEffect(() => {
     if (!open || !accessToken || customerMode !== 'existing') return;
@@ -1365,11 +1398,91 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
     if (key === 'state') nextValue = String(value || '').toUpperCase().slice(0, 2);
     setForm((p) => ({ ...p, [key]: nextValue }));
   }
-  function addRegisteredProduct() { setItems((p) => [...p, { id: crypto?.randomUUID?.() || String(Date.now()+Math.random()), mode: 'product', product_id: '', qty: 1, scale: '' }]); }
-  function addCustomItem() { setItems((p) => [...p, { id: crypto?.randomUUID?.() || String(Date.now()+Math.random()), mode: 'custom', name: '', price: '', scale: '', qty: 1, notes: '' }]); }
-  function addFreightItem() { setItems((p) => [...p, { id: crypto?.randomUUID?.() || String(Date.now()+Math.random()), mode: 'freight', carrier: '', price: '', qty: 1, notes: '' }]); }
+  function isLevel3VipPlan(plan) {
+    const raw = [plan?.id, plan?.slug, plan?.short_name, plan?.name].map((value) => String(value || '').toLowerCase()).join(' | ');
+    return raw.includes('cubo_l3') || raw.includes('level-3') || raw.includes('level 3') || raw.includes('nível 3') || raw.includes('nivel 3');
+  }
+  function getVipPlanLimits(plan) {
+    const miniatures = Math.max(0, Number(plan?.miniatures_count ?? plan?.items_per_month ?? 0) || 0);
+    const bosses = Math.max(0, Number(plan?.boss_count ?? 0) || 0);
+    const totalItems = Math.max(0, Number(plan?.items_per_month ?? (miniatures + bosses)) || (miniatures + bosses));
+    return { miniatures, bosses, total: totalItems };
+  }
+  function getVipSelectedCounts(item) {
+    const selectedIds = Array.isArray(item?.selected_option_ids) ? item.selected_option_ids.map(String) : [];
+    return selectedIds.reduce((acc, optionId) => {
+      const option = vipOptions.find((row) => String(row.id) === String(optionId));
+      if (String(option?.item_type || 'miniature').toLowerCase() === 'boss') acc.bosses += 1;
+      else acc.miniatures += 1;
+      acc.total += 1;
+      return acc;
+    }, { miniatures: 0, bosses: 0, total: 0 });
+  }
+  function ensureRegularOrderMode() {
+    if (items.some((item) => item.mode === 'vip')) {
+      setError('A assinatura VIP deve ficar em um pedido separado. Remova a assinatura para adicionar outros itens.');
+      return false;
+    }
+    setError('');
+    return true;
+  }
+  function addRegisteredProduct() {
+    if (!ensureRegularOrderMode()) return;
+    setItems((p) => [...p, { id: crypto?.randomUUID?.() || String(Date.now()+Math.random()), mode: 'product', product_id: '', qty: 1, scale: '' }]);
+  }
+  function addCustomItem() {
+    if (!ensureRegularOrderMode()) return;
+    setItems((p) => [...p, { id: crypto?.randomUUID?.() || String(Date.now()+Math.random()), mode: 'custom', name: '', price: '', scale: '', qty: 1, notes: '' }]);
+  }
+  function addFreightItem() {
+    if (!ensureRegularOrderMode()) return;
+    setItems((p) => [...p, { id: crypto?.randomUUID?.() || String(Date.now()+Math.random()), mode: 'freight', carrier: '', price: '', qty: 1, notes: '' }]);
+  }
+  function addVipItem() {
+    if (items.length) {
+      setError('A assinatura VIP deve ser criada em um pedido separado. Remova os outros itens antes de continuar.');
+      return;
+    }
+    const plan = vipPlans[0] || null;
+    if (!plan) {
+      setError(vipDataError || 'Nenhum plano VIP ativo foi encontrado.');
+      return;
+    }
+    const selectedIds = isLevel3VipPlan(plan) ? vipOptions.map((option) => option.id) : [];
+    setError('');
+    setItems([{ id: crypto?.randomUUID?.() || String(Date.now()+Math.random()), mode: 'vip', vip_plan_id: plan.id, selected_option_ids: selectedIds, cycle_key: vipCycleKey }]);
+  }
+  function changeVipPlan(itemId, planId) {
+    const plan = vipPlans.find((row) => String(row.id) === String(planId));
+    const selectedIds = isLevel3VipPlan(plan) ? vipOptions.map((option) => option.id) : [];
+    updateItem(itemId, { vip_plan_id: planId, selected_option_ids: selectedIds, cycle_key: vipCycleKey });
+    setError('');
+  }
+  function toggleVipOption(item, optionId) {
+    const selectedIds = Array.isArray(item?.selected_option_ids) ? item.selected_option_ids.map(String) : [];
+    const optionKey = String(optionId);
+    if (selectedIds.includes(optionKey)) {
+      updateItem(item.id, { selected_option_ids: selectedIds.filter((id) => id !== optionKey) });
+      setError('');
+      return;
+    }
+    const plan = vipPlans.find((row) => String(row.id) === String(item.vip_plan_id));
+    if (isLevel3VipPlan(plan)) return;
+    const limits = getVipPlanLimits(plan);
+    const counts = getVipSelectedCounts(item);
+    const option = vipOptions.find((row) => String(row.id) === optionKey);
+    const isBoss = String(option?.item_type || 'miniature').toLowerCase() === 'boss';
+    if (counts.total >= limits.total || (isBoss ? counts.bosses >= limits.bosses : counts.miniatures >= limits.miniatures)) {
+      setError(`O limite deste plano é ${limits.miniatures} miniatura(s)${limits.bosses ? ` e ${limits.bosses} boss(es)` : ''}.`);
+      return;
+    }
+    updateItem(item.id, { selected_option_ids: [...selectedIds, optionKey] });
+    setError('');
+  }
   function updateItem(id, patch) { setItems((p) => p.map((it) => it.id === id ? { ...it, ...patch } : it)); }
   function removeItem(id) { setItems((p) => p.filter((it) => it.id !== id)); }
+
+  const hasVipItem = items.some((item) => item.mode === 'vip');
 
   const total = React.useMemo(() => items.reduce((sum, it) => {
     if (it.mode === 'product') {
@@ -1377,8 +1490,12 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
       const basePrice = Number(prod?.price || 0);
       return sum + basePrice * Number(it.qty || 1);
     }
+    if (it.mode === 'vip') {
+      const plan = vipPlans.find((p) => String(p.id) === String(it.vip_plan_id));
+      return sum + Number(plan?.price_brl ?? plan?.price ?? 0);
+    }
     return sum + Number(it.price || 0) * Number(it.qty || 1);
-  }, 0), [items, products]);
+  }, 0), [items, products, vipPlans]);
 
   function handleModel3dChange(file) {
     setModel3dError('');
@@ -1405,6 +1522,17 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
     setBusy(true);
     setError('');
     try {
+      const vipItem = items.find((item) => item.mode === 'vip');
+      if (vipItem) {
+        const plan = vipPlans.find((row) => String(row.id) === String(vipItem.vip_plan_id));
+        if (!plan) throw new Error('Selecione um plano VIP válido.');
+        const counts = getVipSelectedCounts(vipItem);
+        const limits = getVipPlanLimits(plan);
+        if (!vipOptions.length) throw new Error('Nenhuma miniatura está ativa no ciclo VIP atual.');
+        if (!isLevel3VipPlan(plan) && (counts.total !== limits.total || counts.miniatures !== limits.miniatures || counts.bosses !== limits.bosses)) {
+          throw new Error(`Selecione exatamente ${limits.miniatures} miniatura(s)${limits.bosses ? ` e ${limits.bosses} boss(es)` : ''} para este plano.`);
+        }
+      }
       let uploadedModel = { url: '', name: '' };
       if (model3dFile) {
         uploadedModel = await uploadOrder3dModel(model3dFile);
@@ -1424,6 +1552,7 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
         items: items.map((it) => {
           if (it.mode === 'product') return { mode: 'product', product_id: it.product_id, qty: Number(it.qty || 1), scale: it.scale || '' };
           if (it.mode === 'freight') return { mode: 'freight', carrier: it.carrier || '', price: Number(it.price || 0), qty: 1, notes: it.notes || '' };
+          if (it.mode === 'vip') return { mode: 'vip', vip_plan_id: it.vip_plan_id, selected_option_ids: Array.isArray(it.selected_option_ids) ? it.selected_option_ids : [], cycle_key: it.cycle_key || vipCycleKey };
           return { mode: 'custom', name: it.name, price: Number(it.price || 0), scale: it.scale || '', qty: Number(it.qty || 1), notes: it.notes || '' };
         }),
       };
@@ -1436,7 +1565,10 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
       if (!resp.ok) throw new Error(json?.error || 'Não foi possível criar o pedido.');
       setResult(json);
       setShowFinalizeChoices(false);
-      showToast?.(json?.email?.ok ? (paymentAction === 'mark_paid' ? 'Pedido pago lançado e confirmação enviada por e-mail.' : 'Pedido criado e link enviado por e-mail.') : (paymentAction === 'mark_paid' ? 'Pedido lançado como pago com sucesso.' : 'Pedido criado com sucesso.'));
+      const createdVip = String(json?.order?.order_type || '').toLowerCase() === 'vip';
+      showToast?.(json?.email?.ok
+        ? (paymentAction === 'mark_paid' ? (createdVip ? 'Assinatura VIP ativada e boas-vindas enviadas.' : 'Pedido pago lançado e confirmação enviada por e-mail.') : (createdVip ? 'Assinatura VIP criada e link enviado por e-mail.' : 'Pedido criado e link enviado por e-mail.'))
+        : (paymentAction === 'mark_paid' ? (createdVip ? 'Assinatura VIP ativada com sucesso.' : 'Pedido lançado como pago com sucesso.') : (createdVip ? 'Assinatura VIP criada com sucesso.' : 'Pedido criado com sucesso.')));
       onCreated?.();
     } catch (e) {
       setError(e?.message || 'Erro ao criar pedido.');
@@ -1597,16 +1729,85 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <div className="text-white font-bold">Itens do pedido</div>
-                    <div className="text-sm text-slate-400">Adicione produtos cadastrados, orçamento personalizado ou pagamento de frete.</div>
+                    <div className="text-sm text-slate-400">Adicione produtos, orçamento, frete ou crie uma assinatura VIP com as miniaturas do ciclo.</div>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <button onClick={addRegisteredProduct} className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10">Produto cadastrado</button>
                     <button onClick={addCustomItem} className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10">Orçamento personalizado</button>
                     <button onClick={addFreightItem} className="rounded-xl px-3 py-2 text-sm text-cyan-100 hover:bg-cyan-500/10 ring-1 ring-cyan-400/20">Pagamento de frete</button>
+                    <button onClick={addVipItem} disabled={loadingVipData} className="rounded-xl px-3 py-2 text-sm font-semibold text-violet-100 hover:bg-violet-500/10 ring-1 ring-violet-400/30 disabled:opacity-50">{loadingVipData ? 'Carregando VIP…' : 'Assinatura VIP'}</button>
                   </div>
                 </div>
+                {vipDataError ? <div className="mt-3 rounded-xl bg-amber-500/10 px-3 py-2 text-sm text-amber-100 ring-1 ring-amber-400/20">{vipDataError}</div> : null}
                 <div className="mt-4 space-y-3">
-                  {items.map((it, idx) => it.mode === 'product' ? (
+                  {items.map((it) => it.mode === 'vip' ? (() => {
+                    const plan = vipPlans.find((row) => String(row.id) === String(it.vip_plan_id)) || null;
+                    const limits = getVipPlanLimits(plan);
+                    const counts = getVipSelectedCounts(it);
+                    const selectedIds = Array.isArray(it.selected_option_ids) ? it.selected_option_ids.map(String) : [];
+                    const level3 = isLevel3VipPlan(plan);
+                    return (
+                      <div key={it.id} className="rounded-2xl bg-violet-500/5 p-4 ring-1 ring-violet-400/25">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <div className="text-base font-extrabold text-violet-100">Assinatura VIP</div>
+                            <div className="mt-1 text-xs text-slate-400">Ciclo {it.cycle_key || vipCycleKey || 'ativo'} • acesso liberado automaticamente após o pagamento</div>
+                          </div>
+                          <button onClick={() => removeItem(it.id)} className="rounded-xl px-3 py-2 text-sm text-red-200 hover:bg-red-500/10 ring-1 ring-red-500/30">Remover</button>
+                        </div>
+
+                        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+                          <label className="text-sm text-slate-300">
+                            Plano VIP
+                            <select value={it.vip_plan_id || ''} onChange={(e) => changeVipPlan(it.id, e.target.value)} className="mt-1 w-full rounded-xl bg-black/20 px-3 py-2 text-white ring-1 ring-white/10">
+                              <option value="">Selecione</option>
+                              {vipPlans.map((vipPlan) => <option key={vipPlan.id} value={vipPlan.id}>{vipPlan.name || vipPlan.short_name || vipPlan.id} — {fmtBRL(vipPlan.price_brl ?? vipPlan.price ?? 0)}</option>)}
+                            </select>
+                          </label>
+                          <div className="rounded-xl bg-black/20 px-4 py-3 text-right ring-1 ring-white/10">
+                            <div className="text-xs text-slate-400">Valor carregado</div>
+                            <div className="text-lg font-extrabold text-white">{fmtBRL(plan?.price_brl ?? plan?.price ?? 0)}</div>
+                          </div>
+                        </div>
+
+                        <div className="mt-4 rounded-2xl bg-black/20 p-3 ring-1 ring-white/10">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div>
+                              <div className="text-sm font-semibold text-white">Miniaturas da assinatura</div>
+                              <div className="text-xs text-slate-400">Selecione {limits.miniatures} miniatura(s){limits.bosses ? ` e ${limits.bosses} boss(es)` : ''}.</div>
+                            </div>
+                            <div className={`rounded-full px-3 py-1 text-xs font-bold ring-1 ${counts.total === limits.total && counts.miniatures === limits.miniatures && counts.bosses === limits.bosses ? 'bg-emerald-500/10 text-emerald-100 ring-emerald-400/30' : 'bg-violet-500/10 text-violet-100 ring-violet-400/30'}`}>
+                              {counts.total}/{limits.total} • Mini {counts.miniatures}/{limits.miniatures}{limits.bosses ? ` • Boss ${counts.bosses}/${limits.bosses}` : ''}
+                            </div>
+                          </div>
+                          {level3 ? <div className="mt-3 rounded-xl bg-violet-500/10 px-3 py-2 text-xs text-violet-100 ring-1 ring-violet-400/20">Este plano inclui automaticamente todas as opções disponíveis no ciclo.</div> : null}
+                          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                            {vipOptions.map((option) => {
+                              const selected = selectedIds.includes(String(option.id));
+                              const isBoss = String(option?.item_type || 'miniature').toLowerCase() === 'boss';
+                              return (
+                                <button
+                                  key={option.id}
+                                  type="button"
+                                  disabled={level3}
+                                  onClick={() => toggleVipOption(it, option.id)}
+                                  className={`flex items-center gap-3 rounded-xl p-2 text-left ring-1 transition ${selected ? 'bg-violet-400/15 ring-violet-300/50' : 'bg-white/[0.03] ring-white/10 hover:bg-white/[0.06]'} disabled:cursor-default`}
+                                >
+                                  {option.image_url ? <img src={option.image_url} alt="" className="h-14 w-14 shrink-0 rounded-lg object-cover ring-1 ring-white/10" loading="lazy" /> : <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-black/30 text-slate-500 ring-1 ring-white/10"><span className="material-icons">image</span></div>}
+                                  <div className="min-w-0 flex-1">
+                                    <div className="truncate text-sm font-semibold text-slate-100">{option.title || 'Miniatura VIP'}</div>
+                                    <div className="mt-1 text-[11px] uppercase tracking-wide text-slate-400">{isBoss ? 'Boss' : 'Miniatura'}</div>
+                                  </div>
+                                  <span className={`material-icons text-[20px] ${selected ? 'text-violet-200' : 'text-slate-600'}`}>{selected ? 'check_circle' : 'radio_button_unchecked'}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                          {!vipOptions.length ? <div className="mt-3 rounded-xl bg-amber-500/10 px-3 py-2 text-sm text-amber-100 ring-1 ring-amber-400/20">Nenhuma miniatura está ativa no ciclo VIP atual.</div> : null}
+                        </div>
+                      </div>
+                    );
+                  })() : it.mode === 'product' ? (
                     <div key={it.id} className="rounded-2xl bg-black/20 ring-1 ring-white/10 p-3 grid grid-cols-1 sm:grid-cols-[1fr_120px_110px_auto] gap-3 items-end">
                       <label className="text-sm text-slate-300">Produto<select value={it.product_id} onChange={(e)=>updateItem(it.id, { product_id: e.target.value, scale: '' })} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white"><option value="">Selecione</option>{products.map((p)=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
                       <label className="text-sm text-slate-300">Quantidade<input type="number" min="1" value={it.qty} onChange={(e)=>updateItem(it.id, { qty: e.target.value })} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
@@ -1638,11 +1839,11 @@ function NewManualOrderModal({ open, accessToken, onClose, onCreated, showToast 
                 <div className="mt-4 flex flex-col gap-3 border-t border-white/10 pt-4 sm:flex-row sm:items-center sm:justify-between">
                   <div className="text-lg font-extrabold text-white">Total: {fmtBRL(total)}</div>
                   <div className="flex flex-col items-stretch gap-2 sm:items-end">
-                    <button onClick={() => setShowFinalizeChoices((v) => !v)} disabled={busy || loadingProducts} className="rounded-2xl bg-cyan-400 text-[#031116] font-black px-5 py-3 disabled:opacity-60">{busy ? 'Processando…' : 'Finalizar pedido'}</button>
+                    <button onClick={() => setShowFinalizeChoices((v) => !v)} disabled={busy || loadingProducts || (hasVipItem && loadingVipData)} className="rounded-2xl bg-cyan-400 text-[#031116] font-black px-5 py-3 disabled:opacity-60">{busy ? 'Processando…' : 'Finalizar pedido'}</button>
                     {showFinalizeChoices ? (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        <button onClick={() => handleSubmit('payment_link')} disabled={busy || loadingProducts} className="rounded-2xl bg-white/[0.04] text-slate-100 font-semibold px-4 py-3 ring-1 ring-white/10 hover:bg-white/[0.07] disabled:opacity-60">Gerar link de pagamento</button>
-                        <button onClick={() => handleSubmit('mark_paid')} disabled={busy || loadingProducts} className="rounded-2xl bg-emerald-400 text-[#031116] font-black px-4 py-3 disabled:opacity-60">Pedido pago</button>
+                        <button onClick={() => handleSubmit('payment_link')} disabled={busy || loadingProducts || (hasVipItem && loadingVipData)} className="rounded-2xl bg-white/[0.04] text-slate-100 font-semibold px-4 py-3 ring-1 ring-white/10 hover:bg-white/[0.07] disabled:opacity-60">Gerar link de pagamento</button>
+                        <button onClick={() => handleSubmit('mark_paid')} disabled={busy || loadingProducts || (hasVipItem && loadingVipData)} className="rounded-2xl bg-emerald-400 text-[#031116] font-black px-4 py-3 disabled:opacity-60">Pedido pago</button>
                       </div>
                     ) : null}
                   </div>
@@ -1870,6 +2071,8 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
   const [clientsError, setClientsError] = React.useState('');
   const [clientsQ, setClientsQ] = React.useState('');
   const [clientEditor, setClientEditor] = React.useState(null);
+  const [clientVipPlans, setClientVipPlans] = React.useState([]);
+  const [clientVipBusy, setClientVipBusy] = React.useState(false);
   const [newClientOpen, setNewClientOpen] = React.useState(false);
   const [adminQuickSearch, setAdminQuickSearch] = React.useState('');
   const [confirmAction, setConfirmAction] = React.useState({ open: false, type: '', payload: null, busy: false, error: '', keywordValue: '' });
@@ -2178,6 +2381,19 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
   }, [section, accessToken, clientsQ, fetchClients]);
 
   React.useEffect(() => {
+    if (section !== 'clients') return;
+    let active = true;
+    fetch('/api/vip-plans')
+      .then((resp) => resp.json().catch(() => ({})).then((data) => ({ ok: resp.ok, data })))
+      .then(({ ok, data }) => {
+        if (!active || !ok) return;
+        setClientVipPlans(Array.isArray(data?.plans) ? data.plans : []);
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [section]);
+
+  React.useEffect(() => {
     setClientEditor((current) => {
       if (!current?.id) return current;
       const next = (clients || []).find((item) => String(item?.id) === String(current.id));
@@ -2440,6 +2656,44 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
       fetchClients();
     } catch (e) {
       showToast(`⚠️ ${e?.message || 'Falha ao salvar cliente.'}`);
+    }
+  }
+
+  async function updateClientVipStatus({ active, extend = false } = {}) {
+    if (!clientEditor?.id || !accessToken || clientVipBusy) return;
+    const selectedPlanId = String(clientEditor.vip_plan || clientVipPlans[0]?.id || '').trim();
+    if (active && !selectedPlanId) {
+      showToast('⚠️ Selecione um plano VIP.');
+      return;
+    }
+    setClientVipBusy(true);
+    try {
+      const resp = await fetch('/api/admin?action=client-vip-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({
+          client_id: clientEditor.id,
+          active: Boolean(active),
+          extend: Boolean(extend),
+          duration_days: 30,
+          vip_plan_id: selectedPlanId,
+        }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data?.error || 'Não foi possível alterar o acesso VIP.');
+      setClientEditor((current) => current ? {
+        ...current,
+        vip_active: Boolean(data?.vip_active),
+        vip_until: data?.vip_until || null,
+        vip_plan: data?.vip_plan || null,
+        vip_cycle_key: data?.vip_cycle_key || null,
+      } : current);
+      showToast(active ? (extend ? '✅ VIP renovado por mais 30 dias.' : '✅ VIP ativado por 30 dias.') : '✅ VIP desativado.');
+      await fetchClients();
+    } catch (e) {
+      showToast(`⚠️ ${e?.message || 'Falha ao alterar o VIP.'}`);
+    } finally {
+      setClientVipBusy(false);
     }
   }
 
@@ -3523,7 +3777,51 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, isAdminLoa
                         <div className="rounded-xl bg-black/20 ring-1 ring-white/10 p-3 text-sm text-slate-300">Total gasto<br /><b className="text-white">{fmtBRL(clientEditor.total_spent)}</b></div>
                         <div className="rounded-xl bg-black/20 ring-1 ring-white/10 p-3 text-sm text-slate-300">Pedidos pagos<br /><b className="text-white">{clientEditor.paid_orders_count || 0}</b></div>
                         <div className="rounded-xl bg-black/20 ring-1 ring-white/10 p-3 text-sm text-slate-300">Pedidos totais<br /><b className="text-white">{clientEditor.orders_count || 0}</b></div>
-                        <div className="rounded-xl bg-black/20 ring-1 ring-white/10 p-3 text-sm text-slate-300">VIP<br /><b className="text-white">{clientEditor.vip_active ? 'Ativo' : 'Não'}</b></div>
+                        <div className="rounded-xl bg-black/20 ring-1 ring-white/10 p-3 text-sm text-slate-300">VIP<br /><b className={clientEditor.vip_active ? 'text-emerald-200' : 'text-white'}>{clientEditor.vip_active ? 'Ativo' : 'Não'}</b></div>
+                      </div>
+
+                      <div className="rounded-2xl bg-violet-500/5 p-4 ring-1 ring-violet-400/25">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <div className="text-sm font-extrabold text-violet-100">Controle da assinatura VIP</div>
+                            <div className="mt-1 text-xs text-slate-400">
+                              {clientEditor.vip_active
+                                ? `Acesso ativo até ${clientEditor.vip_until ? fmtDate(clientEditor.vip_until) : 'data não informada'}.`
+                                : 'O cliente está sem acesso à Área VIP.'}
+                            </div>
+                          </div>
+                          <span className={`rounded-full px-3 py-1 text-xs font-bold ring-1 ${clientEditor.vip_active ? 'bg-emerald-500/10 text-emerald-100 ring-emerald-400/30' : 'bg-white/5 text-slate-300 ring-white/10'}`}>
+                            {clientEditor.vip_active ? 'VIP ativo' : 'VIP desativado'}
+                          </span>
+                        </div>
+                        <label className="mt-4 block text-sm text-slate-300">
+                          Plano do cliente
+                          <select
+                            value={clientEditor.vip_plan || clientVipPlans[0]?.id || ''}
+                            onChange={(e) => setClientEditor((current) => current ? { ...current, vip_plan: e.target.value } : current)}
+                            className="mt-1 w-full rounded-xl bg-black/20 px-3 py-2 text-white ring-1 ring-white/10"
+                            disabled={clientVipBusy}
+                          >
+                            <option value="">Selecione um plano</option>
+                            {clientVipPlans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name || plan.short_name || plan.id} — {fmtBRL(plan.price_brl ?? plan.price ?? 0)}</option>)}
+                          </select>
+                        </label>
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          {!clientEditor.vip_active ? (
+                            <button disabled={clientVipBusy} onClick={() => updateClientVipStatus({ active: true })} className="rounded-xl bg-violet-300 px-4 py-2 text-sm font-extrabold text-black disabled:opacity-50">
+                              {clientVipBusy ? 'Processando…' : 'Ativar por 30 dias'}
+                            </button>
+                          ) : (
+                            <>
+                              <button disabled={clientVipBusy} onClick={() => updateClientVipStatus({ active: true, extend: true })} className="rounded-xl bg-emerald-400 px-4 py-2 text-sm font-extrabold text-black disabled:opacity-50">
+                                {clientVipBusy ? 'Processando…' : 'Renovar +30 dias'}
+                              </button>
+                              <button disabled={clientVipBusy} onClick={() => updateClientVipStatus({ active: false })} className="rounded-xl bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-100 ring-1 ring-red-500/30 disabled:opacity-50">
+                                Desativar VIP
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
