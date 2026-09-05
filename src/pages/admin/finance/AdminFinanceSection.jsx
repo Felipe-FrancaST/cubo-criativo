@@ -217,6 +217,6 @@ export default function AdminFinanceSection({ admin }) {
                   <div className="rounded-xl bg-black/20 ring-1 ring-white/10 p-4 text-slate-200">Receita pendente: <b>{fmtBRL(financeHighlights.pendingRevenue)}</b></div>
                   <div className="rounded-xl bg-black/20 ring-1 ring-white/10 p-4 text-slate-200">Pedidos pagos no filtro: <b>{financeHighlights.paidCount}</b></div>
                 </div>
-              </div>
+              </div></div>
   );
 }
