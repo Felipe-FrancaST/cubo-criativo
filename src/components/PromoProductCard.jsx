@@ -113,7 +113,7 @@ export default function PromoProductCard({ p, addToCart, buyNow, openGallery }) 
 
         {/* Em grid 2 colunas no mobile, empilhar botões evita overlap */}
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
-          <button
+          <button type="button"
             onClick={handleAdd}
             disabled={outOfStock}
             className={`rounded-xl px-3 py-2 text-sm font-extrabold ring-4 ring-cyan-400/20 transition ${
@@ -127,7 +127,7 @@ export default function PromoProductCard({ p, addToCart, buyNow, openGallery }) 
           >
             {outOfStock ? "Esgotado" : addedFlash ? "Adicionado!" : "Adicionar"}
           </button>
-          <button
+          <button type="button"
             onClick={() => buyNow(p, { escala, unitPrice: currentPrice })}
             disabled={outOfStock}
             className={`rounded-xl px-3 py-2 text-sm ring-1 ring-white/15 font-semibold ${

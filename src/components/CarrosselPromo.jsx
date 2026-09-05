@@ -11,6 +11,7 @@ export default function CarrosselPromo({
   interval = 3500,
   fit = "cover", // "cover" | "contain"
   className = "",
+  onActivate,
 }) {
   const [remoteSlides, setRemoteSlides] = React.useState([]);
   const [loadingRemote, setLoadingRemote] = React.useState(false);
@@ -82,22 +83,28 @@ export default function CarrosselPromo({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slides.length]);
 
-  const next = React.useCallback(
-    () => setI((p) => (p + 1) % slides.length),
-    [slides.length]
-  );
-  const prev = React.useCallback(
-    () => setI((p) => (p - 1 + slides.length) % slides.length),
-    [slides.length]
-  );
+  const next = React.useCallback(() => {
+    if (slides.length <= 1) return;
+    setI((p) => (p + 1) % slides.length);
+  }, [slides.length]);
+  const prev = React.useCallback(() => {
+    if (slides.length <= 1) return;
+    setI((p) => (p - 1 + slides.length) % slides.length);
+  }, [slides.length]);
+
+  // reduz movimento (acessibilidade)
+  const prefersReducedMotion =
+    typeof window !== "undefined" &&
+    window.matchMedia &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   // autoplay
   React.useEffect(() => {
-    if (slides.length <= 1) return;
     clearInterval(timerRef.current);
-    if (!isHovering) timerRef.current = setInterval(next, interval);
+    if (slides.length <= 1 || isHovering || prefersReducedMotion) return undefined;
+    timerRef.current = setInterval(next, interval);
     return () => clearInterval(timerRef.current);
-  }, [i, next, interval, slides.length, isHovering]);
+  }, [next, interval, slides.length, isHovering, prefersReducedMotion]);
 
   // swipe (touch)
   const touchStartX = React.useRef(0);
@@ -109,20 +116,19 @@ export default function CarrosselPromo({
     else prev();
   };
 
-  // reduz movimento (acessibilidade)
-  const prefersReducedMotion =
-    typeof window !== "undefined" &&
-    window.matchMedia &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
   return (
     <div
       tabIndex={0}
       role="region"
       aria-label="Carrossel de promoções"
+      onClick={onActivate}
       onKeyDown={(e) => {
-        if (e.key === "ArrowRight") next();
-        if (e.key === "ArrowLeft") prev();
+        if (e.key === "ArrowRight") { e.preventDefault(); next(); return; }
+        if (e.key === "ArrowLeft") { e.preventDefault(); prev(); return; }
+        if ((e.key === "Enter" || e.key === " ") && typeof onActivate === "function") {
+          e.preventDefault();
+          onActivate();
+        }
       }}
       className={`relative w-full overflow-hidden rounded-3xl ring-1 ring-white/10 bg-[#0f141b] ${className}`}
       onMouseEnter={() => setIsHovering(true)}
@@ -206,6 +212,7 @@ export default function CarrosselPromo({
       {slides.length > 1 && (
         <>
           <button
+            type="button"
             aria-label="Anterior"
             onClick={(e) => {
               e.stopPropagation();
@@ -216,6 +223,7 @@ export default function CarrosselPromo({
             <span className="material-icons text-white/90">chevron_left</span>
           </button>
           <button
+            type="button"
             aria-label="Próximo"
             onClick={(e) => {
               e.stopPropagation();
@@ -233,6 +241,7 @@ export default function CarrosselPromo({
         <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-6 px-2 py-1 rounded-full bg-black/30 backdrop-blur-sm ring-1 ring-white/10">
           {slides.map((_, idx) => (
             <button
+              type="button"
               key={idx}
               onClick={(e) => {
                 e.stopPropagation();

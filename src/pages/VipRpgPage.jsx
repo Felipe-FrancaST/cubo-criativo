@@ -54,7 +54,7 @@ export default function VipRpgPage({
   // Cache local (reduz "flash" ao abrir /vip para quem já é VIP)
   const cachedVipUntil = React.useMemo(() => {
     try {
-      return String(window?.localStorage?.getItem('vip_until_cache') || '');
+      return String((typeof window !== "undefined" ? window.localStorage : null)?.getItem('vip_until_cache') || '');
     } catch {
       return '';
     }

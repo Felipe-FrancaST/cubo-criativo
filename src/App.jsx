@@ -247,11 +247,20 @@ function buildProductSchemaList({ products = [], route = "/", listName = "Produt
     numberOfItems: visible.length,
     itemListElement: visible.map((p, idx) => {
       const price = Number.isFinite(p?.preco) ? p.preco : 0;
-      const image = p?.img ? (String(p.img).startsWith("http") ? p.img : `${origin}${p.img}`) : undefined;
+      const imageUrls = (Array.isArray(p?.imgs) ? p.imgs : [p?.img])
+        .filter(Boolean)
+        .map((src) => {
+          const value = String(src);
+          return /^https?:\/\//i.test(value) ? value : `${origin}${value.startsWith("/") ? value : `/${value}`}`;
+        });
+      const image = imageUrls[0];
       const inStock = typeof p?.stock === "number" ? p.stock > 0 : true;
       const category = p?.category || (Array.isArray(p?.tags) && p.tags[0]) || "Miniatura";
-      // Rotas sem hash (history API)
-      const urlPath = route === "/" ? `/catalogo` : `${route}`;
+      // Cada item precisa apontar para sua própria página de produto.
+      // Usar a rota da listagem aqui fazia todos os Product schemas
+      // apontarem para /catalogo ou /promocoes.
+      const productSlug = String(p?.slug || "").trim();
+      const urlPath = productSlug ? `/p/${encodeURIComponent(productSlug)}` : (route === "/" ? "/catalogo" : route);
       return {
         "@type": "ListItem",
         position: idx + 1,
@@ -259,7 +268,7 @@ function buildProductSchemaList({ products = [], route = "/", listName = "Produt
           "@type": "Product",
           name: String(p?.nome || "Produto"),
           description: String(p?.descricao || "Miniatura em resina e pintura artística."),
-          image: image ? [image] : undefined,
+          image: imageUrls.length ? imageUrls : undefined,
           sku: String(p?.id || idx + 1),
           category,
           brand: { "@type": "Brand", name: "Cubo Criativo" },
@@ -329,11 +338,12 @@ function buildProductSchema({ product, path = "/" }) {
   if (!product) return null;
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const price = Number.isFinite(product?.preco) ? product.preco : 0;
-  const image = product?.img
-    ? String(product.img).startsWith("http")
-      ? product.img
-      : `${origin}${product.img}`
-    : undefined;
+  const imageUrls = (Array.isArray(product?.imgs) ? product.imgs : [product?.img])
+    .filter(Boolean)
+    .map((src) => {
+      const value = String(src);
+      return /^https?:\/\//i.test(value) ? value : `${origin}${value.startsWith("/") ? value : `/${value}`}`;
+    });
   const inStock = typeof product?.stock === "number" ? product.stock > 0 : true;
   const category = product?.category || (Array.isArray(product?.tags) && product.tags[0]) || "Miniatura";
 
@@ -342,7 +352,7 @@ function buildProductSchema({ product, path = "/" }) {
     "@type": "Product",
     name: String(product?.nome || "Produto"),
     description: String(product?.descricao || "Miniatura em resina e pintura artística."),
-    image: image ? [image] : undefined,
+    image: imageUrls.length ? imageUrls : undefined,
     sku: String(product?.id || ""),
     category,
     brand: { "@type": "Brand", name: "Cubo Criativo" },
@@ -355,15 +365,6 @@ function buildProductSchema({ product, path = "/" }) {
       url: `${origin}${path}`,
     },
   };
-}
-
-function getRouteFromHash() {
-  const h = window.location.hash || "";
-  // Aceita: #/ , #/estoque, #/catalogo, #/conta
-  if (!h.startsWith("#/")) return "/";
-  const raw = h.slice(1); // remove '#'
-  const path = raw.split("?")[0]; // remove query
-  return path || "/";
 }
 
 function normalizePathname(pathname) {
@@ -446,7 +447,7 @@ export default function App() {
 const getVipCached = () => {
   try {
     if (!accessToken) return false;
-    const raw = String(window?.localStorage?.getItem('vip_until_cache') || '');
+    const raw = String((typeof window !== "undefined" ? window.localStorage : null)?.getItem('vip_until_cache') || '');
     if (!raw) return false;
     const d = new Date(raw);
     return Number.isFinite(d.getTime()) && d > new Date();
@@ -1479,7 +1480,7 @@ React.useEffect(() => {
     }
     if (route === "/vip") {
       // Rota inteligente: VIPs vão direto pra Área VIP, não-VIPs vão para /planos-vip.
-      return <VipRedirectPage user={user} accessToken={accessToken} onNavigate={navigate} onOpenAuth={() => setAuthOpen(true)} />;
+      return <VipRedirectPage accessToken={accessToken} onNavigate={navigate} onOpenAuth={() => setAuthOpen(true)} />;
     }
     if (route === "/planos-vip") {
       return <VipRpgPage user={user} accessToken={accessToken} onOpenAuth={() => setAuthOpen(true)} onRequireLogin={requireLogin} onOpenSettings={openSettings} onOpenVipArea={() => navigate("/area-vip")} onGoHome={() => navigate("/")} />;
@@ -1539,7 +1540,6 @@ React.useEffect(() => {
     // Home default
     return (
       <HomePage
-        brand={brand}
         featured={featured}
         prontaEntregaPreview={prontaEntrega.slice(0, 8)}
         rpgPreview={rpgSobEncomenda.slice(0, 8)}

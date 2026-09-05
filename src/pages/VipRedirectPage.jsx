@@ -5,18 +5,9 @@ import React from "react";
 // - não VIP -> /planos-vip
 // Usa cache local (vip_until_cache) para redirecionar instantaneamente.
 
-function isVipCached() {
-  try {
-    const raw = String(window?.localStorage?.getItem("vip_until_cache") || "");
-    if (!raw) return false;
-    const d = new Date(raw);
-    return Number.isFinite(d.getTime()) && d > new Date();
-  } catch {
-    return false;
-  }
-}
 
-export default function VipRedirectPage({ user, accessToken, onNavigate, onOpenAuth }) {
+
+export default function VipRedirectPage({ accessToken, onNavigate, onOpenAuth }) {
   const [checking, setChecking] = React.useState(true);
 
   React.useEffect(() => {
@@ -70,6 +61,7 @@ export default function VipRedirectPage({ user, accessToken, onNavigate, onOpenA
         </div>
         {!accessToken ? (
           <button
+            type="button"
             className="mt-4 rounded-xl px-4 py-2 bg-white/6 hover:bg-white/8 text-slate-100"
             onClick={() => onOpenAuth?.()}
           >

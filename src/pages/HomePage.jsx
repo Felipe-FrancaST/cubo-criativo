@@ -14,7 +14,6 @@ function resolveBannerImage(banner, isMobile) {
 }
 
 export default function HomePage({
-  brand,
   featured,
   prontaEntregaPreview = [],
   rpgPreview = [],
@@ -246,20 +245,20 @@ export default function HomePage({
 
             <div className="mt-6 flex flex-col gap-3 max-w-md mx-auto lg:mx-0">
               <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start">
-                <button
+                <button type="button"
                   onClick={onGoEstoque}
                   className="hero-cta hero-cta-primary"
                 >
                   <span className="hero-cta__label">Peças em estoque</span>
                 </button>
-                <button
+                <button type="button"
                   onClick={onGoCatalogo}
                   className="hero-cta hero-cta-secondary"
                 >
                   <span className="hero-cta__label">Catálogo completo</span>
                 </button>
               </div>
-              <button
+              <button type="button"
                 onClick={onGoCupom}
                 className="hero-cta hero-cta-accent"
               >
@@ -285,19 +284,7 @@ export default function HomePage({
                   ⚡ aproveite enquanto dura
                 </span>
               </div>
-              <div
-                role="button"
-                tabIndex={0}
-                onClick={onGoPromocoes}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    onGoPromocoes?.();
-                  }
-                }}
-              >
-                <CarrosselPromo itens={featured} openGallery={openGallery} />
-              </div>
+              <CarrosselPromo onActivate={onGoPromocoes} />
             </div>
           </div>
         </div>
@@ -309,7 +296,7 @@ export default function HomePage({
             <p className="text-cyan-300 font-semibold text-sm">Só esta semana</p>
             <h2 className="text-2xl sm:text-3xl font-black">Destaques da loja</h2>
           </div>
-          <button onClick={onGoCatalogo} className="text-sm underline decoration-dotted text-slate-300 hover:text-white">
+          <button type="button" onClick={onGoCatalogo} className="text-sm underline decoration-dotted text-slate-300 hover:text-white">
             Ver tudo
           </button>
         </div>
@@ -351,7 +338,7 @@ export default function HomePage({
               <p className="text-fuchsia-300 font-semibold text-sm">Em estoque</p>
               <h2 className="text-2xl sm:text-3xl font-black">Pronta entrega</h2>
             </div>
-            <button onClick={onGoEstoque} className="text-sm underline decoration-dotted text-slate-300 hover:text-white">
+            <button type="button" onClick={onGoEstoque} className="text-sm underline decoration-dotted text-slate-300 hover:text-white">
               Ver estoque completo
             </button>
           </div>
@@ -381,7 +368,7 @@ export default function HomePage({
             <p className="text-indigo-300 font-semibold text-sm">Galeria de heróis, monstros e classes</p>
             <h2 className="text-2xl sm:text-3xl font-black">Miniaturas RPG</h2>
           </div>
-          <button onClick={onGoSobEncomenda} className="text-sm underline decoration-dotted text-slate-300 hover:text-white">
+          <button type="button" onClick={onGoSobEncomenda} className="text-sm underline decoration-dotted text-slate-300 hover:text-white">
             Ver catálogo RPG
           </button>
         </div>
@@ -477,10 +464,10 @@ export default function HomePage({
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-3 lg:justify-end">
-              <button onClick={onGoFaq} className="rounded-xl px-5 py-3 bg-white text-black font-bold">
+              <button type="button" onClick={onGoFaq} className="rounded-xl px-5 py-3 bg-white text-black font-bold">
                 Abrir FAQ
               </button>
-              <button onClick={onGoPoliticas} className="rounded-xl px-5 py-3 ring-1 ring-white/20 hover:bg-white/4">
+              <button type="button" onClick={onGoPoliticas} className="rounded-xl px-5 py-3 ring-1 ring-white/20 hover:bg-white/4">
                 Ver políticas
               </button>
             </div>

@@ -26,7 +26,7 @@ export default function VipAreaModal({ open, onClose, onGoVip, onRequireLogin, a
   // no refresh, usamos cache local para não "piscar" o upsell
   const cachedVipUntil = React.useMemo(() => {
     try {
-      return String(window?.localStorage?.getItem('vip_until_cache') || '');
+      return String((typeof window !== "undefined" ? window.localStorage : null)?.getItem('vip_until_cache') || '');
     } catch {
       return '';
     }
