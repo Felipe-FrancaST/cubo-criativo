@@ -1,223 +1,73 @@
 import React from "react";
-import { DetailRow, KpiCard, OrderBadgeCluster, SectionTitle, SidebarItem, TimelineList } from "../orders/AdminOrdersComponents.jsx";
-import { badgeBase, copyToClipboard, daysBetween, emailAuditBadge, endOfDay, exportCsv, fmtAddress, fmtBRL, fmtDate, onlyDigits, prodStatusBadge, shortId, startOfDay, statusBadge, toDateInputValue } from "../orders/adminOrdersUtils.js";
-import AdminProductsSection from "../products/AdminProductsSection.jsx";
-import AdminReviewsSection from "../reviews/AdminReviewsSection.jsx";
-import AdminManagementSection from "../admins/AdminManagementSection.jsx";
-import { TRACKING_CARRIERS, inferTrackingCarrierFromUrl, normalizeTrackingCarrier, resolveTrackingCarrier, trackingCarrierLabel } from "../../../lib/tracking.js";
+import { KpiCard, SectionTitle } from "../orders/AdminOrdersComponents.jsx";
+import { fmtBRL } from "../orders/adminOrdersUtils.js";
 
 export default function AdminFinanceSection({ admin }) {
-  const {
-    user,
-    accessToken,
-    isAdmin,
-    adminLevel,
-    adminRole,
-    isAdminLoading,
-    onNavigateHome,
-    onRequireLogin,
-    section,
-    setSection,
-    orders,
-    setOrders,
-    loading,
-    setLoading,
-    error,
-    setError,
-    q,
-    setQ,
-    qInput,
-    setQInput,
-    filterPay,
-    setFilterPay,
-    filterProd,
-    setFilterProd,
-    filterType,
-    setFilterType,
-    filterDateFrom,
-    setFilterDateFrom,
-    filterDateTo,
-    setFilterDateTo,
-    page,
-    setPage,
-    pageSize,
-    setPageSize,
-    pagination,
-    setPagination,
-    summary,
-    setSummary,
-    selectedOrderIds,
-    setSelectedOrderIds,
-    bulkBusy,
-    setBulkBusy,
-    bulkModal,
-    setBulkModal,
-    toast,
-    setToast,
-    resendEmailBusyId,
-    setResendEmailBusyId,
-    details,
-    setDetails,
-    actionModal,
-    setActionModal,
-    vipPolls,
-    setVipPolls,
-    vipPollsLoading,
-    setVipPollsLoading,
-    vipPollsError,
-    setVipPollsError,
-    vipVotingImages,
-    setVipVotingImages,
-    vipVotingImagesLoading,
-    setVipVotingImagesLoading,
-    vipVotingImagesError,
-    setVipVotingImagesError,
-    vipControl,
-    setVipControl,
-    vipControlLoading,
-    setVipControlLoading,
-    vipControlError,
-    setVipControlError,
-    vipCycleEditor,
-    setVipCycleEditor,
-    vipCycleBusy,
-    setVipCycleBusy,
-    vipMiniForm,
-    setVipMiniForm,
-    vipMiniFiles,
-    setVipMiniFiles,
-    vipMiniBusy,
-    setVipMiniBusy,
-    vipMiniError,
-    setVipMiniError,
-    vipLibrarySearch,
-    setVipLibrarySearch,
-    vipLibraryFilter,
-    setVipLibraryFilter,
-    gameCouponLoading,
-    setGameCouponLoading,
-    gameCouponError,
-    setGameCouponError,
-    gameCouponForm,
-    setGameCouponForm,
-    currentGameCoupon,
-    setCurrentGameCoupon,
-    gameCouponMetricsLoading,
-    setGameCouponMetricsLoading,
-    gameCouponMetricsError,
-    setGameCouponMetricsError,
-    gameCouponMetrics,
-    setGameCouponMetrics,
-    closeVote,
-    setCloseVote,
-    startVote,
-    setStartVote,
-    deleteVote,
-    setDeleteVote,
-    newOrderOpen,
-    setNewOrderOpen,
-    clients,
-    setClients,
-    clientsLoading,
-    setClientsLoading,
-    clientsError,
-    setClientsError,
-    clientsQ,
-    setClientsQ,
-    clientEditor,
-    setClientEditor,
-    clientVipPlans,
-    setClientVipPlans,
-    clientVipBusy,
-    setClientVipBusy,
-    newClientOpen,
-    setNewClientOpen,
-    adminQuickSearch,
-    setAdminQuickSearch,
-    confirmAction,
-    setConfirmAction,
-    normalizedAdminLevel,
-    canOperate,
-    canManageBusiness,
-    canManageAdmins,
-    showToast,
-    fetchOrders,
-    fetchClients,
-    fetchVipVoting,
-    fetchVipVotingImages,
-    nextMonthKey,
-    fetchVipControl,
-    fetchGameCoupon,
-    fetchGameCouponMetrics,
-    startVipVoting,
-    closeVipVoting,
-    deleteVipVoting,
-    uploadVipMiniImage,
-    createVipMiniature,
-    deleteVipMiniature,
-    toggleVipCycleItem,
-    loadVipCycleIntoEditor,
-    saveVipCycle,
-    activateVipCycle,
-    deleteVipCycle,
-    saveGameCoupon,
-    updateOrder,
-    resendOrderEmail,
-    deleteOrder,
-    addOrderNote,
-    saveClientEdits,
-    updateClientVipStatus,
-    deleteClient,
-    toggleOrderSelection,
-    toggleSelectAllCurrentPage,
-    bulkUpdateOrders,
-    bulkResendEmails,
-    bulkDeleteOrders,
-    orderMatchesInlineSearch,
-    filteredOrders,
-    stats,
-    bottlenecks,
-    quickQueue,
-    financeHighlights,
-    orderQuickPresets,
-    openDeleteClientConfirm,
-    openDeleteVipCycleConfirm,
-    handleConfirmAction,
-    runAdminQuickSearch,
-    applyOrderSearch,
-    clearOrderSearchAndFilters,
-    allPageSelected,
-    selectedOrders,
-    selectedPaidOrders,
-    vipSelectedItems,
-    vipSelectedSummary,
-    vipVisibleLibrary,
-    vipActiveCycle,
-    vipCycleAudience,
-    activeOrder,
-    activeActionOrder,
-  } = admin;
+  const { stats, financeHighlights } = admin;
 
   return (
-            <div className="space-y-4">
-              <SectionTitle icon="payments" title="Centro financeiro" subtitle="Receita, upgrades e visão de caixa operacional." />
-              <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-3">
-                <KpiCard label="Faturamento total" value={fmtBRL(stats.revenue)} hint="Pedidos pagos + upgrades" />
-                <KpiCard label="Receita do mês" value={fmtBRL(stats.paidMonth)} hint="Pagamentos aprovados" />
-                <KpiCard label="Receita hoje" value={fmtBRL(stats.paidToday)} hint="Movimento diário" />
-                <KpiCard label="Upgrades pagos" value={fmtBRL(stats.upgradeRevenue)} hint="Receita incremental VIP" />
-                <KpiCard label="Frete pago" value={fmtBRL(financeHighlights.shippingRevenue)} hint="No filtro atual" />
-                <KpiCard label="Entregues" value={financeHighlights.deliveredCount} hint="Pedidos pagos concluídos" />
-              </div>
-              <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-4">
-                <div className="text-sm font-semibold text-white">Resumo financeiro</div>
-                <div className="mt-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 text-sm">
-                  <div className="rounded-xl bg-black/20 ring-1 ring-white/10 p-4 text-slate-200">Ticket médio: <b>{fmtBRL(stats.averageTicket)}</b></div>
-                  <div className="rounded-xl bg-black/20 ring-1 ring-white/10 p-4 text-slate-200">Reembolsos solicitados: <b>{stats.refundReq}</b></div>
-                  <div className="rounded-xl bg-black/20 ring-1 ring-white/10 p-4 text-slate-200">Receita pendente: <b>{fmtBRL(financeHighlights.pendingRevenue)}</b></div>
-                  <div className="rounded-xl bg-black/20 ring-1 ring-white/10 p-4 text-slate-200">Pedidos pagos no filtro: <b>{financeHighlights.paidCount}</b></div>
-                </div>
-              </div>
-              </div>
+    <div className="space-y-4">
+      <SectionTitle
+        icon="payments"
+        title="Centro financeiro"
+        subtitle="Receita, upgrades e visão de caixa operacional."
+      />
+
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3 xl:grid-cols-6">
+        <KpiCard
+          label="Faturamento total"
+          value={fmtBRL(stats?.revenue || 0)}
+          hint="Pedidos pagos + upgrades"
+        />
+        <KpiCard
+          label="Receita do mês"
+          value={fmtBRL(stats?.paidMonth || 0)}
+          hint="Pagamentos aprovados"
+        />
+        <KpiCard
+          label="Receita hoje"
+          value={fmtBRL(stats?.paidToday || 0)}
+          hint="Movimento diário"
+        />
+        <KpiCard
+          label="Upgrades pagos"
+          value={fmtBRL(stats?.upgradeRevenue || 0)}
+          hint="Receita incremental VIP"
+        />
+        <KpiCard
+          label="Frete pago"
+          value={fmtBRL(financeHighlights?.shippingRevenue || 0)}
+          hint="No filtro atual"
+        />
+        <KpiCard
+          label="Entregues"
+          value={financeHighlights?.deliveredCount || 0}
+          hint="Pedidos pagos concluídos"
+        />
+      </div>
+
+      <div className="rounded-2xl bg-white/[0.03] p-4 ring-1 ring-white/10">
+        <div className="text-sm font-semibold text-white">
+          Resumo financeiro
+        </div>
+
+        <div className="mt-3 grid grid-cols-1 gap-3 text-sm md:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-xl bg-black/20 p-4 text-slate-200 ring-1 ring-white/10">
+            Ticket médio: <b>{fmtBRL(stats?.averageTicket || 0)}</b>
+          </div>
+          <div className="rounded-xl bg-black/20 p-4 text-slate-200 ring-1 ring-white/10">
+            Reembolsos solicitados: <b>{stats?.refundReq || 0}</b>
+          </div>
+          <div className="rounded-xl bg-black/20 p-4 text-slate-200 ring-1 ring-white/10">
+            Receita pendente:{" "}
+            <b>{fmtBRL(financeHighlights?.pendingRevenue || 0)}</b>
+          </div>
+          <div className="rounded-xl bg-black/20 p-4 text-slate-200 ring-1 ring-white/10">
+            Pedidos pagos no filtro:{" "}
+            <b>{financeHighlights?.paidCount || 0}</b>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
