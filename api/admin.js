@@ -2209,6 +2209,67 @@ function groupVipCyclesFromLibrary(items = [], activeCycleKey = null) {
   return Array.from(map.values()).sort((a, b) => String(b.cycle_key).localeCompare(String(a.cycle_key)));
 }
 
+
+async function handleVipCreateOption(req, res) {
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  const auth = await requireAdmin(req, ADMIN_LEVEL.MANAGER);
+  if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
+
+  const body = await readJsonBody(req);
+  const title = String(body?.title || "").trim();
+  const description = String(body?.description || "").trim();
+  const cycleKey = String(body?.cycle_key || "").trim();
+  const itemType = String(body?.item_type || "miniature").trim().toLowerCase();
+  const imageUrl = String(body?.image_url || "").trim();
+  const galleryImages = Array.isArray(body?.gallery_images)
+    ? body.gallery_images.map((url) => String(url || "").trim()).filter(Boolean).slice(0, 12)
+    : [];
+
+  if (title.length < 2) return res.status(400).json({ error: "Informe um nome válido para a miniatura." });
+  if (!/^\d{4}-\d{2}$/.test(cycleKey)) return res.status(400).json({ error: "Ciclo inválido. Use o formato YYYY-MM." });
+  if (!["miniature", "boss"].includes(itemType)) return res.status(400).json({ error: "Tipo inválido. Use miniatura ou boss." });
+  if (!imageUrl) return res.status(400).json({ error: "A miniatura precisa ter uma imagem principal." });
+
+  const sb = supabaseAdmin();
+  const sortOrder = Math.max(0, Math.trunc(Number(body?.sort_order || 1000) || 1000));
+  const payload = {
+    id: crypto.randomUUID(),
+    title,
+    description,
+    image_url: imageUrl,
+    gallery_images: galleryImages.length ? galleryImages : [imageUrl],
+    sort_order: sortOrder,
+    active: body?.active !== false,
+    item_type: itemType,
+    cycle_key: cycleKey,
+  };
+
+  let response = await sb.from("vip_mini_options").insert(payload).select("id,title,description,image_url,sort_order,active,created_at,item_type,cycle_key").single();
+  if (response?.error && /gallery_images|column|schema cache/i.test(String(response.error.message || ""))) {
+    const fallbackPayload = { ...payload };
+    delete fallbackPayload.gallery_images;
+    response = await sb.from("vip_mini_options").insert(fallbackPayload).select("id,title,description,image_url,sort_order,active,created_at,item_type,cycle_key").single();
+  }
+  if (response?.error) return res.status(500).json({ error: response.error.message || "Não foi possível cadastrar a miniatura VIP." });
+
+  return res.status(201).json({ ok: true, item: response.data, gallery_images: galleryImages });
+}
+
+async function handleVipDeleteOption(req, res) {
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  const auth = await requireAdmin(req, ADMIN_LEVEL.MANAGER);
+  if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
+
+  const body = await readJsonBody(req);
+  const id = String(body?.id || "").trim();
+  if (!id) return res.status(400).json({ error: "Miniatura inválida." });
+
+  const sb = supabaseAdmin();
+  const response = await sb.from("vip_mini_options").delete().eq("id", id);
+  if (response?.error) return res.status(500).json({ error: response.error.message || "Não foi possível excluir a miniatura." });
+  return res.status(200).json({ ok: true, deleted_id: id });
+}
+
 async function handleVipControl(req, res) {
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
 
@@ -3515,6 +3576,8 @@ export default async function handler(req, res) {
     if (action === "delete-order") return await handleDeleteOrder(req, res);
     if (action === "bulk-delete-orders") return await handleBulkDeleteOrders(req, res);
     if (action === "vip-control") return await handleVipControl(req, res);
+    if (action === "vip-create-option") return await handleVipCreateOption(req, res);
+    if (action === "vip-delete-option") return await handleVipDeleteOption(req, res);
     if (action === "vip-save-cycle") return await handleVipSaveCycle(req, res);
     if (action === "vip-set-active-cycle") return await handleVipSetActiveCycle(req, res);
     if (action === "vip-delete-cycle") return await handleVipDeleteCycle(req, res);

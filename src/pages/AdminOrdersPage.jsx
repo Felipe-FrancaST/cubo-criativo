@@ -2157,6 +2157,10 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, adminLevel
   const [vipControlError, setVipControlError] = React.useState("");
   const [vipCycleEditor, setVipCycleEditor] = React.useState({ cycle_key: "", selected_ids: [], activate: true });
   const [vipCycleBusy, setVipCycleBusy] = React.useState(false);
+  const [vipMiniForm, setVipMiniForm] = React.useState({ title: "", description: "", cycle_key: "", item_type: "miniature", sort_order: 1000 });
+  const [vipMiniFiles, setVipMiniFiles] = React.useState([]);
+  const [vipMiniBusy, setVipMiniBusy] = React.useState(false);
+  const [vipMiniError, setVipMiniError] = React.useState("");
   const [vipLibrarySearch, setVipLibrarySearch] = React.useState("");
   const [vipLibraryFilter, setVipLibraryFilter] = React.useState("all");
 
@@ -2529,6 +2533,62 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, adminLevel
     });
   }, [clients]);
 
+
+  async function uploadVipMiniImage(file, index = 0) {
+    if (!file) return "";
+    if (!String(file.type || "").startsWith("image/")) throw new Error("Envie apenas arquivos de imagem.");
+    if (Number(file.size || 0) > 10 * 1024 * 1024) throw new Error("Cada imagem deve ter no máximo 10 MB.");
+    const ext = String(file.name || "jpg").split(".").pop().toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+    const path = `vip-miniatures/${Date.now()}-${index}-${Math.random().toString(36).slice(2, 9)}.${ext}`;
+    const { error } = await supabase.storage.from("product-images").upload(path, file, {
+      cacheControl: "31536000", upsert: false, contentType: file.type || "image/jpeg",
+    });
+    if (error) throw new Error(error.message || "Não foi possível enviar a imagem.");
+    const { data } = supabase.storage.from("product-images").getPublicUrl(path);
+    const url = String(data?.publicUrl || "");
+    if (!url) throw new Error("O Supabase não retornou a URL da imagem.");
+    return url;
+  }
+
+  async function createVipMiniature(event) {
+    event?.preventDefault?.();
+    if (!accessToken || vipMiniBusy) return;
+    try {
+      setVipMiniBusy(true); setVipMiniError("");
+      const cycleKey = String(vipMiniForm.cycle_key || "").trim();
+      if (!/^\d{4}-\d{2}$/.test(cycleKey)) throw new Error("Informe o ciclo no formato YYYY-MM.");
+      if (!String(vipMiniForm.title || "").trim()) throw new Error("Informe o nome da miniatura.");
+      if (!vipMiniFiles.length) throw new Error("Selecione pelo menos uma imagem.");
+      const urls = [];
+      for (let i = 0; i < vipMiniFiles.length; i += 1) urls.push(await uploadVipMiniImage(vipMiniFiles[i], i));
+      const resp = await fetch('/api/admin?action=vip-create-option', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ ...vipMiniForm, title: String(vipMiniForm.title).trim(), cycle_key: cycleKey, image_url: urls[0], gallery_images: urls }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data?.error || 'Não foi possível cadastrar a miniatura VIP.');
+      setVipMiniForm((prev) => ({ ...prev, title: "", description: "", sort_order: Number(prev.sort_order || 1000) + 1 }));
+      setVipMiniFiles([]);
+      const input = document.getElementById('vip-mini-images-input'); if (input) input.value = '';
+      showToast('✅ Miniatura VIP cadastrada!');
+      await fetchVipControl();
+    } catch (e) { setVipMiniError(e?.message || 'Falha ao cadastrar miniatura VIP.'); }
+    finally { setVipMiniBusy(false); }
+  }
+
+  async function deleteVipMiniature(item) {
+    if (!accessToken || !item?.id) return;
+    if (!window.confirm(`Excluir “${item.title || 'esta miniatura'}”?`)) return;
+    try {
+      setVipMiniBusy(true); setVipMiniError("");
+      const resp = await fetch('/api/admin?action=vip-delete-option', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` }, body: JSON.stringify({ id: item.id }) });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data?.error || 'Não foi possível excluir a miniatura.');
+      showToast('🗑️ Miniatura excluída.');
+      await fetchVipControl();
+    } catch (e) { setVipMiniError(e?.message || 'Falha ao excluir miniatura.'); }
+    finally { setVipMiniBusy(false); }
+  }
 
   function toggleVipCycleItem(itemId) {
     setVipCycleEditor((prev) => {
@@ -4273,6 +4333,34 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, adminLevel
                     <div className="text-[11px] uppercase tracking-[0.18em] text-amber-200/80">Biblioteca VIP</div>
                     <div className="mt-2 text-2xl font-black text-white">{vipControl.library.length}</div>
                     <div className="mt-2 text-sm text-slate-300">Miniaturas e bosses disponíveis para montar os próximos ciclos.</div>
+                  </div>
+                </div>
+
+                <div className="rounded-3xl bg-gradient-to-br from-violet-500/10 via-white/[0.03] to-transparent ring-1 ring-violet-400/20 p-4 md:p-5">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <div className="text-lg font-bold text-white">Cadastrar nova miniatura</div>
+                      <div className="mt-1 text-sm text-slate-400">Cadastre nome, imagens, ciclo e tipo diretamente no banco. Depois ela aparece automaticamente na biblioteca do ciclo.</div>
+                    </div>
+                    <span className="rounded-full bg-violet-500/15 px-3 py-1.5 text-xs font-semibold text-violet-200 ring-1 ring-violet-400/20">Cadastro direto</span>
+                  </div>
+                  <form onSubmit={createVipMiniature} className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-12">
+                    <label className="md:col-span-4"><div className="mb-1.5 text-xs text-slate-400">Nome</div><input required value={vipMiniForm.title} onChange={(e) => setVipMiniForm((p) => ({ ...p, title: e.target.value }))} placeholder="Ex.: Guerreiro Orc" className="w-full rounded-2xl bg-black/20 px-3.5 py-3 text-sm text-slate-100 ring-1 ring-white/10" /></label>
+                    <label className="md:col-span-2"><div className="mb-1.5 text-xs text-slate-400">Ciclo</div><input required value={vipMiniForm.cycle_key} onChange={(e) => setVipMiniForm((p) => ({ ...p, cycle_key: e.target.value }))} placeholder="2026-10" className="w-full rounded-2xl bg-black/20 px-3.5 py-3 text-sm text-slate-100 ring-1 ring-white/10" /></label>
+                    <label className="md:col-span-2"><div className="mb-1.5 text-xs text-slate-400">Tipo</div><select value={vipMiniForm.item_type} onChange={(e) => setVipMiniForm((p) => ({ ...p, item_type: e.target.value }))} className="w-full rounded-2xl bg-black/20 px-3.5 py-3 text-sm text-slate-100 ring-1 ring-white/10"><option value="miniature">Miniatura</option><option value="boss">Boss</option></select></label>
+                    <label className="md:col-span-2"><div className="mb-1.5 text-xs text-slate-400">Ordem</div><input type="number" min="0" value={vipMiniForm.sort_order} onChange={(e) => setVipMiniForm((p) => ({ ...p, sort_order: e.target.value }))} className="w-full rounded-2xl bg-black/20 px-3.5 py-3 text-sm text-slate-100 ring-1 ring-white/10" /></label>
+                    <label className="md:col-span-2"><div className="mb-1.5 text-xs text-slate-400">Imagens</div><input id="vip-mini-images-input" required type="file" accept="image/*" multiple onChange={(e) => setVipMiniFiles(Array.from(e.target.files || []).slice(0, 6))} className="block w-full rounded-2xl bg-black/20 px-3 py-2.5 text-xs text-slate-300 ring-1 ring-white/10 file:mr-2 file:rounded-lg file:border-0 file:bg-white/10 file:px-2 file:py-1 file:text-xs file:text-slate-100" /></label>
+                    <label className="md:col-span-10"><div className="mb-1.5 text-xs text-slate-400">Descrição (opcional)</div><input value={vipMiniForm.description} onChange={(e) => setVipMiniForm((p) => ({ ...p, description: e.target.value }))} placeholder="Detalhes rápidos para identificar a peça no painel" className="w-full rounded-2xl bg-black/20 px-3.5 py-3 text-sm text-slate-100 ring-1 ring-white/10" /></label>
+                    <div className="flex items-end md:col-span-2"><button disabled={vipMiniBusy} className="w-full rounded-2xl bg-violet-400 px-4 py-3 text-sm font-bold text-black ring-4 ring-violet-400/15 disabled:opacity-60">{vipMiniBusy ? 'Enviando...' : 'Cadastrar miniatura'}</button></div>
+                  </form>
+                  {vipMiniFiles.length ? <div className="mt-3 text-xs text-slate-400">{vipMiniFiles.length} imagem(ns) selecionada(s). A primeira será a capa.</div> : null}
+                  {vipMiniError ? <div className="mt-3 rounded-2xl bg-red-500/10 px-3 py-2.5 text-sm text-red-200 ring-1 ring-red-500/30">{vipMiniError}</div> : null}
+                </div>
+
+                <div className="rounded-3xl bg-white/[0.03] ring-1 ring-white/10 p-4 md:p-5">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><div><div className="text-lg font-bold text-white">Biblioteca cadastrada</div><div className="mt-1 text-sm text-slate-400">Veja rapidamente o que já está no banco e remova cadastros que não serão usados.</div></div><div className="text-xs text-slate-500">{vipControl.library.length} item(ns)</div></div>
+                  <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                    {(vipControl.library || []).slice(0, 18).map((item) => <div key={item.id} className="flex items-center gap-3 rounded-2xl bg-black/20 p-3 ring-1 ring-white/10"><div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-black/30 ring-1 ring-white/10">{item.image_url ? <img src={item.image_url} alt="" className="h-full w-full object-cover" /> : null}</div><div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold text-white">{item.title}</div><div className="mt-1 text-[11px] text-slate-400">{item.cycle_key || 'Sem ciclo'} • {String(item.item_type).toLowerCase() === 'boss' ? 'Boss' : 'Miniatura'}</div></div><button type="button" onClick={() => deleteVipMiniature(item)} disabled={vipMiniBusy} className="rounded-xl px-2.5 py-2 text-xs text-red-200 ring-1 ring-red-500/20 hover:bg-red-500/10 disabled:opacity-50" aria-label={`Excluir ${item.title}`}>Excluir</button></div>)}
                   </div>
                 </div>
 
