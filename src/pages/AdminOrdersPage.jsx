@@ -9,6 +9,13 @@ import AdminProductsSection from "./admin/products/AdminProductsSection.jsx";
 import AdminReviewsSection from "./admin/reviews/AdminReviewsSection.jsx";
 import AdminManagementSection from "./admin/admins/AdminManagementSection.jsx";
 import { ADMIN_LEVEL, adminLevelLabel, normalizeAdminLevel } from "../lib/admin.js";
+import AdminDashboardSection from "./admin/dashboard/AdminDashboardSection.jsx";
+import AdminOrdersSection from "./admin/orders/AdminOrdersSection.jsx";
+import AdminProductionSection from "./admin/production/AdminProductionSection.jsx";
+import AdminFinanceSection from "./admin/finance/AdminFinanceSection.jsx";
+import AdminClientsSection from "./admin/clients/AdminClientsSection.jsx";
+import AdminCouponsSection from "./admin/coupons/AdminCouponsSection.jsx";
+import AdminVipSection from "./admin/vip/AdminVipSection.jsx";
 
 
 function safeStorageFileName(name = 'modelo.glb') {
@@ -3209,6 +3216,200 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, adminLevel
   const activeOrder = React.useMemo(() => (orders || []).find((o) => o.id === details.orderId) || null, [orders, details.orderId]);
   const activeActionOrder = React.useMemo(() => (orders || []).find((o) => o.id === actionModal.orderId) || null, [orders, actionModal.orderId]);
 
+  // Contexto único do painel: cada módulo administrativo recebe apenas uma referência estável
+  // ao estado/ações já existentes, evitando duplicar lógica ou consultas ao banco.
+  const adminContext = {
+    user,
+    accessToken,
+    isAdmin,
+    adminLevel,
+    adminRole,
+    isAdminLoading,
+    onNavigateHome,
+    onRequireLogin,
+    section,
+    setSection,
+    orders,
+    setOrders,
+    loading,
+    setLoading,
+    error,
+    setError,
+    q,
+    setQ,
+    qInput,
+    setQInput,
+    filterPay,
+    setFilterPay,
+    filterProd,
+    setFilterProd,
+    filterType,
+    setFilterType,
+    filterDateFrom,
+    setFilterDateFrom,
+    filterDateTo,
+    setFilterDateTo,
+    page,
+    setPage,
+    pageSize,
+    setPageSize,
+    pagination,
+    setPagination,
+    summary,
+    setSummary,
+    selectedOrderIds,
+    setSelectedOrderIds,
+    bulkBusy,
+    setBulkBusy,
+    bulkModal,
+    setBulkModal,
+    toast,
+    setToast,
+    resendEmailBusyId,
+    setResendEmailBusyId,
+    details,
+    setDetails,
+    actionModal,
+    setActionModal,
+    vipPolls,
+    setVipPolls,
+    vipPollsLoading,
+    setVipPollsLoading,
+    vipPollsError,
+    setVipPollsError,
+    vipVotingImages,
+    setVipVotingImages,
+    vipVotingImagesLoading,
+    setVipVotingImagesLoading,
+    vipVotingImagesError,
+    setVipVotingImagesError,
+    vipControl,
+    setVipControl,
+    vipControlLoading,
+    setVipControlLoading,
+    vipControlError,
+    setVipControlError,
+    vipCycleEditor,
+    setVipCycleEditor,
+    vipCycleBusy,
+    setVipCycleBusy,
+    vipMiniForm,
+    setVipMiniForm,
+    vipMiniFiles,
+    setVipMiniFiles,
+    vipMiniBusy,
+    setVipMiniBusy,
+    vipMiniError,
+    setVipMiniError,
+    vipLibrarySearch,
+    setVipLibrarySearch,
+    vipLibraryFilter,
+    setVipLibraryFilter,
+    gameCouponLoading,
+    setGameCouponLoading,
+    gameCouponError,
+    setGameCouponError,
+    gameCouponForm,
+    setGameCouponForm,
+    currentGameCoupon,
+    setCurrentGameCoupon,
+    gameCouponMetricsLoading,
+    setGameCouponMetricsLoading,
+    gameCouponMetricsError,
+    setGameCouponMetricsError,
+    gameCouponMetrics,
+    setGameCouponMetrics,
+    closeVote,
+    setCloseVote,
+    startVote,
+    setStartVote,
+    deleteVote,
+    setDeleteVote,
+    newOrderOpen,
+    setNewOrderOpen,
+    clients,
+    setClients,
+    clientsLoading,
+    setClientsLoading,
+    clientsError,
+    setClientsError,
+    clientsQ,
+    setClientsQ,
+    clientEditor,
+    setClientEditor,
+    clientVipPlans,
+    setClientVipPlans,
+    clientVipBusy,
+    setClientVipBusy,
+    newClientOpen,
+    setNewClientOpen,
+    adminQuickSearch,
+    setAdminQuickSearch,
+    confirmAction,
+    setConfirmAction,
+    normalizedAdminLevel,
+    canOperate,
+    canManageBusiness,
+    canManageAdmins,
+    showToast,
+    fetchOrders,
+    fetchClients,
+    fetchVipVoting,
+    fetchVipVotingImages,
+    nextMonthKey,
+    fetchVipControl,
+    fetchGameCoupon,
+    fetchGameCouponMetrics,
+    startVipVoting,
+    closeVipVoting,
+    deleteVipVoting,
+    uploadVipMiniImage,
+    createVipMiniature,
+    deleteVipMiniature,
+    toggleVipCycleItem,
+    loadVipCycleIntoEditor,
+    saveVipCycle,
+    activateVipCycle,
+    deleteVipCycle,
+    saveGameCoupon,
+    updateOrder,
+    resendOrderEmail,
+    deleteOrder,
+    addOrderNote,
+    saveClientEdits,
+    updateClientVipStatus,
+    deleteClient,
+    toggleOrderSelection,
+    toggleSelectAllCurrentPage,
+    bulkUpdateOrders,
+    bulkResendEmails,
+    bulkDeleteOrders,
+    orderMatchesInlineSearch,
+    filteredOrders,
+    stats,
+    bottlenecks,
+    quickQueue,
+    financeHighlights,
+    orderQuickPresets,
+    openDeleteClientConfirm,
+    openDeleteVipCycleConfirm,
+    handleConfirmAction,
+    runAdminQuickSearch,
+    applyOrderSearch,
+    clearOrderSearchAndFilters,
+    allPageSelected,
+    selectedOrders,
+    selectedPaidOrders,
+    vipSelectedItems,
+    vipSelectedSummary,
+    vipVisibleLibrary,
+    vipActiveCycle,
+    vipCycleAudience,
+    activeOrder,
+    activeActionOrder,
+  };
+
+
   if (authLoading || isAdminLoading) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-10">
@@ -3377,1465 +3578,25 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, adminLevel
             </div>
           ) : null}
 
-          {section === "dashboard" ? (
-            <div className="space-y-4">
-              <SectionTitle
-                icon="space_dashboard"
-                title="Dashboard"
-                subtitle={canManageBusiness ? "Visão rápida da operação, gargalos e receita." : "Visão rápida dos pedidos e da operação."}
-                right={
-                  <button
-                    onClick={() => exportCsv(filteredOrders)}
-                    className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
-                  >
-                    <span className="material-icons text-[18px] align-middle mr-1">download</span>
-                    Exportar CSV
-                  </button>
-                }
-              />
+          {section === "dashboard" && <AdminDashboardSection admin={adminContext} />}
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <KpiCard label="Pedidos" value={stats.total} hint="Total carregado" />
-                <KpiCard label="Pagos" value={stats.paid} hint="Prontos para produção/envio" />
-                <KpiCard label="Pendentes" value={stats.pending} hint="Aguardando pagamento" />
-                {canManageBusiness ? <KpiCard label="Faturamento (pagos)" value={fmtBRL(stats.revenue)} hint="Soma dos pedidos pagos" /> : null}
-                {canManageBusiness ? <KpiCard label="VIP" value={stats.vipCount} hint="Pedidos do tipo VIP" /> : null}
-                {canManageBusiness ? <KpiCard label="Reembolso solicitado" value={stats.refundReq} hint="Monitorar e tratar" /> : null}
-                <KpiCard label="Atrasados" value={stats.overdueCount} hint="Pedidos fora do prazo operacional" />
-                {canManageBusiness ? <KpiCard label="Receita hoje" value={fmtBRL(stats.paidToday)} hint="Pagamentos confirmados no dia" /> : null}
-                {canManageBusiness ? <KpiCard label="Receita do mês" value={fmtBRL(stats.paidMonth)} hint="Pagamentos confirmados no mês" /> : null}
-                {canManageBusiness ? <KpiCard label="Ticket médio" value={fmtBRL(stats.averageTicket)} hint="Média dos pedidos pagos" /> : null}
-              </div>
+          {section === "orders" && <AdminOrdersSection admin={adminContext} />}
 
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-4"><div className="text-xs text-slate-500">Pagos sem produção</div><div className="mt-1 text-2xl font-bold text-white">{bottlenecks.paidWaitingProduction}</div></div>
-                <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-4"><div className="text-xs text-slate-500">Prontos sem rastreio</div><div className="mt-1 text-2xl font-bold text-white">{bottlenecks.readyWithoutTracking}</div></div>
-                <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-4"><div className="text-xs text-slate-500">Parados há 5+ dias</div><div className="mt-1 text-2xl font-bold text-white">{bottlenecks.staleOrders}</div></div>
-                <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-4"><div className="text-xs text-slate-500">Aguardando envio</div><div className="mt-1 text-2xl font-bold text-white">{bottlenecks.awaitingShipment}</div></div>
-              </div>
-
-              <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-4">
-                <div className="text-sm font-semibold text-white">Fila rápida</div>
-                <div className="mt-1 text-sm text-slate-400">Pedidos pagos que ainda não foram enviados.</div>
-                <div className="mt-3 overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="text-left text-slate-400">
-                      <tr className="border-b border-white/10">
-                        <th className="py-2 pr-3">Pedido</th>
-                        <th className="py-2 pr-3">Cliente</th>
-                        <th className="py-2 pr-3">Total</th>
-                        <th className="py-2 pr-3">Produção</th>
-                        <th className="py-2 pr-3">Ações</th>
-                      </tr>
-                    </thead>
-                    <tbody className="text-slate-200">
-                      {(orders || [])
-                        .filter((o) => String(o.status || "").toLowerCase() === "paid")
-                        .filter((o) => !["enviado", "entregue"].includes(String(o.production_status || "").toLowerCase()))
-                        .slice(0, 8)
-                        .map((o) => (
-                          <tr key={o.id} className="border-b border-white/5">
-                            <td className="py-2 pr-3 whitespace-nowrap">
-                              <button
-                                onClick={() => setDetails({ open: true, orderId: o.id })}
-                                className="text-slate-100 hover:underline"
-                              >
-                                {shortId(o.id)}
-                              </button>
-                              <div className="text-[11px] text-slate-500">{fmtDate(o.created_at)}</div>
-                              {o.timeline?.[0]?.title ? <div className="text-[11px] text-slate-500">{o.timeline[0].title}</div> : null}
-                            </td>
-                            <td className="py-2 pr-3 min-w-[220px]">
-                              <div className="text-slate-100">{o.customer_name || o.profile?.full_name || "—"}</div>
-                              <div className="text-[11px] text-slate-500">{o.customer_email || ""}</div>
-                              {Number(o.related_upgrades_count || 0) > 0 ? <div className="text-[11px] text-violet-200/80">Upgrade VIP vinculado</div> : null}
-                            </td>
-                            <td className="py-2 pr-3 whitespace-nowrap">{fmtBRL(o.effective_total ?? o.total)}</td>
-                            <td className="py-2 pr-3 whitespace-nowrap">
-                              {(() => {
-                                const b = prodStatusBadge(o.production_status);
-                                return <span className={`${badgeBase} ${b.cls}`}>{b.label}</span>;
-                              })()}
-                            </td>
-                            <td className="py-2 pr-3 whitespace-nowrap">
-                              <button
-                                onClick={() => setActionModal({ open: true, mode: "status", orderId: o.id })}
-                                className="rounded-xl px-2 py-1 text-xs text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
-                              >
-                                Status
-                              </button>
-                              <button
-                                onClick={() => setActionModal({ open: true, mode: "tracking", orderId: o.id })}
-                                className="ml-2 rounded-xl px-2 py-1 text-xs text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
-                              >
-                                Rastreio
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      {!orders?.length ? (
-                        <tr>
-                          <td colSpan={5} className="py-4 text-slate-400">
-                            Nenhum pedido.
-                          </td>
-                        </tr>
-                      ) : null}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          ) : null}
-
-          {section === "orders" ? (
-            <div className="space-y-4">
-              <SectionTitle
-                icon="inventory_2"
-                title="Pedidos"
-                subtitle="Busque, filtre e atualize status/rastreio. (Pedidos pagos liberam ações.)"
-                right={
-                  <button
-                    onClick={() => exportCsv(filteredOrders)}
-                    className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
-                  >
-                    <span className="material-icons text-[18px] align-middle mr-1">download</span>
-                    Exportar CSV
-                  </button>
-                }
-              />
-
-              <div className="rounded-[28px] bg-gradient-to-br from-white/[0.06] to-white/[0.025] ring-1 ring-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.25)] backdrop-blur-sm p-4 md:p-5">
-                <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-                  <div>
-                    <div className="text-sm font-semibold text-white">Busca e filtros</div>
-                    <div className="text-xs text-slate-400">Busque por nome do cliente ou número do pedido e refine pelos filtros abaixo.</div>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      onClick={applyOrderSearch}
-                      className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-300 to-teal-300 px-4 py-3 text-sm font-bold text-slate-950 shadow-[0_12px_30px_rgba(103,232,249,0.18)] transition hover:-translate-y-0.5"
-                    >
-                      <span className="material-icons text-[18px]">search</span>
-                      Buscar
-                    </button>
-                    <button
-                      onClick={clearOrderSearchAndFilters}
-                      className="inline-flex items-center gap-2 rounded-2xl bg-white/[0.04] px-4 py-3 text-sm font-semibold text-slate-100 ring-1 ring-white/10 transition hover:bg-white/[0.07]"
-                    >
-                      <span className="material-icons text-[18px]">restart_alt</span>
-                      Limpar
-                    </button>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
-                  <label className="block md:col-span-2">
-                    <div className="text-xs text-slate-500 mb-1">Busca</div>
-                    <input
-                      value={qInput}
-                      onChange={(e) => setQInput(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === "Enter") applyOrderSearch(); }}
-                      placeholder="Nome do cliente ou número do pedido"
-                      className="w-full rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-slate-100 placeholder:text-slate-500 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]"
-                    />
-                  </label>
-
-                  <label className="block">
-                    <div className="text-xs text-slate-500 mb-1">Pagamento</div>
-                    <select
-                      value={filterPay}
-                      onChange={(e) => setFilterPay(e.target.value)}
-                      className="w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-slate-100"
-                    >
-                      <option value="all">Todos</option>
-                      <option value="paid">Pago</option>
-                      <option value="pending">Pendente</option>
-                      <option value="failed">Falhou</option>
-                    </select>
-                  </label>
-
-                  <label className="block">
-                    <div className="text-xs text-slate-500 mb-1">Produção</div>
-                    <select
-                      value={filterProd}
-                      onChange={(e) => setFilterProd(e.target.value)}
-                      className="w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-slate-100"
-                    >
-                      <option value="all">Todos</option>
-                      <option value="editavel">Editável</option>
-                      <option value="recebido">Recebido</option>
-                      <option value="em_producao">Em produção</option>
-                      <option value="pronto">Pronto</option>
-                      <option value="overdue">Atrasados</option>
-                      <option value="enviado">Enviado</option>
-                      <option value="entregue">Entregue</option>
-                      <option value="cancelado">Cancelado</option>
-                      <option value="reembolsado">Reembolsado</option>
-                    </select>
-                  </label>
-
-                  <label className="block">
-                    <div className="text-xs text-slate-500 mb-1">Tipo</div>
-                    <select
-                      value={filterType}
-                      onChange={(e) => setFilterType(e.target.value)}
-                      className="w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-slate-100"
-                    >
-                      <option value="all">Todos</option>
-                      <option value="store">Loja</option>
-                      <option value="vip">VIP</option>
-                    </select>
-                  </label>
-
-                  <label className="block">
-                    <div className="text-xs text-slate-500 mb-1">De</div>
-                    <input
-                      type="date"
-                      value={filterDateFrom}
-                      onChange={(e) => setFilterDateFrom(e.target.value)}
-                      className="w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-slate-100"
-                    />
-                  </label>
-
-                  <label className="block">
-                    <div className="text-xs text-slate-500 mb-1">Até</div>
-                    <input
-                      type="date"
-                      value={filterDateTo}
-                      onChange={(e) => setFilterDateTo(e.target.value)}
-                      className="w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-slate-100"
-                    />
-                  </label>
-
-                  <div className="md:col-span-5 flex flex-wrap items-end gap-2">
-                    <div className="text-xs text-slate-500">
-                      Página <span className="text-slate-200">{pagination.page}</span> de{" "}
-                      <span className="text-slate-200">{pagination.totalPages}</span> • exibindo{" "}
-                      <span className="text-slate-200">{filteredOrders.length}</span> de{" "}
-                      <span className="text-slate-200">{pagination.totalCount}</span>
-                    </div>
-                    <span className="rounded-full bg-white/[0.04] px-2 py-1 text-[11px] text-slate-300 ring-1 ring-white/10">
-                      Pagos: {stats.paid}
-                    </span>
-                    <span className="rounded-full bg-white/[0.04] px-2 py-1 text-[11px] text-slate-300 ring-1 ring-white/10">
-                      Aguardando produção: {bottlenecks.paidWaitingProduction}
-                    </span>
-                    <span className="rounded-full bg-white/[0.04] px-2 py-1 text-[11px] text-slate-300 ring-1 ring-white/10">
-                      Prontos sem rastreio: {bottlenecks.readyWithoutTracking}
-                    </span>
-                  </div>
-
-                  <div className="flex items-end justify-end" />
-                </div>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                {orderQuickPresets.map((preset) => (
-                  <button
-                    key={preset.key}
-                    onClick={preset.apply}
-                    className="rounded-full bg-white/[0.04] px-3 py-2 text-xs text-slate-200 ring-1 ring-white/10 hover:bg-white/[0.07]"
-                  >
-                    {preset.label}
-                  </button>
-                ))}
-              </div>
-
-              <div className="space-y-3">
-                {selectedOrderIds.length ? (
-                  <div className="rounded-2xl bg-cyan-500/10 ring-1 ring-cyan-400/20 p-4">
-                    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                      <div>
-                        <div className="text-sm font-extrabold text-amber-100">{selectedOrderIds.length} pedido(s) selecionado(s)</div>
-                        <div className="mt-1 text-xs text-slate-300">Use ações em lote para acelerar produção, reembolso e comunicação.</div>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          onClick={() => setBulkModal({ open: true, mode: "status" })}
-                          disabled={!selectedPaidOrders.length || bulkBusy}
-                          className="rounded-xl px-3 py-2 text-sm text-slate-100 hover:bg-white/4 ring-1 ring-white/10 disabled:opacity-50"
-                        >
-                          Status em lote
-                        </button>
-                        {canManageBusiness ? (
-                          <>
-                            <button
-                              onClick={() => setBulkModal({ open: true, mode: "refund_on" })}
-                              disabled={!selectedOrderIds.length || bulkBusy}
-                              className="rounded-xl px-3 py-2 text-sm text-slate-100 hover:bg-white/4 ring-1 ring-white/10 disabled:opacity-50"
-                            >
-                              Marcar reembolso
-                            </button>
-                            <button
-                              onClick={() => setBulkModal({ open: true, mode: "refund_off" })}
-                              disabled={!selectedOrderIds.length || bulkBusy}
-                              className="rounded-xl px-3 py-2 text-sm text-slate-100 hover:bg-white/4 ring-1 ring-white/10 disabled:opacity-50"
-                            >
-                              Limpar reembolso
-                            </button>
-                          </>
-                        ) : null}
-                        <button
-                          onClick={bulkResendEmails}
-                          disabled={!selectedPaidOrders.length || bulkBusy}
-                          className="rounded-xl px-3 py-2 text-sm text-slate-100 hover:bg-white/4 ring-1 ring-white/10 disabled:opacity-50"
-                        >
-                          Reenviar e-mails
-                        </button>
-                        {canManageBusiness ? (
-                          <button
-                            onClick={() => setBulkModal({ open: true, mode: "delete" })}
-                            disabled={!selectedOrderIds.length || bulkBusy}
-                            className="rounded-xl px-3 py-2 text-sm text-red-100 hover:bg-red-500/10 ring-1 ring-red-500/30 disabled:opacity-50"
-                          >
-                            Excluir pedidos
-                          </button>
-                        ) : null}
-                        <button
-                          onClick={() => setSelectedOrderIds([])}
-                          className="rounded-xl px-3 py-2 text-sm text-slate-100 hover:bg-white/4 ring-1 ring-white/10"
-                        >
-                          Limpar seleção
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ) : null}
-
-                <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead className="text-left text-slate-400 bg-black/10">
-                        <tr className="border-b border-white/10">
-                          <th className="py-3 px-3 w-10">
-                            <input
-                              type="checkbox"
-                              checked={allPageSelected}
-                              onChange={toggleSelectAllCurrentPage}
-                              className="h-4 w-4 rounded border-white/20 bg-black/30 accent-cyan-300"
-                              aria-label="Selecionar página atual"
-                            />
-                          </th>
-                          <th className="py-3 px-3">Pedido</th>
-                          <th className="py-3 px-3">Cliente</th>
-                          <th className="py-3 px-3">Total</th>
-                          <th className="py-3 px-3">Pagamento</th>
-                          <th className="py-3 px-3">Produção</th>
-                          <th className="py-3 px-3">Rastreio</th>
-                          <th className="py-3 px-3 text-right">Ações</th>
-                        </tr>
-                      </thead>
-                      <tbody className="text-slate-200">
-                        {filteredOrders.map((o) => {
-                          const pay = statusBadge(o.status);
-                          const prod = prodStatusBadge(o.production_status);
-                          const selectedRow = selectedOrderIds.includes(o.id);
-                          return (
-                            <tr key={o.id} className={`border-b border-white/5 hover:bg-white/[0.02] ${selectedRow ? 'bg-cyan-500/5' : ''}`}>
-                              <td className="py-3 px-3 align-top">
-                                <input
-                                  type="checkbox"
-                                  checked={selectedRow}
-                                  onChange={() => toggleOrderSelection(o.id)}
-                                  className="mt-1 h-4 w-4 rounded border-white/20 bg-black/30 accent-cyan-300"
-                                  aria-label={`Selecionar pedido ${shortId(o.id)}`}
-                                />
-                              </td>
-                              <td className="py-3 px-3 whitespace-nowrap">
-                                <button
-                                  onClick={() => setDetails({ open: true, orderId: o.id })}
-                                  className="text-slate-100 hover:underline"
-                                >
-                                  {shortId(o.id)}
-                                </button>
-                                <div className="text-[11px] text-slate-500">{fmtDate(o.created_at)}</div>
-                              </td>
-                              <td className="py-3 px-3 min-w-[240px]">
-                                <div className="text-slate-100">{o.customer_name || o.profile?.full_name || "—"}</div>
-                                <div className="text-[11px] text-slate-500">{o.customer_email || ""}</div>
-                                <div className="mt-1 flex flex-wrap gap-2">
-                                  <span className="rounded-full bg-white/5 px-2 py-1 text-[10px] text-slate-300 ring-1 ring-white/10">{Number(o.days_open || 0)} dia(s) aberto</span>
-                                  {o.is_overdue ? <span className="rounded-full bg-red-500/10 px-2 py-1 text-[10px] text-red-200 ring-1 ring-red-500/30">Atrasado</span> : null}
-                                </div>
-                              </td>
-                              <td className="py-3 px-3 whitespace-nowrap">{fmtBRL(o.effective_total ?? o.total)}</td>
-                              <td className="py-3 px-3 whitespace-nowrap">
-                                <span className={`${badgeBase} ${pay.cls}`}>{pay.label}</span>
-                              </td>
-                              <td className="py-3 px-3 whitespace-nowrap">
-                                <span className={`${badgeBase} ${prod.cls}`}>{prod.label}</span>
-                              </td>
-                              <td className="py-3 px-3 whitespace-nowrap">
-                                {o.shipping_tracking ? (
-                                  <div className="space-y-1">
-                                    <button
-                                      onClick={() => {
-                                        copyToClipboard(o.shipping_tracking);
-                                        showToast("📋 Rastreio copiado!");
-                                      }}
-                                      className="text-slate-100 hover:underline"
-                                    >
-                                      {o.shipping_tracking}
-                                    </button>
-                                    <div className="text-[10px] uppercase tracking-[0.18em] text-cyan-200/65">{trackingCarrierLabel(o.shipping_carrier || inferTrackingCarrierFromUrl(o.tracking_url))}</div>
-                                  </div>
-                                ) : (
-                                  <span className="text-slate-500">—</span>
-                                )}
-                              </td>
-                              <td className="py-3 px-3 whitespace-nowrap text-right">
-                                <button
-                                  onClick={() => setDetails({ open: true, orderId: o.id })}
-                                  className="rounded-xl px-2 py-1 text-xs text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
-                                >
-                                  Detalhes
-                                </button>
-                                <button
-                                  onClick={() => setActionModal({ open: true, mode: "status", orderId: o.id })}
-                                  className="ml-2 rounded-xl px-2 py-1 text-xs text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
-                                  disabled={String(o.status || "").toLowerCase() !== "paid"}
-                                >
-                                  Status
-                                </button>
-                                <button
-                                  onClick={() => setActionModal({ open: true, mode: "tracking", orderId: o.id })}
-                                  className="ml-2 rounded-xl px-2 py-1 text-xs text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
-                                  disabled={String(o.status || "").toLowerCase() !== "paid"}
-                                >
-                                  Rastreio
-                                </button>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                        {loading ? (
-                          <tr>
-                            <td colSpan={8} className="py-8 px-3 text-slate-400">
-                              Carregando...
-                            </td>
-                          </tr>
-                        ) : null}
-                        {!loading && error ? (
-                          <tr>
-                            <td colSpan={8} className="py-8 px-3 text-red-200">
-                              {error}
-                            </td>
-                          </tr>
-                        ) : null}
-                        {!loading && !error && !filteredOrders.length ? (
-                          <tr>
-                            <td colSpan={8} className="py-8 px-3 text-slate-400">
-                              Nenhum pedido encontrado.
-                            </td>
-                          </tr>
-                        ) : null}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-3 rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-4 md:flex-row md:items-center md:justify-between">
-                  <div className="flex items-center gap-2 text-sm text-slate-300">
-                    <span>Linhas por página</span>
-                    <select
-                      value={pageSize}
-                      onChange={(e) => setPageSize(Number(e.target.value || 25))}
-                      className="rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-slate-100"
-                    >
-                      {[10, 25, 50, 100].map((size) => (
-                        <option key={size} value={size}>{size}</option>
-                      ))}
-                    </select>
-                    <span className="text-slate-500">• {pagination.totalCount} pedido(s) no filtro atual</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setPage((p) => Math.max(1, p - 1))}
-                      disabled={pagination.page <= 1 || loading}
-                      className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10 disabled:opacity-50"
-                    >
-                      Anterior
-                    </button>
-                    <div className="rounded-xl bg-black/20 px-3 py-2 text-sm text-slate-200 ring-1 ring-white/10">
-                      Página {pagination.page} / {pagination.totalPages}
-                    </div>
-                    <button
-                      onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))}
-                      disabled={pagination.page >= pagination.totalPages || loading}
-                      className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10 disabled:opacity-50"
-                    >
-                      Próxima
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : null}
-
-          {section === "production" ? (
-            <div className="space-y-4">
-              <SectionTitle icon="view_kanban" title="Kanban de produção" subtitle="Pedidos pagos organizados por estágio operacional." />
-              <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
-                {[
-                  ['recebido', 'Recebidos'],
-                  ['editavel', 'Editáveis'],
-                  ['em_producao', 'Em produção'],
-                  ['pronto', 'Prontos para envio'],
-                ].map(([key, label]) => {
-                  const rows = filteredOrders.filter((o) => String(o.status || '').toLowerCase() === 'paid' && String(o.production_status || '').toLowerCase() === key).slice(0, 20);
-                  return (
-                    <div key={key} className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-4">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="text-sm font-semibold text-white">{label}</div>
-                        <span className="rounded-full bg-white/5 px-2 py-1 text-[11px] text-slate-300 ring-1 ring-white/10">{rows.length}</span>
-                      </div>
-                      <div className="mt-3 space-y-2">
-                        {rows.length ? rows.map((o) => (
-                          <button key={o.id} onClick={() => setDetails({ open: true, orderId: o.id })} className="w-full text-left rounded-xl bg-black/20 ring-1 ring-white/10 p-3 hover:bg-black/30">
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="min-w-0">
-                                <div className="text-sm font-semibold text-slate-100 truncate">{o.customer_name || o.profile?.full_name || shortId(o.id)}</div>
-                                <div className="text-[11px] text-slate-400">{shortId(o.id)} • {o.days_open || 0} dia(s)</div>
-                              </div>
-                              {o.is_overdue ? <span className="rounded-full bg-red-500/10 px-2 py-1 text-[10px] text-red-200 ring-1 ring-red-500/30">Atrasado</span> : null}
-                            </div>
-                          </button>
-                        )) : <div className="text-sm text-slate-500">Nenhum pedido nesta coluna.</div>}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ) : section === "finance" ? (
-            <div className="space-y-4">
-              <SectionTitle icon="payments" title="Centro financeiro" subtitle="Receita, upgrades e visão de caixa operacional." />
-              <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-3">
-                <KpiCard label="Faturamento total" value={fmtBRL(stats.revenue)} hint="Pedidos pagos + upgrades" />
-                <KpiCard label="Receita do mês" value={fmtBRL(stats.paidMonth)} hint="Pagamentos aprovados" />
-                <KpiCard label="Receita hoje" value={fmtBRL(stats.paidToday)} hint="Movimento diário" />
-                <KpiCard label="Upgrades pagos" value={fmtBRL(stats.upgradeRevenue)} hint="Receita incremental VIP" />
-                <KpiCard label="Frete pago" value={fmtBRL(financeHighlights.shippingRevenue)} hint="No filtro atual" />
-                <KpiCard label="Entregues" value={financeHighlights.deliveredCount} hint="Pedidos pagos concluídos" />
-              </div>
-              <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-4">
-                <div className="text-sm font-semibold text-white">Resumo financeiro</div>
-                <div className="mt-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 text-sm">
-                  <div className="rounded-xl bg-black/20 ring-1 ring-white/10 p-4 text-slate-200">Ticket médio: <b>{fmtBRL(stats.averageTicket)}</b></div>
-                  <div className="rounded-xl bg-black/20 ring-1 ring-white/10 p-4 text-slate-200">Reembolsos solicitados: <b>{stats.refundReq}</b></div>
-                  <div className="rounded-xl bg-black/20 ring-1 ring-white/10 p-4 text-slate-200">Receita pendente: <b>{fmtBRL(financeHighlights.pendingRevenue)}</b></div>
-                  <div className="rounded-xl bg-black/20 ring-1 ring-white/10 p-4 text-slate-200">Pedidos pagos no filtro: <b>{financeHighlights.paidCount}</b></div>
-                </div>
-              </div>
-            </div>
-          ) : section === "clients" ? (
-            <div className="space-y-4">
-              <SectionTitle icon="groups" title="Clientes" subtitle="Cadastros, histórico resumido e informações VIP." right={<div className="flex flex-wrap items-center gap-2"><button onClick={() => setNewClientOpen(true)} className="rounded-xl px-3 py-2 text-sm font-semibold bg-emerald-400 text-black ring-4 ring-emerald-400/20"><span className="material-icons text-[18px] align-middle mr-1">person_add</span>Cadastrar</button><button onClick={fetchClients} disabled={clientsLoading} className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10 disabled:opacity-60 disabled:cursor-wait">{clientsLoading ? 'Atualizando…' : 'Atualizar'}</button></div>} />
-              <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-4">
-                <input value={clientsQ} onChange={(e)=>setClientsQ(e.target.value)} placeholder="Buscar por nome, e-mail, CPF, cidade ou último pedido" className="w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" />
-              </div>
-              <div className="grid grid-cols-1 xl:grid-cols-[1.05fr_0.95fr] gap-4">
-                <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-4">
-                  <div className="mb-3 flex items-center justify-between gap-3">
-                    <div className="text-xs text-slate-500">{clientsLoading ? 'Carregando clientes...' : `${(clients || []).length} cliente(s) no resultado`}</div>
-                    {clientsQ ? <button onClick={() => setClientsQ('')} className="rounded-xl px-2 py-1 text-xs text-slate-200 hover:bg-white/4 ring-1 ring-white/10">Limpar busca</button> : null}
-                  </div>
-                  {clientsError ? <div className="mb-3 text-red-200">{clientsError}</div> : null}
-                  <div className="space-y-2">
-                    {(clients || []).map((client) => (
-                      <button key={client.id} onClick={()=>setClientEditor(client)} className={`w-full text-left rounded-xl p-3 ring-1 transition ${String(clientEditor?.id || '') === String(client.id) ? 'bg-cyan-400/10 ring-cyan-300/30' : 'bg-black/20 ring-white/10 hover:bg-black/30'}`}>
-                        <div className="flex flex-wrap items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <div className="text-sm font-semibold text-slate-100 truncate">{client.full_name || client.email || client.id}</div>
-                            <div className="text-xs text-slate-400 truncate">{client.email || 'Sem e-mail'} • {client.orders_count} pedido(s)</div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-sm font-semibold text-white">{fmtBRL(client.total_spent)}</div>
-                            <div className="text-[11px] text-slate-500">Último: {fmtDate(client.last_order_at)}</div>
-                          </div>
-                        </div>
-                        <div className="mt-2 flex flex-wrap gap-2">{(client.tags || []).map((tag)=><span key={tag} className="rounded-full px-2 py-1 text-[10px] bg-white/6 text-slate-300 ring-1 ring-white/10">{tag}</span>)}</div>
-                      </button>
-                    ))}
-                    {!clientsLoading && !(clients || []).length ? <div className="text-slate-500">Nenhum cliente encontrado.</div> : null}
-                  </div>
-                </div>
-                <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-4">
-                  {clientEditor ? (
-                    <div className="space-y-4">
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                          <div className="text-sm font-semibold text-white">{clientEditor.full_name || clientEditor.email || 'Cliente'}</div>
-                          <div className="text-xs text-slate-400">ID {shortId(clientEditor.id)} • último pedido {fmtDate(clientEditor.last_order_at)}</div>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          {clientEditor.email ? <button onClick={() => copyToClipboard(clientEditor.email)} className="rounded-xl px-2 py-1 text-xs text-slate-200 hover:bg-white/4 ring-1 ring-white/10">Copiar e-mail</button> : null}
-                          {onlyDigits(clientEditor.phone) ? <a href={`https://wa.me/55${onlyDigits(clientEditor.phone)}?text=${encodeURIComponent(`Olá ${clientEditor.full_name || ''}!`)}`} target="_blank" rel="noreferrer" className="rounded-xl px-2 py-1 text-xs text-slate-200 hover:bg-white/4 ring-1 ring-white/10">WhatsApp</a> : null}
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="rounded-xl bg-black/20 ring-1 ring-white/10 p-3 text-sm text-slate-300">Total gasto<br /><b className="text-white">{fmtBRL(clientEditor.total_spent)}</b></div>
-                        <div className="rounded-xl bg-black/20 ring-1 ring-white/10 p-3 text-sm text-slate-300">Pedidos pagos<br /><b className="text-white">{clientEditor.paid_orders_count || 0}</b></div>
-                        <div className="rounded-xl bg-black/20 ring-1 ring-white/10 p-3 text-sm text-slate-300">Pedidos totais<br /><b className="text-white">{clientEditor.orders_count || 0}</b></div>
-                        <div className="rounded-xl bg-black/20 ring-1 ring-white/10 p-3 text-sm text-slate-300">VIP<br /><b className={clientEditor.vip_active ? 'text-emerald-200' : 'text-white'}>{clientEditor.vip_active ? 'Ativo' : 'Não'}</b></div>
-                      </div>
-
-                      <div className="rounded-2xl bg-violet-500/5 p-4 ring-1 ring-violet-400/25">
-                        <div className="flex flex-wrap items-start justify-between gap-3">
-                          <div>
-                            <div className="text-sm font-extrabold text-violet-100">Controle da assinatura VIP</div>
-                            <div className="mt-1 text-xs text-slate-400">
-                              {clientEditor.vip_active
-                                ? `Acesso ativo até ${clientEditor.vip_until ? fmtDate(clientEditor.vip_until) : 'data não informada'}.`
-                                : 'O cliente está sem acesso à Área VIP.'}
-                            </div>
-                          </div>
-                          <span className={`rounded-full px-3 py-1 text-xs font-bold ring-1 ${clientEditor.vip_active ? 'bg-emerald-500/10 text-emerald-100 ring-emerald-400/30' : 'bg-white/5 text-slate-300 ring-white/10'}`}>
-                            {clientEditor.vip_active ? 'VIP ativo' : 'VIP desativado'}
-                          </span>
-                        </div>
-                        <label className="mt-4 block text-sm text-slate-300">
-                          Plano do cliente
-                          <select
-                            value={clientEditor.vip_plan || clientVipPlans[0]?.id || ''}
-                            onChange={(e) => setClientEditor((current) => current ? { ...current, vip_plan: e.target.value } : current)}
-                            className="mt-1 w-full rounded-xl bg-black/20 px-3 py-2 text-white ring-1 ring-white/10"
-                            disabled={clientVipBusy}
-                          >
-                            <option value="">Selecione um plano</option>
-                            {clientVipPlans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name || plan.short_name || plan.id} — {fmtBRL(plan.price_brl ?? plan.price ?? 0)}</option>)}
-                          </select>
-                        </label>
-                        <div className="mt-4 flex flex-wrap gap-2">
-                          {!clientEditor.vip_active ? (
-                            <button disabled={clientVipBusy} onClick={() => updateClientVipStatus({ active: true })} className="rounded-xl bg-violet-300 px-4 py-2 text-sm font-extrabold text-black disabled:opacity-50">
-                              {clientVipBusy ? 'Processando…' : 'Ativar por 30 dias'}
-                            </button>
-                          ) : (
-                            <>
-                              <button disabled={clientVipBusy} onClick={() => updateClientVipStatus({ active: true, extend: true })} className="rounded-xl bg-emerald-400 px-4 py-2 text-sm font-extrabold text-black disabled:opacity-50">
-                                {clientVipBusy ? 'Processando…' : 'Renovar +30 dias'}
-                              </button>
-                              <button disabled={clientVipBusy} onClick={() => updateClientVipStatus({ active: false })} className="rounded-xl bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-100 ring-1 ring-red-500/30 disabled:opacity-50">
-                                Desativar VIP
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <label className="text-sm text-slate-300">Nome<input value={clientEditor.full_name || ''} onChange={(e)=>setClientEditor((p)=>({...p, full_name:e.target.value}))} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
-                        <label className="text-sm text-slate-300">Email<input value={clientEditor.email || ''} onChange={(e)=>setClientEditor((p)=>({...p, email:e.target.value}))} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
-                        <label className="text-sm text-slate-300">CPF<input value={clientEditor.cpf || ''} onChange={(e)=>setClientEditor((p)=>({...p, cpf:e.target.value}))} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
-                        <label className="text-sm text-slate-300">Telefone<input value={clientEditor.phone || ''} onChange={(e)=>setClientEditor((p)=>({...p, phone:e.target.value}))} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
-                        <label className="text-sm text-slate-300 md:col-span-2">Endereço<input value={clientEditor.address_line1 || ''} onChange={(e)=>setClientEditor((p)=>({...p, address_line1:e.target.value}))} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
-                        <label className="text-sm text-slate-300">Número<input value={clientEditor.address_number || ''} onChange={(e)=>setClientEditor((p)=>({...p, address_number:e.target.value}))} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
-                        <label className="text-sm text-slate-300">Complemento<input value={clientEditor.address_line2 || ''} onChange={(e)=>setClientEditor((p)=>({...p, address_line2:e.target.value}))} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
-                        <label className="text-sm text-slate-300">Bairro<input value={clientEditor.neighborhood || ''} onChange={(e)=>setClientEditor((p)=>({...p, neighborhood:e.target.value}))} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
-                        <label className="text-sm text-slate-300">Cidade<input value={clientEditor.city || ''} onChange={(e)=>setClientEditor((p)=>({...p, city:e.target.value}))} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
-                        <label className="text-sm text-slate-300">UF<input value={clientEditor.state || ''} onChange={(e)=>setClientEditor((p)=>({...p, state:e.target.value}))} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
-                        <label className="text-sm text-slate-300">CEP<input value={clientEditor.zip || ''} onChange={(e)=>setClientEditor((p)=>({...p, zip:e.target.value}))} className="mt-1 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-white" /></label>
-                      </div>
-
-                      <div className="rounded-2xl bg-black/20 ring-1 ring-white/10 p-3">
-                        <div className="text-sm font-semibold text-white">Histórico recente de pedidos</div>
-                        <div className="mt-3 space-y-2">
-                          {(clientEditor.recent_orders || []).length ? clientEditor.recent_orders.map((order) => {
-                            const pay = statusBadge(order.status);
-                            const prod = prodStatusBadge(order.production_status);
-                            return (
-                              <button key={order.id} onClick={() => { setSection('orders'); setDetails({ open: true, orderId: order.id }); }} className="w-full rounded-xl bg-white/[0.03] p-3 text-left ring-1 ring-white/10 hover:bg-white/[0.05]">
-                                <div className="flex flex-wrap items-start justify-between gap-3">
-                                  <div>
-                                    <div className="text-sm font-semibold text-slate-100">Pedido {shortId(order.id)}</div>
-                                    <div className="text-[11px] text-slate-500">{fmtDate(order.created_at)}</div>
-                                  </div>
-                                  <div className="text-right">
-                                    <div className="text-sm font-semibold text-white">{fmtBRL(order.total)}</div>
-                                    <div className="mt-1 flex flex-wrap justify-end gap-2">
-                                      <span className={`${badgeBase} ${pay.cls}`}>{pay.label}</span>
-                                      <span className={`${badgeBase} ${prod.cls}`}>{prod.label}</span>
-                                      {order.refund_requested ? <span className="rounded-full bg-red-500/10 px-2 py-1 text-[10px] text-red-200 ring-1 ring-red-500/30">Reembolso</span> : null}
-                                    </div>
-                                  </div>
-                                </div>
-                              </button>
-                            );
-                          }) : <div className="text-sm text-slate-500">Nenhum pedido recente deste cliente.</div>}
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-end gap-2">
-                        <button onClick={() => openDeleteClientConfirm(clientEditor)} className="rounded-xl px-3 py-2 text-sm text-red-100 bg-red-500/10 ring-1 ring-red-500/30">Excluir cliente</button>
-                        <button onClick={saveClientEdits} className="rounded-xl px-3 py-2 text-sm font-semibold bg-emerald-400 text-black ring-4 ring-emerald-400/20">Salvar alterações</button>
-                      </div>
-                    </div>
-                  ) : <div className="text-slate-500">Selecione um cliente para editar o cadastro e ver o histórico recente.</div>}
-                </div>
-              </div>
-            </div>
-          ) : section === "products" ? (
-            <AdminProductsSection onNotify={showToast} />
-          ) : section === "reviews" ? (
-            <AdminReviewsSection onToast={showToast} />
-          ) : section === "coupons" ? (
-            <div className="space-y-4">
-              <SectionTitle
-                icon="sell"
-                title="Cupons do Cubo Game"
-                subtitle="Defina aqui qual desconto o jogo vai gerar para os usuários vencedores."
-                right={
-                  <button
-                    onClick={() => { fetchGameCoupon(); fetchGameCouponMetrics(); }}
-                    className="rounded-xl px-3 py-2 text-sm text-slate-200 hover:bg-white/4 ring-1 ring-white/10"
-                  >
-                    <span className="material-icons text-[18px] align-middle mr-1">refresh</span>
-                    Recarregar
-                  </button>
-                }
-              />
-
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-                {[
-                  { label: "Pessoas jogaram", value: gameCouponMetrics.players_count, hint: `${gameCouponMetrics.unique_winners_count} vencedores únicos` },
-                  { label: "Ganharam", value: gameCouponMetrics.wins_count, hint: `${gameCouponMetrics.coupons_generated_count} cupons gerados` },
-                  { label: "Cupons aplicados", value: gameCouponMetrics.coupons_applied_count, hint: "checkout iniciado com cupom" },
-                  { label: "Viraram compra", value: gameCouponMetrics.purchases_with_coupon_count, hint: `${gameCouponMetrics.coupon_conversion_rate}% dos ganhos` },
-                  { label: "Faturamento gerado", value: fmtBRL(Number(gameCouponMetrics.revenue_generated_brl || 0)), hint: `desconto dado ${fmtBRL(Number(gameCouponMetrics.discount_granted_brl || 0))}` },
-                ].map((card) => (
-                  <div key={card.label} className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-4">
-                    <div className="text-xs uppercase tracking-wide text-slate-500">{card.label}</div>
-                    <div className="mt-2 text-2xl font-black text-white">{card.value}</div>
-                    <div className="mt-1 text-xs text-slate-400">{card.hint}</div>
-                  </div>
-                ))}
-              </div>
-
-              {gameCouponMetricsLoading ? (
-                <div className="text-sm text-slate-400">Carregando métricas do Cubo Game…</div>
-              ) : null}
-
-              {gameCouponMetricsError ? (
-                <div className="rounded-2xl bg-rose-500/10 ring-1 ring-rose-400/20 p-4 text-sm text-rose-100">
-                  {gameCouponMetricsError}
-                </div>
-              ) : null}
-
-              {gameCouponMetrics.coupon_orders_using_fallback ? (
-                <div className="rounded-2xl bg-cyan-500/10 ring-1 ring-cyan-400/20 p-4 text-sm text-amber-100">
-                  As métricas de aplicação/compra estão em modo compatível. Para contar checkouts iniciados com mais precisão, rode também o SQL do arquivo <code>supabase/coupon_metrics_orders.sql</code>.
-                </div>
-              ) : null}
-
-              {gameCouponError ? (
-                <div className="rounded-2xl bg-rose-500/10 ring-1 ring-rose-400/20 p-4 text-sm text-rose-100">
-                  {gameCouponError}
-                  <div className="mt-2 text-rose-200/80">
-                    Se aparecer erro de tabela ausente, rode o SQL do arquivo <code>supabase/coupon_game_settings.sql</code> no Supabase.
-                  </div>
-                </div>
-              ) : null}
-
-              <div className="grid gap-4 lg:grid-cols-[1.1fr_.9fr]">
-                <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-4">
-                  <div className="text-sm font-semibold text-white">Cupom ativo no jogo</div>
-                  <div className="mt-1 text-sm text-slate-400">O jogador vence, e o sistema gera um código único baseado nesta configuração.</div>
-
-                  <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                    <label className="block">
-                      <div className="text-xs text-slate-400 mb-1">Tipo de desconto</div>
-                      <select
-                        value={gameCouponForm.discount_type}
-                        onChange={(e) => setGameCouponForm((prev) => ({ ...prev, discount_type: e.target.value }))}
-                        className="w-full rounded-xl bg-slate-950/60 ring-1 ring-white/10 px-3 py-2 text-sm text-white"
-                      >
-                        <option value="percent">Porcentagem (%)</option>
-                        <option value="fixed_min">Valor fixo (R$)</option>
-                        <option value="shipping_reduced">Frete reduzido (R$)</option>
-                      </select>
-                    </label>
-
-                    <label className="block">
-                      <div className="text-xs text-slate-400 mb-1">Valor do desconto</div>
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={gameCouponForm.discount_value}
-                        onChange={(e) => setGameCouponForm((prev) => ({ ...prev, discount_value: e.target.value }))}
-                        className="w-full rounded-xl bg-slate-950/60 ring-1 ring-white/10 px-3 py-2 text-sm text-white"
-                        placeholder={gameCouponForm.discount_type === 'percent' ? 'Ex.: 10' : 'Ex.: 15'}
-                      />
-                    </label>
-
-                    <label className="block">
-                      <div className="text-xs text-slate-400 mb-1">Pedido mínimo (R$)</div>
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={gameCouponForm.min_order_value}
-                        onChange={(e) => setGameCouponForm((prev) => ({ ...prev, min_order_value: e.target.value }))}
-                        className="w-full rounded-xl bg-slate-950/60 ring-1 ring-white/10 px-3 py-2 text-sm text-white"
-                        placeholder="0"
-                      />
-                    </label>
-
-                    <label className="block">
-                      <div className="text-xs text-slate-400 mb-1">Rótulo exibido no jogo</div>
-                      <input
-                        type="text"
-                        value={gameCouponForm.label}
-                        onChange={(e) => setGameCouponForm((prev) => ({ ...prev, label: e.target.value }))}
-                        className="w-full rounded-xl bg-slate-950/60 ring-1 ring-white/10 px-3 py-2 text-sm text-white"
-                        placeholder="Ex.: 10% OFF hoje"
-                      />
-                    </label>
-                  </div>
-
-                  <div className="mt-4 flex flex-wrap items-center gap-2">
-                    <button
-                      onClick={saveGameCoupon}
-                      disabled={gameCouponLoading}
-                      className="rounded-xl px-4 py-2 text-sm font-semibold bg-emerald-400 text-black ring-4 ring-emerald-400/20 disabled:opacity-50"
-                    >
-                      {gameCouponLoading ? 'Salvando…' : 'Salvar cupom atual'}
-                    </button>
-                    <div className="text-xs text-slate-400">
-                      O cupom perfeito de 20% continua separado e só sai em partida perfeita.
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-4">
-                    <div className="text-sm font-semibold text-white">Configuração ativa agora</div>
-                    {currentGameCoupon ? (
-                      <div className="mt-3 space-y-3 text-sm">
-                        <div className="rounded-xl bg-emerald-500/10 ring-1 ring-emerald-400/20 p-3">
-                          <div className="text-xs text-emerald-200/80 uppercase tracking-wide">Rótulo</div>
-                          <div className="mt-1 text-lg font-bold text-emerald-100">{currentGameCoupon.label}</div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="rounded-xl bg-white/[0.03] ring-1 ring-white/10 p-3">
-                            <div className="text-xs text-slate-500">Tipo</div>
-                            <div className="mt-1 text-slate-100">{currentGameCoupon.discount_type}</div>
-                          </div>
-                          <div className="rounded-xl bg-white/[0.03] ring-1 ring-white/10 p-3">
-                            <div className="text-xs text-slate-500">Valor</div>
-                            <div className="mt-1 text-slate-100">{currentGameCoupon.discount_value}</div>
-                          </div>
-                          <div className="rounded-xl bg-white/[0.03] ring-1 ring-white/10 p-3 col-span-2">
-                            <div className="text-xs text-slate-500">Pedido mínimo</div>
-                            <div className="mt-1 text-slate-100">{fmtBRL(Number(currentGameCoupon.min_order_value || 0))}</div>
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="mt-3 text-sm text-slate-400">
-                        {gameCouponLoading ? 'Carregando configuração…' : 'Nenhuma configuração ativa encontrada.'}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-4">
-                    <div className="text-sm font-semibold text-white">Como funciona</div>
-                    <ul className="mt-3 space-y-2 text-sm text-slate-300">
-                      <li>• O admin escolhe o desconto aqui.</li>
-                      <li>• O jogo mostra esse rótulo como prêmio atual.</li>
-                      <li>• Ao vencer, o usuário recebe um código único na tabela <code>coupons</code>.</li>
-                      <li>• O carrinho continua validando o código normalmente.</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : section === "admins" && canManageAdmins ? (
+          {section === "production" && <AdminProductionSection admin={adminContext} />}
+          {section === "finance" && canManageBusiness && <AdminFinanceSection admin={adminContext} />}
+          {section === "clients" && canManageBusiness && <AdminClientsSection admin={adminContext} />}
+          {section === "products" && canManageBusiness && <AdminProductsSection onNotify={showToast} />}
+          {section === "reviews" && canManageBusiness && <AdminReviewsSection onToast={showToast} />}
+          {section === "coupons" && canManageBusiness && <AdminCouponsSection admin={adminContext} />}
+          {section === "admins" && canManageAdmins && (
             <AdminManagementSection
               accessToken={accessToken}
               currentUserId={user?.id}
               currentLevel={normalizedAdminLevel}
               onToast={showToast}
             />
-          ) : section === "vip" ? (
-            <div className="space-y-4">
-              <SectionTitle
-                icon="workspace_premium"
-                title="VIP Controle"
-                subtitle="Organize ciclos VIP, acompanhe base ativa e mantenha a votação do próximo tema."
-                right={
-                  <div className="flex w-full gap-2 sm:w-auto sm:items-center">
-                    <button
-                      onClick={() => fetchVipVoting()}
-                      className="flex-1 rounded-xl px-3 py-2 text-sm text-slate-200 ring-1 ring-white/10 hover:bg-white/4 sm:flex-none"
-                    >
-                      Atualizar
-                    </button>
-
-                    {!vipPolls.some((x) => String(x?.poll?.status || "").toLowerCase() === "open") ? (
-                      <button
-                        onClick={() =>
-                          setStartVote({
-                            open: true,
-                            busy: false,
-                            error: "",
-                            data: {
-                              month_key: nextMonthKey(),
-                              title: "Qual tema você quer no próximo mês?",
-                              options: [
-                                { title: "", description: "", image_asset_id: "" },
-                                { title: "", description: "", image_asset_id: "" },
-                                { title: "", description: "", image_asset_id: "" },
-                              ],
-                            },
-                          })
-                        }
-                        className="flex-1 rounded-xl bg-emerald-400 px-3 py-2 text-sm font-semibold text-black ring-4 ring-emerald-400/20 sm:flex-none"
-                      >
-                        + Nova votação
-                      </button>
-                    ) : null}
-                  </div>
-                }
-              />
-
-              <div className="grid grid-cols-1 gap-4">
-                <div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 xl:grid-cols-4">
-                  <div className="rounded-3xl bg-gradient-to-br from-cyan-500/15 via-cyan-400/8 to-transparent ring-1 ring-cyan-400/20 p-4 shadow-[0_12px_40px_rgba(6,182,212,0.08)]">
-                    <div className="text-[11px] uppercase tracking-[0.18em] text-cyan-200/80">Ciclo ativo</div>
-                    <div className="mt-2 text-2xl font-black text-white">{vipControl.active_cycle_key || '—'}</div>
-                    <div className="mt-2 text-sm text-slate-300">Esse é o mês exibido agora para os assinantes VIP.</div>
-                  </div>
-                  <div className="rounded-3xl bg-gradient-to-br from-violet-500/15 via-violet-400/8 to-transparent ring-1 ring-violet-400/20 p-4 shadow-[0_12px_40px_rgba(139,92,246,0.08)]">
-                    <div className="text-[11px] uppercase tracking-[0.18em] text-violet-200/80">Assinantes ativos</div>
-                    <div className="mt-2 text-2xl font-black text-white">{Number(vipControl?.vip_summary?.activeSubscribers || 0)}</div>
-                    <div className="mt-2 text-sm text-slate-300">Base atual apta a visualizar ciclos e participar das votações.</div>
-                  </div>
-                  <div className="rounded-3xl bg-gradient-to-br from-emerald-500/15 via-emerald-400/8 to-transparent ring-1 ring-emerald-400/20 p-4 shadow-[0_12px_40px_rgba(16,185,129,0.08)]">
-                    <div className="text-[11px] uppercase tracking-[0.18em] text-emerald-200/80">Ciclos montados</div>
-                    <div className="mt-2 text-2xl font-black text-white">{vipControl.cycles.length}</div>
-                    <div className="mt-2 text-sm text-slate-300">Meses prontos para ativar, editar ou duplicar rapidamente.</div>
-                  </div>
-                  <div className="rounded-3xl bg-gradient-to-br from-amber-500/15 via-amber-400/8 to-transparent ring-1 ring-amber-400/20 p-4 shadow-[0_12px_40px_rgba(245,158,11,0.08)]">
-                    <div className="text-[11px] uppercase tracking-[0.18em] text-amber-200/80">Biblioteca VIP</div>
-                    <div className="mt-2 text-2xl font-black text-white">{vipControl.library.length}</div>
-                    <div className="mt-2 text-sm text-slate-300">Miniaturas e bosses disponíveis para montar os próximos ciclos.</div>
-                  </div>
-                </div>
-
-                <div className="rounded-3xl bg-gradient-to-br from-violet-500/10 via-white/[0.03] to-transparent ring-1 ring-violet-400/20 p-4 md:p-5">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                    <div>
-                      <div className="text-lg font-bold text-white">Cadastrar nova miniatura</div>
-                      <div className="mt-1 text-sm text-slate-400">Cadastre nome, imagens, ciclo e tipo diretamente no banco. Depois ela aparece automaticamente na biblioteca do ciclo.</div>
-                    </div>
-                    <span className="rounded-full bg-violet-500/15 px-3 py-1.5 text-xs font-semibold text-violet-200 ring-1 ring-violet-400/20">Cadastro direto</span>
-                  </div>
-                  <form onSubmit={createVipMiniature} className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-12">
-                    <label className="md:col-span-4"><div className="mb-1.5 text-xs text-slate-400">Nome</div><input required value={vipMiniForm.title} onChange={(e) => setVipMiniForm((p) => ({ ...p, title: e.target.value }))} placeholder="Ex.: Guerreiro Orc" className="w-full rounded-2xl bg-black/20 px-3.5 py-3 text-sm text-slate-100 ring-1 ring-white/10" /></label>
-                    <label className="md:col-span-2"><div className="mb-1.5 text-xs text-slate-400">Ciclo</div><input required value={vipMiniForm.cycle_key} onChange={(e) => setVipMiniForm((p) => ({ ...p, cycle_key: e.target.value }))} placeholder="2026-10" className="w-full rounded-2xl bg-black/20 px-3.5 py-3 text-sm text-slate-100 ring-1 ring-white/10" /></label>
-                    <label className="md:col-span-2"><div className="mb-1.5 text-xs text-slate-400">Tipo</div><select value={vipMiniForm.item_type} onChange={(e) => setVipMiniForm((p) => ({ ...p, item_type: e.target.value }))} className="w-full rounded-2xl bg-black/20 px-3.5 py-3 text-sm text-slate-100 ring-1 ring-white/10"><option value="miniature">Miniatura</option><option value="boss">Boss</option></select></label>
-                    <label className="md:col-span-2"><div className="mb-1.5 text-xs text-slate-400">Ordem</div><input type="number" min="0" value={vipMiniForm.sort_order} onChange={(e) => setVipMiniForm((p) => ({ ...p, sort_order: e.target.value }))} className="w-full rounded-2xl bg-black/20 px-3.5 py-3 text-sm text-slate-100 ring-1 ring-white/10" /></label>
-                    <label className="md:col-span-2"><div className="mb-1.5 text-xs text-slate-400">Imagens</div><input id="vip-mini-images-input" required type="file" accept="image/*" multiple onChange={(e) => setVipMiniFiles(Array.from(e.target.files || []).slice(0, 6))} className="block w-full rounded-2xl bg-black/20 px-3 py-2.5 text-xs text-slate-300 ring-1 ring-white/10 file:mr-2 file:rounded-lg file:border-0 file:bg-white/10 file:px-2 file:py-1 file:text-xs file:text-slate-100" /></label>
-                    <label className="md:col-span-10"><div className="mb-1.5 text-xs text-slate-400">Descrição (opcional)</div><input value={vipMiniForm.description} onChange={(e) => setVipMiniForm((p) => ({ ...p, description: e.target.value }))} placeholder="Detalhes rápidos para identificar a peça no painel" className="w-full rounded-2xl bg-black/20 px-3.5 py-3 text-sm text-slate-100 ring-1 ring-white/10" /></label>
-                    <div className="flex items-end md:col-span-2"><button disabled={vipMiniBusy} className="w-full rounded-2xl bg-violet-400 px-4 py-3 text-sm font-bold text-black ring-4 ring-violet-400/15 disabled:opacity-60">{vipMiniBusy ? 'Enviando...' : 'Cadastrar miniatura'}</button></div>
-                  </form>
-                  {vipMiniFiles.length ? <div className="mt-3 text-xs text-slate-400">{vipMiniFiles.length} imagem(ns) selecionada(s). A primeira será a capa.</div> : null}
-                  {vipMiniError ? <div className="mt-3 rounded-2xl bg-red-500/10 px-3 py-2.5 text-sm text-red-200 ring-1 ring-red-500/30">{vipMiniError}</div> : null}
-                </div>
-
-                <div className="rounded-3xl bg-white/[0.03] ring-1 ring-white/10 p-4 md:p-5">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><div><div className="text-lg font-bold text-white">Biblioteca cadastrada</div><div className="mt-1 text-sm text-slate-400">Veja rapidamente o que já está no banco e remova cadastros que não serão usados.</div></div><div className="text-xs text-slate-500">{vipControl.library.length} item(ns)</div></div>
-                  <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                    {(vipControl.library || []).slice(0, 18).map((item) => <div key={item.id} className="flex items-center gap-3 rounded-2xl bg-black/20 p-3 ring-1 ring-white/10"><div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-black/30 ring-1 ring-white/10">{item.image_url ? <img src={item.image_url} alt="" className="h-full w-full object-cover" /> : null}</div><div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold text-white">{item.title}</div><div className="mt-1 text-[11px] text-slate-400">{item.cycle_key || 'Sem ciclo'} • {String(item.item_type).toLowerCase() === 'boss' ? 'Boss' : 'Miniatura'}</div></div><button type="button" onClick={() => deleteVipMiniature(item)} disabled={vipMiniBusy} className="rounded-xl px-2.5 py-2 text-xs text-red-200 ring-1 ring-red-500/20 hover:bg-red-500/10 disabled:opacity-50" aria-label={`Excluir ${item.title}`}>Excluir</button></div>)}
-                  </div>
-                </div>
-
-                {vipControlLoading ? <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 px-4 py-3 text-slate-400">Carregando controle VIP...</div> : null}
-                {vipControlError ? <div className="rounded-2xl bg-red-500/10 ring-1 ring-red-500/30 px-4 py-3 text-sm text-red-200">{vipControlError}</div> : null}
-
-                <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.82fr)]">
-                  <div className="rounded-3xl bg-white/[0.03] ring-1 ring-white/10 p-4 md:p-5">
-                    <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                      <div className="max-w-2xl">
-                        <div className="text-lg font-bold text-white">Montagem do ciclo VIP</div>
-                        <div className="mt-1 text-sm text-slate-400">Monte o mês, escolha as minis e mantenha claro o que está no editor e o que já está ativo. Tudo fica concentrado aqui.</div>
-                      </div>
-                      <div className="grid w-full grid-cols-2 gap-2 sm:grid-cols-3 xl:w-auto xl:min-w-[430px]">
-                        <button
-                          onClick={() => setVipCycleEditor({ cycle_key: nextMonthKey(), selected_ids: [], activate: true })}
-                          className="rounded-2xl px-4 py-2.5 text-sm font-semibold text-slate-100 bg-white/[0.04] hover:bg-white/[0.08] ring-1 ring-white/10"
-                        >
-                          + Novo ciclo
-                        </button>
-                        <button
-                          onClick={() => {
-                            const active = (vipControl.cycles || []).find((cycle) => cycle.is_active) || (vipControl.cycles || [])[0];
-                            if (!active) return;
-                            setVipCycleEditor({ cycle_key: nextMonthKey(), selected_ids: (active.items || []).map((item) => String(item.id)), activate: true });
-                          }}
-                          disabled={vipCycleBusy || !(vipControl.cycles || []).length}
-                          className="rounded-2xl px-4 py-2.5 text-sm font-semibold text-slate-100 bg-white/[0.04] hover:bg-white/[0.08] ring-1 ring-white/10 disabled:opacity-60"
-                        >
-                          Duplicar ativo
-                        </button>
-                        <button
-                          onClick={saveVipCycle}
-                          disabled={vipCycleBusy}
-                          className="col-span-2 rounded-2xl bg-emerald-400 px-4 py-2.5 text-sm font-semibold text-black ring-4 ring-emerald-400/20 disabled:opacity-60 sm:col-span-1"
-                        >
-                          {vipCycleBusy ? 'Salvando...' : 'Salvar ciclo'}
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="mt-5 grid grid-cols-1 items-start gap-4 lg:grid-cols-12">
-                      <div className="space-y-4 lg:col-span-4 2xl:col-span-3">
-                        <div className="rounded-2xl bg-black/20 ring-1 ring-white/10 p-4">
-                          <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Configuração do ciclo</div>
-                          <label className="mt-4 block">
-                            <div className="text-xs text-slate-400 mb-1.5">Mês de referência</div>
-                            <input
-                              value={vipCycleEditor.cycle_key}
-                              onChange={(e) => setVipCycleEditor((prev) => ({ ...prev, cycle_key: e.target.value }))}
-                              placeholder="YYYY-MM"
-                              className="w-full rounded-2xl bg-black/20 ring-1 ring-white/10 px-3.5 py-3 text-slate-100"
-                            />
-                          </label>
-                          <label className="mt-4 flex items-start gap-3 rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-3 text-sm text-slate-200">
-                            <input
-                              type="checkbox"
-                              checked={!!vipCycleEditor.activate}
-                              onChange={(e) => setVipCycleEditor((prev) => ({ ...prev, activate: e.target.checked }))}
-                              className="mt-1"
-                            />
-                            <span>
-                              <span className="font-semibold text-white">Ativar ao salvar</span>
-                              <span className="mt-1 block text-xs text-slate-400">Use quando esse mês já deve aparecer imediatamente para os assinantes.</span>
-                            </span>
-                          </label>
-                          {vipCycleEditor.cycle_key ? (
-                            <button
-                              onClick={() => openDeleteVipCycleConfirm(vipCycleEditor.cycle_key)}
-                              disabled={vipCycleBusy}
-                              className="mt-4 w-full rounded-2xl px-4 py-3 text-sm font-semibold text-red-100 bg-red-500/10 ring-1 ring-red-500/30 disabled:opacity-60"
-                            >
-                              Excluir ciclo atual do editor
-                            </button>
-                          ) : null}
-                        </div>
-
-                        <div className="rounded-2xl bg-black/20 ring-1 ring-white/10 p-4">
-                          <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Resumo da seleção</div>
-                          <div className="mt-4 grid grid-cols-3 gap-2">
-                            <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-3">
-                              <div className="text-[11px] text-slate-500 uppercase tracking-wide">Itens</div>
-                              <div className="mt-1 text-xl font-black text-white">{vipSelectedItems.length}</div>
-                            </div>
-                            <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-3">
-                              <div className="text-[11px] text-slate-500 uppercase tracking-wide">Minis</div>
-                              <div className="mt-1 text-xl font-black text-white">{vipSelectedSummary.mini}</div>
-                            </div>
-                            <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-3">
-                              <div className="text-[11px] text-slate-500 uppercase tracking-wide">Boss</div>
-                              <div className="mt-1 text-xl font-black text-white">{vipSelectedSummary.boss}</div>
-                            </div>
-                          </div>
-                          <div className="mt-4 text-xs leading-5 text-slate-400">Toque nos cards da biblioteca para adicionar ou remover itens deste ciclo.</div>
-                        </div>
-                      </div>
-
-                      <div className="min-w-0 space-y-4 lg:col-span-8 2xl:col-span-9">
-                        <div className="rounded-2xl bg-black/20 ring-1 ring-white/10 p-4">
-                          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                            <div>
-                              <div className="text-sm font-semibold text-white">Ciclos disponíveis</div>
-                              <div className="mt-1 text-xs text-slate-400">Clique em um mês para carregar no editor e ajustar rapidamente.</div>
-                            </div>
-                            <div className="rounded-full bg-white/[0.04] px-3 py-1.5 text-xs text-slate-300 ring-1 ring-white/10 self-start lg:self-auto">
-                              {vipControl.cycles.length} ciclo(s)
-                            </div>
-                          </div>
-                          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 md:max-h-[320px] md:overflow-y-auto md:pr-1 2xl:grid-cols-3">
-                            {(vipControl.cycles || []).map((cycle) => {
-                              const isCurrentCycle = String(vipCycleEditor.cycle_key || '') === String(cycle.cycle_key);
-                              return (
-                                <button
-                                  key={cycle.cycle_key}
-                                  type="button"
-                                  onClick={() => loadVipCycleIntoEditor(cycle.cycle_key)}
-                                  className={[
-                                    'min-w-0 rounded-2xl p-4 text-left ring-1 transition-all duration-200',
-                                    'bg-white/[0.03] hover:bg-white/[0.05] hover:-translate-y-[1px]',
-                                    isCurrentCycle
-                                      ? 'ring-cyan-400/35 bg-cyan-400/10 shadow-[0_10px_30px_rgba(34,211,238,0.12)]'
-                                      : 'ring-white/10'
-                                  ].join(' ')}
-                                >
-                                  <div className="flex items-start justify-between gap-3">
-                                    <div className="min-w-0 flex-1">
-                                      <div className="text-sm font-semibold text-white truncate">{cycle.cycle_key}</div>
-                                      <div className="mt-1 text-[11px] text-slate-400 leading-5">
-                                        {cycle.is_active ? 'Ciclo ativo para assinantes' : 'Clique para carregar no editor'}
-                                      </div>
-                                    </div>
-                                    <span className="material-icons text-slate-500 text-lg shrink-0">calendar_month</span>
-                                  </div>
-                                  <div className="mt-3 flex flex-wrap gap-2">
-                                    {cycle.is_active ? (
-                                      <span className="rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-wide bg-emerald-500/15 text-emerald-200 ring-1 ring-emerald-500/20">
-                                        Ativo
-                                      </span>
-                                    ) : null}
-                                    {isCurrentCycle ? (
-                                      <span className="rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-wide bg-cyan-500/15 text-cyan-200 ring-1 ring-cyan-500/20">
-                                        No editor
-                                      </span>
-                                    ) : null}
-                                    <span className="rounded-full px-2 py-1 text-[10px] bg-white/6 text-slate-300 ring-1 ring-white/10">
-                                      {cycle.total_items} item(ns)
-                                    </span>
-                                  </div>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-
-                        <div className="rounded-2xl bg-black/20 ring-1 ring-white/10 p-4">
-                          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                            <div>
-                              <div className="text-sm font-semibold text-white">Biblioteca do ciclo</div>
-                              <div className="mt-1 text-xs text-slate-400">Busque e filtre antes de tocar nos cards que entrarão neste mês.</div>
-                            </div>
-                            <div className="rounded-full bg-white/[0.04] px-3 py-1.5 text-xs text-slate-300 ring-1 ring-white/10 self-start lg:self-auto">
-                              {vipVisibleLibrary.length} de {(vipControl.library || []).length} item(ns)
-                            </div>
-                          </div>
-
-                          <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
-                            <div className="relative block">
-                              <span className="material-icons pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[19px] text-slate-500">search</span>
-                              <input
-                                value={vipLibrarySearch}
-                                onChange={(event) => setVipLibrarySearch(event.target.value)}
-                                placeholder="Buscar por nome, descrição ou ciclo..."
-                                aria-label="Buscar na biblioteca VIP"
-                                className="w-full rounded-2xl bg-black/25 py-3 pl-10 pr-10 text-sm text-slate-100 ring-1 ring-white/10 placeholder:text-slate-600 focus:outline-none focus:ring-cyan-400/35"
-                              />
-                              {vipLibrarySearch ? (
-                                <button
-                                  type="button"
-                                  onClick={() => setVipLibrarySearch('')}
-                                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-1 text-slate-400 hover:bg-white/5 hover:text-white"
-                                  aria-label="Limpar busca"
-                                >
-                                  <span className="material-icons text-[18px]">close</span>
-                                </button>
-                              ) : null}
-                            </div>
-                            <div className="flex gap-2 overflow-x-auto pb-1 md:pb-0">
-                              {[
-                                ['all', 'Todos'],
-                                ['selected', 'Selecionados'],
-                                ['mini', 'Minis'],
-                                ['boss', 'Bosses'],
-                              ].map(([value, label]) => (
-                                <button
-                                  key={value}
-                                  type="button"
-                                  onClick={() => setVipLibraryFilter(value)}
-                                  className={[
-                                    'shrink-0 rounded-full px-3 py-2 text-xs font-semibold ring-1 transition',
-                                    vipLibraryFilter === value
-                                      ? 'bg-cyan-400/15 text-cyan-100 ring-cyan-400/30'
-                                      : 'bg-white/[0.03] text-slate-300 ring-white/10 hover:bg-white/[0.06]',
-                                  ].join(' ')}
-                                >
-                                  {label}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-
-                          <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 md:max-h-[720px] md:overflow-y-auto md:pr-1">
-                            {vipVisibleLibrary.map((item) => {
-                              const selected = (vipCycleEditor.selected_ids || []).includes(String(item.id));
-                              const assignedCycle = String(item?.cycle_key || '');
-                              const isBoss = String(item?.item_type || '').toLowerCase() === 'boss';
-                              return (
-                                <button
-                                  type="button"
-                                  key={item.id}
-                                  onClick={() => toggleVipCycleItem(String(item.id))}
-                                  aria-pressed={selected}
-                                  className={[
-                                    'w-full text-left rounded-3xl p-3.5 ring-1 transition shadow-[0_8px_30px_rgba(0,0,0,0.14)]',
-                                    selected
-                                      ? 'bg-cyan-400/10 ring-cyan-400/30 shadow-[0_10px_35px_rgba(34,211,238,0.12)]'
-                                      : 'bg-white/[0.03] ring-white/10 hover:bg-white/[0.05]'
-                                  ].join(' ')}
-                                >
-                                  <div className="flex items-start gap-3 min-w-0">
-                                    <div className="h-16 w-16 rounded-2xl overflow-hidden bg-black/20 ring-1 ring-white/10 shrink-0">
-                                      {item.image_url ? <img src={item.image_url} alt={item.title} className="h-full w-full object-cover" loading="lazy" /> : null}
-                                    </div>
-                                    <div className="min-w-0 flex-1">
-                                      <div className="text-sm font-bold text-slate-100 break-words leading-5">{item.title}</div>
-                                      <div className="mt-2 flex flex-wrap gap-2">
-                                        <span className={isBoss ? 'rounded-full px-2 py-0.5 text-[10px] bg-fuchsia-500/15 text-fuchsia-200 ring-1 ring-fuchsia-500/20' : 'rounded-full px-2 py-0.5 text-[10px] bg-cyan-500/15 text-cyan-200 ring-1 ring-cyan-500/20'}>
-                                          {isBoss ? 'Boss' : 'Mini'}
-                                        </span>
-                                        {selected ? <span className="rounded-full px-2 py-0.5 text-[10px] bg-emerald-500/15 text-emerald-200 ring-1 ring-emerald-500/20">Selecionado</span> : null}
-                                        {assignedCycle ? (
-                                          <span className="rounded-full px-2 py-0.5 text-[10px] bg-white/6 text-slate-300 ring-1 ring-white/10">
-                                            {assignedCycle}
-                                          </span>
-                                        ) : null}
-                                      </div>
-                                      {item.description ? <div className="mt-2 text-xs text-slate-400 leading-5 line-clamp-2">{item.description}</div> : null}
-                                    </div>
-                                  </div>
-                                </button>
-                              );
-                            })}
-                            {!vipVisibleLibrary.length ? (
-                              <div className="rounded-2xl bg-white/[0.03] p-5 text-center text-sm text-slate-400 ring-1 ring-white/10 md:col-span-2">
-                                Nenhum item encontrado com esses filtros.
-                              </div>
-                            ) : null}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="sticky bottom-3 z-30 mt-4 flex items-center justify-between gap-3 rounded-2xl bg-[#0a202a]/95 p-3 shadow-[0_16px_45px_rgba(0,0,0,0.45)] ring-1 ring-cyan-300/20 backdrop-blur lg:hidden">
-                      <div className="min-w-0">
-                        <div className="text-xs text-slate-400">Ciclo {vipCycleEditor.cycle_key || 'novo'}</div>
-                        <div className="truncate text-sm font-semibold text-white">{vipSelectedItems.length} item(ns) selecionado(s)</div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={saveVipCycle}
-                        disabled={vipCycleBusy}
-                        className="shrink-0 rounded-xl bg-emerald-400 px-4 py-2.5 text-sm font-bold text-black ring-4 ring-emerald-400/15 disabled:opacity-60"
-                      >
-                        {vipCycleBusy ? 'Salvando...' : 'Salvar'}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="rounded-3xl bg-white/[0.03] ring-1 ring-white/10 p-4 md:p-5">
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                        <div>
-                          <div className="text-lg font-bold text-white">Radar VIP</div>
-                          <div className="mt-1 text-sm text-slate-400">Acompanhe o ciclo ativo e a distribuição dos assinantes por mês.</div>
-                        </div>
-                        {vipActiveCycle ? <span className="rounded-full px-3 py-1.5 text-xs bg-emerald-500/15 text-emerald-200 ring-1 ring-emerald-400/20">Ativo: {vipActiveCycle.cycle_key}</span> : null}
-                      </div>
-
-                      <div className="mt-4 rounded-2xl bg-black/20 ring-1 ring-white/10 p-4">
-                        <div className="text-xs text-slate-500 uppercase tracking-[0.16em]">Resumo do ciclo ativo</div>
-                        {vipActiveCycle ? (
-                          <div className="mt-3 grid grid-cols-3 gap-3">
-                            <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-3">
-                              <div className="text-[11px] text-slate-500 uppercase tracking-wide">Itens</div>
-                              <div className="mt-1 text-xl font-black text-white">{vipActiveCycle.total_items}</div>
-                            </div>
-                            <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-3">
-                              <div className="text-[11px] text-slate-500 uppercase tracking-wide">Minis</div>
-                              <div className="mt-1 text-xl font-black text-white">{vipActiveCycle.miniatures_count}</div>
-                            </div>
-                            <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-3">
-                              <div className="text-[11px] text-slate-500 uppercase tracking-wide">Boss</div>
-                              <div className="mt-1 text-xl font-black text-white">{vipActiveCycle.boss_count}</div>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="mt-3 text-sm text-slate-400">Nenhum ciclo ativo no momento.</div>
-                        )}
-                      </div>
-
-                      <div className="mt-4 rounded-2xl bg-black/20 ring-1 ring-white/10 p-4">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="text-sm font-semibold text-white">Assinantes por ciclo</div>
-                          <div className="text-xs text-slate-500">Leitura rápida da base</div>
-                        </div>
-                        <div className="mt-3 space-y-2">
-                          {vipCycleAudience.length ? vipCycleAudience.map((row, idx) => {
-                            const count = Number(row?.count || row?.total || 0);
-                            const pct = Math.max(6, Math.min(100, vipControl?.vip_summary?.activeSubscribers ? (count / Number(vipControl.vip_summary.activeSubscribers || 1)) * 100 : 0));
-                            return (
-                              <div key={`${row?.cycle_key || 'none'}-${idx}`} className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-3">
-                                <div className="flex items-center justify-between gap-3 text-sm">
-                                  <div className="font-semibold text-slate-100">{row?.cycle_key || 'Sem ciclo'}</div>
-                                  <div className="text-slate-300">{count} assinante(s)</div>
-                                </div>
-                                <div className="mt-2 h-2 rounded-full bg-black/30 overflow-hidden ring-1 ring-white/10">
-                                  <div className="h-full rounded-full bg-white/30" style={{ width: `${pct}%` }} />
-                                </div>
-                              </div>
-                            );
-                          }) : <div className="text-sm text-slate-400">Sem dados de distribuição por ciclo.</div>}
-                        </div>
-                      </div>
-
-                      <div className="mt-4 space-y-2">
-                        {(vipControl.cycles || []).map((cycle) => (
-                          <div key={cycle.cycle_key} className="rounded-2xl bg-black/20 ring-1 ring-white/10 p-3 flex flex-col gap-3">
-                            <div className="flex items-start justify-between gap-3">
-                              <div>
-                                <div className="text-sm font-bold text-slate-100">{cycle.cycle_key}</div>
-                                <div className="mt-1 text-xs text-slate-400">{cycle.miniatures_count} minis • {cycle.boss_count} boss • {cycle.total_items} itens</div>
-                              </div>
-                              {cycle.is_active ? <span className="rounded-full px-2.5 py-1 text-[11px] bg-emerald-500/15 text-emerald-200 ring-1 ring-emerald-400/20">Ativo</span> : null}
-                            </div>
-                            <div className="flex flex-wrap gap-2">
-                              <button
-                                onClick={() => loadVipCycleIntoEditor(cycle.cycle_key)}
-                                className="rounded-2xl px-3 py-2 text-xs font-semibold text-slate-100 bg-white/[0.04] hover:bg-white/[0.08] ring-1 ring-white/10"
-                              >
-                                Editar
-                              </button>
-                              {!cycle.is_active ? (
-                                <button
-                                  onClick={() => activateVipCycle(cycle.cycle_key)}
-                                  disabled={vipCycleBusy}
-                                  className="rounded-2xl px-3 py-2 text-xs font-semibold text-emerald-100 bg-emerald-500/10 hover:bg-emerald-500/20 ring-1 ring-emerald-500/30 disabled:opacity-60"
-                                >
-                                  Ativar
-                                </button>
-                              ) : null}
-                              <button
-                                onClick={() => openDeleteVipCycleConfirm(cycle.cycle_key)}
-                                disabled={vipCycleBusy}
-                                className="rounded-2xl px-3 py-2 text-xs font-semibold text-red-100 bg-red-500/10 hover:bg-red-500/20 ring-1 ring-red-500/30 disabled:opacity-60"
-                              >
-                                Excluir
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="rounded-3xl bg-white/[0.03] ring-1 ring-white/10 p-4 md:p-5">
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <div className="text-lg font-bold text-white">Votações do próximo tema</div>
-                          <div className="mt-1 text-sm text-slate-400">Crie, acompanhe e encerre as votações do mês seguinte sem sair desta área.</div>
-                        </div>
-                      </div>
-                      {vipPollsLoading ? <div className="mt-4 text-slate-400">Carregando...</div> : null}
-                      {vipPollsError ? <div className="mt-4 text-red-200">{vipPollsError}</div> : null}
-
-                      {!vipPollsLoading && !vipPollsError && !vipPolls.length ? (
-                        <div className="mt-4 rounded-2xl bg-black/20 ring-1 ring-white/10 p-4 text-slate-400">Nenhuma votação encontrada.</div>
-                      ) : null}
-
-                      <div className="mt-4 space-y-4">
-                      {vipPolls.map((p, idx) => (
-                        <div key={idx} className="rounded-2xl bg-black/20 ring-1 ring-white/10 p-3.5">
-                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                            <div className="min-w-0">
-                              <div className="break-words text-white font-semibold">{p?.poll?.title || "Votação"}</div>
-                              <div className="text-xs text-slate-500">
-                                {p?.poll?.month_key || "—"} • {p?.total_votes || 0} votos • {p?.poll?.status || "—"}
-                              </div>
-                            </div>
-
-                            <div className="flex w-full flex-col items-stretch gap-2 sm:w-auto sm:flex-row sm:items-center">
-                              {String(p?.poll?.status || "").toLowerCase() === "closed" ? (
-                                <span className="rounded-full px-2 py-1 text-[11px] bg-emerald-500/15 text-emerald-200 ring-1 ring-emerald-400/20">
-                                  Encerrada
-                                </span>
-                              ) : (
-                                <span className="rounded-full px-2 py-1 text-[11px] bg-violet-500/15 text-violet-200 ring-1 ring-violet-400/20">
-                                  Aberta
-                                </span>
-                              )}
-
-                              {String(p?.poll?.status || "").toLowerCase() === "open" ? (
-                                <button
-                                  onClick={() =>
-                                    setCloseVote({
-                                      open: true,
-                                      poll: p,
-                                      winnerId: null,
-                                      busy: false,
-                                      error: "",
-                                    })
-                                  }
-                                  className="w-full rounded-2xl px-3 py-2 text-xs font-semibold text-slate-200 ring-1 ring-white/10 hover:bg-white/4 sm:w-auto"
-                                >
-                                  Encerrar votação
-                                </button>
-                              ) : null}
-
-                              {String(p?.poll?.status || "").toLowerCase() === "closed" ? (
-                                <button
-                                  onClick={() => setDeleteVote({ open: true, poll: p, busy: false, error: "" })}
-                                  className="w-full rounded-2xl px-3 py-2 text-xs font-semibold text-red-200 ring-1 ring-red-500/30 hover:bg-red-500/10 sm:w-auto"
-                                >
-                                  Excluir votação
-                                </button>
-                              ) : null}
-                            </div>
-                          </div>
-
-                          {String(p?.poll?.status || "").toLowerCase() === "closed" ? (
-                            (() => {
-                              const winnerId = p?.poll?.winner_option_id;
-                              const winner = (p?.options || []).find((o) => String(o.id) === String(winnerId));
-                              return winner ? (
-                                <div className="mt-3 rounded-2xl bg-emerald-500/10 ring-1 ring-emerald-400/20 p-3">
-                                  <div className="text-xs uppercase tracking-wide text-emerald-200/90">Vencedor</div>
-                                  <div className="mt-1 text-slate-100 font-extrabold">{winner.title}</div>
-                                </div>
-                              ) : (
-                                <div className="mt-3 rounded-2xl bg-cyan-500/10 ring-1 ring-cyan-400/20 p-3 text-sm text-cyan-200">
-                                  Votação encerrada, mas o vencedor não está salvo no banco (adicione a coluna <b>winner_option_id</b> em <b>vip_theme_polls</b>).
-                                </div>
-                              );
-                            })()
-                          ) : null}
-
-                          <div className="mt-3 space-y-2">
-                            {(p?.options || []).map((o) => (
-                              <div key={o.id} className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-2.5">
-                                <div className="flex items-center justify-between gap-3">
-                                  <div className="min-w-0 flex flex-1 items-center gap-3">
-                                    {o.image_url ? (
-                                      <div className="h-12 w-12 rounded-xl overflow-hidden bg-black/20 ring-1 ring-white/10 shrink-0">
-                                        <img src={o.image_url} alt={o.title} className="h-full w-full object-cover" loading="lazy" />
-                                      </div>
-                                    ) : null}
-                                    <div className="min-w-0">
-                                      <div className="text-slate-100 truncate">{o.title}</div>
-                                      {o.description ? <div className="text-xs text-slate-500 line-clamp-2">{o.description}</div> : null}
-                                    </div>
-                                  </div>
-                                  <div className="text-xs text-slate-300 whitespace-nowrap">
-                                    {o.votes} • {o.pct}%
-                                  </div>
-                                </div>
-                                <div className="mt-2 h-2 rounded-full bg-black/30 overflow-hidden ring-1 ring-white/10">
-                                  <div className="h-full bg-white/30" style={{ width: `${o.pct || 0}%` }} />
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : null}
+          )}
+          {section === "vip" && canManageBusiness && <AdminVipSection admin={adminContext} />}
         </main>
       </div>
 
