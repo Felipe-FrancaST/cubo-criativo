@@ -580,6 +580,5 @@ export default function AdminOrdersSection({ admin }) {
                 </div>
               </div>
             </div>
-            </div>
   );
 }
