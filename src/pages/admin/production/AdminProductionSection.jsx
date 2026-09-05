@@ -232,5 +232,6 @@ export default function AdminProductionSection({ admin }) {
                   );
                 })}
               </div>
+            </div>
   );
 }

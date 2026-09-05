@@ -369,5 +369,6 @@ export default function AdminCouponsSection({ admin }) {
                   </div>
                 </div>
               </div>
+            </div>
   );
 }

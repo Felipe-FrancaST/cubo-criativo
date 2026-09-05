@@ -775,5 +775,7 @@ export default function AdminVipSection({ admin }) {
                 </div>
               </div>
             </div>
+            </div>
+            </div>
   );
 }

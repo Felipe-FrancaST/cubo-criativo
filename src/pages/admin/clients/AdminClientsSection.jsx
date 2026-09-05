@@ -345,5 +345,6 @@ export default function AdminClientsSection({ admin }) {
                   ) : <div className="text-slate-500">Selecione um cliente para editar o cadastro e ver o histórico recente.</div>}
                 </div>
               </div>
+            </div>
   );
 }
