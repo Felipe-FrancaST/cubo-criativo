@@ -8,7 +8,6 @@ import { supabase } from "../lib/supabaseClient.js";
 import AdminProductsSection from "./admin/products/AdminProductsSection.jsx";
 import AdminReviewsSection from "./admin/reviews/AdminReviewsSection.jsx";
 import AdminManagementSection from "./admin/admins/AdminManagementSection.jsx";
-import SeasonalDecorationsSection from "./admin/decorations/SeasonalDecorationsSection.jsx";
 import { ADMIN_LEVEL, adminLevelLabel, normalizeAdminLevel } from "../lib/admin.js";
 
 
@@ -2212,7 +2211,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, adminLevel
   React.useEffect(() => {
     const businessSections = new Set(["finance", "clients", "products", "reviews", "coupons", "vip"]);
     if (businessSections.has(section) && !canManageBusiness) setSection("dashboard");
-    if (["admins", "decorations"].includes(section) && !canManageAdmins) setSection("dashboard");
+    if (section === "admins" && !canManageAdmins) setSection("dashboard");
   }, [section, canManageBusiness, canManageAdmins]);
 
   React.useEffect(() => {
@@ -3288,7 +3287,6 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, adminLevel
           ["reviews", "reviews", "Avaliações", canManageBusiness],
           ["coupons", "sell", "Cupons", canManageBusiness],
           ["vip", "workspace_premium", "VIP", canManageBusiness],
-          ["decorations", "celebration", "Decorações", canManageAdmins],
           ["admins", "admin_panel_settings", "Admins", canManageAdmins],
         ].filter((item) => item[3]).map(([key, icon, label]) => (
           <button
@@ -3355,11 +3353,6 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, adminLevel
             {canManageBusiness ? <div className="mt-2">
               <SidebarItem active={section === "vip"} icon="workspace_premium" onClick={() => setSection("vip")}>
                 VIP Controle
-              </SidebarItem>
-            </div> : null}
-            {canManageAdmins ? <div className="mt-2">
-              <SidebarItem active={section === "decorations"} icon="celebration" onClick={() => setSection("decorations")}>
-                Decorações sazonais
               </SidebarItem>
             </div> : null}
             {canManageAdmins ? <div className="mt-2">
@@ -4258,11 +4251,6 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, adminLevel
                 </div>
               </div>
             </div>
-          ) : section === "decorations" && canManageAdmins ? (
-            <SeasonalDecorationsSection
-              accessToken={accessToken}
-              onToast={showToast}
-            />
           ) : section === "admins" && canManageAdmins ? (
             <AdminManagementSection
               accessToken={accessToken}

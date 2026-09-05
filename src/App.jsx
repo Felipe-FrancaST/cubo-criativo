@@ -14,7 +14,6 @@ const MenuDrawer = lazyWithReload(() => import("./components/MenuDrawer.jsx"));
 const VipAreaModal = lazyWithReload(() => import("./components/VipAreaModal.jsx"));
 const ProfileSettingsModal = lazyWithReload(() => import("./components/ProfileSettingsModal.jsx"));
 import SiteHeader from "./components/SiteHeader.jsx";
-import SeasonalDecorations from "./components/SeasonalDecorations.jsx";
 import { useAuth } from "./auth/AuthProvider.jsx";
 import { supabase } from "./lib/supabaseClient";
 
@@ -1568,7 +1567,6 @@ React.useEffect(() => {
     <RouteErrorBoundary routeKey={route}>
     <div className="relative min-h-screen w-full overflow-x-clip flex flex-col bg-[radial-gradient(circle_at_top,rgba(122,35,65,.14),transparent_24%),linear-gradient(180deg,#120809_0%,#090506_48%,#050304_100%)] text-cyan-50">
       <Toast open={toastOpen}>{toastMsg}</Toast>
-      <SeasonalDecorations route={route} />
 
       <SiteHeader
         route={route}
