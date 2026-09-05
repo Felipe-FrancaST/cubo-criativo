@@ -2148,6 +2148,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, adminLevel
   const [bulkModal, setBulkModal] = React.useState({ open: false, mode: "status" });
 
   const [toast, setToast] = React.useState("");
+  const toastTimerRef = React.useRef(null);
   const [resendEmailBusyId, setResendEmailBusyId] = React.useState(null);
   const [details, setDetails] = React.useState({ open: false, orderId: null });
   const [actionModal, setActionModal] = React.useState({ open: false, mode: "status", orderId: null });
@@ -2209,11 +2210,15 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, adminLevel
   const [adminQuickSearch, setAdminQuickSearch] = React.useState('');
   const [confirmAction, setConfirmAction] = React.useState({ open: false, type: '', payload: null, busy: false, error: '', keywordValue: '' });
 
-  const showToast = (msg) => {
+  const showToast = React.useCallback((msg) => {
     setToast(msg);
-    window.clearTimeout(showToast._t);
-    showToast._t = window.setTimeout(() => setToast(""), 2000);
-  };
+    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = window.setTimeout(() => setToast(""), 2000);
+  }, []);
+
+  React.useEffect(() => () => {
+    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+  }, []);
 
   React.useEffect(() => {
     const businessSections = new Set(["finance", "clients", "products", "reviews", "coupons", "vip"]);

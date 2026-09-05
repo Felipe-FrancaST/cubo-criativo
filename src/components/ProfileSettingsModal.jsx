@@ -300,7 +300,7 @@ const [stateUF2, setStateUF2] = React.useState("");
     if (!open) return;
     const t = (initialTab === "settings" || isPasswordRecovery) ? "settings" : "profile";
     setActiveTab(t);
-    setSettingsSection(t === "settings" ? "security" : settingsSection);
+    setSettingsSection((current) => (t === "settings" ? "security" : current));
   }, [open, initialTab, isPasswordRecovery]);
 
   React.useEffect(() => {
