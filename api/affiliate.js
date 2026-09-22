@@ -18,10 +18,11 @@ async function handleMe(req, res) {
   const sb = supabaseAdmin();
   const { data: affiliate } = await sb.from('affiliates').select('*').eq('user_id', user.id).maybeSingle();
   if (!affiliate) return res.status(200).json({ affiliate: null, stats: null, commissions: [] });
-  const [{ data: visits, count: visitCount }, { data: attributions }, { data: commissions }] = await Promise.all([
+  const [{ data: visits, count: visitCount }, { data: attributions }, { data: commissions }, { data: coupons }] = await Promise.all([
     sb.from('affiliate_visits').select('id,visitor_id,created_at,landing_page,referrer', { count: 'exact' }).eq('affiliate_id', affiliate.id).order('created_at', { ascending: false }).limit(1000),
     sb.from('affiliate_attributions').select('visitor_id,converted,converted_at').eq('affiliate_id', affiliate.id),
     sb.from('affiliate_commissions').select('id,order_id,commission_base,commission_rate,commission_value,status,created_at,confirmed_at').eq('affiliate_id', affiliate.id).order('created_at', { ascending: false }).limit(100),
+    sb.from('coupons').select('code,label,discount_type,discount_value,applies_to,active,max_uses,used_count,expires_at').eq('affiliate_id', affiliate.id).order('created_at', { ascending: false }).limit(50),
   ]);
   const rows = commissions || [];
   const confirmed = rows.filter((x) => x.status === 'confirmed').reduce((s, x) => s + Number(x.commission_value || 0), 0);
@@ -30,7 +31,9 @@ async function handleMe(req, res) {
   const unique = (attributions || []).length;
   const orders = rows.length;
   const revenue = rows.reduce((s, x) => s + Number(x.commission_base || 0), 0);
-  return res.status(200).json({ affiliate, stats: { visits: Number(visitCount || 0), unique_visitors: unique, converted_visitors: (attributions || []).filter((x) => x.converted).length, orders, revenue, confirmed_commission: confirmed, pending_commission: pending, paid_commission: paid }, commissions: rows });
+  const convertedVisitors = (attributions || []).filter((x) => x.converted).length;
+  const conversionRate = unique ? Number(((convertedVisitors / unique) * 100).toFixed(1)) : 0;
+  return res.status(200).json({ affiliate, stats: { visits: Number(visitCount || 0), unique_visitors: unique, converted_visitors: convertedVisitors, conversion_rate: conversionRate, orders, revenue, confirmed_commission: confirmed, pending_commission: pending, paid_commission: paid }, commissions: rows, coupons: coupons || [] });
 }
 
 export default async function handler(req, res) {

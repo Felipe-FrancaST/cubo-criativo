@@ -1,5 +1,6 @@
 import { getUserFromAuthHeader, supabaseAdmin } from '../supabase.js';
 import { getGamePeriodInfo, makeCouponCode, calcCouponDiscount } from '../couponGame.js';
+import { couponEligibleSubtotal } from '../affiliate.js';
 import { rateLimit } from '../rateLimit.js';
 
 async function readJsonBody(req) {
