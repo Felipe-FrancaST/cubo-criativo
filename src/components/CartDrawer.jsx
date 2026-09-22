@@ -1,6 +1,7 @@
 import React from "react";
 import { focusFirst, handleFocusTrapKeydown } from "../lib/a11y.js";
 import { supabase } from "../lib/supabaseClient";
+import { getAffiliateCheckoutContext } from "../lib/affiliate.js";
 
 const fmtBRL = (n) =>
   typeof n === "number" && isFinite(n)
@@ -161,7 +162,7 @@ export default function CartDrawer({
       const res = await fetch('/api/coupons?action=validate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
-        body: JSON.stringify({ code, subtotal: Number(Number(subtotal).toFixed(2)) }),
+        body: JSON.stringify({ code, subtotal: Number(Number(subtotal).toFixed(2)), order_type: 'shop', product_ids: (cart || []).map((item) => item?.id).filter(Boolean), items: (cart || []).map((item) => ({ id: item?.id, qty: item?.qty, price: item?.unitPrice || item?.preco || 0 })) }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || 'Cupom inválido');

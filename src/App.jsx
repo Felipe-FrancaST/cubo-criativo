@@ -42,6 +42,7 @@ const ReviewsPage = lazyWithReload(() => import("./pages/ReviewsPage.jsx"));
 import { fetchAdminStatus } from "./lib/admin.js";
 import { applySeo, setJsonLd, clearJsonLd } from "./lib/seo.js";
 import { trackEvent } from "./lib/analytics.js";
+import { getAffiliateCheckoutContext, getAffiliateVisitorId, saveAffiliateAttribution } from "./lib/affiliate.js";
 import { currentClientPath, consumeScrollRestore, isSpaHistoryEntry, readProductReturnState, queueScrollRestore } from "./lib/navigation.js";
 
 // (Removido) Modo RPG separado: agora as peças RPG vivem dentro do Catálogo.
@@ -1032,6 +1033,7 @@ React.useEffect(() => {
         },
         body: JSON.stringify({
           coupon_code: appliedCoupon?.code || null,
+          ...getAffiliateCheckoutContext(),
           items: cart.map((i) => ({
             id: i.id,
             name: i.nome,
@@ -1328,6 +1330,30 @@ React.useEffect(() => {
     };
   }, [route, featured, prontaEntrega, catalogoItems, promocoes]);
 
+  // Rastreamento de vendedores: /v/:slug registra a visita e cria a atribuição local.
+  React.useEffect(() => {
+    const r = String(route || "");
+    if (!r.startsWith("/v/")) return;
+    const slug = r.slice(3).split(/[?#]/)[0];
+    if (!slug) return;
+    let alive = true;
+    (async () => {
+      try {
+        const visitorId = getAffiliateVisitorId();
+        const resp = await fetch("/api/affiliate?action=track", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ slug: decodeURIComponent(slug), visitor_id: visitorId, landing_page: window.location.href }),
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (alive && resp.ok && data?.affiliate?.slug) {
+          saveAffiliateAttribution({ slug: data.affiliate.slug, affiliate_id: data.affiliate.id, visitor_id: data.visitor_id, expires_at: data.expires_at });
+        }
+        if (alive) navigate("/", { replace: true });
+      } catch { if (alive) navigate("/", { replace: true }); }
+    })();
+    return () => { alive = false; };
+  }, [route]);
+
   // ===== SEO + Schema para página de produto (/p/:slug) =====
   React.useEffect(() => {
     const r = String(route || "");
@@ -1372,6 +1398,9 @@ React.useEffect(() => {
 
   // ===== Render da página =====
   const page = (() => {
+    if (String(route || "").startsWith("/v/")) {
+      return <div className="min-h-[50vh] flex items-center justify-center text-slate-300">Redirecionando…</div>;
+    }
     if (String(route || "").startsWith("/p/")) {
       let slug = String(route || "").slice(3).split("?")[0];
       try { slug = decodeURIComponent(slug); } catch {}

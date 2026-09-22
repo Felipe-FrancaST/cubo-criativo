@@ -16,6 +16,7 @@ import AdminFinanceSection from "./admin/finance/AdminFinanceSection.jsx";
 import AdminClientsSection from "./admin/clients/AdminClientsSection.jsx";
 import AdminCouponsSection from "./admin/coupons/AdminCouponsSection.jsx";
 import AdminVipSection from "./admin/vip/AdminVipSection.jsx";
+import AdminAffiliatesSection from "./admin/affiliates/AdminAffiliatesSection.jsx";
 
 
 function safeStorageFileName(name = 'modelo.glb') {
@@ -3492,6 +3493,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, adminLevel
           ["products", "inventory", "Produtos", canManageBusiness],
           ["reviews", "reviews", "Avaliações", canManageBusiness],
           ["coupons", "sell", "Cupons", canManageBusiness],
+          ["affiliates", "handshake", "Vendedores", canManageBusiness],
           ["vip", "workspace_premium", "VIP", canManageBusiness],
           ["admins", "admin_panel_settings", "Admins", canManageAdmins],
         ].filter((item) => item[3]).map(([key, icon, label]) => (
@@ -3593,6 +3595,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, adminLevel
           {section === "products" && canManageBusiness && <AdminProductsSection onNotify={showToast} />}
           {section === "reviews" && canManageBusiness && <AdminReviewsSection onToast={showToast} />}
           {section === "coupons" && canManageBusiness && <AdminCouponsSection admin={adminContext} />}
+          {section === "affiliates" && canManageBusiness && <AdminAffiliatesSection accessToken={accessToken} />}
           {section === "admins" && canManageAdmins && (
             <AdminManagementSection
               accessToken={accessToken}

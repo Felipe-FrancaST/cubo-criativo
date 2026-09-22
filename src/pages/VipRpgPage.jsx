@@ -46,6 +46,9 @@ export default function VipRpgPage({
   const [collectionItems, setCollectionItems] = React.useState([]);
   const [collectionLoading, setCollectionLoading] = React.useState(true);
   const [collectionPreviewIndex, setCollectionPreviewIndex] = React.useState(-1);
+  const [couponCode, setCouponCode] = React.useState('');
+  const [couponInfo, setCouponInfo] = React.useState(null);
+  const [couponBusy, setCouponBusy] = React.useState(false);
 
 
   const vipUntil = vipProfile?.vip_until || null;
@@ -84,6 +87,7 @@ export default function VipRpgPage({
 
   const visiblePlans = (Array.isArray(plans) ? plans : []).filter((p) => p?.id);
   const selectedPlan = visiblePlans.find((p) => p.id === selectedPlanId) || visiblePlans[0] || null;
+  React.useEffect(() => { setCouponInfo(null); }, [selectedPlanId]);
   const selectedMiniaturesCount = Math.max(0, Number(selectedPlan?.miniatures_count || 0) || 0);
   const selectedBossCount = Math.max(0, Number(selectedPlan?.boss_count || 0) || 0);
   const selectedItemsPerMonth = Math.max(
@@ -356,6 +360,13 @@ export default function VipRpgPage({
     await verifyVipPix(pix.order_id);
   }
 
+  async function applyVipCoupon() {
+    if (!accessToken || !selectedPlan) { onRequireLogin?.('Faça login para usar cupom.'); return; }
+    if (!couponCode.trim()) { setCouponInfo(null); return; }
+    setCouponBusy(true); setError('');
+    try { const r=await fetch('/api/coupons?action=validate',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${accessToken}`},body:JSON.stringify({code:couponCode.trim().toUpperCase(),subtotal:Number(selectedPlan.price_brl||0),order_type:'vip',vip_plan_id:selectedPlan.id})}); const j=await r.json().catch(()=>({})); if(!r.ok)throw new Error(j.error||'Cupom inválido.'); setCouponInfo({code:j.coupon?.code||couponCode.toUpperCase(),discount:Number(j.discount||0),final_total:Number(j.final_total||selectedPlan.price_brl||0)}); } catch(e){setCouponInfo(null);setError(e.message||String(e))} finally{setCouponBusy(false)}
+  }
+
   async function startPix(planId) {
     setSubmittingMethod('pix');
     setError('');
@@ -378,7 +389,7 @@ export default function VipRpgPage({
       const res = await fetch('/api/create-pix-payment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ vip_plan_id: planId, description: `Assinatura ${planId}` }),
+        body: JSON.stringify({ vip_plan_id: planId, description: `Assinatura ${planId}`, coupon_code: couponInfo?.code || null, ...(() => { try { const a=JSON.parse(localStorage.getItem('cc_affiliate_attribution')||'{}'); return { affiliate_slug:a.slug||'', visitor_id:a.visitor_id||''}; } catch { return {}; } })() }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -430,7 +441,7 @@ export default function VipRpgPage({
       const res = await fetch('/api/create-checkout-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ vip_plan_id: planId }),
+        body: JSON.stringify({ vip_plan_id: planId, coupon_code: couponInfo?.code || null, ...(() => { try { const a=JSON.parse(localStorage.getItem('cc_affiliate_attribution')||'{}'); return { affiliate_slug:a.slug||'', visitor_id:a.visitor_id||''}; } catch { return {}; } })() }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -588,6 +599,12 @@ export default function VipRpgPage({
 
                 <div className="rounded-2xl bg-white/4 ring-1 ring-white/10 p-5">
                   <p className="text-sm font-extrabold">Assinar agora</p>
+
+                  <div className="mt-3 rounded-xl bg-black/20 p-3 ring-1 ring-white/10">
+                    <div className="text-xs text-slate-400">Cupom de desconto</div>
+                    <div className="mt-2 flex gap-2"><input value={couponCode} onChange={e=>setCouponCode(e.target.value.toUpperCase())} placeholder="CUPOM" className="min-w-0 flex-1 rounded-xl bg-black/30 px-3 py-2 text-white ring-1 ring-white/10"/><button disabled={couponBusy} onClick={applyVipCoupon} className="rounded-xl px-3 py-2 font-bold bg-white/10 ring-1 ring-white/10">{couponBusy?'…':'Aplicar'}</button></div>
+                    {couponInfo?<div className="mt-2 text-xs text-emerald-200">Desconto {fmtBRL(couponInfo.discount)} • total {fmtBRL(couponInfo.final_total)}</div>:null}
+                  </div>
 
                   {error ? (
                     <div className="mt-3 rounded-2xl bg-rose-500/10 ring-1 ring-rose-500/20 p-3 text-sm text-rose-100">{error}</div>

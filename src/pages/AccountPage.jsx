@@ -154,6 +154,8 @@ export default function AccountPage({ onClose, onGoHome }) {
   const [dashboardLoading, setDashboardLoading] = React.useState(false);
   const [dashboardError, setDashboardError] = React.useState("");
   const [dashboard, setDashboard] = React.useState({ orders: [], events: [], vip: null });
+  const [affiliateDashboard, setAffiliateDashboard] = React.useState(null);
+  const [affiliateLoading, setAffiliateLoading] = React.useState(false);
 
   const fetchDashboard = React.useCallback(async () => {
     if (!user?.id) return;
@@ -213,6 +215,15 @@ export default function AccountPage({ onClose, onGoHome }) {
         events: timeline,
         vip: profileResp?.data || null,
       });
+      try {
+        setAffiliateLoading(true);
+        const jwt = (await supabase.auth.getSession())?.data?.session?.access_token;
+        if (jwt) {
+          const ar = await fetch('/api/affiliate?action=me', { headers: { Authorization: `Bearer ${jwt}` } });
+          const aj = await ar.json().catch(() => ({}));
+          setAffiliateDashboard(ar.ok && aj?.affiliate ? aj : null);
+        } else setAffiliateDashboard(null);
+      } catch { setAffiliateDashboard(null); } finally { setAffiliateLoading(false); }
     } catch (e) {
       setDashboardError(e?.message || 'Não foi possível carregar os dados da sua conta.');
     } finally {
@@ -307,6 +318,15 @@ export default function AccountPage({ onClose, onGoHome }) {
 
   return (
     <main className="flex-1">
+      {affiliateLoading ? null : affiliateDashboard?.affiliate ? (
+        <section className="container-cc px-4 sm:px-6 lg:px-8 pt-6">
+          <div className="rounded-2xl bg-white/[0.03] p-4 ring-1 ring-cyan-400/20">
+            <div className="flex flex-wrap items-center justify-between gap-3"><div><div className="text-lg font-black text-white">Área do vendedor</div><div className="text-sm text-slate-400">Seu link: <span className="text-cyan-300">{window.location.origin}/v/{affiliateDashboard.affiliate.slug}</span></div></div><button onClick={()=>navigator.clipboard?.writeText(`${window.location.origin}/v/${affiliateDashboard.affiliate.slug}`)} className="rounded-xl bg-cyan-300 px-3 py-2 text-sm font-bold text-black">Copiar link</button></div>
+            <div className="mt-4 grid grid-cols-2 md:grid-cols-5 gap-2">{[["Acessos",affiliateDashboard.stats?.visits||0],["Visitantes",affiliateDashboard.stats?.unique_visitors||0],["Pedidos",affiliateDashboard.stats?.orders||0],["Vendas",fmtBRL(affiliateDashboard.stats?.revenue||0)],["Comissão",fmtBRL(affiliateDashboard.stats?.confirmed_commission||0)]].map(([k,v])=><div key={k} className="rounded-xl bg-black/20 p-3"><div className="text-[11px] uppercase text-slate-500">{k}</div><div className="mt-1 font-bold text-white">{v}</div></div>)}</div>
+            <div className="mt-3 text-sm text-slate-400">Pendente: <b className="text-white">{fmtBRL(affiliateDashboard.stats?.pending_commission||0)}</b> • Paga: <b className="text-white">{fmtBRL(affiliateDashboard.stats?.paid_commission||0)}</b></div>
+          </div>
+        </section>
+      ) : null}
       <section
         className="container-cc px-4 sm:px-6 lg:px-8 py-10 sm:py-14" >
         <div className="rounded-3xl ring-1 ring-white/10 bg-[#07161d]/40 backdrop-blur p-6 sm:p-8">

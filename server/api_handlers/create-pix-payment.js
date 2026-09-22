@@ -18,6 +18,7 @@ import { calcCouponDiscount } from "../couponGame.js";
 import { getVipPlanById, listVipPlans, vipPlanDisplayName } from "../vipPlans.js";
 import { buildOrderItemsForInsert, buildVipOrderItems, buildVipUpgradeOrderItems, resolveStoreItems, serializeResolvedItems } from "../orderPricing.js";
 import { rateLimit } from '../rateLimit.js';
+import { resolveAffiliateForCheckout, maybeCreateAffiliateCommission, couponEligibleSubtotal } from '../affiliate.js';
 
 export const config = { runtime: "nodejs" };
 
@@ -281,6 +282,8 @@ export default async function handler(req, res) {
 
     const requestedAmount = Number(body.amount);
     const couponCode = String(body.coupon_code || "").trim().toUpperCase();
+    const affiliateSlug = String(body.affiliate_slug || "").trim();
+    const visitorId = String(body.visitor_id || "").trim();
     const origin = String(body.origin || "").trim() || getBaseUrl(req);
 
     // IMPORTANTÍSSIMO:
@@ -300,8 +303,9 @@ export default async function handler(req, res) {
     const vipPlanId = String(body.vip_plan_id || '').trim();
     const items = Array.isArray(body.items) ? body.items : [];
     const sb = supabaseAdmin();
+    const affiliateResolution = await resolveAffiliateForCheckout(sb, { affiliateSlug, visitorId, couponCode, orderType: vipPlanId ? 'vip' : 'shop', userId: user.id });
 
-    // Assinatura VIP: não aceita cupom e força o preço do plano (configurável)
+    // Assinatura VIP aceita cupom quando o cupom estiver configurado para VIP. e força o preço do plano (configurável)
     let vipPlan = null;
     let resolvedOrderItems = [];
     if (vipPlanId) {
@@ -323,12 +327,20 @@ export default async function handler(req, res) {
 
     let finalAmount = subtotal;
     let couponApplied = null;
-    if (couponCode && !vipPlanId) {
+    if (couponCode) {
       const { data: coupon } = await sb.from("coupons").select("*").eq("code", couponCode).maybeSingle();
       if (!coupon) return res.status(400).json({ error: "Cupom não encontrado." });
       const cpfGate = await ensureCouponCpfAllowed(sb, { coupon, currentUser: user });
       if (!cpfGate.ok) return res.status(cpfGate.status).json({ error: cpfGate.error });
-      const calc = calcCouponDiscount({ subtotal, coupon });
+      const appliesTo = String(coupon.applies_to || 'products').toLowerCase();
+      const isVipPurchase = Boolean(vipPlanId);
+      const allowed = isVipPurchase ? ['vip','both'].includes(appliesTo) : ['products','both'].includes(appliesTo);
+      const allowedPlans = Array.isArray(coupon.vip_plan_ids) ? coupon.vip_plan_ids.map(String) : [];
+      if (!allowed || (isVipPurchase && allowedPlans.length && !allowedPlans.includes(String(vipPlanId)))) return res.status(400).json({ error: 'Este cupom não é válido para esta compra.' });
+      const eligibleSubtotal = couponEligibleSubtotal({ coupon, total: subtotal, items, vipPlanId });
+      if (!(eligibleSubtotal > 0)) return res.status(400).json({ error: 'Este cupom não é válido para os itens do pedido.' });
+      const calc = calcCouponDiscount({ subtotal: eligibleSubtotal, coupon });
+      calc.final_total = Number((subtotal - calc.discount).toFixed(2));
       if (!calc.valid) return res.status(400).json({ error: "Cupom inválido, expirado ou já usado." });
       finalAmount = calc.final_total;
       couponApplied = { code: coupon.code, discount: calc.discount, label: coupon.label || coupon.code };
@@ -382,6 +394,8 @@ export default async function handler(req, res) {
       customer_phone: prof?.phone || null,
       coupon_code: couponApplied?.code || null,
       coupon_discount: couponApplied?.discount || 0,
+      affiliate_id: affiliateResolution?.affiliate?.id || null,
+      affiliate_source: affiliateResolution?.source || null,
     });
     if (orderInsert?.error && /coupon_code|coupon_discount|column/i.test(String(orderInsert.error.message || ""))) {
       orderInsert = await sb.from("orders").insert({
@@ -402,6 +416,17 @@ export default async function handler(req, res) {
     if (orderInsert?.error) {
       console.error("supabase order insert error", orderInsert.error);
       return res.status(500).json({ error: "Não foi possível criar o pedido." });
+    }
+
+    let affiliateCommission = null;
+    if (affiliateResolution?.affiliate?.id) {
+      let firstVip = true;
+      if (vipPlanId) {
+        const prior = await sb.from('orders').select('id').eq('user_id', user.id).eq('order_type', 'vip').eq('status', 'paid').limit(1);
+        firstVip = !(prior?.data || []).length;
+      }
+      affiliateCommission = await maybeCreateAffiliateCommission(sb, { order: { id: orderId, order_type: vipPlanId ? 'vip' : 'shop' }, subtotal, affiliateId: affiliateResolution.affiliate.id, orderType: vipPlanId ? 'vip' : 'shop', isFirstVipSubscription: firstVip });
+      if (affiliateCommission?.id) await sb.from('orders').update({ affiliate_commission: affiliateCommission.commission_value }).eq('id', orderId);
     }
 
     const cleaned = resolvedOrderItems.map((it) => ({
@@ -468,6 +493,8 @@ export default async function handler(req, res) {
           vip_cycle_key: activeVipCycleKey || null,
           coupon_code: couponApplied?.code || null,
           coupon_discount: couponApplied?.discount || 0,
+          affiliate_id: affiliateResolution?.affiliate?.id || null,
+          affiliate_source: affiliateResolution?.source || null,
           items_json: serializeResolvedItems(resolvedOrderItems),
         },
         notification_url: `${origin}/api/mp-webhook`,

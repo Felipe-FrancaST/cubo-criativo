@@ -191,6 +191,10 @@ async function handleValidate(req, res) {
   const body = await readJsonBody(req);
   const code = String(body.code || '').trim().toUpperCase();
   const subtotal = Number(body.subtotal || 0);
+  const orderType = String(body.order_type || 'shop').toLowerCase();
+  const vipPlanId = String(body.vip_plan_id || '').trim();
+  const productIds = Array.isArray(body.product_ids) ? body.product_ids.map((x) => String(x)) : [];
+  const items = Array.isArray(body.items) ? body.items : [];
   if (!code) return res.status(400).json({ error: 'Informe o cupom.' });
 
   const sb = supabaseAdmin();
@@ -198,9 +202,19 @@ async function handleValidate(req, res) {
   if (error) throw error;
   if (!coupon) return res.status(404).json({ error: 'Cupom não encontrado.' });
     const cpfGate = await ensureCouponCpfAllowed(sb, { coupon, currentUser: user });
+  const appliesTo = String(coupon.applies_to || 'products').toLowerCase();
+  const isVip = orderType === 'vip';
+  const allowed = isVip ? ['vip','both'].includes(appliesTo) : ['products','both'].includes(appliesTo);
+  const allowedPlans = Array.isArray(coupon.vip_plan_ids) ? coupon.vip_plan_ids.map(String) : [];
+  const allowedProducts = Array.isArray(coupon.product_ids) ? coupon.product_ids.map(String) : [];
+  if (!allowed || (isVip && allowedPlans.length && !allowedPlans.includes(vipPlanId))) return res.status(400).json({ error: 'Este cupom não é válido para esta compra.' });
+  if (!isVip && allowedProducts.length && !productIds.some((id) => allowedProducts.includes(id))) return res.status(400).json({ error: 'Este cupom não é válido para os produtos do carrinho.' });
   if (!cpfGate.ok) return res.status(cpfGate.status).json({ error: cpfGate.error });
 
-  const result = calcCouponDiscount({ subtotal, coupon });
+  const eligibleSubtotal = couponEligibleSubtotal({ coupon, total: subtotal, items: items.length ? items : productIds.map(id=>({id,qty:1,price:subtotal})) , vipPlanId });
+  if (!(eligibleSubtotal > 0)) return res.status(400).json({ error: 'Este cupom não é válido para os itens do pedido.' });
+  const result = calcCouponDiscount({ subtotal: eligibleSubtotal, coupon });
+  result.final_total = Number((subtotal - result.discount).toFixed(2));
   if (!result.valid) {
     if (result.reason === 'minimo') {
       return res.status(400).json({ error: `Pedido mínimo para este cupom: R$ ${Number(result.min_order_value).toFixed(2).replace('.', ',')}` });

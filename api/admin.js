@@ -3461,6 +3461,74 @@ async function handleSetAdminLevel(req, res) {
 
 
 
+async function handleAffiliates(req, res) {
+  const auth = await requireAdmin(req, ADMIN_LEVEL.MANAGER);
+  if (!auth.ok) return res.status(auth.status || 403).json({ error: auth.error || 'Sem permissão.' });
+  const sb = supabaseAdmin();
+  const [{ data: affiliates, error: affErr }, { data: profiles }, { data: products }, { data: vipPlans }] = await Promise.all([
+    sb.from('affiliates').select('*').order('created_at', { ascending: false }),
+    sb.from('profiles').select('id,full_name,phone').order('full_name', { ascending: true }).limit(5000),
+    sb.from('products').select('id,name').eq('active', true).order('name').limit(1000),
+    sb.from('vip_plans').select('id,name,short_name,price_brl').order('sort_order').limit(100),
+  ]);
+  if (affErr) return res.status(400).json({ error: affErr.message || 'Tabela de vendedores não encontrada. Rode supabase/sql/affiliates.sql.' });
+  const ids = (affiliates || []).map((a) => a.id);
+  const { data: commissions } = ids.length ? await sb.from('affiliate_commissions').select('id,order_id,affiliate_id,commission_base,commission_rate,commission_value,status,created_at,confirmed_at,paid_at').in('affiliate_id', ids).order('created_at', { ascending: false }) : { data: [] };
+  const { data: visits } = ids.length ? await sb.from('affiliate_visits').select('affiliate_id,visitor_id').in('affiliate_id', ids) : { data: [] };
+  const visitMap = new Map(); (visits || []).forEach(v=>{ const k=String(v.affiliate_id); const cur=visitMap.get(k)||{visits:0,unique:new Set()}; cur.visits++; if(v.visitor_id)cur.unique.add(v.visitor_id); visitMap.set(k,cur); });
+  const profileMap = new Map((profiles || []).map((p) => [String(p.id), p]));
+  const commsBy = new Map();
+  (commissions || []).forEach((c) => { const k = String(c.affiliate_id); if (!commsBy.has(k)) commsBy.set(k, []); commsBy.get(k).push(c); });
+  const items = (affiliates || []).map((a) => {
+    const cs = commsBy.get(String(a.id)) || [];
+    return { ...a, profile: profileMap.get(String(a.user_id)) || null, stats: { visits: visitMap.get(String(a.id))?.visits || 0, unique_visitors: visitMap.get(String(a.id))?.unique?.size || 0, orders: cs.length, revenue: cs.reduce((s,c)=>s+Number(c.commission_base||0),0), commission: cs.reduce((s,c)=>s+Number(c.commission_value||0),0), pending: cs.filter(c=>c.status==='pending'||c.status==='confirmed').reduce((s,c)=>s+Number(c.commission_value||0),0), paid: cs.filter(c=>c.status==='paid').reduce((s,c)=>s+Number(c.commission_value||0),0) }, commissions: cs.slice(0,100) };
+  });
+  return res.status(200).json({ affiliates: items, profiles: profiles || [], products: products || [], vip_plans: vipPlans || [] });
+}
+
+async function handleSaveAffiliate(req, res) {
+  const auth = await requireAdmin(req, ADMIN_LEVEL.MANAGER);
+  if (!auth.ok) return res.status(auth.status || 403).json({ error: auth.error || 'Sem permissão.' });
+  const body = await readJsonBody(req);
+  const sb = supabaseAdmin();
+  const userId = String(body.user_id || '').trim();
+  if (!userId) return res.status(400).json({ error: 'Selecione um cliente.' });
+  let slug = String(body.slug || '').trim().toLowerCase().replace(/[^a-z0-9-]+/g,'-').replace(/-+/g,'-').replace(/^-|-$/g,'').slice(0,80);
+  if (!slug) return res.status(400).json({ error: 'Informe um link válido.' });
+  const payload = { user_id:userId, slug, active:body.active !== false, commission_type:String(body.commission_type||'percent')==='fixed'?'fixed':'percent', commission_value:Math.max(0,Number(body.commission_value||0)), commission_base:'subtotal_before_coupon', attribution_days:Math.min(365,Math.max(1,Number(body.attribution_days||30))), recurring_vip:false, recurring_commission_value:0 };
+  if (body.id) {
+    const { data, error } = await sb.from('affiliates').update(payload).eq('id', String(body.id)).select('*').single();
+    if (error) return res.status(400).json({ error: error.message });
+    return res.status(200).json({ affiliate:data });
+  }
+  const { data, error } = await sb.from('affiliates').insert(payload).select('*').single();
+  if (error) return res.status(400).json({ error: error.message });
+  return res.status(200).json({ affiliate:data });
+}
+
+async function handleAffiliatePay(req, res) {
+  const auth = await requireAdmin(req, ADMIN_LEVEL.MANAGER);
+  if (!auth.ok) return res.status(auth.status || 403).json({ error: auth.error || 'Sem permissão.' });
+  const body = await readJsonBody(req); const sb = supabaseAdmin();
+  const id = String(body.id || '').trim(); if (!id) return res.status(400).json({ error:'Comissão inválida.' });
+  const { data, error } = await sb.from('affiliate_commissions').update({ status:'paid', paid_at:new Date().toISOString() }).eq('id', id).select('*').single();
+  if (error) return res.status(400).json({ error:error.message });
+  return res.status(200).json({ commission:data });
+}
+
+async function handleSaveAffiliateCoupon(req, res) {
+  const auth = await requireAdmin(req, ADMIN_LEVEL.MANAGER);
+  if (!auth.ok) return res.status(auth.status || 403).json({ error: auth.error || 'Sem permissão.' });
+  const body = await readJsonBody(req); const sb = supabaseAdmin();
+  const code = String(body.code || '').trim().toUpperCase().replace(/\s+/g,'-');
+  const affiliateId = String(body.affiliate_id || '').trim();
+  if (!code || !affiliateId) return res.status(400).json({ error:'Informe vendedor e código.' });
+  const payload = { code, affiliate_id:affiliateId, label:String(body.label||code).trim(), discount_type:String(body.discount_type||'percent'), discount_value:Math.max(0,Number(body.discount_value||0)), min_order_value:Math.max(0,Number(body.min_order_value||0)), expires_at:body.expires_at||null, active:body.active!==false, max_uses:Math.max(1,Number(body.max_uses||1)), used_count:0, source:'affiliate', applies_to:['products','vip','both'].includes(String(body.applies_to))?String(body.applies_to):'products', product_ids:Array.isArray(body.product_ids)?body.product_ids.map(String):[], vip_plan_ids:Array.isArray(body.vip_plan_ids)?body.vip_plan_ids.map(String):[] };
+  const { data, error } = await sb.from('coupons').upsert(payload,{onConflict:'code'}).select('*').single();
+  if(error) return res.status(400).json({error:error.message});
+  return res.status(200).json({coupon:data});
+}
+
 export default async function handler(req, res) {
   
   if (!rateLimit(req, res, { key: 'api:admin', limit: 60, windowMs: 60000 })) return;
@@ -3497,6 +3565,10 @@ export default async function handler(req, res) {
     if (action === "game-coupon") return await handleGetGameCoupon(req, res);
     if (action === "save-game-coupon") return await handleSaveGameCoupon(req, res);
     if (action === "game-coupon-metrics") return await handleGameCouponMetrics(req, res);
+    if (action === "affiliates") return await handleAffiliates(req, res);
+    if (action === "save-affiliate") return await handleSaveAffiliate(req, res);
+    if (action === "affiliate-pay") return await handleAffiliatePay(req, res);
+    if (action === "save-affiliate-coupon") return await handleSaveAffiliateCoupon(req, res);
 
     return res.status(404).json({ error: "Unknown admin action" });
   } catch (e) {

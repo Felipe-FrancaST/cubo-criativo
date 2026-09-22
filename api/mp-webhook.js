@@ -3,6 +3,7 @@ import { getVipPlanById } from "../server/vipPlans.js";
 import { applyStockDeductionWithClaim } from "../server/inventory.js";
 import { cleanupOrder3dModel, shouldCleanupOrder3dForStatus } from "../server/order3dCleanup.js";
 import { buildOrderDetailsUrl, buildVipAreaUrl } from "../server/orderLinks.js";
+import { finalizeAffiliateCommission } from '../server/affiliate.js';
 /**
  * Vercel Serverless Function
  * Route: /api/mp-webhook
@@ -105,7 +106,7 @@ async function loadOrderSnapshot(sb, orderId) {
   const { data: order } = await sb
     .from("orders")
     .select(
-      "id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,production_status,shipping_tracking,order_type,vip_plan_id"
+      "id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,production_status,shipping_tracking,order_type,vip_plan_id,affiliate_id"
     )
     .eq("id", orderId)
     .maybeSingle();
@@ -729,7 +730,7 @@ export default async function handler(req, res) {
         // Se ainda não está aprovado, só atualiza e encerra (sem e-mail)
         if (mapped !== "paid") {
           if (mapped === "failed" && sb && orderId) {
-            try { const snap = await loadOrderSnapshot(sb, orderId); await revokeVipFromOrder(sb, { order: snap?.order, payment, reason: 'payment_failed' }); } catch (e) { console.error('vip revoke on webhook non-paid error', e); }
+            try { const snap = await loadOrderSnapshot(sb, orderId); await revokeVipFromOrder(sb, { order: snap?.order, payment, reason: 'payment_failed' }); await finalizeAffiliateCommission(sb, orderId, false); } catch (e) { console.error('vip/affiliate revoke on webhook non-paid error', e); }
           }
           return res.status(200).json({ ok: true, status, mapped });
         }
@@ -747,6 +748,15 @@ export default async function handler(req, res) {
     const { order, profile, items } = orderId && sb
       ? await loadOrderSnapshot(sb, orderId)
       : { order: null, profile: null, items: [] };
+
+    if (sb && order?.id) {
+      try {
+        await finalizeAffiliateCommission(sb, order.id, true);
+        if (order.affiliate_id) {
+          await sb.from('affiliate_attributions').update({ converted: true, converted_at: new Date().toISOString() }).eq('affiliate_id', order.affiliate_id).eq('visitor_id', payment?.metadata?.visitor_id || '').eq('converted', false);
+        }
+      } catch (e) { console.error('affiliate finalize error', e); }
+    }
 
     // Se for assinatura VIP, marca VIP no perfil (best-effort)
     if (order && sb) {
