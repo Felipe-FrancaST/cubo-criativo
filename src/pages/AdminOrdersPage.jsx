@@ -2222,7 +2222,7 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, adminLevel
   }, []);
 
   React.useEffect(() => {
-    const businessSections = new Set(["finance", "clients", "products", "reviews", "coupons", "vip"]);
+    const businessSections = new Set(["finance", "clients", "products", "reviews", "coupons", "affiliates", "vip"]);
     if (businessSections.has(section) && !canManageBusiness) setSection("dashboard");
     if (section === "admins" && !canManageAdmins) setSection("dashboard");
   }, [section, canManageBusiness, canManageAdmins]);
@@ -3556,6 +3556,11 @@ export default function AdminOrdersPage({ user, accessToken, isAdmin, adminLevel
             {canManageBusiness ? <div className="mt-2">
               <SidebarItem active={section === "coupons"} icon="sell" onClick={() => setSection("coupons")}>
                 Cupons — Cubo Game
+              </SidebarItem>
+            </div> : null}
+            {canManageBusiness ? <div className="mt-2">
+              <SidebarItem active={section === "affiliates"} icon="handshake" onClick={() => setSection("affiliates")}>
+                Vendedores e comissões
               </SidebarItem>
             </div> : null}
             {canManageBusiness ? <div className="mt-2">
