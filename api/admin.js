@@ -3483,7 +3483,9 @@ async function handleAffiliates(req, res) {
     const cs = commsBy.get(String(a.id)) || [];
     return { ...a, profile: profileMap.get(String(a.user_id)) || null, stats: { visits: visitMap.get(String(a.id))?.visits || 0, unique_visitors: visitMap.get(String(a.id))?.unique?.size || 0, orders: cs.length, revenue: cs.reduce((s,c)=>s+Number(c.commission_base||0),0), commission: cs.reduce((s,c)=>s+Number(c.commission_value||0),0), pending: cs.filter(c=>c.status==='pending'||c.status==='confirmed').reduce((s,c)=>s+Number(c.commission_value||0),0), paid: cs.filter(c=>c.status==='paid').reduce((s,c)=>s+Number(c.commission_value||0),0) }, commissions: cs.slice(0,100) };
   });
-  return res.status(200).json({ affiliates: items, profiles: profiles || [], products: products || [], vip_plans: vipPlans || [] });
+  const { data: coupons } = await sb.from('coupons').select('code,affiliate_id,label,discount_type,discount_value,active,max_uses,used_count,applies_to,expires_at').eq('source','affiliate').order('code').limit(1000);
+  const couponRows = (coupons || []).map((c) => ({ ...c, affiliate_name: profileMap.get(String((affiliates || []).find((a) => String(a.id) === String(c.affiliate_id))?.user_id || ''))?.full_name || null }));
+  return res.status(200).json({ affiliates: items, profiles: profiles || [], products: products || [], vip_plans: vipPlans || [], coupons: couponRows });
 }
 
 async function handleSaveAffiliate(req, res) {
