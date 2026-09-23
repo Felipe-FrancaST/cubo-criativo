@@ -129,12 +129,15 @@ export default function SiteHeader({
               </div>
 
               {/* Conta */}
-              {/* Conta */}
-{!user ? (
-  <IconButton title="Entrar / Criar conta" onClick={onOpenAuth}>
-    <span className="material-icons text-[18px] sm:text-[20px]">person</span>
-  </IconButton>
-) : null}
+              {!user ? (
+                <IconButton title="Entrar / Criar conta" onClick={onOpenAuth}>
+                  <span className="material-icons text-[18px] sm:text-[20px]">person</span>
+                </IconButton>
+              ) : (
+                <IconButton title="Minha conta" onClick={() => onNavigate?.("/conta")}>
+                  <span className="material-icons text-[18px] sm:text-[20px]">account_circle</span>
+                </IconButton>
+              )}
 
               {/* Social (mobile) — ao lado do carrinho */}
               <div className="flex sm:hidden items-center gap-1">

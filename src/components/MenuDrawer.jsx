@@ -126,6 +126,19 @@ export default function MenuDrawer({
 
     {user ? (
       <DrawerButton
+        icon="person"
+        right="chevron_right"
+        onClick={() => {
+          onNavigate("/conta");
+          onClose?.();
+        }}
+      >
+        Minha conta
+      </DrawerButton>
+    ) : null}
+
+    {user ? (
+      <DrawerButton
         icon="receipt_long"
         onClick={() => {
           onOpenOrders?.();
