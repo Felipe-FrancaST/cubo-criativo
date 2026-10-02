@@ -7,7 +7,7 @@ import VipAreaModal from "../components/VipAreaModal.jsx";
  */
 export default function VipAreaPage({ onGoHome, onGoVip, onRequireLogin }) {
   return (
-    <div className="min-h-[calc(100vh-72px)]">
+    <div className="min-h-[calc(100dvh-72px)]">
       <VipAreaModal
         asPage
         open

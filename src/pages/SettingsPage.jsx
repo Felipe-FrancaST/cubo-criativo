@@ -1,8 +1,8 @@
-import React from "react";
-import ProfileSettingsModal from "../components/ProfileSettingsModal.jsx";
+import React from 'react'
+import ProfileSettingsModal from '../components/ProfileSettingsModal.jsx'
 
 export default function SettingsPage({
-  initialTab = "profile",
+  initialTab = 'profile',
   onGoBack,
   onRequireLogin,
   onNavigate,
@@ -10,7 +10,7 @@ export default function SettingsPage({
   onSaved,
 }) {
   return (
-    <div className="min-h-[calc(100vh-96px)] px-3 sm:px-6 py-6">
+    <div className="min-h-[calc(100dvh-96px)] px-3 sm:px-6 py-6">
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between gap-3 mb-4">
           <button
@@ -43,5 +43,5 @@ export default function SettingsPage({
         />
       </div>
     </div>
-  );
+  )
 }

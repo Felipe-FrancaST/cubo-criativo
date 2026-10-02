@@ -341,7 +341,7 @@ export default function HomePage({
         </div>
 
         {loadingProducts ? (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
+          <div className="product-grid grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
             {Array.from({ length: 4 }).map((_, idx) => (
               <div
                 key={idx}
@@ -358,7 +358,7 @@ export default function HomePage({
             Nenhum destaque no momento.
           </div>
         ) : (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
+          <div className="product-grid grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
             {featured.map((p) => (
               <ProductCard
                 key={p.id}
@@ -398,7 +398,7 @@ export default function HomePage({
               Sem itens de pronta entrega por enquanto.
             </div>
           ) : (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
+            <div className="product-grid grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
               {prontaEntregaPreview.map((p) => (
                 <ProductCard
                   key={p.id}
@@ -436,7 +436,7 @@ export default function HomePage({
             Ainda estamos preparando os destaques de RPG.
           </div>
         ) : (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
+          <div className="product-grid grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
             {rpgPreview.map((p) => (
               <ProductCard
                 key={p.id}

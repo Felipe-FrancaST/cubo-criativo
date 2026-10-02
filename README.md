@@ -6,6 +6,8 @@ Este repositório reúne a aplicação pública, rotas serverless, integrações
 
 A revisão de layout, pedidos e controle VIP está documentada em [MELHORIAS.md](MELHORIAS.md), com instruções de aplicação e validação.
 
+A atualização da área VIP do cliente, Cubo Game e responsividade está em [MELHORIAS_MOBILE.md](MELHORIAS_MOBILE.md), com os fluxos verificados e os cenários de conferência no celular.
+
 ## Visão geral
 
 O site foi estruturado para separar com clareza os dois principais tipos de oferta:

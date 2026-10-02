@@ -51,6 +51,26 @@ export default function SiteHeader({
   const brand = brandConfig
   const [logoAnimate, setLogoAnimate] = React.useState(false)
   const logoTimer = React.useRef(null)
+  const headerRef = React.useRef(null)
+  React.useEffect(() => {
+    const update = () => {
+      const height = headerRef.current?.getBoundingClientRect().height
+      if (height > 0)
+        document.documentElement.style.setProperty(
+          '--site-header-height',
+          `${Math.ceil(height)}px`
+        )
+    }
+    update()
+    const observer =
+      typeof ResizeObserver !== 'undefined' ? new ResizeObserver(update) : null
+    if (headerRef.current) observer?.observe(headerRef.current)
+    window.addEventListener('resize', update)
+    return () => {
+      observer?.disconnect()
+      window.removeEventListener('resize', update)
+    }
+  }, [])
   React.useEffect(() => () => window.clearTimeout(logoTimer.current), [])
 
   function handleLogoClick() {
@@ -63,7 +83,7 @@ export default function SiteHeader({
   // nav foi movida para o menu lateral (MenuDrawer) para ganhar espaço no desktop
 
   return (
-    <header className="site-header sticky top-0 z-[90]">
+    <header ref={headerRef} className="site-header sticky top-0 z-[90]">
       <div className="backdrop-blur supports-[backdrop-filter]:bg-[#0a1824]/85 bg-[#0a1824] border-b border-cyan-300/10">
         <div className="mx-auto w-full">
           <div className="container-cc px-4 sm:px-6 lg:px-8 py-2.5 sm:py-3 flex items-center gap-3 sm:gap-4">

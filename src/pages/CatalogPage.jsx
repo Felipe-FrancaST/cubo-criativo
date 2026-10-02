@@ -1,128 +1,169 @@
-import React from "react";
-import ProductCard from "../components/ProductCard.jsx";
+import React from 'react'
+import useDialog from '../lib/useDialog.js'
+import ProductCard from '../components/ProductCard.jsx'
 
-function readParam(name, fallback = "") {
-  if (typeof window === "undefined") return fallback;
+function readParam(name, fallback = '') {
+  if (typeof window === 'undefined') return fallback
   try {
-    return String(new URLSearchParams(window.location.search || "").get(name) || fallback);
+    return String(
+      new URLSearchParams(window.location.search || '').get(name) || fallback
+    )
   } catch {
-    return fallback;
+    return fallback
   }
 }
 
-function FilterChip({ active, children, onClick, tone = "default" }) {
-  const activeClass = tone === "accent"
-    ? "bg-amber-400 text-black ring-amber-300/40"
-    : "bg-white/6 text-white ring-white/15";
+function FilterChip({ active, children, onClick, tone = 'default' }) {
+  const activeClass =
+    tone === 'accent'
+      ? 'bg-amber-400 text-black ring-amber-300/40'
+      : 'bg-white/6 text-white ring-white/15'
   return (
-    <button type="button" onClick={onClick} className={`rounded-full px-3 py-2 text-sm font-medium ring-1 transition ${active ? activeClass : "bg-[#07161d]/60 text-slate-200 ring-white/10 hover:bg-white/4"}`}>
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-full px-3 py-2 text-sm font-medium ring-1 transition ${active ? activeClass : 'bg-[#07161d]/60 text-slate-200 ring-white/10 hover:bg-white/4'}`}
+    >
       {children}
     </button>
-  );
+  )
 }
 
 function normalizeText(value) {
-  return String(value || "")
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
     .trim()
-    .toLowerCase();
+    .toLowerCase()
 }
 
 function resolveCatalogType(product) {
-  const category = normalizeText(product?.category);
-  const typeLabel = normalizeText(product?._typeLabel);
-  if (category === "rpg" || typeLabel.includes("rpg")) return "rpg";
-  if (category === "action figures" || category === "action figure" || category === "action" || typeLabel.includes("action")) return "action";
-  return "outros";
+  const category = normalizeText(product?.category)
+  const typeLabel = normalizeText(product?._typeLabel)
+  if (category === 'rpg' || typeLabel.includes('rpg')) return 'rpg'
+  if (
+    category === 'action figures' ||
+    category === 'action figure' ||
+    category === 'action' ||
+    typeLabel.includes('action')
+  )
+    return 'action'
+  return 'outros'
 }
 
 function isInternalTag(tag) {
-  const s = normalizeText(tag);
-  if (!s) return true;
-  if (s === "rpg") return true;
-  if (s === "action" || s === "action figure" || s === "action figures" || s === "figure action") return true;
-  if (s.startsWith("tipo:")) return true;
-  if (s.startsWith("classe:")) return true;
-  if (s.startsWith("raca:") || s.startsWith("raca:")) return true;
-  if (s.startsWith("raça:")) return true;
-  if (s.startsWith("prazo:")) return true;
-  return false;
+  const s = normalizeText(tag)
+  if (!s) return true
+  if (s === 'rpg') return true
+  if (
+    s === 'action' ||
+    s === 'action figure' ||
+    s === 'action figures' ||
+    s === 'figure action'
+  )
+    return true
+  if (s.startsWith('tipo:')) return true
+  if (s.startsWith('classe:')) return true
+  if (s.startsWith('raca:') || s.startsWith('raca:')) return true
+  if (s.startsWith('raça:')) return true
+  if (s.startsWith('prazo:')) return true
+  return false
 }
 
-export default function CatalogPage({ items, loading = false, error = "", addToCart, buyNow, openGallery, onRequireLogin }) {
-  const [type, setType] = React.useState(() => readParam("tipo", "todos"));
-  const [selectedTag, setSelectedTag] = React.useState(() => readParam("tag", "Todos"));
-  const [query, setQuery] = React.useState(() => readParam("q", ""));
-  const [filtersOpen, setFiltersOpen] = React.useState(false);
-  const [helpOpen, setHelpOpen] = React.useState(false);
+export default function CatalogPage({
+  items,
+  loading = false,
+  error = '',
+  addToCart,
+  buyNow,
+  openGallery,
+  onRequireLogin,
+}) {
+  const [type, setType] = React.useState(() => readParam('tipo', 'todos'))
+  const [selectedTag, setSelectedTag] = React.useState(() =>
+    readParam('tag', 'Todos')
+  )
+  const [query, setQuery] = React.useState(() => readParam('q', ''))
+  const [filtersOpen, setFiltersOpen] = React.useState(false)
+  const filterPanelRef = useDialog(filtersOpen, () => setFiltersOpen(false))
+  const [helpOpen, setHelpOpen] = React.useState(false)
 
   React.useEffect(() => {
     const onPop = () => {
-      setType(readParam("tipo", "todos"));
-      setQuery(readParam("q", ""));
-      setSelectedTag(readParam("tag", "Todos"));
-    };
-    window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
-  }, []);
-
+      setType(readParam('tipo', 'todos'))
+      setQuery(readParam('q', ''))
+      setSelectedTag(readParam('tag', 'Todos'))
+    }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
 
   React.useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === 'undefined') return
     try {
-      const params = new URLSearchParams(window.location.search || "");
-      if (type && type !== "todos") params.set("tipo", type); else params.delete("tipo");
-      if (query.trim()) params.set("q", query.trim()); else params.delete("q");
-      if (selectedTag && selectedTag !== "Todos") params.set("tag", selectedTag); else params.delete("tag");
-      const next = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ""}`;
-      window.history.replaceState({}, "", next);
+      const params = new URLSearchParams(window.location.search || '')
+      if (type && type !== 'todos') params.set('tipo', type)
+      else params.delete('tipo')
+      if (query.trim()) params.set('q', query.trim())
+      else params.delete('q')
+      if (selectedTag && selectedTag !== 'Todos') params.set('tag', selectedTag)
+      else params.delete('tag')
+      const next = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}`
+      window.history.replaceState({}, '', next)
     } catch {}
-  }, [type, query, selectedTag]);
+  }, [type, query, selectedTag])
 
   const tagOptions = React.useMemo(() => {
-    const set = new Set();
-    (items || []).forEach((p) => {
-      const itemType = resolveCatalogType(p);
-      const matchesSelectedType = type === "todos" || itemType === type;
-      if (!matchesSelectedType) return;
-      (p.tags || []).forEach((t) => {
-        if (!isInternalTag(t)) set.add(String(t));
-      });
-    });
-    return ["Todos", ...Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR"))];
-  }, [items, type]);
+    const set = new Set()
+    ;(items || []).forEach((p) => {
+      const itemType = resolveCatalogType(p)
+      const matchesSelectedType = type === 'todos' || itemType === type
+      if (!matchesSelectedType) return
+      ;(p.tags || []).forEach((t) => {
+        if (!isInternalTag(t)) set.add(String(t))
+      })
+    })
+    return [
+      'Todos',
+      ...Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR')),
+    ]
+  }, [items, type])
 
   React.useEffect(() => {
-    if (selectedTag === "Todos") return;
-    if (!tagOptions.includes(selectedTag)) setSelectedTag("Todos");
-  }, [selectedTag, tagOptions]);
+    if (selectedTag === 'Todos') return
+    if (!tagOptions.includes(selectedTag)) setSelectedTag('Todos')
+  }, [selectedTag, tagOptions])
 
   const filtered = React.useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = query.trim().toLowerCase()
     return (items || []).filter((p) => {
-      const itemType = resolveCatalogType(p);
-      const matchType = type === "todos" || itemType === type;
-      const matchTag = selectedTag === "Todos" || (p.tags || []).includes(selectedTag);
-      const name = String(p?.nome || "").toLowerCase();
-      const desc = String(p?.descricao || "").toLowerCase();
-      const tags = Array.isArray(p?.tags) ? p.tags.map((t) => String(t).toLowerCase()).join(" ") : "";
-      const matchQuery = !q || name.includes(q) || desc.includes(q) || tags.includes(q);
-      return matchType && matchTag && matchQuery;
-    });
-  }, [items, type, selectedTag, query]);
+      const itemType = resolveCatalogType(p)
+      const matchType = type === 'todos' || itemType === type
+      const matchTag =
+        selectedTag === 'Todos' || (p.tags || []).includes(selectedTag)
+      const name = String(p?.nome || '').toLowerCase()
+      const desc = String(p?.descricao || '').toLowerCase()
+      const tags = Array.isArray(p?.tags)
+        ? p.tags.map((t) => String(t).toLowerCase()).join(' ')
+        : ''
+      const matchQuery =
+        !q || name.includes(q) || desc.includes(q) || tags.includes(q)
+      return matchType && matchTag && matchQuery
+    })
+  }, [items, type, selectedTag, query])
 
-  const activeFilterCount = (type !== "todos" ? 1 : 0) + (selectedTag !== "Todos" ? 1 : 0);
+  const activeFilterCount =
+    (type !== 'todos' ? 1 : 0) + (selectedTag !== 'Todos' ? 1 : 0)
   function clearFilters() {
-    setType("todos");
-    setSelectedTag("Todos");
+    setType('todos')
+    setSelectedTag('Todos')
   }
 
   const helpContent = [
-    "Você escolhe a peça pelo catálogo e pode finalizar no site ou tirar dúvidas no WhatsApp.",
-    "As peças do catálogo entram em produção no estúdio após a confirmação do pedido.",
-    "O prazo médio é de 15–30 dias úteis, variando conforme acabamento, pintura e fila de produção.",
-  ];
+    'Você escolhe a peça pelo catálogo e pode finalizar no site ou tirar dúvidas no WhatsApp.',
+    'As peças do catálogo entram em produção no estúdio após a confirmação do pedido.',
+    'O prazo médio é de 15–30 dias úteis, variando conforme acabamento, pintura e fila de produção.',
+  ]
 
   return (
     <main className="flex-1">
@@ -131,7 +172,9 @@ export default function CatalogPage({ items, loading = false, error = "", addToC
           <div>
             <h1 className="text-2xl sm:text-3xl font-extrabold">Catálogo</h1>
           </div>
-          <span className="text-xs sm:text-sm text-slate-400">{loading ? "carregando…" : `${filtered.length} item(ns)`}</span>
+          <span className="text-xs sm:text-sm text-slate-400">
+            {loading ? 'carregando…' : `${filtered.length} item(ns)`}
+          </span>
         </div>
 
         {error ? (
@@ -143,20 +186,32 @@ export default function CatalogPage({ items, loading = false, error = "", addToC
             <div className="mt-6 rounded-[24px] border border-white/10 bg-white/[0.045] px-4 py-3 shadow-lg shadow-black/10 backdrop-blur-xl">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-sm font-semibold text-slate-100">Como funciona, prazos e dúvidas?</p>
-                  <p className="text-xs text-slate-400">Toque na lâmpada para ver as orientações do catálogo.</p>
+                  <p className="text-sm font-semibold text-slate-100">
+                    Como funciona, prazos e dúvidas?
+                  </p>
+                  <p className="text-xs text-slate-400">
+                    Toque na lâmpada para ver as orientações do catálogo.
+                  </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setHelpOpen((v) => !v)}
-                  className={`inline-flex h-11 w-11 items-center justify-center rounded-2xl ring-1 transition ${helpOpen ? "bg-cyan-400/15 text-cyan-200 ring-cyan-300/35" : "bg-white/4 text-slate-100 ring-white/10 hover:bg-white/6"}`}
+                  className={`inline-flex h-11 w-11 items-center justify-center rounded-2xl ring-1 transition ${helpOpen ? 'bg-cyan-400/15 text-cyan-200 ring-cyan-300/35' : 'bg-white/4 text-slate-100 ring-white/10 hover:bg-white/6'}`}
                   aria-expanded={helpOpen}
                   aria-label="Mostrar ajuda do catálogo"
                 >
-                  <svg viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-current" strokeWidth="1.8">
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="h-5 w-5 fill-none stroke-current"
+                    strokeWidth="1.8"
+                  >
                     <path d="M9 18h6" strokeLinecap="round" />
                     <path d="M10 22h4" strokeLinecap="round" />
-                    <path d="M12 2a7 7 0 0 0-4 12.75c.63.44 1 1.15 1 1.92V17h6v-.33c0-.77.37-1.48 1-1.92A7 7 0 0 0 12 2Z" strokeLinecap="round" strokeLinejoin="round" />
+                    <path
+                      d="M12 2a7 7 0 0 0-4 12.75c.63.44 1 1.15 1 1.92V17h6v-.33c0-.77.37-1.48 1-1.92A7 7 0 0 0 12 2Z"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
                   </svg>
                 </button>
               </div>
@@ -179,48 +234,109 @@ export default function CatalogPage({ items, loading = false, error = "", addToC
               <div className="flex items-center gap-2 sm:gap-3">
                 <label className="relative flex-1">
                   <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">
-                    <svg viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-current" strokeWidth="1.8">
+                    <svg
+                      viewBox="0 0 24 24"
+                      className="h-5 w-5 fill-none stroke-current"
+                      strokeWidth="1.8"
+                    >
                       <circle cx="11" cy="11" r="7" />
                       <path d="m20 20-3.5-3.5" strokeLinecap="round" />
                     </svg>
                   </span>
-                  <input type="search" placeholder="Buscar por nome, tag ou descrição…" className="w-full rounded-2xl bg-[#041018]/72 pl-11 pr-11 py-3 text-sm text-slate-100 placeholder:text-slate-500 ring-1 ring-white/10 outline-none focus:ring-cyan-400/60" value={query} onChange={(e) => setQuery(e.target.value)} />
+                  <input
+                    type="search"
+                    placeholder="Buscar por nome, tag ou descrição…"
+                    className="w-full rounded-2xl bg-[#041018]/72 pl-11 pr-11 py-3 text-sm text-slate-100 placeholder:text-slate-500 ring-1 ring-white/10 outline-none focus:ring-cyan-400/60"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                  />
                   {query ? (
-                    <button type="button" onClick={() => setQuery("")} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl p-2 text-slate-300 hover:bg-white/4" aria-label="Limpar busca">
-                      <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current" strokeWidth="2">
+                    <button
+                      type="button"
+                      onClick={() => setQuery('')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl p-2 text-slate-300 hover:bg-white/4"
+                      aria-label="Limpar busca"
+                    >
+                      <svg
+                        viewBox="0 0 24 24"
+                        className="h-4 w-4 fill-none stroke-current"
+                        strokeWidth="2"
+                      >
                         <path d="M6 6l12 12M18 6 6 18" strokeLinecap="round" />
                       </svg>
                     </button>
                   ) : null}
                 </label>
 
-                <button type="button" onClick={() => setFiltersOpen(true)} className="inline-flex lg:hidden items-center justify-center gap-2 rounded-2xl bg-white/4 px-4 py-3 text-sm font-semibold text-slate-100 ring-1 ring-white/10 hover:bg-white/8">
-                  <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current" strokeWidth="1.8">
+                <button
+                  type="button"
+                  onClick={() => setFiltersOpen(true)}
+                  className="inline-flex lg:hidden items-center justify-center gap-2 rounded-2xl bg-white/4 px-4 py-3 text-sm font-semibold text-slate-100 ring-1 ring-white/10 hover:bg-white/8"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="h-4 w-4 fill-none stroke-current"
+                    strokeWidth="1.8"
+                  >
                     <path d="M4 7h16M7 12h10M10 17h4" strokeLinecap="round" />
                   </svg>
-                  <span>Filtros{activeFilterCount ? ` (${activeFilterCount})` : ""}</span>
+                  <span>
+                    Filtros{activeFilterCount ? ` (${activeFilterCount})` : ''}
+                  </span>
                 </button>
               </div>
 
               <div className="mt-4 hidden lg:block space-y-4">
                 <div>
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Tipo</p>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                    Tipo
+                  </p>
                   <div className="flex flex-wrap gap-2">
-                    <FilterChip active={type === "todos"} onClick={() => setType("todos")}>Todos os tipos</FilterChip>
-                    <FilterChip active={type === "action"} onClick={() => setType("action")}>Action Figures</FilterChip>
-                    <FilterChip active={type === "rpg"} onClick={() => setType("rpg")}>Miniaturas RPG</FilterChip>
+                    <FilterChip
+                      active={type === 'todos'}
+                      onClick={() => setType('todos')}
+                    >
+                      Todos os tipos
+                    </FilterChip>
+                    <FilterChip
+                      active={type === 'action'}
+                      onClick={() => setType('action')}
+                    >
+                      Action Figures
+                    </FilterChip>
+                    <FilterChip
+                      active={type === 'rpg'}
+                      onClick={() => setType('rpg')}
+                    >
+                      Miniaturas RPG
+                    </FilterChip>
                   </div>
                 </div>
 
                 {tagOptions.length > 1 ? (
                   <div>
                     <div className="mb-2 flex items-center justify-between gap-3">
-                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Tags</p>
-                      {activeFilterCount ? <button type="button" onClick={clearFilters} className="text-xs font-semibold text-slate-300 hover:text-white">Limpar filtros</button> : null}
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                        Tags
+                      </p>
+                      {activeFilterCount ? (
+                        <button
+                          type="button"
+                          onClick={clearFilters}
+                          className="text-xs font-semibold text-slate-300 hover:text-white"
+                        >
+                          Limpar filtros
+                        </button>
+                      ) : null}
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {tagOptions.map((tag) => (
-                        <FilterChip key={tag} tone="accent" active={selectedTag === tag} onClick={() => setSelectedTag(tag)}>
+                        <FilterChip
+                          key={tag}
+                          tone="accent"
+                          active={selectedTag === tag}
+                          onClick={() => setSelectedTag(tag)}
+                        >
                           {tag}
                         </FilterChip>
                       ))}
@@ -230,19 +346,43 @@ export default function CatalogPage({ items, loading = false, error = "", addToC
               </div>
             </div>
 
-
             {filtersOpen ? (
               <div className="lg:hidden fixed inset-0 z-[120]">
-                <button type="button" className="absolute inset-0 bg-black/70 backdrop-blur-[2px]" onClick={() => setFiltersOpen(false)} aria-label="Fechar filtros" />
-                <div className="absolute inset-x-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-[30px] border border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,.98),rgba(2,6,23,.98))] p-4 pb-[calc(env(safe-area-inset-bottom,0px)+16px)] shadow-2xl shadow-black/40">
+                <button
+                  type="button"
+                  className="absolute inset-0 bg-black/70 backdrop-blur-[2px]"
+                  onClick={() => setFiltersOpen(false)}
+                  aria-label="Fechar filtros"
+                />
+                <div
+                  ref={filterPanelRef}
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label="Filtros do catálogo"
+                  tabIndex={-1}
+                  className="catalog-filter-panel absolute inset-x-0 bottom-0 max-h-[85dvh] overflow-y-auto rounded-t-[30px] border border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,.98),rgba(2,6,23,.98))] p-4 pb-[calc(env(safe-area-inset-bottom,0px)+16px)] shadow-2xl shadow-black/40"
+                >
                   <div className="mx-auto mb-4 h-1.5 w-14 rounded-full bg-white/8" />
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <p className="text-base font-bold text-slate-100">Filtros do catálogo</p>
-                      <p className="text-xs text-slate-400">Refine a vitrine sem ocupar espaço da tela.</p>
+                      <p className="text-base font-bold text-slate-100">
+                        Filtros do catálogo
+                      </p>
+                      <p className="text-xs text-slate-400">
+                        Refine a vitrine sem ocupar espaço da tela.
+                      </p>
                     </div>
-                    <button type="button" onClick={() => setFiltersOpen(false)} className="rounded-xl p-2 ring-1 ring-white/10 hover:bg-white/4" aria-label="Fechar">
-                      <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current" strokeWidth="2">
+                    <button
+                      type="button"
+                      onClick={() => setFiltersOpen(false)}
+                      className="rounded-xl p-2 ring-1 ring-white/10 hover:bg-white/4"
+                      aria-label="Fechar"
+                    >
+                      <svg
+                        viewBox="0 0 24 24"
+                        className="h-4 w-4 fill-none stroke-current"
+                        strokeWidth="2"
+                      >
                         <path d="M6 6l12 12M18 6 6 18" strokeLinecap="round" />
                       </svg>
                     </button>
@@ -250,20 +390,44 @@ export default function CatalogPage({ items, loading = false, error = "", addToC
 
                   <div className="mt-5 space-y-5 pb-2">
                     <div>
-                      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Tipo</p>
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                        Tipo
+                      </p>
                       <div className="flex flex-wrap gap-2">
-                        <FilterChip active={type === "todos"} onClick={() => setType("todos")}>Todos os tipos</FilterChip>
-                        <FilterChip active={type === "action"} onClick={() => setType("action")}>Action Figures</FilterChip>
-                        <FilterChip active={type === "rpg"} onClick={() => setType("rpg")}>Miniaturas RPG</FilterChip>
+                        <FilterChip
+                          active={type === 'todos'}
+                          onClick={() => setType('todos')}
+                        >
+                          Todos os tipos
+                        </FilterChip>
+                        <FilterChip
+                          active={type === 'action'}
+                          onClick={() => setType('action')}
+                        >
+                          Action Figures
+                        </FilterChip>
+                        <FilterChip
+                          active={type === 'rpg'}
+                          onClick={() => setType('rpg')}
+                        >
+                          Miniaturas RPG
+                        </FilterChip>
                       </div>
                     </div>
 
                     {tagOptions.length > 1 ? (
                       <div>
-                        <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Tag</p>
+                        <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                          Tag
+                        </p>
                         <div className="flex flex-wrap gap-2 max-h-52 overflow-y-auto pr-1">
                           {tagOptions.map((tag) => (
-                            <FilterChip key={tag} tone="accent" active={selectedTag === tag} onClick={() => setSelectedTag(tag)}>
+                            <FilterChip
+                              key={tag}
+                              tone="accent"
+                              active={selectedTag === tag}
+                              onClick={() => setSelectedTag(tag)}
+                            >
                               {tag}
                             </FilterChip>
                           ))}
@@ -273,37 +437,65 @@ export default function CatalogPage({ items, loading = false, error = "", addToC
                   </div>
 
                   <div className="mt-6 grid grid-cols-2 gap-3">
-                    <button type="button" onClick={clearFilters} className="rounded-2xl px-4 py-3 font-semibold ring-1 ring-white/10 hover:bg-white/4">Limpar</button>
-                    <button type="button" onClick={() => setFiltersOpen(false)} className="rounded-2xl bg-cyan-500 px-4 py-3 font-semibold text-black ring-1 ring-cyan-300/40 hover:bg-cyan-400">Ver resultados</button>
+                    <button
+                      type="button"
+                      onClick={clearFilters}
+                      className="rounded-2xl px-4 py-3 font-semibold ring-1 ring-white/10 hover:bg-white/4"
+                    >
+                      Limpar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFiltersOpen(false)}
+                      className="rounded-2xl bg-cyan-500 px-4 py-3 font-semibold text-black ring-1 ring-cyan-300/40 hover:bg-cyan-400"
+                    >
+                      Ver resultados
+                    </button>
                   </div>
                 </div>
               </div>
             ) : null}
 
-            <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
-              {loading && Array.from({ length: 12 }).map((_, idx) => (
-                <div key={idx} className="w-full max-w-[320px] rounded-2xl overflow-hidden ring-1 ring-white/10 bg-[#07161d]/60">
-                  <div className="aspect-[4/5] bg-[#0c2430]/68 animate-pulse" />
-                  <div className="p-4">
-                    <div className="h-4 bg-[#0c2430]/68 rounded animate-pulse" />
-                    <div className="mt-3 h-9 bg-[#0c2430]/68 rounded animate-pulse" />
-                    <div className="mt-4 grid grid-cols-2 gap-2">
-                      <div className="h-10 bg-[#0c2430]/68 rounded animate-pulse" />
-                      <div className="h-10 bg-[#0c2430]/68 rounded animate-pulse" />
+            <div className="product-grid mt-8 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+              {loading &&
+                Array.from({ length: 12 }).map((_, idx) => (
+                  <div
+                    key={idx}
+                    className="w-full max-w-[320px] rounded-2xl overflow-hidden ring-1 ring-white/10 bg-[#07161d]/60"
+                  >
+                    <div className="aspect-[4/5] bg-[#0c2430]/68 animate-pulse" />
+                    <div className="p-4">
+                      <div className="h-4 bg-[#0c2430]/68 rounded animate-pulse" />
+                      <div className="mt-3 h-9 bg-[#0c2430]/68 rounded animate-pulse" />
+                      <div className="mt-4 grid grid-cols-2 gap-2">
+                        <div className="h-10 bg-[#0c2430]/68 rounded animate-pulse" />
+                        <div className="h-10 bg-[#0c2430]/68 rounded animate-pulse" />
+                      </div>
                     </div>
                   </div>
+                ))}
+
+              {!loading &&
+                filtered.map((p) => (
+                  <ProductCard
+                    key={p.id}
+                    p={p}
+                    addToCart={addToCart}
+                    buyNow={buyNow}
+                    openGallery={openGallery}
+                    onRequireLogin={onRequireLogin}
+                  />
+                ))}
+
+              {!loading && filtered.length === 0 && (
+                <div className="col-span-full text-center text-slate-400 text-sm">
+                  Nenhum item encontrado.
                 </div>
-              ))}
-
-              {!loading && filtered.map((p) => (
-                <ProductCard key={p.id} p={p} addToCart={addToCart} buyNow={buyNow} openGallery={openGallery} onRequireLogin={onRequireLogin} />
-              ))}
-
-              {!loading && filtered.length === 0 && <div className="col-span-full text-center text-slate-400 text-sm">Nenhum item encontrado.</div>}
+              )}
             </div>
           </>
         )}
       </section>
     </main>
-  );
+  )
 }

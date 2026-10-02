@@ -1,5 +1,6 @@
 // src/App.jsx
 import React from 'react'
+import useMobileViewport from './lib/useMobileViewport.js'
 const { startTransition, Suspense } = React
 import brand from './data/config'
 
@@ -472,6 +473,7 @@ function getRouteFromLocation() {
    APP
    ======================================================================== */
 export default function App() {
+  useMobileViewport()
   const {
     user,
     session,
@@ -499,7 +501,6 @@ export default function App() {
     }
 
     setIsAdminLoading(true)
-
     ;(async () => {
       try {
         const result = await fetchAdminStatus(accessToken)

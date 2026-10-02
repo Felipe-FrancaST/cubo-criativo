@@ -4,6 +4,8 @@ import App from './App.jsx'
 import { AuthProvider } from './auth/AuthProvider.jsx'
 import { FavoritesProvider } from './state/FavoritesProvider.jsx'
 import './index.css' // pode ficar vazio, mas vamos usar pra qualquer ajuste seu
+import './styles/mobile.css'
+import './styles/customer.css'
 import { Analytics } from '@vercel/analytics/react'
 import { isSupabaseConfigured } from './lib/supabaseClient.js'
 

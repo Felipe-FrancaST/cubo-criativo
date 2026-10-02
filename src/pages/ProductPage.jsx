@@ -60,9 +60,9 @@ export default function ProductPage({ slug, product, loading, onBack, addToCart,
 
   if (loading) {
     return (
-      <main className="flex-1">
+      <main className="product-page flex-1">
         <section className="max-w-6xl mx-auto px-4 py-10">
-          <div className="rounded-2xl bg-[#07161d]/60 ring-1 ring-white/10 p-6">
+          <div className="product-detail-panel rounded-2xl bg-[#07161d]/60 ring-1 ring-white/10 p-6">
             <p className="text-slate-300">Carregando produto…</p>
           </div>
         </section>
@@ -72,9 +72,9 @@ export default function ProductPage({ slug, product, loading, onBack, addToCart,
 
   if (!product) {
     return (
-      <main className="flex-1">
+      <main className="product-page flex-1">
         <section className="max-w-6xl mx-auto px-4 py-10">
-          <div className="rounded-2xl bg-[#07161d]/60 ring-1 ring-white/10 p-6">
+          <div className="product-detail-panel rounded-2xl bg-[#07161d]/60 ring-1 ring-white/10 p-6">
             <h1 className="text-xl font-black">Produto não encontrado</h1>
             <p className="mt-2 text-slate-300">O link pode estar errado ou o produto foi removido.</p>
             <button
@@ -99,7 +99,7 @@ export default function ProductPage({ slug, product, loading, onBack, addToCart,
   const off = percentOffCents(pricing.originalCents, pricing.currentCents);
 
   return (
-    <main className="flex-1">
+    <main className="product-page flex-1">
       <section className="max-w-6xl mx-auto px-4 py-6">
         <div className="flex items-center justify-between gap-3">
           <button
@@ -123,7 +123,7 @@ export default function ProductPage({ slug, product, loading, onBack, addToCart,
             <div
               role="button"
               tabIndex={0}
-              className="aspect-square bg-[#07161d]/40 p-3 sm:p-4 grid place-items-center overflow-hidden w-full relative cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
+              className="product-image aspect-square bg-[#07161d]/40 p-3 sm:p-4 grid place-items-center overflow-hidden w-full relative cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
               onClick={() => openGallery?.(product)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
@@ -152,7 +152,7 @@ export default function ProductPage({ slug, product, loading, onBack, addToCart,
             </div>
           </div>
 
-          <div className="rounded-2xl bg-[#07161d]/60 ring-1 ring-white/10 p-6">
+          <div className="product-detail-panel rounded-2xl bg-[#07161d]/60 ring-1 ring-white/10 p-6">
             <h1 className="text-2xl lg:text-3xl font-black tracking-tight">{product.nome}</h1>
 
             <div className="mt-3 flex items-center gap-3 flex-wrap">
@@ -188,7 +188,7 @@ export default function ProductPage({ slug, product, loading, onBack, addToCart,
             {hasVariants ? (
               <div className="mt-5">
                 <select
-                  className="mt-2 w-full rounded-lg bg-[#0c2430]/68 ring-1 ring-white/10 px-3 py-3 text-base"
+                  aria-label="Escala da miniatura" className="mt-2 w-full rounded-lg bg-[#0c2430]/68 ring-1 ring-white/10 px-3 py-3 text-base"
                   value={selIndex}
                   onChange={(e) => setSelIndex(Number(e.target.value))}
                 >
@@ -202,7 +202,7 @@ export default function ProductPage({ slug, product, loading, onBack, addToCart,
               </div>
             ) : null}
 
-            <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="product-purchase-actions mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button
                 type="button"
                 disabled={outOfStock}

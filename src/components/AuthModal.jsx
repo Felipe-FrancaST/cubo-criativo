@@ -287,7 +287,7 @@ export default function AuthModal({ open, onClose, onSuccess }) {
   }
 
   return (
-    <Modal open={open} onClose={onClose}>
+    <Modal open={open} onClose={onClose} ariaLabel="Acessar sua conta" mobileLayout="fullscreen">
       <div className="w-full max-w-md">
         {needsGoogleTermsAcceptance ? (
           <>
@@ -455,7 +455,7 @@ export default function AuthModal({ open, onClose, onSuccess }) {
                   </Field>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
+                <div className="customer-form-grid grid grid-cols-2 gap-2">
                   <Field label="CEP">
                     <input
                       value={zip}

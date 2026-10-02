@@ -1,323 +1,557 @@
-import React from 'react';
-import { trackEvent } from '../lib/analytics.js';
+import React from 'react'
+import { trackEvent } from '../lib/analytics.js'
+import { copyText } from '../lib/clipboard.js'
+import { navigateClient } from '../lib/navigation.js'
+import {
+  buildMemoryDeck,
+  createMemoryState,
+  memoryGameReducer,
+  memoryResult,
+  MAX_GAME_ERRORS,
+  nextGameReset,
+  formatGameCountdown,
+} from '../lib/memoryGame.js'
 
-const ICONS = ['🐉','🧙','⚔️','🛡️','🧪','💎'];
-const MAX_ERRORS = 7;
-
-function shuffle(arr) {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-function buildDeck() { return shuffle([...ICONS, ...ICONS]).map((icon, i) => ({ id: `${icon}-${i}`, icon, matched: false })); }
-function calcScore({ errors, won }) {
-  if (!won) return Math.max(0, 1000 - errors * 250);
-  if (errors === 0) return 1000;
-  return Math.max(100, 1000 - errors * 200);
-}
-function nextWeeklyResetUTC(now = new Date()) {
-  const d = new Date(now);
-  const day = d.getUTCDay();
-  const daysUntilMonday = (8 - day) % 7 || 7;
-  const next = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 0, 0));
-  next.setUTCDate(next.getUTCDate() + daysUntilMonday);
-  return next;
+const EMPTY_STATUS = {
+  loading: true,
+  can_play: false,
+  weekly_reward: null,
+  coupon: null,
+  played: false,
 }
 
-function nextDailyResetUTC(now = new Date()) {
-  const d = new Date(now);
-  const next = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 0, 0));
-  next.setUTCDate(next.getUTCDate() + 1);
-  return next;
-}
-function formatCountdown(ms) {
-  const total = Math.max(0, Math.floor(ms / 1000));
-  const days = Math.floor(total / 86400);
-  const hours = Math.floor((total % 86400) / 3600);
-  const minutes = Math.floor((total % 3600) / 60);
-  const seconds = total % 60;
-  const pad = (n) => String(n).padStart(2, '0');
-  if (days > 0) return `${days}d ${pad(hours)}h ${pad(minutes)}m ${pad(seconds)}s`;
-  return `${pad(hours)}h ${pad(minutes)}m ${pad(seconds)}s`;
-}
+export default function CupomGamePage({
+  onGoHome,
+  user,
+  accessToken,
+  onRequireLogin,
+}) {
+  const accountKey = user?.id || accessToken || 'guest'
+  const [status, setStatus] = React.useState(EMPTY_STATUS)
+  const [game, dispatch] = React.useReducer(memoryGameReducer, undefined, () =>
+    createMemoryState()
+  )
+  const [now, setNow] = React.useState(Date.now())
+  const [helpOpen, setHelpOpen] = React.useState(false)
+  const [saveState, setSaveState] = React.useState('idle')
+  const [saveError, setSaveError] = React.useState('')
+  const [copyMessage, setCopyMessage] = React.useState('')
+  const loadRequest = React.useRef(null)
+  const saveLock = React.useRef('')
+  const completedRound = React.useRef('')
+  const copyTimer = React.useRef(null)
+  const mounted = React.useRef(false)
+  const context = React.useRef({ accountKey, roundId: game.roundId })
+  context.current = { accountKey, roundId: game.roundId }
 
-export default function CupomGamePage({ onGoHome, accessToken, onRequireLogin }) {
-  const [status, setStatus] = React.useState({ loading: true, can_play: false, weekly_reward: null, coupon: null, played: false });
-  const [loginGateVisible, setLoginGateVisible] = React.useState(false);
-  const [deck, setDeck] = React.useState(() => buildDeck());
-  const [flipped, setFlipped] = React.useState([]);
-  const [busy] = React.useState(false);
-  const [attempts, setAttempts] = React.useState(0);
-  const [errors, setErrors] = React.useState(0);
-  const [startAt, setStartAt] = React.useState(null);
-  const [finished, setFinished] = React.useState(false);
-  const [resultMsg, setResultMsg] = React.useState('');
-  const [copyCouponMsg, setCopyCouponMsg] = React.useState('');
-  const [nowMs, setNowMs] = React.useState(Date.now());
-  const [helpOpen, setHelpOpen] = React.useState(false);
+  React.useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+      loadRequest.current?.abort()
+      window.clearTimeout(copyTimer.current)
+    }
+  }, [])
 
-  async function loadStatus() {
+  const loadStatus = React.useCallback(async () => {
+    loadRequest.current?.abort()
     if (!accessToken) {
-      setStatus({ loading: false, can_play: false, weekly_reward: null, coupon: null, played: false, error: null });
-      return;
+      setStatus({ ...EMPTY_STATUS, loading: false })
+      return
     }
-    setStatus((s) => ({ ...s, loading: true }));
+    const controller = new AbortController()
+    loadRequest.current = controller
+    setStatus((previous) => ({ ...previous, loading: true, error: '' }))
     try {
-      const res = await fetch('/api/coupons?action=game-status', { headers: { Authorization: `Bearer ${accessToken}` } });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || 'Erro ao carregar jogo');
-      setStatus({ loading: false, ...data });
-      if (data?.session?.won) setResultMsg('Parabéns, você venceu! Seu cupom já foi gerado neste período.');
-    } catch (e) {
-      setStatus({ loading: false, can_play: false, weekly_reward: null, coupon: null, played: false, error: String(e?.message || e) });
+      const response = await fetch('/api/coupons?action=game-status', {
+        signal: controller.signal,
+        headers: { Authorization: `Bearer ${accessToken}` },
+      })
+      const data = await response.json().catch(() => ({}))
+      if (controller.signal.aborted || !mounted.current) return
+      if (!response.ok)
+        throw new Error(data.error || 'Não foi possível carregar sua partida.')
+      setStatus({ ...EMPTY_STATUS, ...data, loading: false })
+    } catch (error) {
+      if (!controller.signal.aborted && mounted.current)
+        setStatus((previous) => ({
+          ...previous,
+          loading: false,
+          can_play: false,
+          error: error.message || 'Não foi possível carregar sua partida.',
+        }))
     }
-  }
-
-  React.useEffect(() => { loadStatus(); }, [accessToken]);
-  React.useEffect(() => { const t = window.setInterval(() => setNowMs(Date.now()), 1000); return () => window.clearInterval(t); }, []);
-  React.useEffect(() => {
-    if (accessToken) {
-      setLoginGateVisible(false);
-      setResultMsg('');
-    }
-  }, [accessToken]);
-
-  const isVip = Boolean(status?.vip?.isVip);
-  const nextReset = isVip ? nextDailyResetUTC(new Date(nowMs)) : nextWeeklyResetUTC(new Date(nowMs));
-  const countdown = formatCountdown(nextReset.getTime() - nowMs);
+  }, [accessToken])
 
   React.useEffect(() => {
-    if (flipped.length !== 2) return;
-    const [a, b] = flipped;
-    if (deck[a]?.icon === deck[b]?.icon) {
-      setDeck((prev) => prev.map((c, idx) => (idx === a || idx === b ? { ...c, matched: true } : c)));
-      setFlipped([]);
-      return;
+    loadStatus()
+    return () => loadRequest.current?.abort()
+  }, [loadStatus])
+  React.useEffect(() => {
+    dispatch({ type: 'reset' })
+    completedRound.current = ''
+    setSaveState('idle')
+    setSaveError('')
+    setCopyMessage('')
+  }, [accountKey])
+  React.useEffect(() => {
+    const timer = window.setInterval(() => {
+      if (!document.hidden) setNow(Date.now())
+    }, 1000)
+    const onVisible = () => {
+      if (!document.hidden) {
+        setNow(Date.now())
+        loadStatus()
+      }
     }
-    const t = setTimeout(() => {
-      setFlipped([]);
-      setErrors((prev) => {
-        const next = prev + 1;
-        if (next >= MAX_ERRORS && !finished) {
-          setFinished(true);
-          const duration_ms = startAt ? (Date.now() - startAt) : 0;
-          const score = calcScore({ errors: next, won: false });
-          completeGame({ won: false, score, attempts, duration_ms, errors: next });
-          setResultMsg(`Fim de jogo: você atingiu ${MAX_ERRORS} erros.`);
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      window.clearInterval(timer)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [loadStatus])
+
+  React.useEffect(() => {
+    if (game.phase !== 'playing' || game.flipped.length !== 2) return
+    const [first, second] = game.flipped
+    const timer = window.setTimeout(
+      () => dispatch({ type: 'resolve', now: Date.now() }),
+      game.deck[first].icon === game.deck[second].icon ? 180 : 650
+    )
+    return () => window.clearTimeout(timer)
+  }, [game.phase, game.flipped, game.deck])
+
+  const saveResult = React.useCallback(
+    async (payload, roundId) => {
+      const key = `${accountKey}:${roundId}`
+      if (!accessToken || saveLock.current === key) return
+      saveLock.current = key
+      const stillCurrent = () =>
+        mounted.current &&
+        context.current.accountKey === accountKey &&
+        context.current.roundId === roundId
+      setSaveState('sending')
+      setSaveError('')
+      try {
+        const response = await fetch('/api/coupons?action=game-complete', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify(payload),
+        })
+        const data = await response.json().catch(() => ({}))
+        if (!stillCurrent()) return
+        if (!response.ok)
+          throw new Error(data.error || 'Não foi possível registrar a partida.')
+        setSaveState('saved')
+        if (data.coupon?.code) {
+          setStatus((previous) => ({
+            ...previous,
+            coupon: data.coupon,
+            can_play: false,
+            played: true,
+          }))
+          trackEvent('memory_game_win', {
+            coupon_code: data.coupon.code,
+            attempts: payload.attempts,
+            errors: payload.errors,
+          })
         }
-        return next;
-      });
-    }, 650);
-    return () => clearTimeout(t);
-  }, [flipped, deck, attempts, startAt, finished]);
+        await loadStatus()
+      } catch (error) {
+        if (stillCurrent()) {
+          setSaveState('error')
+          setSaveError(error.message || 'Não foi possível registrar a partida.')
+        }
+      } finally {
+        if (saveLock.current === key) saveLock.current = ''
+      }
+    },
+    [accessToken, accountKey, loadStatus]
+  )
 
   React.useEffect(() => {
-    if (!startAt || finished) return;
-    const allMatched = deck.length > 0 && deck.every((c) => c.matched);
-    if (!allMatched) return;
-    setFinished(true);
-    const duration_ms = Date.now() - startAt;
-    const score = calcScore({ errors, won: true });
-    completeGame({ won: true, score, attempts, duration_ms, errors });
-  }, [deck, attempts, errors, startAt, finished]);
+    if (!['won', 'lost'].includes(game.phase)) return
+    const key = `${accountKey}:${game.roundId}`
+    if (completedRound.current === key) return
+    completedRound.current = key
+    saveResult(memoryResult(game), game.roundId)
+  }, [game, accountKey, saveResult])
 
-  async function completeGame(payload) {
-    if (!accessToken) return;
-    try {
-      const res = await fetch('/api/coupons?action=game-complete', {
-        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` }, body: JSON.stringify(payload),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || 'Erro ao salvar resultado');
-      if (data?.coupon?.code) {
-        const extra = data?.coupon?.label?.includes('20%') ? ' 🎉 Cupom especial perfeito!' : '';
-        setResultMsg(`Parabéns, você venceu! Cupom liberado: ${data.coupon.code}${extra}`);
-        trackEvent('memory_game_win', { coupon_code: data.coupon.code, attempts: payload.attempts, errors: payload.errors });
-      } else if (data?.already_played) setResultMsg('Você já jogou neste período.');
-      else setResultMsg(payload?.won ? `Parabéns, você venceu! Recompensa registrada. Volte ${isVip ? 'amanhã' : 'na próxima semana'}!` : `Partida registrada. Volte ${isVip ? 'amanhã' : 'na próxima semana'}!`);
-      await loadStatus();
-    } catch (e) {
-      setResultMsg(String(e?.message || e));
+  const isVip = Boolean(status.vip?.isVip)
+  const reset = nextGameReset(isVip, new Date(now))
+  const resetKey = `${isVip}:${reset.getTime()}`
+  const previousReset = React.useRef(resetKey)
+  React.useEffect(() => {
+    if (status.loading) return
+    if (previousReset.current !== resetKey) {
+      previousReset.current = resetKey
+      if (game.phase !== 'playing' && saveState !== 'sending') {
+        dispatch({ type: 'reset' })
+        setSaveState('idle')
+        loadStatus()
+      }
     }
-  }
+  }, [resetKey, status.loading, game.phase, saveState, loadStatus])
 
-  function onCardClick(idx) {
+  const matchedPairs = game.deck.filter((card) => card.matched).length / 2
+  const finished = ['won', 'lost'].includes(game.phase)
+  const won =
+    game.phase === 'won' || (game.phase === 'idle' && status.session?.won)
+  const elapsed = game.startedAt
+    ? Math.max(
+        0,
+        Math.floor(((game.finishedAt ?? now) - game.startedAt) / 1000)
+      )
+    : 0
+  const canStart = Boolean(
+    accessToken && status.can_play && !status.loading && saveState !== 'sending'
+  )
+  const countdown = formatGameCountdown(reset.getTime() - now)
+
+  function startGame() {
     if (!accessToken) {
-      setLoginGateVisible(true);
-      setResultMsg('Entre na sua conta para liberar o jogo e receber seu cupom.');
-      onRequireLogin?.('Faça login para jogar e receber seu cupom.');
-      return;
+      onRequireLogin?.('Faça login para jogar e receber seu cupom.')
+      return
     }
-    if (!status.can_play || busy || finished) return;
-    const card = deck[idx];
-    if (!card || card.matched) return;
-    if (flipped.includes(idx) || flipped.length >= 2) return;
-    if (!startAt) setStartAt(Date.now());
-    setFlipped((prev) => [...prev, idx]);
-    if (flipped.length === 1) setAttempts((n) => n + 1);
+    if (!canStart || finished) return
+    setSaveState('idle')
+    setSaveError('')
+    dispatch({ type: 'start', deck: buildMemoryDeck() })
   }
 
-  const reveal = (idx) => flipped.includes(idx) || deck[idx]?.matched;
-
-  async function copyCouponCode(code) {
-    if (!code) return;
-    try {
-      await navigator.clipboard.writeText(String(code));
-      setCopyCouponMsg('Cupom copiado!');
-    } catch {
-      setCopyCouponMsg('Não foi possível copiar automaticamente.');
-    } finally {
-      window.clearTimeout(copyCouponCode._t);
-      copyCouponCode._t = window.setTimeout(() => setCopyCouponMsg(''), 2200);
-    }
+  async function copyCoupon() {
+    const copied = await copyText(status.coupon?.code)
+    if (!mounted.current) return
+    setCopyMessage(
+      copied ? 'Cupom copiado!' : 'Selecione o código e copie manualmente.'
+    )
+    window.clearTimeout(copyTimer.current)
+    copyTimer.current = window.setTimeout(() => setCopyMessage(''), 3200)
   }
 
   return (
-    <main className="flex-1">
-      <section className="mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8" >
-        <div className="flex items-center justify-between gap-3 mb-4">
+    <main className="customer-page cubo-game">
+      <section className="container-cc customer-page-inner">
+        <header className="customer-page-heading">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold">Cubo Game</h1>
+            <p className="customer-eyebrow">Jogue. Combine. Ganhe.</p>
+            <h1>Cubo Game</h1>
+            <p className="customer-subtitle">
+              Encontre os seis pares e desbloqueie seu cupom.
+            </p>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setHelpOpen((v) => !v)}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-300/20 bg-cyan-400/10 text-cyan-200 transition hover:bg-cyan-400/15"
-              aria-label="Como funciona o Cubo Game"
-              aria-expanded={helpOpen}
+          <button
+            type="button"
+            onClick={onGoHome}
+            className="customer-secondary"
+            aria-label="Voltar para a loja"
+          >
+            <span className="material-icons" aria-hidden="true">
+              arrow_back
+            </span>
+            <span>Loja</span>
+          </button>
+        </header>
+
+        <div className="game-layout">
+          <section
+            className="customer-surface game-board-section"
+            aria-labelledby="game-board-title"
+          >
+            <div className="game-board-heading">
+              <div>
+                <h2 id="game-board-title">Jogo da memória</h2>
+                <p>
+                  {game.phase === 'playing'
+                    ? 'Toque em duas cartas para encontrar um par.'
+                    : 'Uma pequena pausa, uma nova recompensa.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="customer-icon-button"
+                onClick={() => setHelpOpen((value) => !value)}
+                aria-label="Como jogar"
+                aria-expanded={helpOpen}
+                aria-controls="game-instructions"
+              >
+                <span className="material-icons" aria-hidden="true">
+                  help_outline
+                </span>
+              </button>
+            </div>
+            {helpOpen && (
+              <div id="game-instructions" className="game-instructions">
+                <h3>Como jogar</h3>
+                <ol>
+                  <li>Inicie a partida e vire duas cartas por vez.</li>
+                  <li>
+                    Encontre os seis pares antes de atingir {MAX_GAME_ERRORS}{' '}
+                    erros.
+                  </li>
+                  <li>
+                    {isVip
+                      ? 'Como VIP, você tem uma partida por dia.'
+                      : 'Cada conta tem uma partida por semana.'}
+                  </li>
+                  <li>Vença sem erros para liberar o cupom especial de 20%.</li>
+                </ol>
+                <p>
+                  A rodada é registrada ao terminar. Seu cupom aparece aqui e em
+                  “Meus cupons” no carrinho.
+                </p>
+              </div>
+            )}
+            <div className="game-stats" aria-label="Progresso da partida">
+              <div>
+                <span>Pares</span>
+                <strong>
+                  {matchedPairs}
+                  <small>/6</small>
+                </strong>
+              </div>
+              <div>
+                <span>Erros</span>
+                <strong className={game.errors >= 5 ? 'text-rose-300' : ''}>
+                  {game.errors}
+                  <small>/{MAX_GAME_ERRORS}</small>
+                </strong>
+              </div>
+              <div>
+                <span>Tentativas</span>
+                <strong>{game.attempts}</strong>
+              </div>
+              <div>
+                <span>Tempo</span>
+                <strong>
+                  {String(Math.floor(elapsed / 60)).padStart(2, '0')}:
+                  {String(elapsed % 60).padStart(2, '0')}
+                </strong>
+              </div>
+            </div>
+            <div
+              className="game-progress"
+              role="progressbar"
+              aria-label="Pares encontrados"
+              aria-valuemin={0}
+              aria-valuemax={6}
+              aria-valuenow={matchedPairs}
             >
-              <span className="material-icons text-[20px]">lightbulb</span>
-            </button>
-            <button onClick={onGoHome} className="container-cc rounded-xl px-4 py-2 ring-1 ring-white/15 hover:bg-white/4">Voltar</button>
-          </div>
-        </div>
-
-        {helpOpen ? (
-          <div className="mb-4 rounded-2xl border border-cyan-300/20 bg-gradient-to-br from-amber-400/10 via-slate-900/92 to-slate-950/95 p-4 shadow-[0_12px_40px_rgba(0,0,0,0.26)]">
-            <div className="flex items-start gap-3">
-              <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-cyan-400/12 ring-1 ring-amber-200/20">
-                <span className="material-icons text-cyan-200">tips_and_updates</span>
-              </div>
-              <div className="min-w-0">
-                <h2 className="text-sm font-semibold text-white">Como funciona o Cubo Game</h2>
-                <ul className="mt-2 space-y-2 text-sm leading-6 text-slate-300">
-                  <li>• Vire 2 cartas por vez e encontre os pares.</li>
-                  <li>• Você pode errar no máximo <b>{MAX_ERRORS} vezes</b>.</li>
-                  <li>• {isVip ? 'VIP: 1 partida por dia.' : '1 partida por semana por conta.'}</li>
-                  {isVip ? (<li className="text-emerald-200">• Como VIP, você pode jogar todos os dias.</li>) : null}
-                  <li>• Ao vencer, o cupom é gerado automaticamente e fica visível para copiar.</li>
-                </ul>
-              </div>
+              <span style={{ width: `${(matchedPairs / 6) * 100}%` }} />
             </div>
-          </div>
-        ) : null}
 
-        <div className="grid gap-4 lg:grid-cols-[1.1fr_.9fr]">
-          <aside className="order-1 lg:order-2 space-y-4">
-            <div className="rounded-2xl p-4 ring-1 ring-emerald-400/20 bg-emerald-500/10">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-xs uppercase tracking-wide text-emerald-200/80">Cupom da semana</p>
-                  <p className="mt-1 font-extrabold text-lg text-emerald-100">{status.weekly_reward?.label || 'Carregando...'}</p>
+            <div
+              className="game-cards"
+              role="group"
+              aria-label="Cartas do jogo da memória"
+            >
+              {game.deck.map((card, index) => {
+                const revealed = card.matched || game.flipped.includes(index)
+                return (
+                  <button
+                    key={card.id}
+                    type="button"
+                    className={`game-card ${revealed ? 'is-revealed' : ''} ${card.matched ? 'is-matched' : ''}`}
+                    disabled={
+                      game.phase !== 'playing' ||
+                      card.matched ||
+                      game.flipped.length === 2 ||
+                      !status.can_play
+                    }
+                    aria-label={`Carta ${index + 1}, ${card.matched ? `par encontrado: ${card.icon}` : revealed ? card.icon : 'fechada'}`}
+                    aria-pressed={revealed}
+                    onClick={() =>
+                      dispatch({ type: 'flip', index, now: Date.now() })
+                    }
+                  >
+                    <span className="game-card-symbol" aria-hidden="true">
+                      {revealed ? card.icon : '✦'}
+                    </span>
+                    {card.matched && (
+                      <span
+                        className="material-icons game-card-check"
+                        aria-hidden="true"
+                      >
+                        check_circle
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+
+            <div className="game-board-footer" aria-live="polite">
+              {status.error ? (
+                <div className="customer-alert" role="alert">
+                  <p>{status.error}</p>
+                  <button
+                    type="button"
+                    className="customer-secondary"
+                    onClick={loadStatus}
+                  >
+                    Tentar novamente
+                  </button>
                 </div>
-                <span className="material-icons text-emerald-200">workspace_premium</span>
-              </div>
-              {status.coupon?.code ? (
-                <div className="mt-3 rounded-xl px-3 py-2 bg-black/20 ring-1 ring-emerald-300/20 text-sm text-emerald-100">
-                  <div className="flex items-center justify-between gap-2">
-                    <span>Seu cupom gerado: <b>{status.coupon.code}</b></span>
-                    <button
-                      type="button"
-                      onClick={() => copyCouponCode(status.coupon.code)}
-                      className="shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-emerald-400/15 ring-1 ring-emerald-300/30 hover:bg-emerald-400/20"
-                    >
-                      Copiar
-                    </button>
+              ) : finished || status.played ? (
+                <div className={`game-result ${won ? 'is-win' : ''}`}>
+                  <span className="material-icons" aria-hidden="true">
+                    {won ? 'emoji_events' : 'sports_esports'}
+                  </span>
+                  <div>
+                    <h3>
+                      {won
+                        ? game.errors === 0 && finished
+                          ? 'Partida perfeita!'
+                          : 'Você encontrou todos os pares!'
+                        : 'Rodada encerrada'}
+                    </h3>
+                    <p>
+                      {saveState === 'sending'
+                        ? 'Registrando sua partida…'
+                        : saveState === 'error'
+                          ? 'Sua partida terminou. Reenvie o resultado para confirmar o registro.'
+                          : status.coupon?.code
+                            ? 'Seu cupom está disponível logo abaixo.'
+                            : `Uma nova chance em ${countdown}.`}
+                    </p>
                   </div>
-                  {copyCouponMsg ? <p className="mt-2 text-xs text-emerald-200/90">{copyCouponMsg}</p> : null}
                 </div>
-              ) : null}
+              ) : game.phase === 'playing' ? (
+                <p className="game-hint">
+                  {game.errors >= 5
+                    ? `Atenção: restam ${MAX_GAME_ERRORS - game.errors} erros.`
+                    : 'Memorize as posições e encontre os pares.'}
+                </p>
+              ) : (
+                <div className="game-start">
+                  <p>
+                    {!accessToken
+                      ? 'Entre na sua conta para jogar e guardar sua recompensa.'
+                      : status.loading
+                        ? 'Preparando sua rodada…'
+                        : 'Seu tempo começa quando você vira a primeira carta.'}
+                  </p>
+                  <button
+                    type="button"
+                    className="customer-primary"
+                    disabled={Boolean(accessToken && !canStart)}
+                    onClick={startGame}
+                  >
+                    <span className="material-icons" aria-hidden="true">
+                      {accessToken ? 'play_arrow' : 'login'}
+                    </span>
+                    {!accessToken
+                      ? 'Entrar para jogar'
+                      : status.loading
+                        ? 'Carregando…'
+                        : 'Iniciar partida'}
+                  </button>
+                </div>
+              )}
+              {saveError && (
+                <div className="customer-alert" role="alert">
+                  <p>{saveError}</p>
+                  <button
+                    type="button"
+                    className="customer-primary"
+                    onClick={() => saveResult(memoryResult(game), game.roundId)}
+                  >
+                    Reenviar resultado
+                  </button>
+                </div>
+              )}
             </div>
+          </section>
 
-            <div className="rounded-2xl p-4 ring-1 ring-white/10 bg-white/4 space-y-2 text-sm">
-              <div className="grid grid-cols-2 gap-2">
-                <div className="rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2">
-                  <p className="text-xs text-slate-400">Tentativas</p>
-                  <p className="font-bold text-lg">{attempts}</p>
-                </div>
-                <div className="rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2">
-                  <p className="text-xs text-slate-400">Erros</p>
-                  <p className="font-bold text-lg">{errors}/{MAX_ERRORS}</p>
-                </div>
+          <aside
+            className="game-rewards"
+            aria-label="Recompensas e próxima rodada"
+          >
+            <section className="customer-surface game-reward-card">
+              <div className="game-reward-label">
+                <span className="material-icons" aria-hidden="true">
+                  redeem
+                </span>
+                <p className="customer-eyebrow">Recompensa da semana</p>
               </div>
-              <div className="flex justify-between gap-3"><span className="text-slate-400">Status</span><span className="text-right">{status.loading ? 'Carregando…' : !accessToken ? 'Faça login para jogar' : status.can_play ? 'Pode jogar' : (isVip ? 'Já jogou hoje' : 'Já jogou esta semana')}</span></div>
-              <div className="flex justify-between gap-3"><span className="text-slate-400">Próxima rodada</span><span className="text-right font-medium">{countdown}</span></div>
-              {resultMsg ? (
-                <div className={`rounded-2xl px-4 py-4 text-center shadow-[0_16px_40px_rgba(0,0,0,0.28)] ${/Parabéns, você venceu/i.test(resultMsg) ? 'bg-gradient-to-br from-cyan-400/18 via-emerald-400/10 to-slate-950 ring-1 ring-amber-300/30 text-cyan-50' : 'bg-white/4 ring-1 ring-white/10 text-slate-100'}`}>
-                  {/Parabéns, você venceu/i.test(resultMsg) ? (
-                    <div className="mb-2 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-400/15 ring-1 ring-amber-200/25 text-cyan-200">
-                      <span className="material-icons">emoji_events</span>
-                    </div>
-                  ) : null}
-                  <p className={`text-base font-bold ${/Parabéns, você venceu/i.test(resultMsg) ? 'text-amber-100' : 'text-slate-100'}`}>{/Parabéns, você venceu/i.test(resultMsg) ? 'Parabéns, você venceu!' : 'Status da rodada'}</p>
-                  <p className={`mt-1 text-sm leading-6 ${/Parabéns, você venceu/i.test(resultMsg) ? 'text-cyan-50/90' : 'text-slate-200'}`}>{resultMsg}</p>
+              <h2>
+                {status.weekly_reward?.label ||
+                  (status.loading
+                    ? 'Carregando…'
+                    : 'Vença para liberar seu cupom')}
+              </h2>
+              <p>
+                Complete o tabuleiro para conquistar a recompensa. Sem erros?
+                Seu cupom será de 20%.
+              </p>
+              {status.coupon?.code && (
+                <div className="game-coupon">
+                  <span>Seu cupom</span>
+                  <code>{status.coupon.code}</code>
+                  <button
+                    type="button"
+                    className="customer-primary"
+                    onClick={copyCoupon}
+                  >
+                    <span className="material-icons" aria-hidden="true">
+                      content_copy
+                    </span>
+                    Copiar cupom
+                  </button>
+                  {copyMessage && <p role="status">{copyMessage}</p>}
+                  <button
+                    type="button"
+                    className="customer-secondary"
+                    onClick={() => navigateClient('/catalogo')}
+                  >
+                    Escolher meus produtos
+                    <span className="material-icons" aria-hidden="true">
+                      arrow_forward
+                    </span>
+                  </button>
+                  {status.coupon.expires_at && (
+                    <p className="game-coupon-validity">
+                      Validade:{' '}
+                      {new Date(status.coupon.expires_at).toLocaleDateString(
+                        'pt-BR'
+                      )}
+                    </p>
+                  )}
                 </div>
-              ) : null}
-              {status.error ? <div className="rounded-xl bg-rose-500/10 ring-1 ring-rose-400/20 px-3 py-2 text-rose-200">{status.error}</div> : null}
-            </div>
+              )}
+            </section>
+            <section className="customer-surface game-next-round">
+              <span className="material-icons" aria-hidden="true">
+                {isVip ? 'workspace_premium' : 'schedule'}
+              </span>
+              <div>
+                <h2>
+                  {isVip
+                    ? 'Você joga todos os dias'
+                    : 'Uma nova rodada por semana'}
+                </h2>
+                <p>Próxima liberação em</p>
+                <strong>{countdown}</strong>
+                {!isVip && (
+                  <button
+                    type="button"
+                    onClick={() => navigateClient('/planos-vip')}
+                    className="customer-text-button"
+                  >
+                    Conhecer os benefícios VIP
+                    <span className="material-icons" aria-hidden="true">
+                      arrow_forward
+                    </span>
+                  </button>
+                )}
+              </div>
+            </section>
           </aside>
-
-          <div className="order-2 lg:order-1 rounded-2xl p-3 sm:p-5 ring-1 ring-white/10 bg-[#07161d]/50">
-            {loginGateVisible && !accessToken ? (
-              <div className="mb-4 rounded-2xl border border-cyan-300/20 bg-gradient-to-br from-amber-400/12 via-slate-900/85 to-slate-950/95 px-4 py-4 shadow-[0_18px_50px_rgba(0,0,0,0.28)] backdrop-blur-sm">
-                <div className="flex items-start gap-3">
-                  <div className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-cyan-400/12 ring-1 ring-amber-200/20">
-                    <span className="material-icons text-cyan-200">lock_open</span>
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-white">Faça login para jogar</p>
-                    <p className="mt-1 text-sm leading-6 text-slate-300">Entre na sua conta para desbloquear o jogo da memória e gerar seu cupom automaticamente ao vencer.</p>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={() => onRequireLogin?.('Faça login para jogar e receber seu cupom.')}
-                        className="rounded-xl bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-amber-200"
-                      >
-                        Entrar agora
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setLoginGateVisible(false)}
-                        className="rounded-xl border border-white/10 bg-white/4 px-4 py-2 text-sm font-medium text-slate-200 transition hover:bg-white/6"
-                      >
-                        Agora não
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : null}
-
-            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 sm:gap-3">
-              {deck.map((card, idx) => (
-                <button
-                  key={card.id}
-                  onClick={() => onCardClick(idx)}
-                  disabled={(!!accessToken && (!status.can_play || busy || finished || card.matched)) || (!accessToken && loginGateVisible)}
-                  className={`aspect-square rounded-xl sm:rounded-2xl text-2xl sm:text-3xl grid place-items-center ring-1 transition active:scale-[0.98] ${reveal(idx) ? 'bg-white/6 ring-white/20' : 'bg-gradient-to-br from-fuchsia-500/15 to-teal-500/15 ring-white/10 hover:bg-white/6'} ${!accessToken ? 'cursor-pointer' : ''}`}
-                  aria-label={reveal(idx) ? `Carta ${card.icon}` : 'Carta fechada'}
-                >
-                  <span>{reveal(idx) ? card.icon : '❓'}</span>
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
       </section>
     </main>
-  );
+  )
 }

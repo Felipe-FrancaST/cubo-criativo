@@ -62,7 +62,7 @@ export default [
     },
   },
   {
-    files: ['test/admin-ui.test.js'],
+    files: ['test/*-ui.test.js'],
     languageOptions: { globals: { ...globals.browser, ...globals.node } },
   },
   {

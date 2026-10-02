@@ -227,7 +227,7 @@ export default function ProductCard({
         )}
 
         {/* Em 2 colunas no mobile, empilhar botões evita texto quebrando/overlap */}
-        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div className="product-card-actions mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
           <button
             type="button"
             onClick={handleAdd}
