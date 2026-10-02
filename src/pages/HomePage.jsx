@@ -1,16 +1,16 @@
-import React from "react";
-import CarrosselPromo from "../components/CarrosselPromo.jsx";
-import ProductCard from "../components/ProductCard.jsx";
-import { supabase } from "../lib/supabaseClient";
+import React from 'react'
+import CarrosselPromo from '../components/CarrosselPromo.jsx'
+import ProductCard from '../components/ProductCard.jsx'
+import { supabase } from '../lib/supabaseClient'
 
 const FALLBACK_BANNER = {
-  image_url: "/images/banner_base_pc.jpg",
-  mobile_image_url: "/images/banner_base.jpg",
-};
+  image_url: '/images/banner_base_pc.jpg',
+  mobile_image_url: '/images/banner_base.jpg',
+}
 
 function resolveBannerImage(banner, isMobile) {
-  if (isMobile && banner?.mobile_image_url) return banner.mobile_image_url;
-  return banner?.image_url || "";
+  if (isMobile && banner?.mobile_image_url) return banner.mobile_image_url
+  return banner?.image_url || ''
 }
 
 export default function HomePage({
@@ -18,7 +18,7 @@ export default function HomePage({
   prontaEntregaPreview = [],
   rpgPreview = [],
   loadingProducts = false,
-  productsError = "",
+  productsError = '',
   addToCart,
   buyNow,
   openGallery,
@@ -33,152 +33,170 @@ export default function HomePage({
   onGoReviews,
   onRequireLogin,
 }) {
-  const [depoimentos, setDepoimentos] = React.useState([]);
-  const [loadingDepoimentos, setLoadingDepoimentos] = React.useState(true);
-  const [banner, setBanner] = React.useState(FALLBACK_BANNER);
-  const [bannerLoading, setBannerLoading] = React.useState(true);
-  const [bannerImageLoaded, setBannerImageLoaded] = React.useState(false);
-  const [displayBannerImage, setDisplayBannerImage] = React.useState(FALLBACK_BANNER.image_url);
-  const [bannerOverlayVisible, setBannerOverlayVisible] = React.useState(false);
+  const [depoimentos, setDepoimentos] = React.useState([])
+  const [loadingDepoimentos, setLoadingDepoimentos] = React.useState(true)
+  const [banner, setBanner] = React.useState(FALLBACK_BANNER)
+  const [bannerLoading, setBannerLoading] = React.useState(true)
+  const [bannerImageLoaded, setBannerImageLoaded] = React.useState(false)
+  const [displayBannerImage, setDisplayBannerImage] = React.useState(
+    FALLBACK_BANNER.image_url
+  )
+  const [bannerOverlayVisible, setBannerOverlayVisible] = React.useState(false)
   const [isMobileBanner, setIsMobileBanner] = React.useState(() => {
-    if (typeof window === "undefined") return false;
-    return window.matchMedia("(max-width: 640px)").matches;
-  });
+    if (typeof window === 'undefined') return false
+    return window.matchMedia('(max-width: 640px)').matches
+  })
 
   React.useEffect(() => {
-    if (typeof window === "undefined") return undefined;
-    const media = window.matchMedia("(max-width: 640px)");
-    const sync = () => setIsMobileBanner(media.matches);
-    sync();
-    if (typeof media.addEventListener === "function") {
-      media.addEventListener("change", sync);
-      return () => media.removeEventListener("change", sync);
+    if (typeof window === 'undefined') return undefined
+    const media = window.matchMedia('(max-width: 640px)')
+    const sync = () => setIsMobileBanner(media.matches)
+    sync()
+    if (typeof media.addEventListener === 'function') {
+      media.addEventListener('change', sync)
+      return () => media.removeEventListener('change', sync)
     }
-    media.addListener(sync);
-    return () => media.removeListener(sync);
-  }, []);
+    media.addListener(sync)
+    return () => media.removeListener(sync)
+  }, [])
 
   React.useEffect(() => {
-    let alive = true;
-    (async () => {
+    let alive = true
+    ;(async () => {
       try {
-        setBannerLoading(true);
-        const now = new Date().toISOString();
+        setBannerLoading(true)
+        const now = new Date().toISOString()
         const { data, error } = await supabase
-          .from("home_banners")
-.select("id,image_url,mobile_image_url")
-          .eq("is_active", true)
+          .from('home_banners')
+          .select('id,image_url,mobile_image_url')
+          .eq('is_active', true)
           .or(`starts_at.is.null,starts_at.lte.${now}`)
           .or(`ends_at.is.null,ends_at.gte.${now}`)
-          .order("sort_order", { ascending: true })
-          .order("created_at", { ascending: false })
+          .order('sort_order', { ascending: true })
+          .order('created_at', { ascending: false })
           .limit(1)
-          .maybeSingle();
+          .maybeSingle()
 
-        if (error) throw error;
-        if (!alive) return;
+        if (error) throw error
+        if (!alive) return
 
         if (data) {
           setBanner({
             ...FALLBACK_BANNER,
             ...data,
-          });
+          })
         } else {
-          setBanner(FALLBACK_BANNER);
+          setBanner(FALLBACK_BANNER)
         }
       } catch (e) {
-        console.warn("Não foi possível carregar banner da home:", e?.message || e);
-        if (alive) setBanner(FALLBACK_BANNER);
+        console.warn(
+          'Não foi possível carregar banner da home:',
+          e?.message || e
+        )
+        if (alive) setBanner(FALLBACK_BANNER)
       } finally {
-        if (alive) setBannerLoading(false);
+        if (alive) setBannerLoading(false)
       }
-    })();
+    })()
 
     return () => {
-      alive = false;
-    };
-  }, []);
+      alive = false
+    }
+  }, [])
 
   React.useEffect(() => {
-    let alive = true;
-    (async () => {
+    let alive = true
+    ;(async () => {
       try {
-        setLoadingDepoimentos(true);
+        setLoadingDepoimentos(true)
         let response = await supabase
-          .from("customer_reviews_public")
-          .select("id,rating,comment,display_name,city,state,product_names,product_slugs,featured,created_at,approved_at")
-          .order("featured", { ascending: false })
-          .order("approved_at", { ascending: false, nullsFirst: false })
-          .order("created_at", { ascending: false })
-          .limit(6);
-        if (response.error && /customer_reviews_public/i.test(String(response.error.message || ""))) {
+          .from('customer_reviews_public')
+          .select(
+            'id,rating,comment,display_name,city,state,product_names,product_slugs,featured,created_at,approved_at'
+          )
+          .order('featured', { ascending: false })
+          .order('approved_at', { ascending: false, nullsFirst: false })
+          .order('created_at', { ascending: false })
+          .limit(6)
+        if (
+          response.error &&
+          /customer_reviews_public/i.test(String(response.error.message || ''))
+        ) {
           response = await supabase
-            .from("customer_reviews")
-            .select("id,rating,comment,display_name,city,state,product_names,product_slugs,featured,created_at")
-            .eq("approved", true)
-            .order("featured", { ascending: false })
-            .order("created_at", { ascending: false })
-            .limit(6);
+            .from('customer_reviews')
+            .select(
+              'id,rating,comment,display_name,city,state,product_names,product_slugs,featured,created_at'
+            )
+            .eq('approved', true)
+            .order('featured', { ascending: false })
+            .order('created_at', { ascending: false })
+            .limit(6)
         }
-        if (response.error) throw response.error;
-        if (!alive) return;
-        setDepoimentos(Array.isArray(response.data) ? response.data : []);
+        if (response.error) throw response.error
+        if (!alive) return
+        setDepoimentos(Array.isArray(response.data) ? response.data : [])
       } catch (e) {
-        if (!alive) return;
-        console.warn("Não foi possível carregar depoimentos:", e?.message || e);
-        setDepoimentos([]);
+        if (!alive) return
+        console.warn('Não foi possível carregar depoimentos:', e?.message || e)
+        setDepoimentos([])
       } finally {
-        if (alive) setLoadingDepoimentos(false);
+        if (alive) setLoadingDepoimentos(false)
       }
-    })();
+    })()
     return () => {
-      alive = false;
-    };
-  }, []);
+      alive = false
+    }
+  }, [])
 
-  const bannerImage = resolveBannerImage(banner, isMobileBanner);
-  const fallbackBannerImage = resolveBannerImage(FALLBACK_BANNER, isMobileBanner);
+  const bannerImage = resolveBannerImage(banner, isMobileBanner)
+  const fallbackBannerImage = resolveBannerImage(
+    FALLBACK_BANNER,
+    isMobileBanner
+  )
 
   React.useEffect(() => {
-    let alive = true;
+    let alive = true
 
     if (!bannerImage || bannerImage === fallbackBannerImage) {
-      setDisplayBannerImage(fallbackBannerImage);
-      setBannerOverlayVisible(false);
-      setBannerImageLoaded(true);
+      setDisplayBannerImage(fallbackBannerImage)
+      setBannerOverlayVisible(false)
+      setBannerImageLoaded(true)
       return () => {
-        alive = false;
-      };
+        alive = false
+      }
     }
 
-    setBannerImageLoaded(false);
-    setBannerOverlayVisible(false);
+    setBannerImageLoaded(false)
+    setBannerOverlayVisible(false)
 
-    const img = new window.Image();
-    img.src = bannerImage;
+    const img = new window.Image()
+    img.src = bannerImage
     img.onload = () => {
-      if (!alive) return;
-      setDisplayBannerImage(bannerImage);
-      setBannerImageLoaded(true);
-      if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+      if (!alive) return
+      setDisplayBannerImage(bannerImage)
+      setBannerImageLoaded(true)
+      if (
+        typeof window !== 'undefined' &&
+        typeof window.requestAnimationFrame === 'function'
+      ) {
         window.requestAnimationFrame(() => {
-          if (alive) setBannerOverlayVisible(true);
-        });
+          if (alive) setBannerOverlayVisible(true)
+        })
       } else {
-        setBannerOverlayVisible(true);
+        setBannerOverlayVisible(true)
       }
-    };
+    }
     img.onerror = () => {
-      if (!alive) return;
-      setDisplayBannerImage(fallbackBannerImage);
-      setBannerOverlayVisible(false);
-      setBannerImageLoaded(true);
-    };
+      if (!alive) return
+      setDisplayBannerImage(fallbackBannerImage)
+      setBannerOverlayVisible(false)
+      setBannerImageLoaded(true)
+    }
 
     return () => {
-      alive = false;
-    };
-  }, [bannerImage, fallbackBannerImage]);
+      alive = false
+    }
+  }, [bannerImage, fallbackBannerImage])
 
   return (
     <main className="flex-1">
@@ -187,42 +205,48 @@ export default function HomePage({
         <a
           href="/planos-vip"
           onClick={(e) => {
-            e.preventDefault();
-            if (typeof onGoVipPlans === "function") onGoVipPlans();
-            else if (typeof window !== "undefined") window.location.href = "/planos-vip";
+            e.preventDefault()
+            if (typeof onGoVipPlans === 'function') onGoVipPlans()
+            else if (typeof window !== 'undefined')
+              window.location.href = '/planos-vip'
           }}
           className="block w-full text-left rounded-[24px] sm:rounded-[28px] focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/60"
           aria-label="Abrir planos VIP"
         >
           <div className="relative overflow-hidden rounded-[24px] sm:rounded-[28px] ring-1 ring-white/10 bg-slate-950 shadow-2xl hover:ring-amber-300/30 transition">
             <div className="relative aspect-[16/9] w-full sm:aspect-[16/7] lg:aspect-[16/6] bg-[radial-gradient(circle_at_center,_rgba(196,153,74,0.16),_rgba(22,18,14,0.96)_68%)]">
-            {bannerImage ? (
-              <>
-                <img
-                  src={fallbackBannerImage}
-                  alt="Banner base da loja Cubo Criativo"
-                  className="absolute inset-0 h-full w-full object-cover scale-100 opacity-100 transition-all duration-[2200ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
-                  loading="eager"
-                />
-                {displayBannerImage && displayBannerImage !== fallbackBannerImage ? (
+              {bannerImage ? (
+                <>
                   <img
-                    src={displayBannerImage}
-                    alt="Banner da loja Cubo Criativo"
-                    className={`absolute inset-0 h-full w-full object-cover transition-all duration-[2200ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[opacity,transform] ${bannerOverlayVisible ? "opacity-100 scale-100" : "opacity-0 scale-[1.03]"}`}
+                    src={fallbackBannerImage}
+                    alt="Banner base da loja Cubo Criativo"
+                    className="absolute inset-0 h-full w-full object-cover scale-100 opacity-100 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]"
                     loading="eager"
+                    decoding="async"
+                    fetchPriority="high"
                   />
-                ) : null}
-              </>
-            ) : (
-              <div className="absolute inset-0 animate-pulse bg-[radial-gradient(circle_at_center,_rgba(196,153,74,0.18),_rgba(24,18,16,1)_72%)]" />
-            )}
+                  {displayBannerImage &&
+                  displayBannerImage !== fallbackBannerImage ? (
+                    <img
+                      src={displayBannerImage}
+                      alt="Banner da loja Cubo Criativo"
+                      className={`absolute inset-0 h-full w-full object-cover transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[opacity,transform] ${bannerOverlayVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-[1.03]'}`}
+                      loading="eager"
+                    />
+                  ) : null}
+                </>
+              ) : (
+                <div className="absolute inset-0 animate-pulse bg-[radial-gradient(circle_at_center,_rgba(196,153,74,0.18),_rgba(24,18,16,1)_72%)]" />
+              )}
 
-            {(bannerLoading || (bannerImage && !bannerImageLoaded)) ? (
-              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-amber-400/10 via-amber-300/80 to-red-400/10 transition-opacity duration-1000" />
-            ) : null}
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-end p-3 sm:p-4">
-              <span className="rounded-full bg-[#020b10]/70 px-3 py-1 text-[11px] sm:text-xs font-semibold tracking-wide text-amber-100 ring-1 ring-white/10 backdrop-blur">Conheça os planos VIP</span>
-            </div>
+              {bannerLoading || (bannerImage && !bannerImageLoaded) ? (
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-amber-400/10 via-amber-300/80 to-red-400/10 transition-opacity duration-1000" />
+              ) : null}
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-end p-3 sm:p-4">
+                <span className="rounded-full bg-[#020b10]/70 px-3 py-1 text-[11px] sm:text-xs font-semibold tracking-wide text-amber-100 ring-1 ring-white/10 backdrop-blur">
+                  Conheça os planos VIP
+                </span>
+              </div>
             </div>
           </div>
         </a>
@@ -238,35 +262,39 @@ export default function HomePage({
               Loja online • Miniaturas e Action Figures
             </p>
 
-            <h1 className="mt-4 font-black leading-tight text-3xl sm:text-5xl lg:text-6xl">
-              Action figures e miniaturas de RPG em resina
+            <h1 className="mt-4 font-black leading-tight text-3xl sm:text-5xl lg:text-[52px]">
+              Seu universo favorito, em cada detalhe.
             </h1>
-
+            <p className="mx-auto mt-5 max-w-lg text-base leading-7 text-slate-300 lg:mx-0">
+              Action figures e miniaturas de RPG em resina, produzidas com
+              cuidado para dar vida à sua coleção.
+            </p>
 
             <div className="mt-6 flex flex-col gap-3 max-w-md mx-auto lg:mx-0">
               <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start">
-                <button type="button"
+                <button
+                  type="button"
                   onClick={onGoEstoque}
                   className="hero-cta hero-cta-primary"
                 >
                   <span className="hero-cta__label">Peças em estoque</span>
                 </button>
-                <button type="button"
+                <button
+                  type="button"
                   onClick={onGoCatalogo}
                   className="hero-cta hero-cta-secondary"
                 >
                   <span className="hero-cta__label">Catálogo completo</span>
                 </button>
               </div>
-              <button type="button"
+              <button
+                type="button"
                 onClick={onGoCupom}
-                className="hero-cta hero-cta-accent"
+                className="self-center text-sm text-teal-200 underline decoration-teal-200/30 underline-offset-4 lg:self-start"
               >
-                <span className="hero-cta__label">Ganhe Cupons</span>
+                Descubra os cupons da Cubo Game →
               </button>
             </div>
-
-
           </div>
 
           <div className="relative" id="promocoes">
@@ -290,21 +318,35 @@ export default function HomePage({
         </div>
       </section>
 
-      <section id="destaques" className="container-cc px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
+      <section
+        id="destaques"
+        className="container-cc px-4 sm:px-6 lg:px-8 py-10 sm:py-14"
+      >
         <div className="flex items-end justify-between gap-4 mb-4 sm:mb-6">
           <div>
-            <p className="text-cyan-300 font-semibold text-sm">Só esta semana</p>
-            <h2 className="text-2xl sm:text-3xl font-black">Destaques da loja</h2>
+            <p className="text-cyan-300 font-semibold text-sm">
+              Só esta semana
+            </p>
+            <h2 className="text-2xl sm:text-3xl font-black">
+              Destaques da loja
+            </h2>
           </div>
-          <button type="button" onClick={onGoCatalogo} className="text-sm underline decoration-dotted text-slate-300 hover:text-white">
+          <button
+            type="button"
+            onClick={onGoCatalogo}
+            className="text-sm underline decoration-dotted text-slate-300 hover:text-white"
+          >
             Ver tudo
           </button>
         </div>
 
         {loadingProducts ? (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
             {Array.from({ length: 4 }).map((_, idx) => (
-              <div key={idx} className="rounded-2xl p-4 ring-1 ring-white/10 bg-white/4 animate-pulse h-72" />
+              <div
+                key={idx}
+                className="rounded-2xl p-4 ring-1 ring-white/10 bg-white/4 animate-pulse h-72"
+              />
             ))}
           </div>
         ) : productsError ? (
@@ -316,7 +358,7 @@ export default function HomePage({
             Nenhum destaque no momento.
           </div>
         ) : (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
             {featured.map((p) => (
               <ProductCard
                 key={p.id}
@@ -335,18 +377,28 @@ export default function HomePage({
         <div className="rounded-3xl ring-1 ring-white/10 bg-white/4 p-5 sm:p-7">
           <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-4 sm:mb-6">
             <div>
-              <p className="text-fuchsia-300 font-semibold text-sm">Em estoque</p>
-              <h2 className="text-2xl sm:text-3xl font-black">Pronta entrega</h2>
+              <p className="text-fuchsia-300 font-semibold text-sm">
+                Em estoque
+              </p>
+              <h2 className="text-2xl sm:text-3xl font-black">
+                Pronta entrega
+              </h2>
             </div>
-            <button type="button" onClick={onGoEstoque} className="text-sm underline decoration-dotted text-slate-300 hover:text-white">
+            <button
+              type="button"
+              onClick={onGoEstoque}
+              className="text-sm underline decoration-dotted text-slate-300 hover:text-white"
+            >
               Ver estoque completo
             </button>
           </div>
 
           {prontaEntregaPreview.length === 0 ? (
-            <div className="text-slate-300">Sem itens de pronta entrega por enquanto.</div>
+            <div className="text-slate-300">
+              Sem itens de pronta entrega por enquanto.
+            </div>
           ) : (
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
               {prontaEntregaPreview.map((p) => (
                 <ProductCard
                   key={p.id}
@@ -365,10 +417,16 @@ export default function HomePage({
       <section className="container-cc px-4 sm:px-6 lg:px-8 pb-12 sm:pb-16">
         <div className="flex items-end justify-between gap-4 mb-4 sm:mb-6">
           <div>
-            <p className="text-indigo-300 font-semibold text-sm">Galeria de heróis, monstros e classes</p>
+            <p className="text-indigo-300 font-semibold text-sm">
+              Galeria de heróis, monstros e classes
+            </p>
             <h2 className="text-2xl sm:text-3xl font-black">Miniaturas RPG</h2>
           </div>
-          <button type="button" onClick={onGoSobEncomenda} className="text-sm underline decoration-dotted text-slate-300 hover:text-white">
+          <button
+            type="button"
+            onClick={onGoSobEncomenda}
+            className="text-sm underline decoration-dotted text-slate-300 hover:text-white"
+          >
             Ver catálogo RPG
           </button>
         </div>
@@ -378,7 +436,7 @@ export default function HomePage({
             Ainda estamos preparando os destaques de RPG.
           </div>
         ) : (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
             {rpgPreview.map((p) => (
               <ProductCard
                 key={p.id}
@@ -397,10 +455,18 @@ export default function HomePage({
         <div className="rounded-3xl ring-1 ring-white/10 bg-gradient-to-br from-slate-900 via-slate-900 to-black p-5 sm:p-7">
           <div className="flex flex-col gap-4 mb-4 sm:mb-6 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <p className="text-cyan-300 font-semibold text-sm">Quem já comprou</p>
-              <h2 className="text-2xl sm:text-3xl font-black">Avaliações e comentários</h2>
+              <p className="text-cyan-300 font-semibold text-sm">
+                Quem já comprou
+              </p>
+              <h2 className="text-2xl sm:text-3xl font-black">
+                Avaliações e comentários
+              </h2>
             </div>
-            <button type="button" onClick={onGoReviews} className="self-start rounded-xl px-4 py-2 text-sm font-semibold text-slate-100 ring-1 ring-white/15 hover:bg-white/5 sm:self-auto">
+            <button
+              type="button"
+              onClick={onGoReviews}
+              className="self-start rounded-xl px-4 py-2 text-sm font-semibold text-slate-100 ring-1 ring-white/15 hover:bg-white/5 sm:self-auto"
+            >
               Ver todas as avaliações
             </button>
           </div>
@@ -408,7 +474,10 @@ export default function HomePage({
           {loadingDepoimentos ? (
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {Array.from({ length: 3 }).map((_, idx) => (
-                <div key={idx} className="rounded-2xl p-4 ring-1 ring-white/10 bg-white/4 animate-pulse h-40" />
+                <div
+                  key={idx}
+                  className="rounded-2xl p-4 ring-1 ring-white/10 bg-white/4 animate-pulse h-40"
+                />
               ))}
             </div>
           ) : depoimentos.length === 0 ? (
@@ -418,35 +487,64 @@ export default function HomePage({
           ) : (
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {depoimentos.map((d) => {
-                const author = [d.display_name, d.city && d.state ? `${d.city}/${d.state}` : d.city || d.state]
+                const author = [
+                  d.display_name,
+                  d.city && d.state
+                    ? `${d.city}/${d.state}`
+                    : d.city || d.state,
+                ]
                   .filter(Boolean)
-                  .join(" • ");
-                const stars = Math.max(1, Math.min(5, Number(d.rating) || 5));
+                  .join(' • ')
+                const stars = Math.max(1, Math.min(5, Number(d.rating) || 5))
                 return (
-                  <article key={d.id} className="rounded-2xl p-4 ring-1 ring-white/10 bg-white/4">
-                    <div className="flex items-center gap-1 text-cyan-300" aria-label={`${stars} estrelas`}>
+                  <article
+                    key={d.id}
+                    className="rounded-2xl p-4 ring-1 ring-white/10 bg-white/4"
+                  >
+                    <div
+                      className="flex items-center gap-1 text-cyan-300"
+                      aria-label={`${stars} estrelas`}
+                    >
                       {Array.from({ length: 5 }).map((_, idx) => (
-                        <span key={idx}>{idx < stars ? "★" : "☆"}</span>
+                        <span key={idx}>{idx < stars ? '★' : '☆'}</span>
                       ))}
                     </div>
                     <p className="mt-3 text-sm leading-6 text-slate-200">
-                      “{d.comment || "Compra aprovada."}”
+                      “{d.comment || 'Compra aprovada.'}”
                     </p>
-                    {Array.isArray(d.product_names) && d.product_names.length ? (
+                    {Array.isArray(d.product_names) &&
+                    d.product_names.length ? (
                       <div className="mt-4 flex flex-wrap gap-2">
                         {d.product_names.slice(0, 3).map((name, index) => {
-                          const productSlug = Array.isArray(d.product_slugs) && d.product_slugs.length === d.product_names.length ? d.product_slugs[index] : "";
+                          const productSlug =
+                            Array.isArray(d.product_slugs) &&
+                            d.product_slugs.length === d.product_names.length
+                              ? d.product_slugs[index]
+                              : ''
                           return productSlug ? (
-                            <a key={`${name}-${productSlug}`} href={`/p/${encodeURIComponent(productSlug)}`} className="rounded-full bg-cyan-400/10 px-2.5 py-1 text-xs text-cyan-100 ring-1 ring-cyan-300/20 hover:bg-cyan-400/15">{name}</a>
+                            <a
+                              key={`${name}-${productSlug}`}
+                              href={`/p/${encodeURIComponent(productSlug)}`}
+                              className="rounded-full bg-cyan-400/10 px-2.5 py-1 text-xs text-cyan-100 ring-1 ring-cyan-300/20 hover:bg-cyan-400/15"
+                            >
+                              {name}
+                            </a>
                           ) : (
-                            <span key={`${name}-${index}`} className="rounded-full bg-white/5 px-2.5 py-1 text-xs text-cyan-100 ring-1 ring-white/10">{name}</span>
-                          );
+                            <span
+                              key={`${name}-${index}`}
+                              className="rounded-full bg-white/5 px-2.5 py-1 text-xs text-cyan-100 ring-1 ring-white/10"
+                            >
+                              {name}
+                            </span>
+                          )
                         })}
                       </div>
                     ) : null}
-                    <p className="mt-3 text-xs text-slate-400">{author || "Cliente verificado"}</p>
+                    <p className="mt-3 text-xs text-slate-400">
+                      {author || 'Cliente verificado'}
+                    </p>
                   </article>
-                );
+                )
               })}
             </div>
           )}
@@ -457,17 +555,29 @@ export default function HomePage({
         <div className="rounded-3xl p-5 sm:p-7 ring-1 ring-white/10 bg-gradient-to-r from-teal-500/15 via-fuchsia-500/10 to-indigo-500/15">
           <div className="grid lg:grid-cols-2 gap-6 items-center">
             <div>
-              <p className="text-emerald-300 font-semibold text-sm">Precisa de ajuda?</p>
-              <h3 className="mt-2 text-2xl sm:text-3xl font-black">Tire dúvidas antes de comprar</h3>
+              <p className="text-emerald-300 font-semibold text-sm">
+                Precisa de ajuda?
+              </p>
+              <h3 className="mt-2 text-2xl sm:text-3xl font-black">
+                Tire dúvidas antes de comprar
+              </h3>
               <p className="mt-3 text-slate-300">
                 Veja prazos, trocas, política de envio e formas de pagamento.
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-3 lg:justify-end">
-              <button type="button" onClick={onGoFaq} className="rounded-xl px-5 py-3 bg-white text-black font-bold">
+              <button
+                type="button"
+                onClick={onGoFaq}
+                className="rounded-xl px-5 py-3 bg-white text-black font-bold"
+              >
                 Abrir FAQ
               </button>
-              <button type="button" onClick={onGoPoliticas} className="rounded-xl px-5 py-3 ring-1 ring-white/20 hover:bg-white/4">
+              <button
+                type="button"
+                onClick={onGoPoliticas}
+                className="rounded-xl px-5 py-3 ring-1 ring-white/20 hover:bg-white/4"
+              >
                 Ver políticas
               </button>
             </div>
@@ -475,5 +585,5 @@ export default function HomePage({
         </div>
       </section>
     </main>
-  );
+  )
 }

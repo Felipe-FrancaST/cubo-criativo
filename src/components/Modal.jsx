@@ -1,5 +1,5 @@
-import * as React from "react";
-import { focusFirst, handleFocusTrapKeydown } from "../lib/a11y.js";
+import * as React from 'react'
+import useDialog from '../lib/useDialog.js'
 
 /**
  * Modal genérico.
@@ -14,55 +14,27 @@ export default function Modal({
   title,
   children,
   ariaLabel,
-  bodyClassName = "",
+  bodyClassName = '',
   // Mantém o comportamento anterior como padrão.
-  widthClass = "w-[94vw] sm:w-[90vw] lg:w-[70vw]",
-  maxWidth = "max-w-[1100px]",
-  panelClassName = "",
-  zIndexClass = "z-[150]",
+  widthClass = 'w-[94vw] sm:w-[90vw] lg:w-[70vw]',
+  maxWidth = 'max-w-[1100px]',
+  panelClassName = '',
+  zIndexClass = 'z-[150]',
 }) {
-  const showHeader = typeof title === "string" && title.trim().length > 0;
-  const panelRef = React.useRef(null);
-  const lastFocusRef = React.useRef(null);
+  const showHeader = typeof title === 'string' && title.trim().length > 0
+  const panelRef = useDialog(open, onClose)
 
-  // Esc + focus trap + restaura foco ao fechar
-  React.useEffect(() => {
-    if (!open) return;
-
-    lastFocusRef.current = document.activeElement;
-    const previousBodyOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    const onKey = (e) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        onClose?.();
-        return;
-      }
-      handleFocusTrapKeydown(e, panelRef.current);
-    };
-
-    // foco inicial
-    queueMicrotask(() => focusFirst(panelRef.current));
-
-    window.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = previousBodyOverflow;
-      const prev = lastFocusRef.current;
-      if (prev && typeof prev.focus === "function") {
-        queueMicrotask(() => prev.focus({ preventScroll: true }));
-      }
-    };
-  }, [open, onClose]);
-
-  const label = ariaLabel || (showHeader ? title : "Janela");
+  const label = ariaLabel || (showHeader ? title : 'Janela')
 
   return (
-    <div className={`fixed inset-0 ${zIndexClass} ${open ? "visible" : "invisible"}`} aria-hidden={!open}>
+    <div
+      className={`fixed inset-0 ${zIndexClass} ${open ? 'visible' : 'invisible'}`}
+      aria-hidden={!open}
+      inert={open ? undefined : ''}
+    >
       {/* backdrop */}
       <div
-        className={`absolute inset-0 bg-[#020b10]/72 transition-opacity ${open ? "opacity-100" : "opacity-0"}`}
+        className={`absolute inset-0 bg-[#020b10]/72 transition-opacity ${open ? 'opacity-100' : 'opacity-0'}`}
         onClick={onClose}
       />
       {/* painel */}
@@ -74,10 +46,10 @@ export default function Modal({
         tabIndex={-1}
         className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2
                     ${widthClass} ${maxWidth}
-                    max-h-[92vh]
+                    max-h-[92dvh]
                     bg-[#07161d] ring-1 ring-white/10 rounded-2xl
                     overflow-hidden flex flex-col
-                    transition-transform ${open ? "scale-100" : "scale-95"}
+                    transition-transform ${open ? 'scale-100' : 'scale-95'}
                     ${panelClassName}`}
       >
         {showHeader ? (
@@ -93,8 +65,12 @@ export default function Modal({
             </button>
           </div>
         ) : null}
-        <div className={`p-3 sm:p-4 overflow-y-auto ${showHeader ? "" : "pt-4"} ${bodyClassName}`}>{children}</div>
+        <div
+          className={`min-h-0 p-3 sm:p-4 overflow-y-auto overscroll-contain ${showHeader ? '' : 'pt-4'} ${bodyClassName}`}
+        >
+          {children}
+        </div>
       </div>
     </div>
-  );
+  )
 }

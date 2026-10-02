@@ -1,34 +1,36 @@
-import React from "react";
-import brandConfig from "../data/config";
-import { trackEvent } from "../lib/analytics.js";
+import React from 'react'
+import brandConfig from '../data/config'
+import { trackEvent } from '../lib/analytics.js'
 
-function IconButton({ title, onClick, children, className = "", ...rest }) {
+function IconButton({ title, onClick, children, className = '', ...rest }) {
   return (
     <button
       onClick={onClick}
       title={title}
       aria-label={title}
-      className={`inline-flex items-center justify-center rounded-full p-1.5 sm:p-2 ring-1 ring-cyan-300/15 hover:bg-cyan-300/5 transition ${className}`}
+      className={`inline-flex min-h-[40px] min-w-[40px] items-center justify-center rounded-xl p-2 ring-1 ring-cyan-300/15 hover:bg-cyan-300/5 transition ${className}`}
       {...rest}
     >
       {children}
     </button>
-  );
+  )
 }
 
 function NavPill({ active, children, onClick }) {
   return (
     <button
+      type="button"
+      aria-current={active ? 'page' : undefined}
       onClick={onClick}
       className={`rounded-full px-3 py-2 text-sm transition ring-1 ${
         active
-          ? "bg-cyan-300/10 text-cyan-50 ring-cyan-300/20"
-          : "text-cyan-100/80 ring-transparent hover:ring-cyan-300/15 hover:bg-cyan-300/5"
+          ? 'bg-cyan-300/10 text-cyan-50 ring-cyan-300/20'
+          : 'text-cyan-100/80 ring-transparent hover:ring-cyan-300/15 hover:bg-cyan-300/5'
       }`}
     >
       {children}
     </button>
-  );
+  )
 }
 
 export default function SiteHeader({
@@ -46,32 +48,43 @@ export default function SiteHeader({
   onNavigate,
   onGoHomeSection,
 }) {
-  const brand = brandConfig;
-  const [logoAnimate, setLogoAnimate] = React.useState(false);
+  const brand = brandConfig
+  const [logoAnimate, setLogoAnimate] = React.useState(false)
+  const logoTimer = React.useRef(null)
+  React.useEffect(() => () => window.clearTimeout(logoTimer.current), [])
 
   function handleLogoClick() {
-    setLogoAnimate(true);
-    setTimeout(() => setLogoAnimate(false), 350);
-    onNavigate("/");
+    setLogoAnimate(true)
+    window.clearTimeout(logoTimer.current)
+    logoTimer.current = window.setTimeout(() => setLogoAnimate(false), 350)
+    onNavigate('/')
   }
 
   // nav foi movida para o menu lateral (MenuDrawer) para ganhar espaço no desktop
 
   return (
-    <header className="sticky top-0 z-[90]">
-      <div className="backdrop-blur supports-[backdrop-filter]:bg-[#140b09]/72 bg-[#140b09]/90 border-b border-cyan-300/10">
-        <div className="mx-auto w-full" >
+    <header className="site-header sticky top-0 z-[90]">
+      <div className="backdrop-blur supports-[backdrop-filter]:bg-[#0a1824]/85 bg-[#0a1824] border-b border-cyan-300/10">
+        <div className="mx-auto w-full">
           <div className="container-cc px-4 sm:px-6 lg:px-8 py-2.5 sm:py-3 flex items-center gap-3 sm:gap-4">
             {/* Menu lateral */}
-            <IconButton title={menuOpen ? "Fechar menu" : "Abrir menu"} onClick={onToggleMenu}>
-              <span className="material-icons text-[16px] sm:text-[20px]">{menuOpen ? "close" : "menu"}</span>
+            <IconButton
+              title={menuOpen ? 'Fechar menu' : 'Abrir menu'}
+              onClick={onToggleMenu}
+            >
+              <span className="material-icons text-[16px] sm:text-[20px]">
+                {menuOpen ? 'close' : 'menu'}
+              </span>
             </IconButton>
 
             {/* Logo */}
-            <button onClick={handleLogoClick} className="flex items-center gap-3 group shrink-0">
+            <button
+              onClick={handleLogoClick}
+              className="flex items-center gap-3 group shrink-0"
+            >
               <span
-                className={`bg-white rounded-2xl p-2 sm:p-2.5 shadow-sm transition-transform duration-300 ${
-                  logoAnimate ? "scale-110 rotate-3" : "scale-100"
+                className={`bg-white rounded-xl p-2 sm:p-2.5 shadow-sm transition-transform duration-300 ${
+                  logoAnimate ? 'scale-110 rotate-3' : 'scale-100'
                 }`}
               >
                 {/* Fallback: garante tamanho mesmo se alguma classe não aplicar no build */}
@@ -79,41 +92,78 @@ export default function SiteHeader({
                   src={brand.logo}
                   alt={brand.name}
                   className="site-logo h-8 sm:h-10 w-auto object-contain"
-                  style={{ height: 40, width: "auto" }}
+                  style={{ width: 'auto' }}
                 />
               </span>
               <div className="hidden sm:flex flex-col leading-tight text-left">
-                <span className="font-extrabold tracking-tight">{brand.name}</span>
+                <span className="font-extrabold tracking-tight">
+                  {brand.name}
+                </span>
                 <span className="text-xs text-cyan-100/60">{brand.slogan}</span>
               </div>
             </button>
 
-            {/* Espaçador */}
-            <div className="flex-1" />
+            <nav
+              aria-label="Navegação principal"
+              className="ml-auto hidden items-center gap-1 lg:flex"
+            >
+              {[
+                ['/catalogo', 'Catálogo'],
+                ['/estoque', 'Pronta entrega'],
+                ['/vip', 'Clube VIP'],
+              ].map(([path, label]) => (
+                <NavPill
+                  key={path}
+                  active={route === path}
+                  onClick={() => onNavigate(path)}
+                >
+                  {label}
+                </NavPill>
+              ))}
+            </nav>
+            <div className="flex-1 lg:hidden" />
 
             {/* Ações */}
             <div className="ml-auto flex items-center gap-2 shrink-0">
               {/* Social (desktop) */}
-              <div className="hidden sm:flex items-center gap-2">
+              <div className="hidden xl:flex items-center gap-2">
                 <a
                   href="https://instagram.com/cubo_criativo3d"
                   target="_blank"
                   rel="noreferrer"
-                  onClick={() => trackEvent("social_click", { network: "instagram", location: "header" })}
+                  onClick={() =>
+                    trackEvent('social_click', {
+                      network: 'instagram',
+                      location: 'header',
+                    })
+                  }
                   className="inline-flex items-center justify-center rounded-full p-2 ring-1 ring-cyan-300/15 hover:bg-cyan-300/5"
                   title="Instagram"
                 >
-                  <img src="/icons/instagram.svg" alt="Instagram" className="h-4 w-4" />
+                  <img
+                    src="/icons/instagram.svg"
+                    alt="Instagram"
+                    className="h-4 w-4"
+                  />
                 </a>
                 <a
                   href="https://tiktok.com/@cubo.criativo"
                   target="_blank"
                   rel="noreferrer"
-                  onClick={() => trackEvent("social_click", { network: "tiktok", location: "header" })}
+                  onClick={() =>
+                    trackEvent('social_click', {
+                      network: 'tiktok',
+                      location: 'header',
+                    })
+                  }
                   className="inline-flex items-center justify-center rounded-full p-2 ring-1 ring-cyan-300/15 hover:bg-cyan-300/5"
                   title="TikTok"
                 >
-                  <img src="/icons/tiktok.svg" alt="TikTok" className="h-4 w-4" />
+                  <img
+                    src="/icons/tiktok.svg"
+                    alt="TikTok"
+                    className="h-4 w-4"
+                  />
                 </a>
 
                 <a
@@ -122,59 +172,102 @@ export default function SiteHeader({
                   className="inline-flex items-center justify-center rounded-full p-2 ring-1 ring-cyan-300/15 hover:bg-cyan-300/5"
                   title="WhatsApp"
                   rel="noreferrer"
-                  onClick={() => trackEvent("whatsapp_click", { location: "header" })}
+                  onClick={() =>
+                    trackEvent('whatsapp_click', { location: 'header' })
+                  }
                 >
-                  <img src="/icons/whatsapp.svg" alt="WhatsApp" className="h-4 w-4" />
+                  <img
+                    src="/icons/whatsapp.svg"
+                    alt="WhatsApp"
+                    className="h-4 w-4"
+                  />
                 </a>
               </div>
 
               {/* Conta */}
               {!user ? (
                 <IconButton title="Entrar / Criar conta" onClick={onOpenAuth}>
-                  <span className="material-icons text-[18px] sm:text-[20px]">person</span>
+                  <span className="material-icons text-[18px] sm:text-[20px]">
+                    person
+                  </span>
                 </IconButton>
               ) : (
-                <IconButton title="Minha conta" onClick={() => onNavigate?.("/conta")}>
-                  <span className="material-icons text-[18px] sm:text-[20px]">account_circle</span>
+                <IconButton
+                  title="Minha conta"
+                  onClick={() => onNavigate?.('/conta')}
+                >
+                  <span className="material-icons text-[18px] sm:text-[20px]">
+                    account_circle
+                  </span>
                 </IconButton>
               )}
 
               {/* Social (mobile) — ao lado do carrinho */}
-              <div className="flex sm:hidden items-center gap-1">
+              <div className="hidden items-center gap-1">
                 <a
                   href={`https://wa.me/${brand.whatsapp}`}
                   target="_blank"
                   className="inline-flex items-center justify-center rounded-full p-1.5 ring-1 ring-cyan-300/15 hover:bg-cyan-300/5"
                   title="WhatsApp"
                   rel="noreferrer"
-                  onClick={() => trackEvent("whatsapp_click", { location: "header_mobile" })}
+                  onClick={() =>
+                    trackEvent('whatsapp_click', { location: 'header_mobile' })
+                  }
                 >
-                  <img src="/icons/whatsapp.svg" alt="WhatsApp" className="h-4 w-4" />
+                  <img
+                    src="/icons/whatsapp.svg"
+                    alt="WhatsApp"
+                    className="h-4 w-4"
+                  />
                 </a>
                 <a
                   href="https://instagram.com/cubo_criativo3d"
                   target="_blank"
                   rel="noreferrer"
-                  onClick={() => trackEvent("social_click", { network: "instagram", location: "header_mobile" })}
+                  onClick={() =>
+                    trackEvent('social_click', {
+                      network: 'instagram',
+                      location: 'header_mobile',
+                    })
+                  }
                   className="inline-flex items-center justify-center rounded-full p-1.5 ring-1 ring-cyan-300/15 hover:bg-cyan-300/5"
                   title="Instagram"
                 >
-                  <img src="/icons/instagram.svg" alt="Instagram" className="h-4 w-4" />
+                  <img
+                    src="/icons/instagram.svg"
+                    alt="Instagram"
+                    className="h-4 w-4"
+                  />
                 </a>
                 <a
                   href="https://tiktok.com/@cubo.criativo"
                   target="_blank"
                   rel="noreferrer"
-                  onClick={() => trackEvent("social_click", { network: "tiktok", location: "header_mobile" })}
+                  onClick={() =>
+                    trackEvent('social_click', {
+                      network: 'tiktok',
+                      location: 'header_mobile',
+                    })
+                  }
                   className="inline-flex items-center justify-center rounded-full p-1.5 ring-1 ring-cyan-300/15 hover:bg-cyan-300/5"
                   title="TikTok"
                 >
-                  <img src="/icons/tiktok.svg" alt="TikTok" className="h-4 w-4" />
+                  <img
+                    src="/icons/tiktok.svg"
+                    alt="TikTok"
+                    className="h-4 w-4"
+                  />
                 </a>
               </div>
-{/* Carrinho */}
-              <IconButton title={cartOpen ? "Fechar carrinho" : "Carrinho"} onClick={onToggleCart} className="relative">
-                <span className="material-icons text-[16px] sm:text-[20px]">{cartOpen ? "close" : "shopping_cart"}</span>
+              {/* Carrinho */}
+              <IconButton
+                title={cartOpen ? 'Fechar carrinho' : 'Carrinho'}
+                onClick={onToggleCart}
+                className="relative"
+              >
+                <span className="material-icons text-[16px] sm:text-[20px]">
+                  {cartOpen ? 'close' : 'shopping_cart'}
+                </span>
                 {cartCount > 0 && (
                   <span className="absolute -top-1 -right-1 text-[10px] bg-cyan-400 text-[#031116] font-bold rounded-full px-1.5 py-0.5 shadow">
                     {cartCount}
@@ -186,5 +279,5 @@ export default function SiteHeader({
         </div>
       </div>
     </header>
-  );
+  )
 }

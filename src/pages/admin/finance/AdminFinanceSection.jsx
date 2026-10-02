@@ -1,10 +1,7 @@
-import React from "react";
-import { KpiCard, SectionTitle } from "../orders/AdminOrdersComponents.jsx";
-import { fmtBRL } from "../orders/adminOrdersUtils.js";
-
+import { KpiCard, SectionTitle } from '../orders/AdminOrdersComponents.jsx'
+import { fmtBRL } from '../orders/adminOrdersUtils.js'
 export default function AdminFinanceSection({ admin }) {
-  const { stats, financeHighlights } = admin;
-
+  const { stats, financeHighlights } = admin
   return (
     <div className="space-y-4">
       <SectionTitle
@@ -15,9 +12,9 @@ export default function AdminFinanceSection({ admin }) {
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3 xl:grid-cols-6">
         <KpiCard
-          label="Faturamento total"
+          label="Faturamento no período"
           value={fmtBRL(stats?.revenue || 0)}
-          hint="Pedidos pagos + upgrades"
+          hint="Pedidos pagos + upgrades no filtro"
         />
         <KpiCard
           label="Receita do mês"
@@ -59,15 +56,14 @@ export default function AdminFinanceSection({ admin }) {
             Reembolsos solicitados: <b>{stats?.refundReq || 0}</b>
           </div>
           <div className="rounded-xl bg-black/20 p-4 text-slate-200 ring-1 ring-white/10">
-            Receita pendente:{" "}
+            Receita pendente:{' '}
             <b>{fmtBRL(financeHighlights?.pendingRevenue || 0)}</b>
           </div>
           <div className="rounded-xl bg-black/20 p-4 text-slate-200 ring-1 ring-white/10">
-            Pedidos pagos no filtro:{" "}
-            <b>{financeHighlights?.paidCount || 0}</b>
+            Pedidos pagos no filtro: <b>{financeHighlights?.paidCount || 0}</b>
           </div>
         </div>
       </div>
     </div>
-  );
+  )
 }

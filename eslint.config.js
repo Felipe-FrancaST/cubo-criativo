@@ -49,12 +49,21 @@ export default [
     },
   },
   {
-    files: ['api/**/*.js', 'server/**/*.js', 'scripts/**/*.mjs'],
+    files: [
+      'api/**/*.js',
+      'server/**/*.js',
+      'scripts/**/*.mjs',
+      'test/**/*.js',
+    ],
     languageOptions: {
       globals: {
         ...globals.node,
       },
     },
+  },
+  {
+    files: ['test/admin-ui.test.js'],
+    languageOptions: { globals: { ...globals.browser, ...globals.node } },
   },
   {
     files: ['src/**/*.{js,jsx}'],
@@ -70,7 +79,10 @@ export default [
     rules: {
       ...reactHooks.configs.recommended.rules,
       'react-hooks/exhaustive-deps': 'warn',
-      'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
+      'react-refresh/only-export-components': [
+        'warn',
+        { allowConstantExport: true },
+      ],
     },
   },
   {
@@ -79,7 +91,7 @@ export default [
       'react-hooks': reactHooks,
     },
     rules: {
-      'react-hooks/rules-of-hooks': 'warn',
+      'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn',
     },
   },

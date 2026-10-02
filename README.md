@@ -4,6 +4,8 @@ Loja online da **Cubo Criativo** para venda de miniaturas, action figures, peça
 
 Este repositório reúne a aplicação pública, rotas serverless, integrações de pagamento e o fluxo de conta do usuário, incluindo login por e-mail e Google, recuperação de senha, exclusão de conta, cupons e área VIP.
 
+A revisão de layout, pedidos e controle VIP está documentada em [MELHORIAS.md](MELHORIAS.md), com instruções de aplicação e validação.
+
 ## Visão geral
 
 O site foi estruturado para separar com clareza os dois principais tipos de oferta:
@@ -28,11 +30,13 @@ Além disso, a aplicação inclui:
 ## Stack principal
 
 ### Frontend
+
 - **React 18**
 - **Vite 5**
 - **Tailwind CSS 4**
 
 ### Backend e serviços
+
 - **Supabase Auth** para autenticação
 - **Supabase Database** para produtos, perfil, pedidos e dados relacionados
 - **Vercel Functions** para APIs serverless
@@ -43,6 +47,7 @@ Além disso, a aplicação inclui:
 ## Funcionalidades do projeto
 
 ### Loja
+
 - home com destaque de marca e atalhos comerciais
 - catálogo com busca e filtros
 - página separada de pronta entrega
@@ -52,6 +57,7 @@ Além disso, a aplicação inclui:
 - checkout com integração externa
 
 ### Conta do usuário
+
 - cadastro com aceite obrigatório de termos e privacidade
 - login com e-mail/senha
 - login com Google
@@ -62,6 +68,7 @@ Além disso, a aplicação inclui:
 - exclusão permanente de conta com confirmação por senha
 
 ### Operação e venda
+
 - pedidos e acompanhamento básico
 - pagamentos por cartão via Checkout Pro
 - pagamentos por Pix
@@ -71,6 +78,7 @@ Além disso, a aplicação inclui:
 - área VIP / RPG
 
 ### SEO e conteúdo
+
 - sitemap e robots
 - Open Graph e metadados dinâmicos
 - JSON-LD para produto e listagem
@@ -98,6 +106,7 @@ Além disso, a aplicação inclui:
 ## Rotas principais
 
 ### Públicas
+
 - `/` — Home
 - `/catalogo` — Catálogo
 - `/estoque` — Pronta entrega
@@ -111,17 +120,19 @@ Além disso, a aplicação inclui:
 - `/privacy.html` — Política de privacidade
 
 ### Conta e autenticação
+
 - `/conta` — Conta do usuário
 - `/configuracoes` — Configurações
 - `/redefinir-senha` — Página segura para definir nova senha via link de e-mail
 
 ### Extras
+
 - `/cupom` — Jogo da memória / cupom
 - `/vip` e rotas relacionadas — Área VIP
 
 ## Requisitos
 
-- **Node.js 20.x**
+- **Node.js 24.x**
 - **npm**
 - conta no **Supabase**
 - conta no **Mercado Pago**
@@ -153,16 +164,19 @@ npm run preview   # pré-visualização local do build
 Use o arquivo `.env.example` como base.
 
 ### Mercado Pago
+
 - `MP_ACCESS_TOKEN`
 - `SITE_URL`
 - `MP_MODE`
 
 ### Resend
+
 - `RESEND_API_KEY`
 - `RESEND_FROM`
 - `ORDER_EMAIL_TO`
 
 ### Supabase
+
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
 - `SUPABASE_URL`
@@ -172,6 +186,7 @@ Use o arquivo `.env.example` como base.
 ## Configuração do Supabase
 
 ### 1) Crie o projeto
+
 No painel do Supabase, crie um novo projeto e copie:
 
 - Project URL
@@ -179,6 +194,7 @@ No painel do Supabase, crie um novo projeto e copie:
 - service role key
 
 ### 2) Configure autenticação
+
 Em **Authentication → URL Configuration**, ajuste:
 
 - **Site URL** para sua URL de produção
@@ -189,9 +205,11 @@ Em **Authentication → URL Configuration**, ajuste:
   - `https://seu-dominio.com/configuracoes` se necessário para outros fluxos
 
 ### 3) Login social
+
 Se o projeto usar Google, configure o provedor em **Authentication → Providers → Google** com as credenciais corretas e os redirects autorizados.
 
 ### 4) Banco de dados
+
 Crie as tabelas e políticas que seu projeto utiliza antes de testar fluxos como pedidos, perfil, favoritos, cupons e avaliações.
 
 > Importante: este README descreve a aplicação, mas a estrutura exata do banco deve seguir o schema SQL adotado no seu projeto.
@@ -223,24 +241,30 @@ Outros campos importantes usados no mapeamento do produto incluem:
 ## Pagamentos
 
 ### Cartão
+
 O pagamento por cartão usa uma function serverless para criar a preferência no Mercado Pago e redirecionar o cliente para o checkout.
 
 Arquivos relevantes:
+
 - `api/create-checkout-session.js`
 - `api/mp-webhook.js`
 
 ### Pix
+
 O fluxo de Pix é tratado por endpoints específicos e pelo webhook do Mercado Pago.
 
 Arquivos relevantes:
+
 - `api/create-pix-payment.js`
 - `api/pix-payment.js`
 - `api/mp-webhook.js`
 
 ### Lembrete de Pix pendente
+
 Existe um fluxo para enviar lembrete de pagamento pendente por cron job.
 
 Para usar:
+
 - configure o endpoint de cron na Vercel
 - proteja com `CRON_SECRET`
 - configure Resend para envio de e-mail
@@ -269,6 +293,7 @@ Já na área de configurações:
 5. publique
 
 ### Recomendação importante
+
 Não suba `node_modules` no repositório nem em pacotes de entrega. Sempre gere as dependências no ambiente de build com `npm install`.
 
 ## Boas práticas para manutenção
@@ -282,18 +307,24 @@ Não suba `node_modules` no repositório nem em pacotes de entrega. Sempre gere 
 ## Problemas comuns
 
 ### O link de redefinição de senha não abre a tela correta
+
 Confira:
+
 - `redirectTo` configurado no frontend
 - Redirect URLs autorizados no Supabase
 - domínio final correto na Vercel
 
 ### Login com Google redireciona de forma errada
+
 Confira:
+
 - URLs autorizadas no Google e no Supabase
 - tratamento correto do callback de autenticação
 
 ### Mercado Pago não conclui pagamento
+
 Confira:
+
 - `MP_ACCESS_TOKEN`
 - `SITE_URL`
 - webhook publicado e acessível

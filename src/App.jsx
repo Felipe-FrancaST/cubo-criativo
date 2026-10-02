@@ -1,49 +1,76 @@
 // src/App.jsx
-import React from "react";
-const { startTransition, Suspense } = React;
-import brand from "./data/config";
+import React from 'react'
+const { startTransition, Suspense } = React
+import brand from './data/config'
 
 // Componentes
-import Modal from "./components/Modal.jsx";
-import RouteErrorBoundary from "./components/RouteErrorBoundary.jsx";
-import { clearDynamicImportReloadGuard, lazyWithReload } from "./lib/lazyWithReload.js";
-const CartDrawer = lazyWithReload(() => import("./components/CartDrawer.jsx"));
-const AuthModal = lazyWithReload(() => import("./components/AuthModal.jsx"));
-const OrdersModal = lazyWithReload(() => import("./components/OrdersModal.jsx"));
-const MenuDrawer = lazyWithReload(() => import("./components/MenuDrawer.jsx"));
-const VipAreaModal = lazyWithReload(() => import("./components/VipAreaModal.jsx"));
-const ProfileSettingsModal = lazyWithReload(() => import("./components/ProfileSettingsModal.jsx"));
-import SiteHeader from "./components/SiteHeader.jsx";
-import { useAuth } from "./auth/AuthProvider.jsx";
-import { supabase } from "./lib/supabaseClient";
+import Modal from './components/Modal.jsx'
+import RouteErrorBoundary from './components/RouteErrorBoundary.jsx'
+import {
+  clearDynamicImportReloadGuard,
+  lazyWithReload,
+} from './lib/lazyWithReload.js'
+const CartDrawer = lazyWithReload(() => import('./components/CartDrawer.jsx'))
+const AuthModal = lazyWithReload(() => import('./components/AuthModal.jsx'))
+const OrdersModal = lazyWithReload(() => import('./components/OrdersModal.jsx'))
+const MenuDrawer = lazyWithReload(() => import('./components/MenuDrawer.jsx'))
+const VipAreaModal = lazyWithReload(
+  () => import('./components/VipAreaModal.jsx')
+)
+const ProfileSettingsModal = lazyWithReload(
+  () => import('./components/ProfileSettingsModal.jsx')
+)
+import SiteHeader from './components/SiteHeader.jsx'
+import { useAuth } from './auth/AuthProvider.jsx'
+import { supabase } from './lib/supabaseClient'
 
 // Páginas
-const HomePage = lazyWithReload(() => import("./pages/HomePage.jsx"));
-const StockPage = lazyWithReload(() => import("./pages/StockPage.jsx"));
-const CatalogPage = lazyWithReload(() => import("./pages/CatalogPage.jsx"));
-const AccountPage = lazyWithReload(() => import("./pages/AccountPage.jsx"));
-const SettingsPage = lazyWithReload(() => import("./pages/SettingsPage.jsx"));
-const PromocoesPage = lazyWithReload(() => import("./pages/PromocoesPage.jsx"));
-const ProductPage = lazyWithReload(() => import("./pages/ProductPage.jsx"));
-const SobrePage = lazyWithReload(() => import("./pages/SobrePage.jsx"));
-const ContactPage = lazyWithReload(() => import("./pages/ContactPage.jsx"));
-const AdminOrdersPage = lazyWithReload(() => import("./pages/AdminOrdersPage.jsx"));
-const FAQPage = lazyWithReload(() => import("./pages/FAQPage.jsx"));
-const TrocasPage = lazyWithReload(() => import("./pages/TrocasPage.jsx"));
-const CupomGamePage = lazyWithReload(() => import("./pages/CupomGamePage.jsx"));
-const VipRpgPage = lazyWithReload(() => import("./pages/VipRpgPage.jsx"));
-const VipRedirectPage = lazyWithReload(() => import("./pages/VipRedirectPage.jsx"));
-const VipAreaPage = lazyWithReload(() => import("./pages/VipAreaPage.jsx"));
-const PasswordResetPage = lazyWithReload(() => import("./pages/PasswordResetPage.jsx"));
-const ManualOrderPaymentPage = lazyWithReload(() => import("./pages/ManualOrderPaymentPage.jsx"));
-const CustomerOrdersLandingPage = lazyWithReload(() => import("./pages/CustomerOrdersLandingPage.jsx"));
-const ReviewPage = lazyWithReload(() => import("./pages/ReviewPage.jsx"));
-const ReviewsPage = lazyWithReload(() => import("./pages/ReviewsPage.jsx"));
-import { fetchAdminStatus } from "./lib/admin.js";
-import { applySeo, setJsonLd, clearJsonLd } from "./lib/seo.js";
-import { trackEvent } from "./lib/analytics.js";
-import { getAffiliateCheckoutContext, getAffiliateVisitorId, saveAffiliateAttribution } from "./lib/affiliate.js";
-import { currentClientPath, consumeScrollRestore, isSpaHistoryEntry, readProductReturnState, queueScrollRestore } from "./lib/navigation.js";
+const HomePage = lazyWithReload(() => import('./pages/HomePage.jsx'))
+const StockPage = lazyWithReload(() => import('./pages/StockPage.jsx'))
+const CatalogPage = lazyWithReload(() => import('./pages/CatalogPage.jsx'))
+const AccountPage = lazyWithReload(() => import('./pages/AccountPage.jsx'))
+const SettingsPage = lazyWithReload(() => import('./pages/SettingsPage.jsx'))
+const PromocoesPage = lazyWithReload(() => import('./pages/PromocoesPage.jsx'))
+const ProductPage = lazyWithReload(() => import('./pages/ProductPage.jsx'))
+const SobrePage = lazyWithReload(() => import('./pages/SobrePage.jsx'))
+const ContactPage = lazyWithReload(() => import('./pages/ContactPage.jsx'))
+const AdminOrdersPage = lazyWithReload(
+  () => import('./pages/AdminOrdersPage.jsx')
+)
+const FAQPage = lazyWithReload(() => import('./pages/FAQPage.jsx'))
+const TrocasPage = lazyWithReload(() => import('./pages/TrocasPage.jsx'))
+const CupomGamePage = lazyWithReload(() => import('./pages/CupomGamePage.jsx'))
+const VipRpgPage = lazyWithReload(() => import('./pages/VipRpgPage.jsx'))
+const VipRedirectPage = lazyWithReload(
+  () => import('./pages/VipRedirectPage.jsx')
+)
+const VipAreaPage = lazyWithReload(() => import('./pages/VipAreaPage.jsx'))
+const PasswordResetPage = lazyWithReload(
+  () => import('./pages/PasswordResetPage.jsx')
+)
+const ManualOrderPaymentPage = lazyWithReload(
+  () => import('./pages/ManualOrderPaymentPage.jsx')
+)
+const CustomerOrdersLandingPage = lazyWithReload(
+  () => import('./pages/CustomerOrdersLandingPage.jsx')
+)
+const ReviewPage = lazyWithReload(() => import('./pages/ReviewPage.jsx'))
+const ReviewsPage = lazyWithReload(() => import('./pages/ReviewsPage.jsx'))
+import { fetchAdminStatus } from './lib/admin.js'
+import { applySeo, setJsonLd, clearJsonLd } from './lib/seo.js'
+import { trackEvent } from './lib/analytics.js'
+import {
+  getAffiliateCheckoutContext,
+  getAffiliateVisitorId,
+  saveAffiliateAttribution,
+} from './lib/affiliate.js'
+import {
+  currentClientPath,
+  consumeScrollRestore,
+  isSpaHistoryEntry,
+  readProductReturnState,
+  queueScrollRestore,
+} from './lib/navigation.js'
 
 // (Removido) Modo RPG separado: agora as peças RPG vivem dentro do Catálogo.
 
@@ -51,18 +78,17 @@ import { currentClientPath, consumeScrollRestore, isSpaHistoryEntry, readProduct
    HELPERS
    ======================================================================== */
 const fmtBRL = (n) =>
-  typeof n === "number" && isFinite(n)
-    ? n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
-    : "—";
+  typeof n === 'number' && isFinite(n)
+    ? n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+    : '—'
 
-
-const CHECKOUT_SESSION_BACKUP_KEY = "cc_checkout_session_backup";
+const CHECKOUT_SESSION_BACKUP_KEY = 'cc_checkout_session_backup'
 
 function backupCheckoutSession(session) {
-  if (typeof window === "undefined") return;
-  const accessToken = String(session?.access_token || "").trim();
-  const refreshToken = String(session?.refresh_token || "").trim();
-  if (!accessToken || !refreshToken) return;
+  if (typeof window === 'undefined') return
+  const accessToken = String(session?.access_token || '').trim()
+  const refreshToken = String(session?.refresh_token || '').trim()
+  if (!accessToken || !refreshToken) return
   try {
     window.localStorage.setItem(
       CHECKOUT_SESSION_BACKUP_KEY,
@@ -73,7 +99,7 @@ function backupCheckoutSession(session) {
         expires_in: Number(session?.expires_in || 0) || 0,
         token_type: String(session?.token_type || 'bearer') || 'bearer',
       })
-    );
+    )
   } catch {}
 }
 
@@ -81,115 +107,125 @@ function backupCheckoutSession(session) {
    SCROLL HELPERS
    ======================================================================== */
 function scrollToTop() {
-  if (typeof window === "undefined") return;
+  if (typeof window === 'undefined') return
 
   // Evita que o browser restaure scroll automaticamente (muito comum no mobile).
   try {
-    if ("scrollRestoration" in window.history) window.history.scrollRestoration = "manual";
+    if ('scrollRestoration' in window.history)
+      window.history.scrollRestoration = 'manual'
   } catch {}
 
   // 1) Window (padrão)
   try {
-    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
   } catch {}
 
   // 2) Fallbacks (alguns browsers/containers usam outro elemento como scroller)
   try {
-    document.documentElement.scrollTop = 0;
-    document.body.scrollTop = 0;
+    document.documentElement.scrollTop = 0
+    document.body.scrollTop = 0
   } catch {}
 
   // 3) Se existir algum container interno com scroll (ex.: #root)
   try {
-    const rootEl = document.getElementById("root");
-    if (rootEl && typeof rootEl.scrollTo === "function") rootEl.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    const rootEl = document.getElementById('root')
+    if (rootEl && typeof rootEl.scrollTo === 'function')
+      rootEl.scrollTo({ top: 0, left: 0, behavior: 'auto' })
   } catch {}
 }
-
 
 /* ========================================================================
    SUPABASE -> PRODUTOS (fonte de verdade)
    ======================================================================== */
 const centsToBRL = (cents) =>
-  typeof cents === "number" && isFinite(cents) ? Number((cents / 100).toFixed(2)) : 0;
+  typeof cents === 'number' && isFinite(cents)
+    ? Number((cents / 100).toFixed(2))
+    : 0
 
 const toInt = (v) => {
-  const n = Number(v);
-  return Number.isFinite(n) ? Math.trunc(n) : 0;
-};
+  const n = Number(v)
+  return Number.isFinite(n) ? Math.trunc(n) : 0
+}
 
 function normalizeTextArray(v) {
-  if (!v) return [];
-  if (Array.isArray(v)) return v.filter(Boolean).map(String);
-  return [];
+  if (!v) return []
+  if (Array.isArray(v)) return v.filter(Boolean).map(String)
+  return []
 }
 
 function normalizeImages(row) {
-  const imgs = Array.isArray(row?.images) ? row.images.filter(Boolean).map(String) : [];
-  const main = row?.image_url ? String(row.image_url) : "";
-  if (imgs.length > 0) return imgs;
-  return main ? [main] : [];
+  const imgs = Array.isArray(row?.images)
+    ? row.images.filter(Boolean).map(String)
+    : []
+  const main = row?.image_url ? String(row.image_url) : ''
+  if (imgs.length > 0) return imgs
+  return main ? [main] : []
 }
 
 function slugifyName(name) {
-  return String(name || "")
+  return String(name || '')
     .trim()
     .toLowerCase()
-    .replace(/[^a-z0-9-]+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
+    .replace(/[^a-z0-9-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
 }
 
 function normalizeDescription(v) {
-  if (v === null || v === undefined) return "";
-  const s = String(v).replace(/\s+/g, " ").trim();
+  if (v === null || v === undefined) return ''
+  const s = String(v).replace(/\s+/g, ' ').trim()
   // alguns registros antigos ficaram com texto sentinela
-  if (!s || s.toUpperCase() === "EMPTY") return "";
-  return s;
+  if (!s || s.toUpperCase() === 'EMPTY') return ''
+  return s
 }
 
 function mapProductRow(row) {
-  const promoActive = !!row?.promo;
-  const promoPriceCents = toInt(row?.price_cents ?? 0);
-  const originalPriceCents = toInt(row?.original_price_cents ?? 0);
+  const promoActive = !!row?.promo
+  const promoPriceCents = toInt(row?.price_cents ?? 0)
+  const originalPriceCents = toInt(row?.original_price_cents ?? 0)
 
   const effectiveBasePriceCents = promoActive
-    ? (promoPriceCents > 0 ? promoPriceCents : originalPriceCents)
-    : (originalPriceCents > 0 ? originalPriceCents : promoPriceCents);
+    ? promoPriceCents > 0
+      ? promoPriceCents
+      : originalPriceCents
+    : originalPriceCents > 0
+      ? originalPriceCents
+      : promoPriceCents
 
-  const strikePriceCents = promoActive && originalPriceCents > effectiveBasePriceCents
-    ? originalPriceCents
-    : 0;
+  const strikePriceCents =
+    promoActive && originalPriceCents > effectiveBasePriceCents
+      ? originalPriceCents
+      : 0
 
   const variants = Array.isArray(row?.variants)
     ? row.variants
         .filter(Boolean)
         .map((v) => {
-          const fullPriceCents = toInt(v?.price_cents ?? 0);
+          const fullPriceCents = toInt(v?.price_cents ?? 0)
           return {
-            label: String(v?.label ?? ""),
+            label: String(v?.label ?? ''),
             // Mantém o preço cheio da variante; o desconto promocional
             // é aplicado depois em src/lib/pricing.js.
             price: centsToBRL(fullPriceCents),
             priceCents: fullPriceCents,
-          };
+          }
         })
         .filter((v) => v.label)
-    : [];
+    : []
 
-  const imgs = normalizeImages(row);
-  const img = row?.image_url ? String(row.image_url) : imgs[0] || "";
+  const imgs = normalizeImages(row)
+  const img = row?.image_url ? String(row.image_url) : imgs[0] || ''
 
   return {
     // campos no formato que o front já usa
-    id: String(row?.id ?? ""),
+    id: String(row?.id ?? ''),
     slug: row?.slug ? String(row.slug) : slugifyName(row?.name),
-    nome: row?.name ? String(row.name) : "",
+    nome: row?.name ? String(row.name) : '',
     // Mantém compatibilidade com o front (campo "descricao"), mas vem do Supabase ("description")
     descricao: normalizeDescription(row?.description),
     img,
     imgs,
-    status: row?.status ? String(row.status) : "catalogo",
+    status: row?.status ? String(row.status) : 'catalogo',
     featured: !!row?.featured,
     promo: promoActive,
     originalPrice: centsToBRL(strikePriceCents),
@@ -197,7 +233,7 @@ function mapProductRow(row) {
     // novo: mantém centavos para promo/variante
     originalPriceCents: strikePriceCents,
     priceCents: effectiveBasePriceCents,
-    currency: row?.currency ? String(row.currency) : "brl",
+    currency: row?.currency ? String(row.currency) : 'brl',
     // stock:
     // - null/undefined => sem controle de estoque (não bloquear compra)
     // - number        => controlar disponibilidade (0 => esgotado)
@@ -205,15 +241,15 @@ function mapProductRow(row) {
       row?.stock === null || row?.stock === undefined
         ? null
         : (() => {
-            const n = Number(row.stock);
-            return Number.isFinite(n) ? Math.trunc(n) : null;
+            const n = Number(row.stock)
+            return Number.isFinite(n) ? Math.trunc(n) : null
           })(),
     active: row?.active !== false,
     tags: normalizeTextArray(row?.tags),
-    category: row?.category ? String(row.category) : "",
-    defaultVariant: row?.default_variant ? String(row.default_variant) : "",
+    category: row?.category ? String(row.category) : '',
+    defaultVariant: row?.default_variant ? String(row.default_variant) : '',
     variants,
-  };
+  }
 }
 
 function Toast({ open, children }) {
@@ -223,611 +259,805 @@ function Toast({ open, children }) {
       aria-live="polite"
       aria-atomic="true"
       className={`fixed top-20 left-1/2 -translate-x-1/2 z-[200] transition-all duration-300 ${
-        open ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-3 pointer-events-none"
+        open
+          ? 'opacity-100 translate-y-0'
+          : 'opacity-0 -translate-y-3 pointer-events-none'
       }`}
     >
       <div className="container-cc rounded-full bg-gradient-to-r from-cyan-400 via-cyan-300 to-sky-200 text-[#031116] font-semibold px-4 py-2 shadow-lg ring-4 ring-cyan-400/20">
         {children}
       </div>
     </div>
-  );
+  )
 }
 
-
-
-function buildProductSchemaList({ products = [], route = "/", listName = "Produtos" }) {
-  const origin = typeof window !== "undefined" ? window.location.origin : "";
-  const visible = (Array.isArray(products) ? products : []).filter(Boolean).slice(0, 24);
-  if (!visible.length) return null;
+function buildProductSchemaList({
+  products = [],
+  route = '/',
+  listName = 'Produtos',
+}) {
+  const origin = typeof window !== 'undefined' ? window.location.origin : ''
+  const visible = (Array.isArray(products) ? products : [])
+    .filter(Boolean)
+    .slice(0, 24)
+  if (!visible.length) return null
 
   const itemList = {
-    "@context": "https://schema.org",
-    "@type": "ItemList",
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
     name: listName,
-    itemListOrder: "https://schema.org/ItemListUnordered",
+    itemListOrder: 'https://schema.org/ItemListUnordered',
     numberOfItems: visible.length,
     itemListElement: visible.map((p, idx) => {
-      const price = Number.isFinite(p?.preco) ? p.preco : 0;
+      const price = Number.isFinite(p?.preco) ? p.preco : 0
       const imageUrls = (Array.isArray(p?.imgs) ? p.imgs : [p?.img])
         .filter(Boolean)
         .map((src) => {
-          const value = String(src);
-          return /^https?:\/\//i.test(value) ? value : `${origin}${value.startsWith("/") ? value : `/${value}`}`;
-        });
-      const image = imageUrls[0];
-      const inStock = typeof p?.stock === "number" ? p.stock > 0 : true;
-      const category = p?.category || (Array.isArray(p?.tags) && p.tags[0]) || "Miniatura";
+          const value = String(src)
+          return /^https?:\/\//i.test(value)
+            ? value
+            : `${origin}${value.startsWith('/') ? value : `/${value}`}`
+        })
+      const image = imageUrls[0]
+      const inStock = typeof p?.stock === 'number' ? p.stock > 0 : true
+      const category =
+        p?.category || (Array.isArray(p?.tags) && p.tags[0]) || 'Miniatura'
       // Cada item precisa apontar para sua própria página de produto.
       // Usar a rota da listagem aqui fazia todos os Product schemas
       // apontarem para /catalogo ou /promocoes.
-      const productSlug = String(p?.slug || "").trim();
-      const urlPath = productSlug ? `/p/${encodeURIComponent(productSlug)}` : (route === "/" ? "/catalogo" : route);
+      const productSlug = String(p?.slug || '').trim()
+      const urlPath = productSlug
+        ? `/p/${encodeURIComponent(productSlug)}`
+        : route === '/'
+          ? '/catalogo'
+          : route
       return {
-        "@type": "ListItem",
+        '@type': 'ListItem',
         position: idx + 1,
         item: {
-          "@type": "Product",
-          name: String(p?.nome || "Produto"),
-          description: String(p?.descricao || "Miniatura em resina e pintura artística."),
+          '@type': 'Product',
+          name: String(p?.nome || 'Produto'),
+          description: String(
+            p?.descricao || 'Miniatura em resina e pintura artística.'
+          ),
           image: imageUrls.length ? imageUrls : undefined,
           sku: String(p?.id || idx + 1),
           category,
-          brand: { "@type": "Brand", name: "Cubo Criativo" },
+          brand: { '@type': 'Brand', name: 'Cubo Criativo' },
           offers: {
-            "@type": "Offer",
-            priceCurrency: "BRL",
+            '@type': 'Offer',
+            priceCurrency: 'BRL',
             price: Number(price.toFixed ? price.toFixed(2) : price),
-            availability: inStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
-            itemCondition: "https://schema.org/NewCondition",
+            availability: inStock
+              ? 'https://schema.org/InStock'
+              : 'https://schema.org/OutOfStock',
+            itemCondition: 'https://schema.org/NewCondition',
             url: `${origin}${urlPath}`,
 
             // Campos opcionais recomendados pelo Google (Rich Results)
             shippingDetails: {
-              "@type": "OfferShippingDetails",
+              '@type': 'OfferShippingDetails',
               shippingDestination: {
-                "@type": "DefinedRegion",
-                addressCountry: "BR",
+                '@type': 'DefinedRegion',
+                addressCountry: 'BR',
               },
               // Ajuste se você cobrar frete. Mantido como 0 para não gerar aviso.
               shippingRate: {
-                "@type": "MonetaryAmount",
-                value: "0",
-                currency: "BRL",
+                '@type': 'MonetaryAmount',
+                value: '0',
+                currency: 'BRL',
               },
               deliveryTime: {
-                "@type": "ShippingDeliveryTime",
+                '@type': 'ShippingDeliveryTime',
                 handlingTime: {
-                  "@type": "QuantitativeValue",
+                  '@type': 'QuantitativeValue',
                   minValue: 1,
                   maxValue: 3,
-                  unitCode: "d",
+                  unitCode: 'd',
                 },
                 transitTime: {
-                  "@type": "QuantitativeValue",
+                  '@type': 'QuantitativeValue',
                   minValue: 2,
                   maxValue: 10,
-                  unitCode: "d",
+                  unitCode: 'd',
                 },
               },
             },
             hasMerchantReturnPolicy: {
-              "@type": "MerchantReturnPolicy",
-              applicableCountry: "BR",
-              returnPolicyCategory: "https://schema.org/MerchantReturnFiniteReturnWindow",
+              '@type': 'MerchantReturnPolicy',
+              applicableCountry: 'BR',
+              returnPolicyCategory:
+                'https://schema.org/MerchantReturnFiniteReturnWindow',
               merchantReturnDays: 7,
-              returnMethod: "https://schema.org/ReturnByMail",
-              returnFees: "https://schema.org/FreeReturn",
+              returnMethod: 'https://schema.org/ReturnByMail',
+              returnFees: 'https://schema.org/FreeReturn',
             },
-          }
-        }
-      };
-    })
-  };
+          },
+        },
+      }
+    }),
+  }
 
   // remove undefined recursivo leve
   const clean = (obj) => {
-    if (Array.isArray(obj)) return obj.map(clean).filter((v) => v !== undefined);
-    if (obj && typeof obj === "object") {
-      return Object.fromEntries(Object.entries(obj).map(([k,v]) => [k, clean(v)]).filter(([,v]) => v !== undefined));
+    if (Array.isArray(obj)) return obj.map(clean).filter((v) => v !== undefined)
+    if (obj && typeof obj === 'object') {
+      return Object.fromEntries(
+        Object.entries(obj)
+          .map(([k, v]) => [k, clean(v)])
+          .filter(([, v]) => v !== undefined)
+      )
     }
-    return obj;
-  };
-  return clean(itemList);
+    return obj
+  }
+  return clean(itemList)
 }
 
-function buildProductSchema({ product, path = "/" }) {
-  if (!product) return null;
-  const origin = typeof window !== "undefined" ? window.location.origin : "";
-  const price = Number.isFinite(product?.preco) ? product.preco : 0;
-  const imageUrls = (Array.isArray(product?.imgs) ? product.imgs : [product?.img])
+function buildProductSchema({ product, path = '/' }) {
+  if (!product) return null
+  const origin = typeof window !== 'undefined' ? window.location.origin : ''
+  const price = Number.isFinite(product?.preco) ? product.preco : 0
+  const imageUrls = (
+    Array.isArray(product?.imgs) ? product.imgs : [product?.img]
+  )
     .filter(Boolean)
     .map((src) => {
-      const value = String(src);
-      return /^https?:\/\//i.test(value) ? value : `${origin}${value.startsWith("/") ? value : `/${value}`}`;
-    });
-  const inStock = typeof product?.stock === "number" ? product.stock > 0 : true;
-  const category = product?.category || (Array.isArray(product?.tags) && product.tags[0]) || "Miniatura";
+      const value = String(src)
+      return /^https?:\/\//i.test(value)
+        ? value
+        : `${origin}${value.startsWith('/') ? value : `/${value}`}`
+    })
+  const inStock = typeof product?.stock === 'number' ? product.stock > 0 : true
+  const category =
+    product?.category ||
+    (Array.isArray(product?.tags) && product.tags[0]) ||
+    'Miniatura'
 
   return {
-    "@context": "https://schema.org",
-    "@type": "Product",
-    name: String(product?.nome || "Produto"),
-    description: String(product?.descricao || "Miniatura em resina e pintura artística."),
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: String(product?.nome || 'Produto'),
+    description: String(
+      product?.descricao || 'Miniatura em resina e pintura artística.'
+    ),
     image: imageUrls.length ? imageUrls : undefined,
-    sku: String(product?.id || ""),
+    sku: String(product?.id || ''),
     category,
-    brand: { "@type": "Brand", name: "Cubo Criativo" },
+    brand: { '@type': 'Brand', name: 'Cubo Criativo' },
     offers: {
-      "@type": "Offer",
-      priceCurrency: "BRL",
+      '@type': 'Offer',
+      priceCurrency: 'BRL',
       price: Number(price.toFixed ? price.toFixed(2) : price),
-      availability: inStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
-      itemCondition: "https://schema.org/NewCondition",
+      availability: inStock
+        ? 'https://schema.org/InStock'
+        : 'https://schema.org/OutOfStock',
+      itemCondition: 'https://schema.org/NewCondition',
       url: `${origin}${path}`,
     },
-  };
+  }
 }
 
 function normalizePathname(pathname) {
-  const p = String(pathname || "/");
-  if (!p || p === "/index.html") return "/";
+  const p = String(pathname || '/')
+  if (!p || p === '/index.html') return '/'
   // remove trailing slash exceto raiz
-  if (p.length > 1 && p.endsWith("/")) return p.slice(0, -1);
-  return p;
+  if (p.length > 1 && p.endsWith('/')) return p.slice(0, -1)
+  return p
 }
 
 function getSearchParam(name) {
-  if (typeof window === "undefined") return "";
-  try { return new URLSearchParams(window.location.search).get(name) || ""; } catch { return ""; }
+  if (typeof window === 'undefined') return ''
+  try {
+    return new URLSearchParams(window.location.search).get(name) || ''
+  } catch {
+    return ''
+  }
 }
 
 function getRouteFromLocation() {
   // Preferimos rotas limpas (sem #). Mantemos fallback do hash se existir.
-  const h = typeof window !== "undefined" ? String(window.location.hash || "") : "";
-  if (h.startsWith("#/")) {
-    const raw = h.slice(1);
-    const path = raw.split("?")[0];
-    return path || "/";
+  const h =
+    typeof window !== 'undefined' ? String(window.location.hash || '') : ''
+  if (h.startsWith('#/')) {
+    const raw = h.slice(1)
+    const path = raw.split('?')[0]
+    return path || '/'
   }
-  return normalizePathname(typeof window !== "undefined" ? window.location.pathname : "/");
+  return normalizePathname(
+    typeof window !== 'undefined' ? window.location.pathname : '/'
+  )
 }
 
 /* ========================================================================
    APP
    ======================================================================== */
 export default function App() {
-  const { user, session, signOut, isPasswordRecovery, needsGoogleTermsAcceptance } = useAuth();
-  const accessToken = session?.access_token || "";
-  const [isAdmin, setIsAdmin] = React.useState(false);
-  const [adminLevel, setAdminLevel] = React.useState(0);
-  const [adminRole, setAdminRole] = React.useState("Sem acesso");
-  const [isAdminLoading, setIsAdminLoading] = React.useState(false);
+  const {
+    user,
+    session,
+    signOut,
+    isPasswordRecovery,
+    needsGoogleTermsAcceptance,
+  } = useAuth()
+  const accessToken = session?.access_token || ''
+  const [isAdmin, setIsAdmin] = React.useState(false)
+  const [adminLevel, setAdminLevel] = React.useState(0)
+  const [adminRole, setAdminRole] = React.useState('Sem acesso')
+  const [isAdminLoading, setIsAdminLoading] = React.useState(false)
 
   React.useEffect(() => {
-    let alive = true;
+    let alive = true
 
     if (!accessToken) {
-      setIsAdmin(false);
-      setAdminLevel(0);
-      setAdminRole("Sem acesso");
-      setIsAdminLoading(false);
+      setIsAdmin(false)
+      setAdminLevel(0)
+      setAdminRole('Sem acesso')
+      setIsAdminLoading(false)
       return () => {
-        alive = false;
-      };
+        alive = false
+      }
     }
 
-    setIsAdminLoading(true);
+    setIsAdminLoading(true)
 
-    (async () => {
+    ;(async () => {
       try {
-        const result = await fetchAdminStatus(accessToken);
+        const result = await fetchAdminStatus(accessToken)
         if (alive) {
-          setIsAdmin(Boolean(result?.isAdmin));
-          setAdminLevel(Number(result?.adminLevel || 0));
-          setAdminRole(String(result?.adminRole || "Sem acesso"));
+          setIsAdmin(Boolean(result?.isAdmin))
+          setAdminLevel(Number(result?.adminLevel || 0))
+          setAdminRole(String(result?.adminRole || 'Sem acesso'))
         }
       } catch {
         if (alive) {
-          setIsAdmin(false);
-          setAdminLevel(0);
-          setAdminRole("Sem acesso");
-            }
+          setIsAdmin(false)
+          setAdminLevel(0)
+          setAdminRole('Sem acesso')
+        }
       } finally {
-        if (alive) setIsAdminLoading(false);
+        if (alive) setIsAdminLoading(false)
       }
-    })();
+    })()
 
     return () => {
-      alive = false;
-    };
-  }, [accessToken]);
+      alive = false
+    }
+  }, [accessToken])
 
   // VIP (best-effort) via cache local para evitar flashes no menu.
-// IMPORTANTE: o cache pode ficar "stale" se um pagamento falhar/cancelar.
-// Por isso, validamos via /api/profile ao iniciar sessão e limpamos o cache quando não for VIP.
-const getVipCached = () => {
-  try {
-    if (!accessToken) return false;
-    const raw = String((typeof window !== "undefined" ? window.localStorage : null)?.getItem('vip_until_cache') || '');
-    if (!raw) return false;
-    const d = new Date(raw);
-    return Number.isFinite(d.getTime()) && d > new Date();
-  } catch {
-    return false;
-  }
-};
-
-const [isVip, setIsVip] = React.useState(() => getVipCached());
-
-React.useEffect(() => {
-  // Deslogado: zera e limpa cache
-  if (!accessToken) {
-    setIsVip(false);
-    try { window.localStorage.removeItem('vip_until_cache'); } catch {}
-    return;
-  }
-
-  let alive = true;
-
-  (async () => {
+  // IMPORTANTE: o cache pode ficar "stale" se um pagamento falhar/cancelar.
+  // Por isso, validamos via /api/profile ao iniciar sessão e limpamos o cache quando não for VIP.
+  const getVipCached = () => {
     try {
-      const res = await fetch('/api/profile', { headers: { Authorization: `Bearer ${accessToken}` } });
-      const data = await res.json().catch(() => ({}));
-      const p = data?.profile || {};
-      const vipUntil = p?.vip_until ? String(p.vip_until) : '';
-      const vipOk = vipUntil && new Date(vipUntil) > new Date();
-
-      try {
-        if (vipOk) window.localStorage.setItem('vip_until_cache', vipUntil);
-        else window.localStorage.removeItem('vip_until_cache');
-      } catch {}
-
-      if (alive) setIsVip(Boolean(vipOk));
+      if (!accessToken) return false
+      const raw = String(
+        (typeof window !== 'undefined' ? window.localStorage : null)?.getItem(
+          'vip_until_cache'
+        ) || ''
+      )
+      if (!raw) return false
+      const d = new Date(raw)
+      return Number.isFinite(d.getTime()) && d > new Date()
     } catch {
-      // Se falhar, mantém o que está no cache (best-effort)
-      if (alive) setIsVip(getVipCached());
+      return false
     }
-  })();
+  }
 
-  return () => { alive = false; };
-}, [accessToken]);
+  const [isVip, setIsVip] = React.useState(() => getVipCached())
+
+  React.useEffect(() => {
+    // Deslogado: zera e limpa cache
+    if (!accessToken) {
+      setIsVip(false)
+      try {
+        window.localStorage.removeItem('vip_until_cache')
+      } catch {}
+      return
+    }
+
+    let alive = true
+
+    ;(async () => {
+      try {
+        const res = await fetch('/api/profile', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        })
+        const data = await res.json().catch(() => ({}))
+        const p = data?.profile || {}
+        const vipUntil = p?.vip_until ? String(p.vip_until) : ''
+        const vipOk = vipUntil && new Date(vipUntil) > new Date()
+
+        try {
+          if (vipOk) window.localStorage.setItem('vip_until_cache', vipUntil)
+          else window.localStorage.removeItem('vip_until_cache')
+        } catch {}
+
+        if (alive) setIsVip(Boolean(vipOk))
+      } catch {
+        // Se falhar, mantém o que está no cache (best-effort)
+        if (alive) setIsVip(getVipCached())
+      }
+    })()
+
+    return () => {
+      alive = false
+    }
+  }, [accessToken])
 
   // UI
-  const [trustOpen, setTrustOpen] = React.useState(false);
+  const [trustOpen, setTrustOpen] = React.useState(false)
 
   // ===== Rotas (history API sem dependências) =====
-  const [route, setRoute] = React.useState(() => (typeof window === "undefined" ? "/" : getRouteFromLocation()));
-  const pendingScroll = React.useRef(null);
-  const lastAutoOpenedProductRef = React.useRef("");
+  const [route, setRoute] = React.useState(() =>
+    typeof window === 'undefined' ? '/' : getRouteFromLocation()
+  )
+  const pendingScroll = React.useRef(null)
+  const lastAutoOpenedProductRef = React.useRef('')
 
   React.useEffect(() => {
-    clearDynamicImportReloadGuard();
-  }, []);
+    clearDynamicImportReloadGuard()
+  }, [])
 
   React.useEffect(() => {
-    const onPop = () => startTransition(() => setRoute(getRouteFromLocation()));
-    window.addEventListener("popstate", onPop);
+    const onPop = () => startTransition(() => setRoute(getRouteFromLocation()))
+    window.addEventListener('popstate', onPop)
     // compat: links antigos com hash
-    window.addEventListener("hashchange", onPop);
+    window.addEventListener('hashchange', onPop)
     return () => {
-      window.removeEventListener("popstate", onPop);
-      window.removeEventListener("hashchange", onPop);
-    };
-  }, []);
+      window.removeEventListener('popstate', onPop)
+      window.removeEventListener('hashchange', onPop)
+    }
+  }, [])
 
   React.useEffect(() => {
     const seoByRoute = {
-      "/": { title: "Cubo Criativo", description: "Action figures, miniaturas de RPG, colecionáveis e peças em resina com pintura artística. Promoções, catálogo e encomendas com envio para todo o Brasil.", path: "/" },
-      "/estoque": { title: "Em estoque | Cubo Criativo", description: "Action figures e miniaturas colecionáveis prontas para envio, com rastreio e embalagem reforçada.", path: "/estoque" },
-      "/catalogo": { title: "Catálogo | Cubo Criativo", description: "Catálogo de action figures, miniaturas de RPG e colecionáveis em resina com pintura artística.", path: "/catalogo" },
-      "/promocoes": { title: "Promoções | Cubo Criativo", description: "Ofertas em action figures, miniaturas de RPG e colecionáveis: descontos por tempo limitado.", path: "/promocoes" },
-      "/contato": { title: "Contato | Cubo Criativo", description: "Atendimento via WhatsApp e e-mail para suporte, orçamento e pedidos.", path: "/contato" },
-      "/sobre": { title: "Sobre nós | Cubo Criativo", description: "Conheça a Cubo Criativo e nosso trabalho com miniaturas e peças personalizadas.", path: "/sobre" },
-      "/faq": { title: "FAQ | Cubo Criativo", description: "Perguntas frequentes sobre prazos, envio, pagamento e cuidados com as peças.", path: "/faq" },
-      "/trocas-e-devolucoes": { title: "Trocas e devoluções | Cubo Criativo", description: "Informações sobre trocas, devoluções e peças sob encomenda.", path: "/trocas-e-devolucoes" },
-      "/cupom": { title: "Cubo Game | Cubo Criativo", description: "Jogue 1x por semana no Cubo Game e ganhe cupom para usar no carrinho.", path: "/cupom" },
-      "/planos-vip": { title: "Planos VIP | Cubo Criativo", description: "Assine o Clube VIP e escolha miniaturas mensais, vote no tema e acompanhe seu ciclo.", path: "/planos-vip" },
+      '/': {
+        title: 'Cubo Criativo',
+        description:
+          'Action figures, miniaturas de RPG, colecionáveis e peças em resina com pintura artística. Promoções, catálogo e encomendas com envio para todo o Brasil.',
+        path: '/',
+      },
+      '/estoque': {
+        title: 'Em estoque | Cubo Criativo',
+        description:
+          'Action figures e miniaturas colecionáveis prontas para envio, com rastreio e embalagem reforçada.',
+        path: '/estoque',
+      },
+      '/catalogo': {
+        title: 'Catálogo | Cubo Criativo',
+        description:
+          'Catálogo de action figures, miniaturas de RPG e colecionáveis em resina com pintura artística.',
+        path: '/catalogo',
+      },
+      '/promocoes': {
+        title: 'Promoções | Cubo Criativo',
+        description:
+          'Ofertas em action figures, miniaturas de RPG e colecionáveis: descontos por tempo limitado.',
+        path: '/promocoes',
+      },
+      '/contato': {
+        title: 'Contato | Cubo Criativo',
+        description:
+          'Atendimento via WhatsApp e e-mail para suporte, orçamento e pedidos.',
+        path: '/contato',
+      },
+      '/sobre': {
+        title: 'Sobre nós | Cubo Criativo',
+        description:
+          'Conheça a Cubo Criativo e nosso trabalho com miniaturas e peças personalizadas.',
+        path: '/sobre',
+      },
+      '/faq': {
+        title: 'FAQ | Cubo Criativo',
+        description:
+          'Perguntas frequentes sobre prazos, envio, pagamento e cuidados com as peças.',
+        path: '/faq',
+      },
+      '/trocas-e-devolucoes': {
+        title: 'Trocas e devoluções | Cubo Criativo',
+        description:
+          'Informações sobre trocas, devoluções e peças sob encomenda.',
+        path: '/trocas-e-devolucoes',
+      },
+      '/cupom': {
+        title: 'Cubo Game | Cubo Criativo',
+        description:
+          'Jogue 1x por semana no Cubo Game e ganhe cupom para usar no carrinho.',
+        path: '/cupom',
+      },
+      '/planos-vip': {
+        title: 'Planos VIP | Cubo Criativo',
+        description:
+          'Assine o Clube VIP e escolha miniaturas mensais, vote no tema e acompanhe seu ciclo.',
+        path: '/planos-vip',
+      },
 
       // Atalhos, páginas privadas e fluxos de conta não devem aparecer no Google.
-      "/vip": { title: "Clube VIP | Cubo Criativo", description: "Acesso ao Clube VIP da Cubo Criativo.", path: "/vip", robots: "noindex,follow" },
-      "/area-vip": { title: "Área VIP | Cubo Criativo", description: "Área exclusiva para assinantes do Clube VIP.", path: "/area-vip", robots: "noindex,follow" },
-      "/perfil": { title: "Minha conta | Cubo Criativo", description: "Gerenciamento de perfil e dados da conta.", path: "/perfil", robots: "noindex,follow" },
-      "/configuracoes": { title: "Configurações | Cubo Criativo", description: "Configurações privadas da conta.", path: "/configuracoes", robots: "noindex,follow" },
-      "/conta": { title: "Minha conta | Cubo Criativo", description: "Área privada da conta do cliente.", path: "/conta", robots: "noindex,follow" },
-      "/meus-pedidos": { title: "Meus pedidos | Cubo Criativo", description: "Acompanhamento privado de pedidos.", path: "/meus-pedidos", robots: "noindex,follow" },
-      "/avaliar-pedido": { title: "Avaliar pedido | Cubo Criativo", description: "Área privada para avaliar uma compra entregue.", path: "/avaliar-pedido", robots: "noindex,follow" },
-      "/avaliacoes": { title: "Avaliações | Cubo Criativo", description: "Avaliações verificadas de clientes da Cubo Criativo.", path: "/avaliacoes" },
-      "/admin": { title: "Administração | Cubo Criativo", description: "Painel administrativo restrito.", path: "/admin", robots: "noindex,nofollow" },
-      "/pagamento-pedido": { title: "Pagamento de pedido | Cubo Criativo", description: "Página segura para pagamento de pedido.", path: "/pagamento-pedido", robots: "noindex,nofollow" },
-      "/redefinir-senha": { title: "Redefinir senha | Cubo Criativo", description: "Página segura para redefinição de senha.", path: "/redefinir-senha", robots: "noindex,nofollow" },
-      "/sob-encomenda": { title: "Catálogo | Cubo Criativo", description: "Catálogo de peças sob encomenda.", path: "/catalogo", robots: "noindex,follow" },
-      "/politica-de-privacidade": { title: "Política de Privacidade | Cubo Criativo", description: "Política de Privacidade da Cubo Criativo.", path: "/privacy.html", robots: "noindex,follow" },
-      "/termos": { title: "Termos de Serviço | Cubo Criativo", description: "Termos de Serviço da Cubo Criativo.", path: "/terms.html", robots: "noindex,follow" },
-    };
-    // Rotas dinâmicas (/p/:slug) são tratadas em um effect separado para SEO + schema.
-    if (String(route || "").startsWith("/p/")) {
-      trackEvent("page_view", { route });
-      return;
+      '/vip': {
+        title: 'Clube VIP | Cubo Criativo',
+        description: 'Acesso ao Clube VIP da Cubo Criativo.',
+        path: '/vip',
+        robots: 'noindex,follow',
+      },
+      '/area-vip': {
+        title: 'Área VIP | Cubo Criativo',
+        description: 'Área exclusiva para assinantes do Clube VIP.',
+        path: '/area-vip',
+        robots: 'noindex,follow',
+      },
+      '/perfil': {
+        title: 'Minha conta | Cubo Criativo',
+        description: 'Gerenciamento de perfil e dados da conta.',
+        path: '/perfil',
+        robots: 'noindex,follow',
+      },
+      '/configuracoes': {
+        title: 'Configurações | Cubo Criativo',
+        description: 'Configurações privadas da conta.',
+        path: '/configuracoes',
+        robots: 'noindex,follow',
+      },
+      '/conta': {
+        title: 'Minha conta | Cubo Criativo',
+        description: 'Área privada da conta do cliente.',
+        path: '/conta',
+        robots: 'noindex,follow',
+      },
+      '/meus-pedidos': {
+        title: 'Meus pedidos | Cubo Criativo',
+        description: 'Acompanhamento privado de pedidos.',
+        path: '/meus-pedidos',
+        robots: 'noindex,follow',
+      },
+      '/avaliar-pedido': {
+        title: 'Avaliar pedido | Cubo Criativo',
+        description: 'Área privada para avaliar uma compra entregue.',
+        path: '/avaliar-pedido',
+        robots: 'noindex,follow',
+      },
+      '/avaliacoes': {
+        title: 'Avaliações | Cubo Criativo',
+        description: 'Avaliações verificadas de clientes da Cubo Criativo.',
+        path: '/avaliacoes',
+      },
+      '/admin': {
+        title: 'Administração | Cubo Criativo',
+        description: 'Painel administrativo restrito.',
+        path: '/admin',
+        robots: 'noindex,nofollow',
+      },
+      '/pagamento-pedido': {
+        title: 'Pagamento de pedido | Cubo Criativo',
+        description: 'Página segura para pagamento de pedido.',
+        path: '/pagamento-pedido',
+        robots: 'noindex,nofollow',
+      },
+      '/redefinir-senha': {
+        title: 'Redefinir senha | Cubo Criativo',
+        description: 'Página segura para redefinição de senha.',
+        path: '/redefinir-senha',
+        robots: 'noindex,nofollow',
+      },
+      '/sob-encomenda': {
+        title: 'Catálogo | Cubo Criativo',
+        description: 'Catálogo de peças sob encomenda.',
+        path: '/catalogo',
+        robots: 'noindex,follow',
+      },
+      '/politica-de-privacidade': {
+        title: 'Política de Privacidade | Cubo Criativo',
+        description: 'Política de Privacidade da Cubo Criativo.',
+        path: '/privacy.html',
+        robots: 'noindex,follow',
+      },
+      '/termos': {
+        title: 'Termos de Serviço | Cubo Criativo',
+        description: 'Termos de Serviço da Cubo Criativo.',
+        path: '/terms.html',
+        robots: 'noindex,follow',
+      },
     }
-    applySeo(seoByRoute[route] || seoByRoute["/"]);
-    trackEvent("page_view", { route });
-  }, [route]);
+    // Rotas dinâmicas (/p/:slug) são tratadas em um effect separado para SEO + schema.
+    if (String(route || '').startsWith('/p/')) {
+      trackEvent('page_view', { route })
+      return
+    }
+    applySeo(seoByRoute[route] || seoByRoute['/'])
+    trackEvent('page_view', { route })
+  }, [route])
 
   // Garante que ao navegar para outra aba/página o usuário comece do topo.
-// (Alguns cliques usam links normais/popstate e o browser manteria o scroll.)
-React.useEffect(() => {
-  if (typeof window === "undefined") return;
+  // (Alguns cliques usam links normais/popstate e o browser manteria o scroll.)
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return
 
-  const restore = consumeScrollRestore(currentClientPath());
-  if (restore) {
-    const targetY = Math.max(0, Number(restore.scrollY || 0));
-    const restorePosition = () => {
-      try { window.scrollTo({ top: targetY, left: 0, behavior: "auto" }); } catch {}
-      try {
-        document.documentElement.scrollTop = targetY;
-        document.body.scrollTop = targetY;
-      } catch {}
-    };
-    requestAnimationFrame(() => requestAnimationFrame(restorePosition));
-    setTimeout(restorePosition, 120);
-    return;
-  }
+    const restore = consumeScrollRestore(currentClientPath())
+    if (restore) {
+      const targetY = Math.max(0, Number(restore.scrollY || 0))
+      const restorePosition = () => {
+        try {
+          window.scrollTo({ top: targetY, left: 0, behavior: 'auto' })
+        } catch {}
+        try {
+          document.documentElement.scrollTop = targetY
+          document.body.scrollTop = targetY
+        } catch {}
+      }
+      requestAnimationFrame(() => requestAnimationFrame(restorePosition))
+      setTimeout(restorePosition, 120)
+      return
+    }
 
-  // Faz o scroll depois do repaint da nova rota (mais confiável em mobile),
-  // e repete em seguida para neutralizar "scroll restoration" em alguns browsers.
-  requestAnimationFrame(() => scrollToTop());
-  setTimeout(() => scrollToTop(), 50);
-}, [route]);
-
+    // Faz o scroll depois do repaint da nova rota (mais confiável em mobile),
+    // e repete em seguida para neutralizar "scroll restoration" em alguns browsers.
+    requestAnimationFrame(() => scrollToTop())
+    setTimeout(() => scrollToTop(), 50)
+  }, [route])
 
   function navigate(path, options = {}) {
-    const normalized = path?.startsWith("/") ? path : `/${path || ""}`;
-    if (typeof window !== "undefined") {
-      const method = options?.replace ? "replaceState" : "pushState";
-      window.history[method]({ cc_spa_navigation: true }, "", normalized);
+    const normalized = path?.startsWith('/') ? path : `/${path || ''}`
+    if (typeof window !== 'undefined') {
+      const method = options?.replace ? 'replaceState' : 'pushState'
+      window.history[method]({ cc_spa_navigation: true }, '', normalized)
       // mantemos o estado de rota somente como pathname
-      let nextRoute;
+      let nextRoute
       try {
-        const u = new URL(normalized, window.location.origin);
-        nextRoute = normalizePathname(u.pathname);
+        const u = new URL(normalized, window.location.origin)
+        nextRoute = normalizePathname(u.pathname)
       } catch {
-        nextRoute = normalizePathname(normalized.split("?")[0]);
+        nextRoute = normalizePathname(normalized.split('?')[0])
       }
       startTransition(() => {
-        setRoute(nextRoute);
-      });
-      if (!options?.preserveScroll) scrollToTop();
+        setRoute(nextRoute)
+      })
+      if (!options?.preserveScroll) scrollToTop()
     }
   }
 
   function openSettings(tab = 'profile', opts = {}) {
-    const t = tab === 'settings' ? 'settings' : 'profile';
+    const t = tab === 'settings' ? 'settings' : 'profile'
     const nextCtx = {
-      returnTo: String(opts?.returnTo || route || "/"),
+      returnTo: String(opts?.returnTo || route || '/'),
       autoClose: Boolean(opts?.autoClose),
-    };
-    setSettingsCtx(nextCtx);
+    }
+    setSettingsCtx(nextCtx)
 
-    const shouldOpenOverlay = Boolean(opts?.overlay) || Boolean(opts?.autoClose && cartOpen);
+    const shouldOpenOverlay =
+      Boolean(opts?.overlay) || Boolean(opts?.autoClose && cartOpen)
     if (shouldOpenOverlay) {
-      setSettingsOverlayOpen(true);
-      return;
+      setSettingsOverlayOpen(true)
+      return
     }
 
-    navigate(t === 'settings' ? '/configuracoes' : '/perfil');
+    navigate(t === 'settings' ? '/configuracoes' : '/perfil')
   }
 
   function scrollToId(id) {
-    const el = document.getElementById(id);
-    if (!el) return;
+    const el = document.getElementById(id)
+    if (!el) return
     // header sticky: dá um respiro
-    const top = el.getBoundingClientRect().top + window.scrollY - 92;
-    window.scrollTo({ top, behavior: "smooth" });
+    const top = el.getBoundingClientRect().top + window.scrollY - 92
+    window.scrollTo({ top, behavior: 'smooth' })
   }
 
   function goHomeSection(id) {
-    if (route !== "/") {
-      pendingScroll.current = id;
-      navigate("/");
-      return;
+    if (route !== '/') {
+      pendingScroll.current = id
+      navigate('/')
+      return
     }
-    scrollToId(id);
+    scrollToId(id)
   }
 
   React.useEffect(() => {
-    if (!pendingScroll.current) return;
+    if (!pendingScroll.current) return
     // espera render do Home
-    const id = pendingScroll.current;
-    pendingScroll.current = null;
-    setTimeout(() => scrollToId(id), 0);
-  }, [route]);
+    const id = pendingScroll.current
+    pendingScroll.current = null
+    setTimeout(() => scrollToId(id), 0)
+  }, [route])
 
   // ===== UI =====
   React.useEffect(() => {
-    if (!isPasswordRecovery) return;
-    if (route === "/redefinir-senha") return;
-    navigate("/redefinir-senha");
-  }, [isPasswordRecovery, route]);
+    if (!isPasswordRecovery) return
+    if (route === '/redefinir-senha') return
+    navigate('/redefinir-senha')
+  }, [isPasswordRecovery, route])
 
   React.useEffect(() => {
-    if (!needsGoogleTermsAcceptance) return;
-    setAuthOpen(true);
-  }, [needsGoogleTermsAcceptance]);
+    if (!needsGoogleTermsAcceptance) return
+    setAuthOpen(true)
+  }, [needsGoogleTermsAcceptance])
 
-  const [authOpen, setAuthOpen] = React.useState(false);
-  const [ordersOpen, setOrdersOpen] = React.useState(false);
+  const [authOpen, setAuthOpen] = React.useState(false)
+  const [ordersOpen, setOrdersOpen] = React.useState(false)
   // Configurações/Perfil agora são PÁGINA (não modal)
-  const [settingsCtx, setSettingsCtx] = React.useState({ returnTo: "/", autoClose: false });
-  const [settingsOverlayOpen, setSettingsOverlayOpen] = React.useState(false);
-  const [vipAreaOpen, setVipAreaOpen] = React.useState(false);
-  const [menuDrawerOpen, setMenuDrawerOpen] = React.useState(false);
+  const [settingsCtx, setSettingsCtx] = React.useState({
+    returnTo: '/',
+    autoClose: false,
+  })
+  const [settingsOverlayOpen, setSettingsOverlayOpen] = React.useState(false)
+  const [vipAreaOpen, setVipAreaOpen] = React.useState(false)
+  const [menuDrawerOpen, setMenuDrawerOpen] = React.useState(false)
 
   // ===== Carrinho =====
-  const CART_STORAGE_KEY = "cc_cart_v1";
-  const [cartOpen, setCartOpen] = React.useState(false);
+  const CART_STORAGE_KEY = 'cc_cart_v1'
+  const [cartOpen, setCartOpen] = React.useState(false)
   const [cart, setCart] = React.useState(() => {
-    if (typeof window === "undefined") return [];
+    if (typeof window === 'undefined') return []
     try {
-      const raw = window.localStorage.getItem(CART_STORAGE_KEY);
-      if (!raw) return [];
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : [];
+      const raw = window.localStorage.getItem(CART_STORAGE_KEY)
+      if (!raw) return []
+      const parsed = JSON.parse(raw)
+      return Array.isArray(parsed) ? parsed : []
     } catch {
-      return [];
+      return []
     }
-  });
-  const [cartBounce, setCartBounce] = React.useState(false);
-  const [toastOpen, setToastOpen] = React.useState(false);
-  const [toastMsg, setToastMsg] = React.useState("Adicionado!");
-  const bounceT = React.useRef(null);
-  const toastT = React.useRef(null);
+  })
+  const [cartBounce, setCartBounce] = React.useState(false)
+  const [toastOpen, setToastOpen] = React.useState(false)
+  const [toastMsg, setToastMsg] = React.useState('Adicionado!')
+  const bounceT = React.useRef(null)
+  const toastT = React.useRef(null)
   // evita toasts repetidos ao lidar com retorno do pagamento (URL params)
-  const paymentReturnRef = React.useRef({ key: "", notified: false });
+  const paymentReturnRef = React.useRef({ key: '', notified: false })
 
   // ===== Auth gate (padrão) =====
   const requireLogin = React.useCallback(
-    (msg = "Faça login para continuar.") => {
-      setToastMsg(msg);
-      setToastOpen(true);
-      setAuthOpen(true);
-      clearTimeout(toastT.current);
-      toastT.current = setTimeout(() => setToastOpen(false), 2400);
-      trackEvent?.("auth_required", { message: msg });
+    (msg = 'Faça login para continuar.') => {
+      setToastMsg(msg)
+      setToastOpen(true)
+      setAuthOpen(true)
+      clearTimeout(toastT.current)
+      toastT.current = setTimeout(() => setToastOpen(false), 2400)
+      trackEvent?.('auth_required', { message: msg })
     },
     []
-  );
+  )
 
   React.useEffect(() => {
-    if (route !== "/meus-pedidos") return;
+    if (route !== '/meus-pedidos') return
     if (user) {
-      setOrdersOpen(true);
-      return;
+      setOrdersOpen(true)
+      return
     }
-    requireLogin("Faça login para acessar o pedido indicado no e-mail.");
-  }, [route, user, requireLogin]);
-
+    requireLogin('Faça login para acessar o pedido indicado no e-mail.')
+  }, [route, user, requireLogin])
 
   // Persiste carrinho (mantém itens após recarregar)
   React.useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === 'undefined') return
     try {
-      window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
+      window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart))
     } catch {
       // ignore
     }
-  }, [cart]);
+  }, [cart])
 
   // ===== Pagamento (Mercado Pago Checkout Pro + Pix) =====
-  const [paying, setPaying] = React.useState(false);
-  const [checkoutSuccessOpen, setCheckoutSuccessOpen] = React.useState(false);
+  const [paying, setPaying] = React.useState(false)
+  const [checkoutSuccessOpen, setCheckoutSuccessOpen] = React.useState(false)
 
   // ===== Galeria =====
-  const [galleryOpen, setGalleryOpen] = React.useState(false);
-  const [galleryData, setGalleryData] = React.useState({ title: "", imgs: [] });
-  const [galleryIndex, setGalleryIndex] = React.useState(0);
+  const [galleryOpen, setGalleryOpen] = React.useState(false)
+  const [galleryData, setGalleryData] = React.useState({ title: '', imgs: [] })
+  const [galleryIndex, setGalleryIndex] = React.useState(0)
   // mantém o tamanho do card estável durante a troca de imagens
-  const [galleryLoadedSrc, setGalleryLoadedSrc] = React.useState("");
-  const [galleryIsLoading, setGalleryIsLoading] = React.useState(false);
+  const [galleryLoadedSrc, setGalleryLoadedSrc] = React.useState('')
+  const [galleryIsLoading, setGalleryIsLoading] = React.useState(false)
 
-  
   // Pré-carrega a imagem alvo e mostra a anterior (com blur + loader) até terminar,
   // evitando o "pulo" de layout quando a imagem ainda não carregou.
   React.useEffect(() => {
-    if (!galleryOpen) return;
-    const target = galleryData?.imgs?.[galleryIndex];
-    if (!target) return;
+    if (!galleryOpen) return
+    const target = galleryData?.imgs?.[galleryIndex]
+    if (!target) return
 
     // se já está mostrando essa imagem, não precisa "piscar" loader
     if (target === galleryLoadedSrc) {
-      setGalleryIsLoading(false);
-      return;
+      setGalleryIsLoading(false)
+      return
     }
 
-    let cancelled = false;
-    setGalleryIsLoading(true);
+    let cancelled = false
+    setGalleryIsLoading(true)
 
-    const img = new Image();
-    img.decoding = "async";
+    const img = new Image()
+    img.decoding = 'async'
     img.onload = () => {
-      if (cancelled) return;
-      setGalleryLoadedSrc(target);
-      setGalleryIsLoading(false);
-    };
+      if (cancelled) return
+      setGalleryLoadedSrc(target)
+      setGalleryIsLoading(false)
+    }
     img.onerror = () => {
-      if (cancelled) return;
+      if (cancelled) return
       // mesmo em erro, tenta renderizar o src para mostrar fallback do navegador
-      setGalleryLoadedSrc(target);
-      setGalleryIsLoading(false);
-    };
-    img.src = target;
+      setGalleryLoadedSrc(target)
+      setGalleryIsLoading(false)
+    }
+    img.src = target
 
     return () => {
-      cancelled = true;
-      img.onload = null;
-      img.onerror = null;
-    };
-  }, [galleryOpen, galleryIndex, galleryData?.imgs, galleryLoadedSrc]);
+      cancelled = true
+      img.onload = null
+      img.onerror = null
+    }
+  }, [galleryOpen, galleryIndex, galleryData?.imgs, galleryLoadedSrc])
 
-React.useEffect(() => {
+  React.useEffect(() => {
     return () => {
-      clearTimeout(bounceT.current);
-      clearTimeout(toastT.current);
-    };
-  }, []);
+      clearTimeout(bounceT.current)
+      clearTimeout(toastT.current)
+    }
+  }, [])
 
   const isOutOfStock = React.useCallback((p) => {
-    const s = p?.stock;
+    const s = p?.stock
     // Só bloqueia se o estoque estiver definido (number).
     // Se stock for null => sem controle de estoque.
-    return typeof s === "number" && Number.isFinite(s) && s <= 0;
-  }, []);
+    return typeof s === 'number' && Number.isFinite(s) && s <= 0
+  }, [])
 
   function addToCart(p, { escala, unitPrice } = {}) {
     if (isOutOfStock(p)) {
-      clearTimeout(toastT.current);
-      setToastMsg("Esgotado");
-      setToastOpen(true);
-      toastT.current = setTimeout(() => setToastOpen(false), 1600);
-      return;
+      clearTimeout(toastT.current)
+      setToastMsg('Esgotado')
+      setToastOpen(true)
+      toastT.current = setTimeout(() => setToastOpen(false), 1600)
+      return
     }
-    const price = typeof unitPrice === "number" ? unitPrice : p.preco || 0;
-    const scale = escala || p.escala || "";
+    const price = typeof unitPrice === 'number' ? unitPrice : p.preco || 0
+    const scale = escala || p.escala || ''
 
-    trackEvent("add_to_cart", { product_id: p?.id, product_name: p?.nome, escala: scale, price });
+    trackEvent('add_to_cart', {
+      product_id: p?.id,
+      product_name: p?.nome,
+      escala: scale,
+      price,
+    })
 
     setCart((prev) => {
-      const found = prev.find((i) => i.id === p.id && i.escala === scale && i.unitPrice === price);
+      const found = prev.find(
+        (i) => i.id === p.id && i.escala === scale && i.unitPrice === price
+      )
       if (found) {
         return prev.map((i) =>
-          i.id === p.id && i.escala === scale && i.unitPrice === price ? { ...i, qty: i.qty + 1 } : i
-        );
+          i.id === p.id && i.escala === scale && i.unitPrice === price
+            ? { ...i, qty: i.qty + 1 }
+            : i
+        )
       }
-      return [...prev, { ...p, qty: 1, unitPrice: price, escala: scale }];
-    });
+      return [...prev, { ...p, qty: 1, unitPrice: price, escala: scale }]
+    })
 
-    clearTimeout(bounceT.current);
-    setCartBounce(true);
-    bounceT.current = setTimeout(() => setCartBounce(false), 700);
+    clearTimeout(bounceT.current)
+    setCartBounce(true)
+    bounceT.current = setTimeout(() => setCartBounce(false), 700)
 
-    clearTimeout(toastT.current);
-    setToastMsg("Adicionado!");
-    setToastOpen(true);
-    toastT.current = setTimeout(() => setToastOpen(false), 1400);
+    clearTimeout(toastT.current)
+    setToastMsg('Adicionado!')
+    setToastOpen(true)
+    toastT.current = setTimeout(() => setToastOpen(false), 1400)
   }
 
   function buyNow(p, { escala, unitPrice } = {}) {
     if (isOutOfStock(p)) {
-      clearTimeout(toastT.current);
-      setToastMsg("Esgotado");
-      setToastOpen(true);
-      toastT.current = setTimeout(() => setToastOpen(false), 1600);
-      return;
+      clearTimeout(toastT.current)
+      setToastMsg('Esgotado')
+      setToastOpen(true)
+      toastT.current = setTimeout(() => setToastOpen(false), 1600)
+      return
     }
-    const price = typeof unitPrice === "number" ? unitPrice : p.preco || 0;
-    const scale = escala || p.escala || "";
-    trackEvent("buy_now_click", { product_id: p?.id, product_name: p?.nome, escala: scale, price });
-    setCart([{ ...p, qty: 1, unitPrice: price, escala: scale }]);
-    setCartOpen(true);
+    const price = typeof unitPrice === 'number' ? unitPrice : p.preco || 0
+    const scale = escala || p.escala || ''
+    trackEvent('buy_now_click', {
+      product_id: p?.id,
+      product_name: p?.nome,
+      escala: scale,
+      price,
+    })
+    setCart([{ ...p, qty: 1, unitPrice: price, escala: scale }])
+    setCartOpen(true)
   }
 
   function updateQty(id, delta, escala, unitPrice) {
@@ -839,196 +1069,210 @@ React.useEffect(() => {
             : i
         )
         .filter((i) => i.qty > 0)
-    );
+    )
   }
 
   function removeItem(id, escala, unitPrice) {
-    setCart((prev) => prev.filter((i) => !(i.id === id && i.escala === escala && i.unitPrice === unitPrice)));
+    setCart((prev) =>
+      prev.filter(
+        (i) =>
+          !(i.id === id && i.escala === escala && i.unitPrice === unitPrice)
+      )
+    )
   }
 
-  const subtotal = cart.reduce((s, i) => s + (i.unitPrice || i.preco || 0) * i.qty, 0);
+  const subtotal = cart.reduce(
+    (s, i) => s + (i.unitPrice || i.preco || 0) * i.qty,
+    0
+  )
   const waMsg = React.useMemo(() => {
     const linhas = cart.map(
       (i) =>
-        `• ${i.nome}${i.escala ? ` (${i.escala})` : ""} x${i.qty} — ${fmtBRL((i.unitPrice || i.preco || 0) * i.qty)}`
-    );
-    const totalTxt = subtotal > 0 ? `\nTotal: ${fmtBRL(subtotal)}` : "";
-    return encodeURIComponent(`Olá! Quero finalizar meu pedido:\n${linhas.join("\n")}${totalTxt}\n\nPagamento: combinar via WhatsApp.`);
-  }, [cart, subtotal]);
+        `• ${i.nome}${i.escala ? ` (${i.escala})` : ''} x${i.qty} — ${fmtBRL((i.unitPrice || i.preco || 0) * i.qty)}`
+    )
+    const totalTxt = subtotal > 0 ? `\nTotal: ${fmtBRL(subtotal)}` : ''
+    return encodeURIComponent(
+      `Olá! Quero finalizar meu pedido:\n${linhas.join('\n')}${totalTxt}\n\nPagamento: combinar via WhatsApp.`
+    )
+  }, [cart, subtotal])
 
-// Detecta retorno do Mercado Pago (Checkout Pro) e mostra feedback.
-// IMPORTANTE: "success" pode ocorrer antes do webhook marcar como paid,
-// então aqui fazemos uma checagem rápida pelo order_id (quando disponível).
-React.useEffect(() => {
-  const params = new URLSearchParams(window.location.search);
-  const payment = params.get("payment");
-  const provider = params.get("provider");
-  const orderId = params.get("order_id");
+  // Detecta retorno do Mercado Pago (Checkout Pro) e mostra feedback.
+  // IMPORTANTE: "success" pode ocorrer antes do webhook marcar como paid,
+  // então aqui fazemos uma checagem rápida pelo order_id (quando disponível).
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const payment = params.get('payment')
+    const provider = params.get('provider')
+    const orderId = params.get('order_id')
 
-  if (!payment) return;
+    if (!payment) return
 
-  const cleanupUrl = () => {
-    params.delete("payment");
-    params.delete("provider");
-    params.delete("order_id");
-    const next = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ""}`;
-    window.history.replaceState({}, "", next);
-  };
-
-  const key = `${payment || ""}|${provider || ""}|${orderId || ""}`;
-  if (paymentReturnRef.current.key !== key) {
-    paymentReturnRef.current.key = key;
-    paymentReturnRef.current.notified = false;
-  }
-
-  const showOnce = (msg, ms = 2400) => {
-    if (paymentReturnRef.current.notified) return;
-    paymentReturnRef.current.notified = true;
-    setToastMsg(msg);
-    setToastOpen(true);
-    clearTimeout(toastT.current);
-    toastT.current = setTimeout(() => setToastOpen(false), ms);
-  };
-
-  const pollOrderPaid = async (id) => {
-    // tenta por ~20s (webhook pode atrasar)
-    for (let i = 0; i < 10; i++) {
-      const { data, error } = await supabase
-        .from("orders")
-        .select("status")
-        .eq("id", id)
-        .maybeSingle();
-
-      if (!error && data?.status === "paid") return true;
-      await new Promise((r) => setTimeout(r, 2000));
+    const cleanupUrl = () => {
+      params.delete('payment')
+      params.delete('provider')
+      params.delete('order_id')
+      const next = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}`
+      window.history.replaceState({}, '', next)
     }
-    return false;
-  };
 
-  (async () => {
-    try {
-      if (payment === "cancel") {
-        showOnce("Pagamento cancelado.");
-        cleanupUrl();
-        return;
+    const key = `${payment || ''}|${provider || ''}|${orderId || ''}`
+    if (paymentReturnRef.current.key !== key) {
+      paymentReturnRef.current.key = key
+      paymentReturnRef.current.notified = false
+    }
+
+    const showOnce = (msg, ms = 2400) => {
+      if (paymentReturnRef.current.notified) return
+      paymentReturnRef.current.notified = true
+      setToastMsg(msg)
+      setToastOpen(true)
+      clearTimeout(toastT.current)
+      toastT.current = setTimeout(() => setToastOpen(false), ms)
+    }
+
+    const pollOrderPaid = async (id) => {
+      // tenta por ~20s (webhook pode atrasar)
+      for (let i = 0; i < 10; i++) {
+        const { data, error } = await supabase
+          .from('orders')
+          .select('status')
+          .eq('id', id)
+          .maybeSingle()
+
+        if (!error && data?.status === 'paid') return true
+        await new Promise((r) => setTimeout(r, 2000))
       }
+      return false
+    }
 
-      if (payment === "pending") {
-        showOnce("Pagamento em processamento. Acompanhe em Meus pedidos.");
-        cleanupUrl();
-        return;
-      }
-
-      if (payment === "success") {
-        // Checkout Pro pode redirecionar antes do webhook marcar como paid.
-        // Se temos order_id, confirmamos no Supabase e só então limpamos o carrinho.
-        if (provider === "mercadopago" && orderId) {
-          const paid = await pollOrderPaid(orderId);
-          if (paid) {
-            trackEvent("payment_confirmed", { provider: "mercadopago", order_id: orderId });
-            setCart([]);
-            setCartOpen(false);
-            setCheckoutSuccessOpen(true);
-            cleanupUrl();
-            return;
-          }
-
-          // Se ainda não confirmou e o usuário não está pronto, mantemos a URL
-          // para tentar novamente quando o auth hidratar.
-          if (!user) {
-            showOnce("Confirmando pagamento… faça login para finalizar.");
-            setAuthOpen(true);
-            return;
-          }
-
-          // Usuário já logado, mas ainda não marcou como paid dentro do timeout.
-          showOnce("Pagamento recebido, confirmando… Veja em Meus pedidos.");
-          cleanupUrl();
-          return;
+    ;(async () => {
+      try {
+        if (payment === 'cancel') {
+          showOnce('Pagamento cancelado.')
+          cleanupUrl()
+          return
         }
 
-        // fallback (sem order_id): considera como sucesso e limpa o carrinho
-        trackEvent("payment_confirmed", { provider: provider || "unknown" });
-        setCart([]);
-        setCartOpen(false);
-        setCheckoutSuccessOpen(true);
-        cleanupUrl();
-      }
-    } catch {
-      cleanupUrl();
-    }
-  })();
-}, [user]);
+        if (payment === 'pending') {
+          showOnce('Pagamento em processamento. Acompanhe em Meus pedidos.')
+          cleanupUrl()
+          return
+        }
 
+        if (payment === 'success') {
+          // Checkout Pro pode redirecionar antes do webhook marcar como paid.
+          // Se temos order_id, confirmamos no Supabase e só então limpamos o carrinho.
+          if (provider === 'mercadopago' && orderId) {
+            const paid = await pollOrderPaid(orderId)
+            if (paid) {
+              trackEvent('payment_confirmed', {
+                provider: 'mercadopago',
+                order_id: orderId,
+              })
+              setCart([])
+              setCartOpen(false)
+              setCheckoutSuccessOpen(true)
+              cleanupUrl()
+              return
+            }
+
+            // Se ainda não confirmou e o usuário não está pronto, mantemos a URL
+            // para tentar novamente quando o auth hidratar.
+            if (!user) {
+              showOnce('Confirmando pagamento… faça login para finalizar.')
+              setAuthOpen(true)
+              return
+            }
+
+            // Usuário já logado, mas ainda não marcou como paid dentro do timeout.
+            showOnce('Pagamento recebido, confirmando… Veja em Meus pedidos.')
+            cleanupUrl()
+            return
+          }
+
+          // fallback (sem order_id): considera como sucesso e limpa o carrinho
+          trackEvent('payment_confirmed', { provider: provider || 'unknown' })
+          setCart([])
+          setCartOpen(false)
+          setCheckoutSuccessOpen(true)
+          cleanupUrl()
+        }
+      } catch {
+        cleanupUrl()
+      }
+    })()
+  }, [user])
 
   async function ensureProfileCompleteForCheckout() {
-    if (!user) return false;
+    if (!user) return false
     try {
-      const resp = await fetch("/api/profile", {
-        method: "GET",
+      const resp = await fetch('/api/profile', {
+        method: 'GET',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
           ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         },
-      });
-      const data = await resp.json().catch(() => ({}));
-      const p = data?.profile || {};
+      })
+      const data = await resp.json().catch(() => ({}))
+      const p = data?.profile || {}
       const requiredFields = [
-        "full_name",
-        "phone",
-        "zip",
-        "city",
-        "state",
-        "neighborhood",
-        "address_line1",
-        "address_number",
-        "cpf",
-        "birthdate",
-      ];
-      const missing = requiredFields.filter((k) => !String(p?.[k] || "").trim());
+        'full_name',
+        'phone',
+        'zip',
+        'city',
+        'state',
+        'neighborhood',
+        'address_line1',
+        'address_number',
+        'cpf',
+        'birthdate',
+      ]
+      const missing = requiredFields.filter((k) => !String(p?.[k] || '').trim())
       if (missing.length) {
-        setToastMsg("Preencha seus dados para finalizar o pagamento.");
-        setToastOpen(true);
-        clearTimeout(toastT.current);
-        toastT.current = setTimeout(() => setToastOpen(false), 2600);
-        openSettings('profile', { autoClose: true, overlay: true });
-        return false;
+        setToastMsg('Preencha seus dados para finalizar o pagamento.')
+        setToastOpen(true)
+        clearTimeout(toastT.current)
+        toastT.current = setTimeout(() => setToastOpen(false), 2600)
+        openSettings('profile', { autoClose: true, overlay: true })
+        return false
       }
-      return true;
+      return true
     } catch (e) {
-      console.error(e);
-      setToastMsg("Não foi possível validar seus dados. Abra Configurações e tente novamente.");
-      setToastOpen(true);
-      clearTimeout(toastT.current);
-      toastT.current = setTimeout(() => setToastOpen(false), 3000);
-      openSettings('profile', { autoClose: true, overlay: true });
-      return false;
+      console.error(e)
+      setToastMsg(
+        'Não foi possível validar seus dados. Abra Configurações e tente novamente.'
+      )
+      setToastOpen(true)
+      clearTimeout(toastT.current)
+      toastT.current = setTimeout(() => setToastOpen(false), 3000)
+      openSettings('profile', { autoClose: true, overlay: true })
+      return false
     }
   }
 
   async function startCheckout(appliedCoupon = null) {
     if (!user) {
-      requireLogin("Faça login para pagar.");
-      return;
+      requireLogin('Faça login para pagar.')
+      return
     }
-    if (!cart.length) return;
+    if (!cart.length) return
     if (!(subtotal > 0)) {
-      setToastMsg("Defina os preços antes de pagar.");
-      setToastOpen(true);
-      clearTimeout(toastT.current);
-      toastT.current = setTimeout(() => setToastOpen(false), 2200);
-      return;
+      setToastMsg('Defina os preços antes de pagar.')
+      setToastOpen(true)
+      clearTimeout(toastT.current)
+      toastT.current = setTimeout(() => setToastOpen(false), 2200)
+      return
     }
 
-    const okProfile = await ensureProfileCompleteForCheckout();
-    if (!okProfile) return;
+    const okProfile = await ensureProfileCompleteForCheckout()
+    if (!okProfile) return
 
     try {
-      setPaying(true);
-      const resp = await fetch("/api/create-checkout-session", {
-        method: "POST",
+      setPaying(true)
+      const resp = await fetch('/api/create-checkout-session', {
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
           ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         },
         body: JSON.stringify({
@@ -1043,215 +1287,268 @@ React.useEffect(() => {
             img: i.img,
           })),
         }),
-      });
+      })
 
-      const data = await resp.json().catch(() => ({}));
+      const data = await resp.json().catch(() => ({}))
       if (!resp.ok) {
-        if (data?.code === "profile_incomplete") {
-          setToastMsg("Complete seus dados para finalizar o pagamento.");
-          setToastOpen(true);
-          clearTimeout(toastT.current);
-          toastT.current = setTimeout(() => setToastOpen(false), 2600);
-          openSettings('profile', { autoClose: true, overlay: true });
-          return;
+        if (data?.code === 'profile_incomplete') {
+          setToastMsg('Complete seus dados para finalizar o pagamento.')
+          setToastOpen(true)
+          clearTimeout(toastT.current)
+          toastT.current = setTimeout(() => setToastOpen(false), 2600)
+          openSettings('profile', { autoClose: true, overlay: true })
+          return
         }
-        throw new Error(data?.error || "Não foi possível iniciar o pagamento.");
+        throw new Error(data?.error || 'Não foi possível iniciar o pagamento.')
       }
-      if (!data?.url) throw new Error("Não foi possível iniciar o pagamento.");
-      trackEvent("checkout_started", { items: cart.length, subtotal, coupon_code: appliedCoupon?.code || null });
-      backupCheckoutSession(session);
-      window.location.href = data.url;
+      if (!data?.url) throw new Error('Não foi possível iniciar o pagamento.')
+      trackEvent('checkout_started', {
+        items: cart.length,
+        subtotal,
+        coupon_code: appliedCoupon?.code || null,
+      })
+      backupCheckoutSession(session)
+      window.location.href = data.url
     } catch (e) {
-      console.error(e);
-      setToastMsg(e?.message || "Erro ao iniciar pagamento.");
-      setToastOpen(true);
-      clearTimeout(toastT.current);
-      toastT.current = setTimeout(() => setToastOpen(false), 2600);
+      console.error(e)
+      setToastMsg(e?.message || 'Erro ao iniciar pagamento.')
+      setToastOpen(true)
+      clearTimeout(toastT.current)
+      toastT.current = setTimeout(() => setToastOpen(false), 2600)
     } finally {
-      setPaying(false);
+      setPaying(false)
     }
   }
 
   function openGallery(p) {
-    const imgs = Array.isArray(p.imgs) && p.imgs.length > 0 ? p.imgs : [p.img];
-    setGalleryData({ title: p.nome, imgs });
-    setGalleryIndex(0);
+    const imgs = Array.isArray(p.imgs) && p.imgs.length > 0 ? p.imgs : [p.img]
+    setGalleryData({ title: p.nome, imgs })
+    setGalleryIndex(0)
     // mostra algo imediatamente (se já estiver em cache, melhor ainda)
-    setGalleryLoadedSrc(imgs?.[0] || "");
-    setGalleryIsLoading(false);
-    setGalleryOpen(true);
+    setGalleryLoadedSrc(imgs?.[0] || '')
+    setGalleryIsLoading(false)
+    setGalleryOpen(true)
   }
 
   function prevImage() {
-    setGalleryIndex((i) => (i - 1 + galleryData.imgs.length) % galleryData.imgs.length);
+    setGalleryIndex(
+      (i) => (i - 1 + galleryData.imgs.length) % galleryData.imgs.length
+    )
   }
   function nextImage() {
-    setGalleryIndex((i) => (i + 1) % galleryData.imgs.length);
+    setGalleryIndex((i) => (i + 1) % galleryData.imgs.length)
   }
 
   // Swipe (toque/arrasto) na galeria, estilo carrossel (sem autoplay)
-  const swipeRef = React.useRef({ x: 0, y: 0, active: false, dx: 0, dy: 0 });
-  const SWIPE_MIN_PX = 48;
+  const swipeRef = React.useRef({ x: 0, y: 0, active: false, dx: 0, dy: 0 })
+  const SWIPE_MIN_PX = 48
 
   function onGalleryTouchStart(e) {
-    const t = e.touches?.[0];
-    if (!t) return;
-    swipeRef.current = { x: t.clientX, y: t.clientY, active: true, dx: 0, dy: 0 };
+    const t = e.touches?.[0]
+    if (!t) return
+    swipeRef.current = {
+      x: t.clientX,
+      y: t.clientY,
+      active: true,
+      dx: 0,
+      dy: 0,
+    }
   }
 
   function onGalleryTouchMove(e) {
-    const t = e.touches?.[0];
-    if (!t || !swipeRef.current.active) return;
-    swipeRef.current.dx = t.clientX - swipeRef.current.x;
-    swipeRef.current.dy = t.clientY - swipeRef.current.y;
+    const t = e.touches?.[0]
+    if (!t || !swipeRef.current.active) return
+    swipeRef.current.dx = t.clientX - swipeRef.current.x
+    swipeRef.current.dy = t.clientY - swipeRef.current.y
   }
 
   function onGalleryTouchEnd() {
-    const { dx, dy } = swipeRef.current;
-    swipeRef.current.active = false;
+    const { dx, dy } = swipeRef.current
+    swipeRef.current.active = false
     // só considera swipe horizontal predominante
-    if (Math.abs(dx) < SWIPE_MIN_PX) return;
-    if (Math.abs(dx) < Math.abs(dy)) return;
-    if (dx < 0) nextImage();
-    else prevImage();
+    if (Math.abs(dx) < SWIPE_MIN_PX) return
+    if (Math.abs(dx) < Math.abs(dy)) return
+    if (dx < 0) nextImage()
+    else prevImage()
   }
 
   function onGalleryPointerDown(e) {
     // suporte a arrasto no desktop
-    swipeRef.current = { x: e.clientX, y: e.clientY, active: true, dx: 0, dy: 0 };
+    swipeRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      active: true,
+      dx: 0,
+      dy: 0,
+    }
   }
 
   function onGalleryPointerMove(e) {
-    if (!swipeRef.current.active) return;
-    swipeRef.current.dx = e.clientX - swipeRef.current.x;
-    swipeRef.current.dy = e.clientY - swipeRef.current.y;
+    if (!swipeRef.current.active) return
+    swipeRef.current.dx = e.clientX - swipeRef.current.x
+    swipeRef.current.dy = e.clientY - swipeRef.current.y
   }
 
   function onGalleryPointerUp() {
-    const { dx, dy } = swipeRef.current;
-    swipeRef.current.active = false;
-    if (Math.abs(dx) < SWIPE_MIN_PX) return;
-    if (Math.abs(dx) < Math.abs(dy)) return;
-    if (dx < 0) nextImage();
-    else prevImage();
+    const { dx, dy } = swipeRef.current
+    swipeRef.current.active = false
+    if (Math.abs(dx) < SWIPE_MIN_PX) return
+    if (Math.abs(dx) < Math.abs(dy)) return
+    if (dx < 0) nextImage()
+    else prevImage()
   }
 
   // Bloqueia scroll do body quando overlays estão abertos
   React.useEffect(() => {
     const onOrderPaid = () => {
-      setCart([]);
-      setCartOpen(false);
-      setToastMsg("✅ Pedido finalizado!");
-      setToastOpen(true);
-      clearTimeout(toastT.current);
-      toastT.current = setTimeout(() => setToastOpen(false), 2400);
-    };
-    window.addEventListener("order:paid", onOrderPaid);
-    return () => window.removeEventListener("order:paid", onOrderPaid);
-  }, []);
+      setCart([])
+      setCartOpen(false)
+      setToastMsg('✅ Pedido finalizado!')
+      setToastOpen(true)
+      clearTimeout(toastT.current)
+      toastT.current = setTimeout(() => setToastOpen(false), 2400)
+    }
+    window.addEventListener('order:paid', onOrderPaid)
+    return () => window.removeEventListener('order:paid', onOrderPaid)
+  }, [])
 
   React.useEffect(() => {
-    const anyOverlayOpen = cartOpen || galleryOpen || authOpen || ordersOpen || menuDrawerOpen || settingsOverlayOpen;
-    document.body.style.overflow = anyOverlayOpen ? "hidden" : "";
+    const anyOverlayOpen =
+      cartOpen ||
+      galleryOpen ||
+      authOpen ||
+      ordersOpen ||
+      menuDrawerOpen ||
+      settingsOverlayOpen
+    document.body.style.overflow = anyOverlayOpen ? 'hidden' : ''
     return () => {
-      document.body.style.overflow = "";
-    };
-  }, [cartOpen, galleryOpen, authOpen, ordersOpen, menuDrawerOpen, settingsOverlayOpen]);
+      document.body.style.overflow = ''
+    }
+  }, [
+    cartOpen,
+    galleryOpen,
+    authOpen,
+    ordersOpen,
+    menuDrawerOpen,
+    settingsOverlayOpen,
+  ])
 
   // fecha menu lateral quando muda rota
   React.useEffect(() => {
-    setMenuDrawerOpen(false);
-  }, [route]);
-
+    setMenuDrawerOpen(false)
+  }, [route])
 
   // ===== Produtos (vem do Supabase) =====
-  const [products, setProducts] = React.useState([]);
-  const [productsLoading, setProductsLoading] = React.useState(true);
-  const [productsError, setProductsError] = React.useState("");
-  const [productsRefreshKey, setProductsRefreshKey] = React.useState(0);
+  const [products, setProducts] = React.useState([])
+  const [productsLoading, setProductsLoading] = React.useState(true)
+  const [productsError, setProductsError] = React.useState('')
+  const [productsRefreshKey, setProductsRefreshKey] = React.useState(0)
 
   React.useEffect(() => {
-    const refreshProducts = () => setProductsRefreshKey((current) => current + 1);
-    window.addEventListener("products:changed", refreshProducts);
-    return () => window.removeEventListener("products:changed", refreshProducts);
-  }, []);
+    const refreshProducts = () =>
+      setProductsRefreshKey((current) => current + 1)
+    window.addEventListener('products:changed', refreshProducts)
+    return () => window.removeEventListener('products:changed', refreshProducts)
+  }, [])
 
   React.useEffect(() => {
-    let alive = true;
+    let alive = true
 
     async function load() {
       try {
-        setProductsLoading(true);
-        setProductsError("");
+        setProductsLoading(true)
+        setProductsError('')
 
         const { data, error } = await supabase
-          .from("products")
+          .from('products')
           .select(
-	            "id,slug,name,description,price_cents,currency,stock,active,featured,promo,image_url,images,status,tags,default_variant,variants,original_price_cents,category,created_at,sort_order"
+            'id,slug,name,description,price_cents,currency,stock,active,featured,promo,image_url,images,status,tags,default_variant,variants,original_price_cents,category,created_at,sort_order'
           )
-          .eq("active", true)
-	          // Ordem manual (sort_order) + fallback para mais novos primeiro
-	          .order("sort_order", { ascending: true, nullsFirst: false })
-	          .order("created_at", { ascending: false });
+          .eq('active', true)
+          // Ordem manual (sort_order) + fallback para mais novos primeiro
+          .order('sort_order', { ascending: true, nullsFirst: false })
+          .order('created_at', { ascending: false })
 
-        if (error) throw error;
+        if (error) throw error
 
-        const mapped = (data || []).map(mapProductRow).filter((p) => p.id && p.nome);
-        if (alive) setProducts(mapped);
+        const mapped = (data || [])
+          .map(mapProductRow)
+          .filter((p) => p.id && p.nome)
+        if (alive) setProducts(mapped)
       } catch (e) {
-        console.error(e);
+        console.error(e)
         if (alive) {
-          setProducts([]);
-          setProductsError(e?.message || "Não foi possível carregar os produtos.");
+          setProducts([])
+          setProductsError(
+            e?.message || 'Não foi possível carregar os produtos.'
+          )
         }
       } finally {
-        if (alive) setProductsLoading(false);
+        if (alive) setProductsLoading(false)
       }
     }
 
-    load();
+    load()
     return () => {
-      alive = false;
-    };
-  }, [productsRefreshKey]);
-
+      alive = false
+    }
+  }, [productsRefreshKey])
 
   React.useEffect(() => {
-    if (route !== "/catalogo") return;
-    if (productsLoading || !Array.isArray(products) || products.length === 0) return;
+    if (route !== '/catalogo') return
+    if (productsLoading || !Array.isArray(products) || products.length === 0)
+      return
 
-    const productKey = new URLSearchParams(window.location.search || "").get("produto");
-    const key = String(productKey || "").trim();
-    if (!key) return;
-    if (lastAutoOpenedProductRef.current === key) return;
+    const productKey = new URLSearchParams(window.location.search || '').get(
+      'produto'
+    )
+    const key = String(productKey || '').trim()
+    if (!key) return
+    if (lastAutoOpenedProductRef.current === key) return
 
-    const found = products.find((p) => String(p.id || "") === key || String(p.slug || "") === key);
-    if (!found) return;
+    const found = products.find(
+      (p) => String(p.id || '') === key || String(p.slug || '') === key
+    )
+    if (!found) return
 
-    lastAutoOpenedProductRef.current = key;
-    openGallery(found);
-  }, [route, productsLoading, products]);
+    lastAutoOpenedProductRef.current = key
+    openGallery(found)
+  }, [route, productsLoading, products])
 
   // ===== Classificação (tipo + disponibilidade) =====
   const classifyProduct = React.useCallback((p) => {
-    const cat = String(p?.category || "").toLowerCase();
-    const tags = Array.isArray(p?.tags) ? p.tags.map((t) => String(t).toLowerCase()) : [];
-    const name = String(p?.nome || "").toLowerCase();
+    const cat = String(p?.category || '').toLowerCase()
+    const tags = Array.isArray(p?.tags)
+      ? p.tags.map((t) => String(t).toLowerCase())
+      : []
+    const name = String(p?.nome || '').toLowerCase()
 
-    const isRpg = cat === "rpg" || tags.includes("rpg") || tags.some((t) => t.startsWith("classe:") || t.startsWith("raça:") || t.startsWith("raca:"));
-    const isStock = String(p?.status || "").toLowerCase() === "estoque";
+    const isRpg =
+      cat === 'rpg' ||
+      tags.includes('rpg') ||
+      tags.some(
+        (t) =>
+          t.startsWith('classe:') ||
+          t.startsWith('raça:') ||
+          t.startsWith('raca:')
+      )
+    const isStock = String(p?.status || '').toLowerCase() === 'estoque'
 
-    const tagBlob = `${tags.join(" ")} ${cat} ${name}`;
+    const tagBlob = `${tags.join(' ')} ${cat} ${name}`
     const isActionFigure =
-      tagBlob.includes("action figure") ||
-      tagBlob.includes("figure action") ||
-      tagBlob.includes("action-figure") ||
-      cat.includes("action") ||
-      tagBlob.includes("figure");
+      tagBlob.includes('action figure') ||
+      tagBlob.includes('figure action') ||
+      tagBlob.includes('action-figure') ||
+      cat.includes('action') ||
+      tagBlob.includes('figure')
 
-    const typeLabel = isRpg ? "Miniatura RPG" : isActionFigure ? "Action Figure" : "Colecionável";
-    const availabilityLabel = isStock ? "Pronta entrega" : "Sob encomenda";
-    const leadTimeLabel = isStock ? "" : "15–30 dias úteis";
+    const typeLabel = isRpg
+      ? 'Miniatura RPG'
+      : isActionFigure
+        ? 'Action Figure'
+        : 'Colecionável'
+    const availabilityLabel = isStock ? 'Pronta entrega' : 'Sob encomenda'
+    const leadTimeLabel = isStock ? '' : '15–30 dias úteis'
 
     return {
       ...p,
@@ -1260,186 +1557,251 @@ React.useEffect(() => {
       _typeLabel: typeLabel,
       _availabilityLabel: availabilityLabel,
       _leadTimeLabel: leadTimeLabel,
-    };
-  }, []);
+    }
+  }, [])
 
-  const allCatalogItems = React.useMemo(() => products.map(classifyProduct), [products, classifyProduct]);
+  const allCatalogItems = React.useMemo(
+    () => products.map(classifyProduct),
+    [products, classifyProduct]
+  )
 
-  const prontaEntrega = React.useMemo(() => allCatalogItems.filter((p) => String(p?.status || "").toLowerCase() === "estoque"), [allCatalogItems]);
-  const catalogoItems = React.useMemo(() => allCatalogItems.filter((p) => String(p?.status || "catalogo").toLowerCase() === "catalogo"), [allCatalogItems]);
+  const prontaEntrega = React.useMemo(
+    () =>
+      allCatalogItems.filter(
+        (p) => String(p?.status || '').toLowerCase() === 'estoque'
+      ),
+    [allCatalogItems]
+  )
+  const catalogoItems = React.useMemo(
+    () =>
+      allCatalogItems.filter(
+        (p) => String(p?.status || 'catalogo').toLowerCase() === 'catalogo'
+      ),
+    [allCatalogItems]
+  )
   const rpgSobEncomenda = React.useMemo(
     () => catalogoItems.filter((p) => p._isRpg),
     [catalogoItems]
-  );
+  )
 
   const featured = React.useMemo(() => {
     // Destaques controlados exclusivamente por `featured` (Supabase).
-    const explicit = allCatalogItems.filter((p) => p.featured === true);
+    const explicit = allCatalogItems.filter((p) => p.featured === true)
     // opcional: mantém uma ordem estável (mais recentes primeiro)
     explicit.sort((a, b) => {
-      const ta = a?.updated_at ? new Date(a.updated_at).getTime() : 0;
-      const tb = b?.updated_at ? new Date(b.updated_at).getTime() : 0;
-      return tb - ta;
-    });
-    return explicit.slice(0, 8);
-  }, [allCatalogItems]);
+      const ta = a?.updated_at ? new Date(a.updated_at).getTime() : 0
+      const tb = b?.updated_at ? new Date(b.updated_at).getTime() : 0
+      return tb - ta
+    })
+    return explicit.slice(0, 8)
+  }, [allCatalogItems])
 
   const promocoes = React.useMemo(() => {
-    const promos = products.filter((p) => p.promo === true);
+    const promos = products.filter((p) => p.promo === true)
     // ordena por maior desconto (quando houver), senão mais recente
     promos.sort((a, b) => {
-      const aCur = (a.variants?.[0]?.price ?? a.preco) || 0;
-      const bCur = (b.variants?.[0]?.price ?? b.preco) || 0;
-      const aOrig = a.originalPrice || 0;
-      const bOrig = b.originalPrice || 0;
-      const aOff = aOrig > aCur && aOrig > 0 ? (aOrig - aCur) / aOrig : 0;
-      const bOff = bOrig > bCur && bOrig > 0 ? (bOrig - bCur) / bOrig : 0;
-      if (aOff !== bOff) return bOff - aOff;
-      const ta = a?.created_at ? new Date(a.created_at).getTime() : 0;
-      const tb = b?.created_at ? new Date(b.created_at).getTime() : 0;
-      return tb - ta;
-    });
-    return promos;
-  }, [products]);
+      const aCur = (a.variants?.[0]?.price ?? a.preco) || 0
+      const bCur = (b.variants?.[0]?.price ?? b.preco) || 0
+      const aOrig = a.originalPrice || 0
+      const bOrig = b.originalPrice || 0
+      const aOff = aOrig > aCur && aOrig > 0 ? (aOrig - aCur) / aOrig : 0
+      const bOff = bOrig > bCur && bOrig > 0 ? (bOrig - bCur) / bOrig : 0
+      if (aOff !== bOff) return bOff - aOff
+      const ta = a?.created_at ? new Date(a.created_at).getTime() : 0
+      const tb = b?.created_at ? new Date(b.created_at).getTime() : 0
+      return tb - ta
+    })
+    return promos
+  }, [products])
 
   // (RPG agora faz parte do catálogo; mantemos apenas a lista para vitrine na Home)
 
   React.useEffect(() => {
-    let listName = '';
-    let source = [];
-    if (route === "/") {
-      listName = 'Destaques Cubo Criativo';
-      source = featured;
-    } else if (route === "/estoque") {
-      listName = 'Pronta entrega — Cubo Criativo';
-      source = prontaEntrega;
-    } else if (route === "/catalogo") {
-      listName = 'Catálogo — Action figures, miniaturas de RPG e colecionáveis';
-      source = catalogoItems;
-    } else if (route === "/promocoes") {
-      listName = 'Promoções de miniaturas';
-      source = promocoes;
+    let listName = ''
+    let source = []
+    if (route === '/') {
+      listName = 'Destaques Cubo Criativo'
+      source = featured
+    } else if (route === '/estoque') {
+      listName = 'Pronta entrega — Cubo Criativo'
+      source = prontaEntrega
+    } else if (route === '/catalogo') {
+      listName = 'Catálogo — Action figures, miniaturas de RPG e colecionáveis'
+      source = catalogoItems
+    } else if (route === '/promocoes') {
+      listName = 'Promoções de miniaturas'
+      source = promocoes
     }
 
-    const payload = buildProductSchemaList({ products: source, route, listName });
-    if (payload) setJsonLd('seo-product-list', payload);
-    else clearJsonLd('seo-product-list');
+    const payload = buildProductSchemaList({
+      products: source,
+      route,
+      listName,
+    })
+    if (payload) setJsonLd('seo-product-list', payload)
+    else clearJsonLd('seo-product-list')
 
     return () => {
       // limpa quando trocar para rotas institucionais/conta/admin
-    };
-  }, [route, featured, prontaEntrega, catalogoItems, promocoes]);
+    }
+  }, [route, featured, prontaEntrega, catalogoItems, promocoes])
 
   // Rastreamento de vendedores: /v/:slug registra a visita e cria a atribuição local.
   React.useEffect(() => {
-    const r = String(route || "");
-    if (!r.startsWith("/v/")) return;
-    const slug = r.slice(3).split(/[?#]/)[0];
-    if (!slug) return;
-    let alive = true;
-    (async () => {
+    const r = String(route || '')
+    if (!r.startsWith('/v/')) return
+    const slug = r.slice(3).split(/[?#]/)[0]
+    if (!slug) return
+    let alive = true
+    ;(async () => {
       try {
-        const visitorId = getAffiliateVisitorId();
-        const resp = await fetch("/api/affiliate?action=track", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ slug: decodeURIComponent(slug), visitor_id: visitorId, landing_page: window.location.href }),
-        });
-        const data = await resp.json().catch(() => ({}));
+        const visitorId = getAffiliateVisitorId()
+        const resp = await fetch('/api/affiliate?action=track', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            slug: decodeURIComponent(slug),
+            visitor_id: visitorId,
+            landing_page: window.location.href,
+          }),
+        })
+        const data = await resp.json().catch(() => ({}))
         if (alive && resp.ok && data?.affiliate?.slug) {
-          saveAffiliateAttribution({ slug: data.affiliate.slug, affiliate_id: data.affiliate.id, visitor_id: data.visitor_id, expires_at: data.expires_at });
+          saveAffiliateAttribution({
+            slug: data.affiliate.slug,
+            affiliate_id: data.affiliate.id,
+            visitor_id: data.visitor_id,
+            expires_at: data.expires_at,
+          })
         }
-        if (alive) navigate("/", { replace: true });
-      } catch { if (alive) navigate("/", { replace: true }); }
-    })();
-    return () => { alive = false; };
-  }, [route]);
+        if (alive) navigate('/', { replace: true })
+      } catch {
+        if (alive) navigate('/', { replace: true })
+      }
+    })()
+    return () => {
+      alive = false
+    }
+  }, [route])
 
   // ===== SEO + Schema para página de produto (/p/:slug) =====
   React.useEffect(() => {
-    const r = String(route || "");
-    if (!r.startsWith("/p/")) {
-      clearJsonLd("seo-product");
-      return;
+    const r = String(route || '')
+    if (!r.startsWith('/p/')) {
+      clearJsonLd('seo-product')
+      return
     }
 
-    const slug = r.slice(3).split("?")[0];
-    const found = products.find((p) => String(p?.slug || "") === String(slug));
+    const slug = r.slice(3).split('?')[0]
+    const found = products.find((p) => String(p?.slug || '') === String(slug))
 
     // Mantém os metadados pré-renderizados enquanto o catálogo ainda está carregando.
-    if (!found && productsLoading) return;
+    if (!found && productsLoading) return
 
     if (!found) {
       applySeo({
-        title: "Produto não encontrado | Cubo Criativo",
-        description: "Este produto não está disponível no momento.",
+        title: 'Produto não encontrado | Cubo Criativo',
+        description: 'Este produto não está disponível no momento.',
         path: r,
-        robots: "noindex,follow",
-      });
-      clearJsonLd("seo-product");
-      return;
+        robots: 'noindex,follow',
+      })
+      clearJsonLd('seo-product')
+      return
     }
 
-    const descRaw = String(found?.descricao || "").replace(/\s+/g, " ").trim();
+    const descRaw = String(found?.descricao || '')
+      .replace(/\s+/g, ' ')
+      .trim()
     const desc = descRaw
       ? descRaw.slice(0, 155)
-      : "Miniatura em resina com pintura artística. Peça colecionável com envio para todo o Brasil.";
+      : 'Miniatura em resina com pintura artística. Peça colecionável com envio para todo o Brasil.'
 
     applySeo({
       title: `${found.nome} | Cubo Criativo`,
       description: desc,
-      image: found?.img || "/images/logo.png",
+      image: found?.img || '/images/logo.png',
       path: `/p/${found.slug}`,
-    });
+    })
 
-    const payload = buildProductSchema({ product: found, path: `/p/${found.slug}` });
-    if (payload) setJsonLd("seo-product", payload);
-    else clearJsonLd("seo-product");
-  }, [route, products, productsLoading]);
+    const payload = buildProductSchema({
+      product: found,
+      path: `/p/${found.slug}`,
+    })
+    if (payload) setJsonLd('seo-product', payload)
+    else clearJsonLd('seo-product')
+  }, [route, products, productsLoading])
 
   // ===== Render da página =====
   const page = (() => {
-    if (String(route || "").startsWith("/v/")) {
-      return <div className="min-h-[50vh] flex items-center justify-center text-slate-300">Redirecionando…</div>;
+    if (String(route || '').startsWith('/v/')) {
+      return (
+        <div className="min-h-[50vh] flex items-center justify-center text-slate-300">
+          Redirecionando…
+        </div>
+      )
     }
-    if (String(route || "").startsWith("/p/")) {
-      let slug = String(route || "").slice(3).split("?")[0];
-      try { slug = decodeURIComponent(slug); } catch {}
-      const found = products.find((p) => String(p?.slug || "") === String(slug));
+    if (String(route || '').startsWith('/p/')) {
+      let slug = String(route || '')
+        .slice(3)
+        .split('?')[0]
+      try {
+        slug = decodeURIComponent(slug)
+      } catch {}
+      const found = products.find((p) => String(p?.slug || '') === String(slug))
       return (
         <ProductPage
           slug={slug}
           product={found}
           loading={productsLoading}
           onBack={() => {
-            const returnState = readProductReturnState();
-            const returnTarget = String(returnState?.targetPath || "").split(/[?#]/)[0];
-            const currentProductPath = currentClientPath().split(/[?#]/)[0];
-            if (returnState?.path && (!returnTarget || returnTarget === currentProductPath)) {
-              queueScrollRestore(returnState.path, returnState.scrollY);
+            const returnState = readProductReturnState()
+            const returnTarget = String(returnState?.targetPath || '').split(
+              /[?#]/
+            )[0]
+            const currentProductPath = currentClientPath().split(/[?#]/)[0]
+            if (
+              returnState?.path &&
+              (!returnTarget || returnTarget === currentProductPath)
+            ) {
+              queueScrollRestore(returnState.path, returnState.scrollY)
               try {
                 // Quando o produto foi aberto dentro da SPA, voltar é seguro e preserva o histórico.
                 if (isSpaHistoryEntry() && window.history.length > 1) {
-                  window.history.back();
-                  return;
+                  window.history.back()
+                  return
                 }
               } catch {}
 
               // Produto aberto por carregamento completo: não restaura a página antiga do cache.
-              navigate(returnState.path, { replace: true, preserveScroll: true });
-              return;
+              navigate(returnState.path, {
+                replace: true,
+                preserveScroll: true,
+              })
+              return
             }
-            navigate("/catalogo", { replace: true });
+            navigate('/catalogo', { replace: true })
           }}
           addToCart={addToCart}
           buyNow={buyNow}
           openGallery={openGallery}
         />
-      );
+      )
     }
-    if (route === "/admin") {
-      return <AdminOrdersPage user={user} accessToken={accessToken} isAdmin={isAdmin} adminLevel={adminLevel} adminRole={adminRole} isAdminLoading={isAdminLoading} onNavigateHome={() => navigate("/")} onRequireLogin={requireLogin} />;
+    if (route === '/admin') {
+      return (
+        <AdminOrdersPage
+          user={user}
+          accessToken={accessToken}
+          isAdmin={isAdmin}
+          adminLevel={adminLevel}
+          adminRole={adminRole}
+          isAdminLoading={isAdminLoading}
+          onNavigateHome={() => navigate('/')}
+          onRequireLogin={requireLogin}
+        />
+      )
     }
-    if (route === "/promocoes") {
+    if (route === '/promocoes') {
       return (
         <PromocoesPage
           items={promocoes}
@@ -1448,11 +1810,11 @@ React.useEffect(() => {
           addToCart={addToCart}
           buyNow={buyNow}
           openGallery={openGallery}
-          onGoHome={() => navigate("/")}
+          onGoHome={() => navigate('/')}
         />
-      );
+      )
     }
-    if (route === "/estoque") {
+    if (route === '/estoque') {
       return (
         <StockPage
           items={prontaEntrega}
@@ -1461,12 +1823,11 @@ React.useEffect(() => {
           addToCart={addToCart}
           buyNow={buyNow}
           openGallery={openGallery}
-        
           onRequireLogin={(msg) => requireLogin(msg)}
         />
-      );
+      )
     }
-    if (route === "/catalogo") {
+    if (route === '/catalogo') {
       return (
         <CatalogPage
           items={catalogoItems}
@@ -1475,96 +1836,153 @@ React.useEffect(() => {
           addToCart={addToCart}
           buyNow={buyNow}
           openGallery={openGallery}
-        
           onRequireLogin={(msg) => requireLogin(msg)}
         />
-      );
+      )
     }
-    if (route === "/sob-encomenda") {
-      navigate("/catalogo");
-      return null;
+    if (route === '/sob-encomenda') {
+      navigate('/catalogo')
+      return null
     }
-    if (route === "/sobre") {
-      return <SobrePage onGoHome={() => navigate("/")} />;
+    if (route === '/sobre') {
+      return <SobrePage onGoHome={() => navigate('/')} />
     }
-    if (route === "/contato") {
-      return <ContactPage onGoHome={() => navigate("/")} onGoFaq={() => navigate("/faq")} onGoPoliticas={() => { if (typeof window !== "undefined") window.location.href = "/privacy.html"; }} />;
+    if (route === '/contato') {
+      return (
+        <ContactPage
+          onGoHome={() => navigate('/')}
+          onGoFaq={() => navigate('/faq')}
+          onGoPoliticas={() => {
+            if (typeof window !== 'undefined')
+              window.location.href = '/privacy.html'
+          }}
+        />
+      )
     }
-    if (route === "/faq") {
-      return <FAQPage onGoHome={() => navigate("/")} />;
+    if (route === '/faq') {
+      return <FAQPage onGoHome={() => navigate('/')} />
     }
-    if (route === "/politica-de-privacidade") {
-      if (typeof window !== "undefined") window.location.replace("/privacy.html");
-      return null;
+    if (route === '/politica-de-privacidade') {
+      if (typeof window !== 'undefined')
+        window.location.replace('/privacy.html')
+      return null
     }
-    if (route === "/trocas-e-devolucoes") {
-      return <TrocasPage onGoHome={() => navigate("/")} />;
+    if (route === '/trocas-e-devolucoes') {
+      return <TrocasPage onGoHome={() => navigate('/')} />
     }
-    if (route === "/termos") {
-      if (typeof window !== "undefined") window.location.replace("/terms.html");
-      return null;
+    if (route === '/termos') {
+      if (typeof window !== 'undefined') window.location.replace('/terms.html')
+      return null
     }
-    if (route === "/cupom") {
-      return <CupomGamePage onGoHome={() => navigate("/")} user={user} accessToken={accessToken} onRequireLogin={requireLogin} />;
+    if (route === '/cupom') {
+      return (
+        <CupomGamePage
+          onGoHome={() => navigate('/')}
+          user={user}
+          accessToken={accessToken}
+          onRequireLogin={requireLogin}
+        />
+      )
     }
-    if (route === "/vip") {
+    if (route === '/vip') {
       // Rota inteligente: VIPs vão direto pra Área VIP, não-VIPs vão para /planos-vip.
-      return <VipRedirectPage accessToken={accessToken} onNavigate={navigate} onOpenAuth={() => setAuthOpen(true)} />;
+      return (
+        <VipRedirectPage
+          accessToken={accessToken}
+          onNavigate={navigate}
+          onOpenAuth={() => setAuthOpen(true)}
+        />
+      )
     }
-    if (route === "/planos-vip") {
-      return <VipRpgPage user={user} accessToken={accessToken} onOpenAuth={() => setAuthOpen(true)} onRequireLogin={requireLogin} onOpenSettings={openSettings} onOpenVipArea={() => navigate("/area-vip")} onGoHome={() => navigate("/")} />;
+    if (route === '/planos-vip') {
+      return (
+        <VipRpgPage
+          user={user}
+          accessToken={accessToken}
+          onOpenAuth={() => setAuthOpen(true)}
+          onRequireLogin={requireLogin}
+          onOpenSettings={openSettings}
+          onOpenVipArea={() => navigate('/area-vip')}
+          onGoHome={() => navigate('/')}
+        />
+      )
     }
-    if (route === "/area-vip") {
-      return <VipAreaPage onGoHome={() => navigate("/")} onGoVip={() => navigate("/planos-vip")} onRequireLogin={(msg) => requireLogin(msg)} />;
+    if (route === '/area-vip') {
+      return (
+        <VipAreaPage
+          onGoHome={() => navigate('/')}
+          onGoVip={() => navigate('/planos-vip')}
+          onRequireLogin={(msg) => requireLogin(msg)}
+        />
+      )
     }
-    if (route === "/redefinir-senha") {
-      return <PasswordResetPage onGoHome={() => navigate("/")} onGoLogin={() => setAuthOpen(true)} />;
+    if (route === '/redefinir-senha') {
+      return (
+        <PasswordResetPage
+          onGoHome={() => navigate('/')}
+          onGoLogin={() => setAuthOpen(true)}
+        />
+      )
     }
-    if (route === "/pagamento-pedido") {
-      return <ManualOrderPaymentPage onGoHome={() => navigate("/")} />;
+    if (route === '/pagamento-pedido') {
+      return <ManualOrderPaymentPage onGoHome={() => navigate('/')} />
     }
-    if (route === "/configuracoes" || route === "/perfil") {
-      const initialTab = route === "/configuracoes" ? "settings" : "profile";
+    if (route === '/configuracoes' || route === '/perfil') {
+      const initialTab = route === '/configuracoes' ? 'settings' : 'profile'
       return (
         <SettingsPage
           initialTab={initialTab}
           onGoBack={() => {
-            const back = String(settingsCtx?.returnTo || "/");
+            const back = String(settingsCtx?.returnTo || '/')
             // evita loop
-            if (back === route) navigate("/");
-            else navigate(back);
-            setSettingsCtx((p) => ({ ...p, autoClose: false }));
+            if (back === route) navigate('/')
+            else navigate(back)
+            setSettingsCtx((p) => ({ ...p, autoClose: false }))
           }}
           onRequireLogin={requireLogin}
           onNavigate={navigate}
           onSignOut={() => signOut()}
           onSaved={() => {
-            setToastMsg("Dados salvos!");
-            setToastOpen(true);
-            clearTimeout(toastT.current);
-            toastT.current = setTimeout(() => setToastOpen(false), 1600);
+            setToastMsg('Dados salvos!')
+            setToastOpen(true)
+            clearTimeout(toastT.current)
+            toastT.current = setTimeout(() => setToastOpen(false), 1600)
 
             if (settingsCtx?.autoClose) {
-              const back = String(settingsCtx?.returnTo || "/");
-              setSettingsCtx((p) => ({ ...p, autoClose: false }));
+              const back = String(settingsCtx?.returnTo || '/')
+              setSettingsCtx((p) => ({ ...p, autoClose: false }))
               // volta para o fluxo (ex.: checkout)
-              if (back && back !== route) navigate(back);
+              if (back && back !== route) navigate(back)
             }
           }}
         />
-      );
+      )
     }
-    if (route === "/meus-pedidos") {
-      return <CustomerOrdersLandingPage user={user} orderId={getSearchParam("pedido")} onOpenOrders={() => setOrdersOpen(true)} onRequireLogin={requireLogin} onGoHome={() => navigate("/")} />;
+    if (route === '/meus-pedidos') {
+      return (
+        <CustomerOrdersLandingPage
+          user={user}
+          orderId={getSearchParam('pedido')}
+          onOpenOrders={() => setOrdersOpen(true)}
+          onRequireLogin={requireLogin}
+          onGoHome={() => navigate('/')}
+        />
+      )
     }
-    if (route === "/avaliar-pedido") {
-      return <ReviewPage orderId={getSearchParam("pedido")} onRequireLogin={requireLogin} onGoHome={() => navigate("/")} />;
+    if (route === '/avaliar-pedido') {
+      return (
+        <ReviewPage
+          orderId={getSearchParam('pedido')}
+          onRequireLogin={requireLogin}
+          onGoHome={() => navigate('/')}
+        />
+      )
     }
-    if (route === "/avaliacoes") {
-      return <ReviewsPage onGoHome={() => navigate("/")} />;
+    if (route === '/avaliacoes') {
+      return <ReviewsPage onGoHome={() => navigate('/')} />
     }
-    if (route === "/conta") {
-      return <AccountPage onGoHome={() => navigate("/")} />;
+    if (route === '/conta') {
+      return <AccountPage onGoHome={() => navigate('/')} />
     }
     // Home default
     return (
@@ -1577,180 +1995,236 @@ React.useEffect(() => {
         addToCart={addToCart}
         buyNow={buyNow}
         openGallery={openGallery}
-        onGoEstoque={() => navigate("/estoque")}
-        onGoCatalogo={() => navigate("/catalogo")}
-        onGoPromocoes={() => navigate("/promocoes")}
-        onGoFaq={() => navigate("/faq")}
-        onGoPoliticas={() => { if (typeof window !== "undefined") window.location.href = "/privacy.html"; }}
-        onGoCupom={() => navigate("/cupom")}
-        onGoReviews={() => navigate("/avaliacoes")}
-        onGoVipPlans={() => navigate("/planos-vip")}
-        onGoSobEncomenda={() => navigate("/catalogo?tipo=rpg")}
-      
-          onRequireLogin={(msg) => requireLogin(msg)}
-        />
-    );
-  })();
+        onGoEstoque={() => navigate('/estoque')}
+        onGoCatalogo={() => navigate('/catalogo')}
+        onGoPromocoes={() => navigate('/promocoes')}
+        onGoFaq={() => navigate('/faq')}
+        onGoPoliticas={() => {
+          if (typeof window !== 'undefined')
+            window.location.href = '/privacy.html'
+        }}
+        onGoCupom={() => navigate('/cupom')}
+        onGoReviews={() => navigate('/avaliacoes')}
+        onGoVipPlans={() => navigate('/planos-vip')}
+        onGoSobEncomenda={() => navigate('/catalogo?tipo=rpg')}
+        onRequireLogin={(msg) => requireLogin(msg)}
+      />
+    )
+  })()
 
   return (
     <RouteErrorBoundary routeKey={route}>
-    <div className="relative min-h-screen w-full overflow-x-clip flex flex-col bg-[radial-gradient(circle_at_top,rgba(122,35,65,.14),transparent_24%),linear-gradient(180deg,#120809_0%,#090506_48%,#050304_100%)] text-cyan-50">
-      <Toast open={toastOpen}>{toastMsg}</Toast>
+      <div className="site-shell relative min-h-screen w-full overflow-x-clip flex flex-col text-cyan-50">
+        <Toast open={toastOpen}>{toastMsg}</Toast>
 
-      <SiteHeader
-        route={route}
-        user={user}
-        isAdmin={isAdmin}
-        menuOpen={menuDrawerOpen}
-        onToggleMenu={() => setMenuDrawerOpen((v) => !v)}
-        cartCount={cart.reduce((s, i) => s + i.qty, 0)}
-        cartOpen={cartOpen}
-        onToggleCart={() => setCartOpen((v) => !v)}
-        onOpenAuth={() => setAuthOpen(true)}
-        onOpenOrders={() => setOrdersOpen(true)}
-        onPaymentConfirmed={() => {
-          setCart([]);
-          setCartOpen(false);
-          setToastMsg("✅ Pedido finalizado!");
-          setToastOpen(true);
-          clearTimeout(toastT.current);
-          toastT.current = setTimeout(() => setToastOpen(false), 2400);
-        }}
-        onOpenSettings={(tab) => openSettings(tab)}
-        onSignOut={() => signOut()}
-        onNavigate={navigate}
-        onGoHomeSection={goHomeSection}
-      />
+        <a href="#conteudo-principal" className="skip-link">
+          Pular para o conteúdo
+        </a>
+        <SiteHeader
+          route={route}
+          user={user}
+          isAdmin={isAdmin}
+          menuOpen={menuDrawerOpen}
+          onToggleMenu={() => setMenuDrawerOpen((v) => !v)}
+          cartCount={cart.reduce((s, i) => s + i.qty, 0)}
+          cartOpen={cartOpen}
+          onToggleCart={() => setCartOpen((v) => !v)}
+          onOpenAuth={() => setAuthOpen(true)}
+          onOpenOrders={() => setOrdersOpen(true)}
+          onPaymentConfirmed={() => {
+            setCart([])
+            setCartOpen(false)
+            setToastMsg('✅ Pedido finalizado!')
+            setToastOpen(true)
+            clearTimeout(toastT.current)
+            toastT.current = setTimeout(() => setToastOpen(false), 2400)
+          }}
+          onOpenSettings={(tab) => openSettings(tab)}
+          onSignOut={() => signOut()}
+          onNavigate={navigate}
+          onGoHomeSection={goHomeSection}
+        />
 
-{menuDrawerOpen ? (<Suspense fallback={null}><MenuDrawer
-        open={menuDrawerOpen}
-        onClose={() => setMenuDrawerOpen(false)}
-        route={route}
-        user={user}
-        isAdmin={isAdmin}
-        isVip={isVip}
-        onNavigate={navigate}
-        onGoHomeSection={goHomeSection}
-        onOpenAuth={() => setAuthOpen(true)}
-        onOpenOrders={() => setOrdersOpen(true)}
-        onOpenVipArea={() => navigate("/area-vip")}
-        onPaymentConfirmed={() => {
-          setCart([]);
-          setCartOpen(false);
-          setToastMsg("✅ Pedido finalizado!");
-          setToastOpen(true);
-          clearTimeout(toastT.current);
-          toastT.current = setTimeout(() => setToastOpen(false), 2400);
-        }}
-        onOpenSettings={(tab) => openSettings(tab)}
-        onSignOut={() => signOut()}
-      /></Suspense>) : null}
+        {menuDrawerOpen ? (
+          <Suspense fallback={null}>
+            <MenuDrawer
+              open={menuDrawerOpen}
+              onClose={() => setMenuDrawerOpen(false)}
+              route={route}
+              user={user}
+              isAdmin={isAdmin}
+              isVip={isVip}
+              onNavigate={navigate}
+              onGoHomeSection={goHomeSection}
+              onOpenAuth={() => setAuthOpen(true)}
+              onOpenOrders={() => setOrdersOpen(true)}
+              onOpenVipArea={() => navigate('/area-vip')}
+              onPaymentConfirmed={() => {
+                setCart([])
+                setCartOpen(false)
+                setToastMsg('✅ Pedido finalizado!')
+                setToastOpen(true)
+                clearTimeout(toastT.current)
+                toastT.current = setTimeout(() => setToastOpen(false), 2400)
+              }}
+              onOpenSettings={(tab) => openSettings(tab)}
+              onSignOut={() => signOut()}
+            />
+          </Suspense>
+        ) : null}
 
-      {/* TRUST BAR */}
-      <div className="border-b border-cyan-300/10 bg-[linear-gradient(180deg,rgba(7,22,29,.86),rgba(4,16,24,.72))]">
-        <div className="container-cc px-4 sm:px-6 lg:px-8 py-2">
-          {/* Mobile: compacto (não ocupa tela) */}
-          <div className="md:hidden">
-            <div className="flex items-center justify-between gap-3 text-[12px] text-cyan-50/88">
+        {/* TRUST BAR */}
+        <div className="border-b border-cyan-300/10 bg-[linear-gradient(180deg,rgba(7,22,29,.86),rgba(4,16,24,.72))]">
+          <div className="container-cc px-4 sm:px-6 lg:px-8 py-2">
+            {/* Mobile: compacto (não ocupa tela) */}
+            <div className="md:hidden">
+              <div className="flex items-center justify-between gap-3 text-[12px] text-cyan-50/88">
+                <div className="flex items-center gap-2">
+                  <span
+                    className="material-icons text-[18px] text-cyan-100/72"
+                    title="Envio com rastreio"
+                  >
+                    local_shipping
+                  </span>
+                  <span
+                    className="material-icons text-[18px] text-cyan-100/72"
+                    title="Pagamento seguro"
+                  >
+                    lock
+                  </span>
+                  <span
+                    className="material-icons text-[18px] text-cyan-100/72"
+                    title="Produção 15–30 dias úteis"
+                  >
+                    schedule
+                  </span>
+                  <a
+                    className="inline-flex items-center"
+                    href={`https://wa.me/${brand.whatsapp}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    title="Suporte no WhatsApp"
+                  >
+                    <span className="material-icons text-[18px] text-cyan-100/72">
+                      support_agent
+                    </span>
+                  </a>
+                </div>
+
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 rounded-full border border-cyan-300/10 bg-white/4 px-2 py-1 text-[12px] text-cyan-50/88 hover:bg-white/6"
+                  onClick={() => setTrustOpen((v) => !v)}
+                  aria-expanded={trustOpen}
+                >
+                  <span className="material-icons text-[16px] text-cyan-100/72">
+                    info
+                  </span>
+                  <span>{trustOpen ? 'Ocultar' : 'Detalhes'}</span>
+                </button>
+              </div>
+
+              {trustOpen && (
+                <div className="mt-2 rounded-2xl border border-cyan-300/10 bg-[#020b10]/70 p-3 text-[12px] text-cyan-50/88">
+                  <div className="grid grid-cols-1 gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="material-icons text-[18px] text-cyan-100/72">
+                        local_shipping
+                      </span>
+                      <span>Envio p/ todo o Brasil (rastreio)</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="material-icons text-[18px] text-cyan-100/72">
+                        lock
+                      </span>
+                      <span>Pagamento seguro (Mercado Pago)</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="material-icons text-[18px] text-cyan-100/72">
+                        schedule
+                      </span>
+                      <span>Produção: 15–30 dias úteis</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="material-icons text-[18px] text-cyan-100/72">
+                        support_agent
+                      </span>
+                      <a
+                        className="underline decoration-dotted hover:text-cyan-50"
+                        href={`https://wa.me/${brand.whatsapp}`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Suporte no WhatsApp
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Desktop: completo */}
+            <div className="hidden md:grid grid-cols-4 gap-2 text-[12px] sm:text-[13px] text-cyan-50/88">
               <div className="flex items-center gap-2">
-                <span className="material-icons text-[18px] text-cyan-100/72" title="Envio com rastreio">local_shipping</span>
-                <span className="material-icons text-[18px] text-cyan-100/72" title="Pagamento seguro">lock</span>
-                <span className="material-icons text-[18px] text-cyan-100/72" title="Produção 15–30 dias úteis">schedule</span>
+                <span className="material-icons text-[18px] text-cyan-100/72">
+                  local_shipping
+                </span>
+                <span>Envio p/ todo o Brasil (rastreio)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="material-icons text-[18px] text-cyan-100/72">
+                  lock
+                </span>
+                <span>Pagamento seguro (Mercado Pago)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="material-icons text-[18px] text-cyan-100/72">
+                  schedule
+                </span>
+                <span>Produção: 15–30 dias úteis</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="material-icons text-[18px] text-cyan-100/72">
+                  support_agent
+                </span>
                 <a
-                  className="inline-flex items-center"
+                  className="underline decoration-dotted hover:text-cyan-50"
                   href={`https://wa.me/${brand.whatsapp}`}
                   target="_blank"
                   rel="noreferrer"
-                  title="Suporte no WhatsApp"
                 >
-                  <span className="material-icons text-[18px] text-cyan-100/72">support_agent</span>
+                  Suporte no WhatsApp
                 </a>
               </div>
-
-              <button
-                type="button"
-                className="inline-flex items-center gap-1 rounded-full border border-cyan-300/10 bg-white/4 px-2 py-1 text-[12px] text-cyan-50/88 hover:bg-white/6"
-                onClick={() => setTrustOpen((v) => !v)}
-                aria-expanded={trustOpen}
-              >
-                <span className="material-icons text-[16px] text-cyan-100/72">info</span>
-                <span>{trustOpen ? "Ocultar" : "Detalhes"}</span>
-              </button>
-            </div>
-
-            {trustOpen && (
-              <div className="mt-2 rounded-2xl border border-cyan-300/10 bg-[#020b10]/70 p-3 text-[12px] text-cyan-50/88">
-                <div className="grid grid-cols-1 gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="material-icons text-[18px] text-cyan-100/72">local_shipping</span>
-                    <span>Envio p/ todo o Brasil (rastreio)</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="material-icons text-[18px] text-cyan-100/72">lock</span>
-                    <span>Pagamento seguro (Mercado Pago)</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="material-icons text-[18px] text-cyan-100/72">schedule</span>
-                    <span>Produção: 15–30 dias úteis</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="material-icons text-[18px] text-cyan-100/72">support_agent</span>
-                    <a
-                      className="underline decoration-dotted hover:text-cyan-50"
-                      href={`https://wa.me/${brand.whatsapp}`}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Suporte no WhatsApp
-                    </a>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Desktop: completo */}
-          <div className="hidden md:grid grid-cols-4 gap-2 text-[12px] sm:text-[13px] text-cyan-50/88">
-            <div className="flex items-center gap-2">
-              <span className="material-icons text-[18px] text-cyan-100/72">local_shipping</span>
-              <span>Envio p/ todo o Brasil (rastreio)</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="material-icons text-[18px] text-cyan-100/72">lock</span>
-              <span>Pagamento seguro (Mercado Pago)</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="material-icons text-[18px] text-cyan-100/72">schedule</span>
-              <span>Produção: 15–30 dias úteis</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="material-icons text-[18px] text-cyan-100/72">support_agent</span>
-              <a
-                className="underline decoration-dotted hover:text-cyan-50"
-                href={`https://wa.me/${brand.whatsapp}`}
-                target="_blank"
-                rel="noreferrer"
-              >
-                Suporte no WhatsApp
-              </a>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Conteúdo */}
-      <Suspense fallback={<main className="container-cc px-4 sm:px-6 lg:px-8 py-10"><div className="rounded-2xl ring-1 ring-white/10 bg-white/4 p-6 text-cyan-50/90">Carregando página…</div></main>}>
-        {page}
-      </Suspense>
-
-      {/* FOOTER */}
+        {/* Conteúdo */}
+        <div id="conteudo-principal" className="flex-1 min-w-0" tabIndex={-1}>
+          <Suspense
+            fallback={
+              <main className="container-cc px-4 sm:px-6 lg:px-8 py-10">
+                <div className="rounded-2xl ring-1 ring-white/10 bg-white/4 p-6 text-cyan-50/90">
+                  Carregando página…
+                </div>
+              </main>
+            }
+          >
+            {page}
+          </Suspense>
+        </div>
+        {/* FOOTER */}
         <footer id="contato" className="mt-auto border-t border-cyan-300/10">
-          <div
-            className="container-cc grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 text-sm px-4 sm:px-6 lg:px-8 py-10" >
+          <div className="container-cc grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 text-sm px-4 sm:px-6 lg:px-8 py-10">
             <div>
               <p className="font-extrabold text-lg">{brand.name}</p>
-              <p className="text-cyan-200/54 mt-2">Cultura geek, qualidade de coleção.</p>
-              <p className="text-xs text-cyan-300/38 mt-3">Produção sob encomenda: 15–30 dias úteis • envio com rastreio</p>
+              <p className="text-cyan-200/54 mt-2">
+                Cultura geek, qualidade de coleção.
+              </p>
+              <p className="text-xs text-cyan-300/38 mt-3">
+                Produção sob encomenda: 15–30 dias úteis • envio com rastreio
+              </p>
             </div>
             <div>
               <p className="font-bold">Compra segura</p>
@@ -1763,32 +2237,79 @@ React.useEffect(() => {
             <div>
               <p className="font-bold">Links úteis</p>
               <ul className="mt-2 text-cyan-100/72 space-y-1">
-                <li><a href="/catalogo" className="underline decoration-dotted">Catálogo</a></li>
-                <li><a href="/promocoes" className="underline decoration-dotted">Promoções</a></li>
-                <li><a href="/faq" className="underline decoration-dotted">FAQ</a></li>
-                <li><a href="/avaliacoes" className="underline decoration-dotted">Avaliações</a></li>
-                <li><a href="/trocas-e-devolucoes" className="underline decoration-dotted">Trocas / devoluções</a></li>
-                <li><a href="/privacy.html" className="underline decoration-dotted">Política de Privacidade</a></li>
-                <li><a href="/terms.html" className="underline decoration-dotted">Termos</a></li>
+                <li>
+                  <a href="/catalogo" className="underline decoration-dotted">
+                    Catálogo
+                  </a>
+                </li>
+                <li>
+                  <a href="/promocoes" className="underline decoration-dotted">
+                    Promoções
+                  </a>
+                </li>
+                <li>
+                  <a href="/faq" className="underline decoration-dotted">
+                    FAQ
+                  </a>
+                </li>
+                <li>
+                  <a href="/avaliacoes" className="underline decoration-dotted">
+                    Avaliações
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="/trocas-e-devolucoes"
+                    className="underline decoration-dotted"
+                  >
+                    Trocas / devoluções
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="/privacy.html"
+                    className="underline decoration-dotted"
+                  >
+                    Política de Privacidade
+                  </a>
+                </li>
+                <li>
+                  <a href="/terms.html" className="underline decoration-dotted">
+                    Termos
+                  </a>
+                </li>
               </ul>
             </div>
             <div>
               <p className="font-bold">Contato</p>
               <ul className="mt-2 text-cyan-100/72 space-y-1">
                 <li>
-                  <a className="underline decoration-dotted" href={`https://wa.me/${brand.whatsapp}`} target="_blank" rel="noreferrer">
+                  <a
+                    className="underline decoration-dotted"
+                    href={`https://wa.me/${brand.whatsapp}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
                     WhatsApp
                   </a>
                   : (77) 99821-1169
                 </li>
                 <li>
-                  <a className="underline decoration-dotted" href={`mailto:${brand.email}`}>
+                  <a
+                    className="underline decoration-dotted"
+                    href={`mailto:${brand.email}`}
+                  >
                     E-mail
                   </a>
                   : {brand.email}
                 </li>
                 <li>
-                  <a className="underline decoration-dotted" href="https://instagram.com/cubo_criativo3d" target="_blank" rel="noreferrer">
+                  <a
+                    className="underline decoration-dotted"
+                    href="https://instagram.com/cubo_criativo3d"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
                     Instagram
                   </a>
                   : {brand.insta}
@@ -1799,232 +2320,273 @@ React.useEffect(() => {
             </div>
           </div>
           <div className="text-center text-xs text-cyan-300/38 pb-8">
-            © {new Date().getFullYear()} {brand.name}. Todos os direitos reservados.
+            © {new Date().getFullYear()} {brand.name}. Todos os direitos
+            reservados.
           </div>
         </footer>
 
-      {/* DRAWER CARRINHO */}
-      {cartOpen ? (<Suspense fallback={null}><CartDrawer
-        open={cartOpen}
-        onClose={() => setCartOpen(false)}
-        cart={cart}
-        updateQty={updateQty}
-        removeItem={removeItem}
-        subtotal={subtotal}
-        brand={brand}
-        waMsg={waMsg}
-        onPay={startCheckout}
-        onPayWithCoupon={startCheckout}
-        paying={paying}
-        authToken={accessToken}
-        userId={user?.id || ""}
-        userEmail={user?.email || ""}
-        onRequireLogin={requireLogin}
-        onRequireProfile={() => openSettings('profile', { autoClose: true })}
-        onOpenOrders={() => setOrdersOpen(true)}
-        onPaymentConfirmed={() => {
-          setCart([]);
-          setToastMsg("✅ Pagamento confirmado!");
-          setToastOpen(true);
-          clearTimeout(toastT.current);
-          toastT.current = setTimeout(() => setToastOpen(false), 2400);
-        }}
-      /></Suspense>) : null}
-
-      {authOpen ? (<Suspense fallback={null}><AuthModal open={authOpen} onClose={() => setAuthOpen(false)} /></Suspense>) : null}
-
-      {ordersOpen ? (<Suspense fallback={null}><OrdersModal
-        open={ordersOpen}
-        initialOrderId={route === "/meus-pedidos" ? getSearchParam("pedido") : ""}
-        onRequireLogin={requireLogin}
-        onClose={() => setOrdersOpen(false)}
-        onPaymentFinalized={() => {
-          setCart([]);
-          setOrdersOpen(false);
-          setCartOpen(false);
-          setToastMsg("Pedido finalizado. Obrigado!");
-          setToastOpen(true);
-          clearTimeout(toastT.current);
-          toastT.current = setTimeout(() => setToastOpen(false), 2400);
-        }}
-      /></Suspense>) : null}
-
-      {vipAreaOpen ? (<Suspense fallback={null}><VipAreaModal onRequireLogin={requireLogin} open={vipAreaOpen} onClose={() => setVipAreaOpen(false)} onGoVip={() => { setVipAreaOpen(false); navigate("/vip"); }} /></Suspense>) : null}
-
-      <Modal
-        open={checkoutSuccessOpen}
-        onClose={() => setCheckoutSuccessOpen(false)}
-        title=""
-        ariaLabel="Pagamento concluído"
-        widthClass="w-[92vw] sm:w-[520px]"
-        maxWidth="max-w-[520px]"
-        panelClassName="overflow-visible rounded-[28px] border border-emerald-300/15 bg-[linear-gradient(180deg,rgba(8,25,34,.98),rgba(5,16,24,.98))] shadow-[0_30px_80px_rgba(0,0,0,.55)]"
-        bodyClassName="p-0"
-      >
-        <div className="px-6 py-7 sm:px-7 sm:py-8 text-center">
-          <div className="mx-auto flex h-[72px] w-[72px] items-center justify-center rounded-full bg-emerald-400/15 ring-1 ring-emerald-300/30 text-emerald-300 shadow-[0_0_30px_rgba(16,185,129,.18)]">
-            <span className="material-icons text-4xl">check_circle</span>
-          </div>
-          <h3 className="mt-5 text-2xl font-extrabold text-white">Pagamento concluído</h3>
-          <p className="mt-3 text-sm sm:text-base leading-relaxed text-slate-300">
-            Acompanhe seu pedido na aba <span className="font-semibold text-cyan-100">Meus pedidos</span>.
-          </p>
-          <div className="mt-6 grid gap-3">
-            <button
-              type="button"
-              className="w-full rounded-2xl px-4 py-3 font-semibold bg-emerald-400 text-black hover:bg-emerald-300 transition shadow-[0_12px_30px_rgba(16,185,129,.22)]"
-              onClick={() => {
-                setCheckoutSuccessOpen(false);
-                setOrdersOpen(true);
+        {/* DRAWER CARRINHO */}
+        {cartOpen ? (
+          <Suspense fallback={null}>
+            <CartDrawer
+              open={cartOpen}
+              onClose={() => setCartOpen(false)}
+              cart={cart}
+              updateQty={updateQty}
+              removeItem={removeItem}
+              subtotal={subtotal}
+              brand={brand}
+              waMsg={waMsg}
+              onPay={startCheckout}
+              onPayWithCoupon={startCheckout}
+              paying={paying}
+              authToken={accessToken}
+              userId={user?.id || ''}
+              userEmail={user?.email || ''}
+              onRequireLogin={requireLogin}
+              onRequireProfile={() =>
+                openSettings('profile', { autoClose: true })
+              }
+              onOpenOrders={() => setOrdersOpen(true)}
+              onPaymentConfirmed={() => {
+                setCart([])
+                setToastMsg('✅ Pagamento confirmado!')
+                setToastOpen(true)
+                clearTimeout(toastT.current)
+                toastT.current = setTimeout(() => setToastOpen(false), 2400)
               }}
-            >
-              Ir para Meus pedidos
-            </button>
-            <button
-              type="button"
-              className="w-full rounded-2xl px-4 py-3 font-semibold bg-white/6 text-white ring-1 ring-white/15 hover:bg-white/8 transition"
-              onClick={() => setCheckoutSuccessOpen(false)}
-            >
-              Fechar
-            </button>
+            />
+          </Suspense>
+        ) : null}
+
+        {authOpen ? (
+          <Suspense fallback={null}>
+            <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
+          </Suspense>
+        ) : null}
+
+        {ordersOpen ? (
+          <Suspense fallback={null}>
+            <OrdersModal
+              open={ordersOpen}
+              initialOrderId={
+                route === '/meus-pedidos' ? getSearchParam('pedido') : ''
+              }
+              onRequireLogin={requireLogin}
+              onClose={() => setOrdersOpen(false)}
+              onPaymentFinalized={() => {
+                setCart([])
+                setOrdersOpen(false)
+                setCartOpen(false)
+                setToastMsg('Pedido finalizado. Obrigado!')
+                setToastOpen(true)
+                clearTimeout(toastT.current)
+                toastT.current = setTimeout(() => setToastOpen(false), 2400)
+              }}
+            />
+          </Suspense>
+        ) : null}
+
+        {vipAreaOpen ? (
+          <Suspense fallback={null}>
+            <VipAreaModal
+              onRequireLogin={requireLogin}
+              open={vipAreaOpen}
+              onClose={() => setVipAreaOpen(false)}
+              onGoVip={() => {
+                setVipAreaOpen(false)
+                navigate('/vip')
+              }}
+            />
+          </Suspense>
+        ) : null}
+
+        <Modal
+          open={checkoutSuccessOpen}
+          onClose={() => setCheckoutSuccessOpen(false)}
+          title=""
+          ariaLabel="Pagamento concluído"
+          widthClass="w-[92vw] sm:w-[520px]"
+          maxWidth="max-w-[520px]"
+          panelClassName="overflow-visible rounded-[28px] border border-emerald-300/15 bg-[linear-gradient(180deg,rgba(8,25,34,.98),rgba(5,16,24,.98))] shadow-[0_30px_80px_rgba(0,0,0,.55)]"
+          bodyClassName="p-0"
+        >
+          <div className="px-6 py-7 sm:px-7 sm:py-8 text-center">
+            <div className="mx-auto flex h-[72px] w-[72px] items-center justify-center rounded-full bg-emerald-400/15 ring-1 ring-emerald-300/30 text-emerald-300 shadow-[0_0_30px_rgba(16,185,129,.18)]">
+              <span className="material-icons text-4xl">check_circle</span>
+            </div>
+            <h3 className="mt-5 text-2xl font-extrabold text-white">
+              Pagamento concluído
+            </h3>
+            <p className="mt-3 text-sm sm:text-base leading-relaxed text-slate-300">
+              Acompanhe seu pedido na aba{' '}
+              <span className="font-semibold text-cyan-100">Meus pedidos</span>.
+            </p>
+            <div className="mt-6 grid gap-3">
+              <button
+                type="button"
+                className="w-full rounded-2xl px-4 py-3 font-semibold bg-emerald-400 text-black hover:bg-emerald-300 transition shadow-[0_12px_30px_rgba(16,185,129,.22)]"
+                onClick={() => {
+                  setCheckoutSuccessOpen(false)
+                  setOrdersOpen(true)
+                }}
+              >
+                Ir para Meus pedidos
+              </button>
+              <button
+                type="button"
+                className="w-full rounded-2xl px-4 py-3 font-semibold bg-white/6 text-white ring-1 ring-white/15 hover:bg-white/8 transition"
+                onClick={() => setCheckoutSuccessOpen(false)}
+              >
+                Fechar
+              </button>
+            </div>
           </div>
-        </div>
-      </Modal>
+        </Modal>
 
-      {settingsOverlayOpen ? (<Suspense fallback={null}><ProfileSettingsModal
-        open={settingsOverlayOpen}
-        required={true}
-        initialTab="profile"
-        modalTitle="Complete o seu cadastro"
-        highlightTitle="Complete o seu cadastro"
-        highlightMessage="Preencha seus dados de identificação e entrega para concluir o pagamento. Assim que salvar, esta janela será fechada automaticamente."
-        onClose={() => {
-          setSettingsOverlayOpen(false);
-          setSettingsCtx((p) => ({ ...p, autoClose: false }));
-        }}
-        onRequireLogin={requireLogin}
-        onNavigate={navigate}
-        onSignOut={() => signOut()}
-        onSaved={() => {
-          setSettingsOverlayOpen(false);
-          setToastMsg("Cadastro atualizado!");
-          setToastOpen(true);
-          clearTimeout(toastT.current);
-          toastT.current = setTimeout(() => setToastOpen(false), 1800);
-          setSettingsCtx((p) => ({ ...p, autoClose: false }));
-        }}
-      /></Suspense>) : null}
+        {settingsOverlayOpen ? (
+          <Suspense fallback={null}>
+            <ProfileSettingsModal
+              open={settingsOverlayOpen}
+              required={true}
+              initialTab="profile"
+              modalTitle="Complete o seu cadastro"
+              highlightTitle="Complete o seu cadastro"
+              highlightMessage="Preencha seus dados de identificação e entrega para concluir o pagamento. Assim que salvar, esta janela será fechada automaticamente."
+              onClose={() => {
+                setSettingsOverlayOpen(false)
+                setSettingsCtx((p) => ({ ...p, autoClose: false }))
+              }}
+              onRequireLogin={requireLogin}
+              onNavigate={navigate}
+              onSignOut={() => signOut()}
+              onSaved={() => {
+                setSettingsOverlayOpen(false)
+                setToastMsg('Cadastro atualizado!')
+                setToastOpen(true)
+                clearTimeout(toastT.current)
+                toastT.current = setTimeout(() => setToastOpen(false), 1800)
+                setSettingsCtx((p) => ({ ...p, autoClose: false }))
+              }}
+            />
+          </Suspense>
+        ) : null}
 
-      {/* MODAL GALERIA */}
-      {/*
+        {/* MODAL GALERIA */}
+        {/*
         Galeria: no desktop algumas telas/combinações de imagens podem causar scroll no body do modal.
         Aqui a gente trava o body do modal (overflow-hidden) e limita a área da imagem para nunca estourar a viewport.
       */}
-      <Modal
-        open={galleryOpen}
-        onClose={() => setGalleryOpen(false)}
-        title={`Fotos — ${galleryData.title}`}
-        bodyClassName="overflow-hidden"
-        // No desktop, a galeria não precisa ocupar 70vw.
-        // Mantemos responsivo, mas com teto menor para não abrir "gigante".
-        widthClass="w-[94vw] sm:w-[88vw]"
-        maxWidth="max-w-[860px]"
-      >
-        {galleryOpen && (
-          <div className="relative">
-            <div
-              className="relative w-full max-w-[820px] mx-auto grid place-items-center rounded-xl ring-1 ring-white/10 bg-[#07161d]/60 p-2 select-none"
-              onTouchStart={onGalleryTouchStart}
-              onTouchMove={onGalleryTouchMove}
-              onTouchEnd={onGalleryTouchEnd}
-              onPointerDown={onGalleryPointerDown}
-              onPointerMove={onGalleryPointerMove}
-              onPointerUp={onGalleryPointerUp}
-              onPointerCancel={onGalleryPointerUp}
-              style={{ touchAction: "pan-y" }}
-              aria-label="Galeria de imagens. Deslize para o lado para trocar."
-            >
-              {/*
+        <Modal
+          open={galleryOpen}
+          onClose={() => setGalleryOpen(false)}
+          title={`Fotos — ${galleryData.title}`}
+          bodyClassName="overflow-hidden"
+          // No desktop, a galeria não precisa ocupar 70vw.
+          // Mantemos responsivo, mas com teto menor para não abrir "gigante".
+          widthClass="w-[94vw] sm:w-[88vw]"
+          maxWidth="max-w-[860px]"
+        >
+          {galleryOpen && (
+            <div className="relative">
+              <div
+                className="relative w-full max-w-[820px] mx-auto grid place-items-center rounded-xl ring-1 ring-white/10 bg-[#07161d]/60 p-2 select-none"
+                onTouchStart={onGalleryTouchStart}
+                onTouchMove={onGalleryTouchMove}
+                onTouchEnd={onGalleryTouchEnd}
+                onPointerDown={onGalleryPointerDown}
+                onPointerMove={onGalleryPointerMove}
+                onPointerUp={onGalleryPointerUp}
+                onPointerCancel={onGalleryPointerUp}
+                style={{ touchAction: 'pan-y' }}
+                aria-label="Galeria de imagens. Deslize para o lado para trocar."
+              >
+                {/*
                 Mantém um tamanho consistente sem estourar a altura do modal.
                 - Usa um teto em px e também em vh (evita criar scrollbar no modal)
                 - Mantém a imagem sempre dentro do container com object-contain
               */}
-              {/*
+                {/*
                 Mantém a imagem dentro do modal em desktops menores (ex.: 768–900px de altura)
                 e evita criar barra de rolagem.
               */}
-              {/*
+                {/*
                 IMPORTANTE (desktop): não fixamos a altura do container.
                 Em vez disso, deixamos o painel "encolher" e limitamos a IMAGEM por max-height.
                 Assim a foto aparece inteira (sem precisar rolar), apenas reduzindo quando necessário.
               */}
-              <div className="relative w-full grid place-items-center">
-              {galleryLoadedSrc ? (
-                <img
-                  src={galleryLoadedSrc}
-                  alt={galleryData.title}
-                  className={`block max-h-[70vh] sm:max-h-[72vh] w-auto max-w-full h-auto object-contain rounded-lg transition ${galleryIsLoading ? "blur-sm opacity-80" : "blur-0 opacity-100"}`}
-                  loading="eager"
-                  draggable={false}
-                />
-              ) : (
-                <div className="h-[45vh] w-full rounded-lg bg-white/4 ring-1 ring-white/10 animate-pulse" />
-              )}
+                <div className="relative w-full grid place-items-center">
+                  {galleryLoadedSrc ? (
+                    <img
+                      src={galleryLoadedSrc}
+                      alt={galleryData.title}
+                      className={`block max-h-[70vh] sm:max-h-[72vh] w-auto max-w-full h-auto object-contain rounded-lg transition ${galleryIsLoading ? 'blur-sm opacity-80' : 'blur-0 opacity-100'}`}
+                      loading="eager"
+                      draggable={false}
+                    />
+                  ) : (
+                    <div className="h-[45vh] w-full rounded-lg bg-white/4 ring-1 ring-white/10 animate-pulse" />
+                  )}
 
-              {galleryIsLoading && (
-                <div className="absolute inset-0 grid place-items-center">
-                  <div className="container-cc flex items-center gap-3 rounded-full bg-black/45 ring-1 ring-white/10 px-4 py-2">
-                    <span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" aria-hidden />
-                    <span className="text-sm text-white/90">Carregando imagem…</span>
+                  {galleryIsLoading && (
+                    <div className="absolute inset-0 grid place-items-center">
+                      <div className="container-cc flex items-center gap-3 rounded-full bg-black/45 ring-1 ring-white/10 px-4 py-2">
+                        <span
+                          className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin"
+                          aria-hidden
+                        />
+                        <span className="text-sm text-white/90">
+                          Carregando imagem…
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Setas laterais (sem autoplay) */}
+                {galleryData.imgs.length > 1 && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={prevImage}
+                      aria-label="Imagem anterior"
+                      className="absolute left-3 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full grid place-items-center bg-black/45 ring-1 ring-white/15 text-white hover:bg-[#020b10]/72 active:scale-[0.98]"
+                    >
+                      <span aria-hidden>‹</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={nextImage}
+                      aria-label="Próxima imagem"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full grid place-items-center bg-black/45 ring-1 ring-white/15 text-white hover:bg-[#020b10]/72 active:scale-[0.98]"
+                    >
+                      <span aria-hidden>›</span>
+                    </button>
+                  </>
+                )}
+              </div>
+
+              {/* Pontinhos indicativos */}
+              {galleryData.imgs.length > 1 && (
+                <div className="mt-3 flex items-center justify-center">
+                  <div className="flex items-center gap-2 rounded-full bg-black/35 ring-1 ring-white/10 px-3 py-2">
+                    {galleryData.imgs.map((_, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setGalleryIndex(idx)}
+                        aria-label={`Ir para imagem ${idx + 1}`}
+                        aria-current={idx === galleryIndex ? 'true' : 'false'}
+                        className={`h-2.5 w-2.5 rounded-full ring-1 ring-white/15 transition ${idx === galleryIndex ? 'bg-white' : 'bg-white/35 hover:bg-white/60'}`}
+                      />
+                    ))}
                   </div>
                 </div>
               )}
             </div>
-
-              {/* Setas laterais (sem autoplay) */}
-              {galleryData.imgs.length > 1 && (
-                <>
-                  <button
-                    type="button"
-                    onClick={prevImage}
-                    aria-label="Imagem anterior"
-                    className="absolute left-3 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full grid place-items-center bg-black/45 ring-1 ring-white/15 text-white hover:bg-[#020b10]/72 active:scale-[0.98]"
-                  >
-                    <span aria-hidden>‹</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={nextImage}
-                    aria-label="Próxima imagem"
-                    className="absolute right-3 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full grid place-items-center bg-black/45 ring-1 ring-white/15 text-white hover:bg-[#020b10]/72 active:scale-[0.98]"
-                  >
-                    <span aria-hidden>›</span>
-                  </button>
-                </>
-              )}
-            </div>
-
-            {/* Pontinhos indicativos */}
-            {galleryData.imgs.length > 1 && (
-              <div className="mt-3 flex items-center justify-center">
-                <div className="flex items-center gap-2 rounded-full bg-black/35 ring-1 ring-white/10 px-3 py-2">
-                  {galleryData.imgs.map((_, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => setGalleryIndex(idx)}
-                      aria-label={`Ir para imagem ${idx + 1}`}
-                      aria-current={idx === galleryIndex ? "true" : "false"}
-                      className={`h-2.5 w-2.5 rounded-full ring-1 ring-white/15 transition ${idx === galleryIndex ? "bg-white" : "bg-white/35 hover:bg-white/60"}`}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </Modal>
-    </div>
+          )}
+        </Modal>
+      </div>
     </RouteErrorBoundary>
-  );
+  )
 }

@@ -1,8 +1,13 @@
-import React from "react";
-import { fmtBRL, centsToBRL, getVariantPricingCents, percentOffCents } from "../lib/pricing.js";
-import { useFavorites } from "../state/FavoritesProvider.jsx";
-import { useAuth } from "../auth/AuthProvider.jsx";
-import { navigateClient, saveProductReturnState } from "../lib/navigation.js";
+import React from 'react'
+import {
+  fmtBRL,
+  centsToBRL,
+  getVariantPricingCents,
+  percentOffCents,
+} from '../lib/pricing.js'
+import { useFavorites } from '../state/FavoritesProvider.jsx'
+import { useAuth } from '../auth/AuthProvider.jsx'
+import { navigateClient, saveProductReturnState } from '../lib/navigation.js'
 
 /**
  * Props:
@@ -11,63 +16,74 @@ import { navigateClient, saveProductReturnState } from "../lib/navigation.js";
  * - buyNow(p, {escala, unitPrice})
  * - openGallery(p)                (abre galeria com as imagens do produto)
  */
-export default function ProductCard({ p, addToCart, buyNow, openGallery, onRequireLogin }) {
-  const { user } = useAuth();
-  const { isFavorite, toggleFavorite } = useFavorites();
-  const defaultIndex = Math.max(0, p.variants?.findIndex((v) => v.label === p.defaultVariant));
-  const [selIndex, setSelIndex] = React.useState(defaultIndex);
-  const [imgError, setImgError] = React.useState(false);
-  const [addedFlash, setAddedFlash] = React.useState(false);
-  const flashT = React.useRef(null);
+export default function ProductCard({
+  p,
+  addToCart,
+  buyNow,
+  openGallery,
+  onRequireLogin,
+}) {
+  const { user } = useAuth()
+  const { isFavorite, toggleFavorite } = useFavorites()
+  const defaultIndex = Math.max(
+    0,
+    p.variants?.findIndex((v) => v.label === p.defaultVariant)
+  )
+  const [selIndex, setSelIndex] = React.useState(defaultIndex)
+  const [imgError, setImgError] = React.useState(false)
+  const [addedFlash, setAddedFlash] = React.useState(false)
+  const flashT = React.useRef(null)
 
   React.useEffect(() => {
-    return () => clearTimeout(flashT.current);
-  }, []);
+    return () => clearTimeout(flashT.current)
+  }, [])
   React.useEffect(() => {
-    setImgError(false);
-  }, [p?.img]);
+    setImgError(false)
+  }, [p?.img])
+  React.useEffect(() => {
+    setSelIndex(defaultIndex)
+  }, [p.id, defaultIndex])
 
+  const hasVariants = Array.isArray(p.variants) && p.variants.length > 0
+  const pricing = getVariantPricingCents(p, selIndex, defaultIndex)
+  const escala = pricing.sel?.label ?? p.escala ?? ''
+  const currentPrice = centsToBRL(pricing.currentCents)
+  const originalPrice = centsToBRL(pricing.originalCents)
+  const off = percentOffCents(pricing.originalCents, pricing.currentCents)
 
-  const hasVariants = Array.isArray(p.variants) && p.variants.length > 0;
-  const pricing = getVariantPricingCents(p, selIndex, defaultIndex);
-  const escala = pricing.sel?.label ?? p.escala ?? "";
-  const currentPrice = centsToBRL(pricing.currentCents);
-  const originalPrice = centsToBRL(pricing.originalCents);
-  const off = percentOffCents(pricing.originalCents, pricing.currentCents);
+  const outOfStock =
+    typeof p?.stock === 'number' && Number.isFinite(p.stock) && p.stock <= 0
 
-  const outOfStock = typeof p?.stock === "number" && Number.isFinite(p.stock) && p.stock <= 0;
-
-  const fav = isFavorite(p?.id);
+  const fav = isFavorite(p?.id)
 
   function handleAdd() {
-    if (outOfStock) return;
-    addToCart(p, { escala, unitPrice: currentPrice });
-    setAddedFlash(true);
-    clearTimeout(flashT.current);
-    flashT.current = setTimeout(() => setAddedFlash(false), 900);
+    if (outOfStock) return
+    addToCart(p, { escala, unitPrice: currentPrice })
+    setAddedFlash(true)
+    clearTimeout(flashT.current)
+    flashT.current = setTimeout(() => setAddedFlash(false), 900)
   }
-
 
   return (
     <article
       id={p?.id ? `product-${p.id}` : undefined}
-      className="w-full min-w-0 group rounded-2xl overflow-hidden ring-1 ring-white/10 bg-[#07161d]/60 shadow-[0_12px_30px_-18px_rgba(0,0,0,0.70)] hover:ring-cyan-400/30 hover:-translate-y-0.5 hover:shadow-[0_18px_45px_-22px_rgba(0,0,0,0.85)] transition-all"
+      className="product-card flex h-full w-full min-w-0 flex-col group rounded-2xl overflow-hidden ring-1 ring-white/10 bg-[#07161d]/60 shadow-[0_12px_30px_-18px_rgba(0,0,0,0.70)] hover:ring-cyan-400/30 hover:-translate-y-0.5 hover:shadow-[0_18px_45px_-22px_rgba(0,0,0,0.85)] transition-[transform,box-shadow] duration-200"
     >
       {/* Imagem -> abre galeria */}
       <div
         role="button"
         tabIndex={0}
         // Suas imagens são 1:1 (1200x1200). Para evitar corte, usamos área 1:1 e object-contain.
-        className="aspect-square min-h-[220px] sm:min-h-[260px] bg-[#07161d]/40 p-3 sm:p-4 grid place-items-center overflow-hidden w-full relative cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
+        className="aspect-square shrink-0 bg-[#07161d]/40 p-3 sm:p-4 grid place-items-center overflow-hidden w-full relative cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
         onClick={() => openGallery?.(p)}
         onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            openGallery?.(p);
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            openGallery?.(p)
           }
         }}
         title="Ver mais fotos"
-        aria-label={`Ver fotos de ${p?.nome ?? "produto"}`}
+        aria-label={`Ver fotos de ${p?.nome ?? 'produto'}`}
       >
         {!imgError ? (
           <img
@@ -82,8 +98,9 @@ export default function ProductCard({ p, addToCart, buyNow, openGallery, onRequi
           />
         ) : (
           <div className="text-slate-300 text-xs px-3 text-center">
-            Imagem indisponível.<br />
-            Verifique a URL da imagem no Supabase (image_url).
+            Imagem indisponível.
+            <br />
+            Abra o produto para ver mais detalhes.
           </div>
         )}
 
@@ -92,42 +109,45 @@ export default function ProductCard({ p, addToCart, buyNow, openGallery, onRequi
           type="button"
           className={`absolute top-2 left-2 rounded-full px-2.5 py-2 text-sm ring-1 transition ${
             fav
-              ? "bg-rose-500/90 text-white ring-rose-200/40"
-              : "bg-[#020b10]/65 text-white ring-white/20 hover:bg-black/70"
+              ? 'bg-rose-500/90 text-white ring-rose-200/40'
+              : 'bg-[#020b10]/65 text-white ring-white/20 hover:bg-black/70'
           }`}
           aria-pressed={fav}
-          aria-label={fav ? "Remover dos favoritos" : "Favoritar"}
-          title={fav ? "Remover dos favoritos" : "Favoritar"}
+          aria-label={fav ? 'Remover dos favoritos' : 'Favoritar'}
+          title={fav ? 'Remover dos favoritos' : 'Favoritar'}
           onClick={async (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            const res = await toggleFavorite(p?.id);
+            e.preventDefault()
+            e.stopPropagation()
+            const res = await toggleFavorite(p?.id)
             if (!res.ok && !user) {
-              onRequireLogin?.('Faça login para favoritar.');
+              onRequireLogin?.('Faça login para favoritar.')
             } else if (!res.ok && res.error) {
-              console.warn(res.error);
+              console.warn(res.error)
             }
           }}
         >
-          {fav ? "♥" : "♡"}
+          {fav ? '♥' : '♡'}
         </button>
       </div>
 
       <div className="p-3 sm:p-4">
-{(p?._availabilityLabel || p?._typeLabel) ? (
-  <div className="mb-2 flex flex-wrap items-center gap-2">
-    {p?._availabilityLabel ? (
-      <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-white/6 ring-1 ring-white/15">
-        {p._availabilityLabel}{p?._leadTimeLabel && !p?._isStock ? ` • ${p._leadTimeLabel}` : ""}
-      </span>
-    ) : null}
-    {p?._typeLabel ? (
-      <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-white/6 ring-1 ring-white/15">
-        {p._typeLabel}
-      </span>
-    ) : null}
-  </div>
-) : null}
+        {p?._availabilityLabel || p?._typeLabel ? (
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            {p?._availabilityLabel ? (
+              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-white/6 ring-1 ring-white/15">
+                {p._availabilityLabel}
+                {p?._leadTimeLabel && !p?._isStock
+                  ? ` • ${p._leadTimeLabel}`
+                  : ''}
+              </span>
+            ) : null}
+            {p?._typeLabel ? (
+              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-white/6 ring-1 ring-white/15">
+                {p._typeLabel}
+              </span>
+            ) : null}
+          </div>
+        ) : null}
         <div className="flex items-start justify-between gap-3">
           <h3 className="font-bold tracking-tight text-sm sm:text-base leading-snug break-words min-w-0 flex-1">
             {p.nome}
@@ -138,11 +158,18 @@ export default function ProductCard({ p, addToCart, buyNow, openGallery, onRequi
             <a
               href={`/p/${p.slug}`}
               onClick={(event) => {
-                saveProductReturnState(`/p/${p.slug}`);
+                saveProductReturnState(`/p/${p.slug}`)
                 // Mantém os atalhos do navegador (abrir em nova aba/janela).
-                if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-                event.preventDefault();
-                navigateClient(`/p/${p.slug}`);
+                if (
+                  event.button !== 0 ||
+                  event.metaKey ||
+                  event.ctrlKey ||
+                  event.shiftKey ||
+                  event.altKey
+                )
+                  return
+                event.preventDefault()
+                navigateClient(`/p/${p.slug}`)
               }}
               className="text-xs font-semibold text-cyan-300 hover:text-cyan-200 underline underline-offset-4 shrink-0"
               aria-label={`Abrir página de ${p.nome}`}
@@ -157,8 +184,12 @@ export default function ProductCard({ p, addToCart, buyNow, openGallery, onRequi
         <div className="mt-2 flex items-center justify-start gap-2 flex-wrap">
           {pricing.showStrike && originalPrice > currentPrice ? (
             <>
-              <span className="text-xs text-slate-300 line-through opacity-80">{fmtBRL(originalPrice)}</span>
-              <span className="text-base sm:text-lg font-black text-emerald-300">{fmtBRL(currentPrice)}</span>
+              <span className="text-xs text-slate-300 line-through opacity-80">
+                {fmtBRL(originalPrice)}
+              </span>
+              <span className="text-base sm:text-lg font-black text-emerald-300">
+                {fmtBRL(currentPrice)}
+              </span>
               {off > 0 && (
                 <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-400 text-black ring-4 ring-emerald-400/20">
                   -{off}%
@@ -166,7 +197,9 @@ export default function ProductCard({ p, addToCart, buyNow, openGallery, onRequi
               )}
             </>
           ) : (
-            <span className="text-base sm:text-lg font-extrabold text-slate-100">{fmtBRL(currentPrice)}</span>
+            <span className="text-base sm:text-lg font-extrabold text-slate-100">
+              {fmtBRL(currentPrice)}
+            </span>
           )}
         </div>
 
@@ -175,11 +208,17 @@ export default function ProductCard({ p, addToCart, buyNow, openGallery, onRequi
             <select
               className="mt-1 w-full rounded-lg bg-[#0c2430]/68 ring-1 ring-white/10 px-3 py-2 text-xs sm:text-sm"
               value={selIndex}
+              aria-label={`Escala de ${p.nome}`}
               onChange={(e) => setSelIndex(Number(e.target.value))}
             >
               {p.variants.map((v, i) => (
                 <option key={v.label} value={i}>
-                  {v.label} — {fmtBRL(centsToBRL(getVariantPricingCents(p, i, defaultIndex).currentCents))}
+                  {v.label} —{' '}
+                  {fmtBRL(
+                    centsToBRL(
+                      getVariantPricingCents(p, i, defaultIndex).currentCents
+                    )
+                  )}
                 </option>
               ))}
             </select>
@@ -189,33 +228,36 @@ export default function ProductCard({ p, addToCart, buyNow, openGallery, onRequi
 
         {/* Em 2 colunas no mobile, empilhar botões evita texto quebrando/overlap */}
         <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
-          <button type="button"
+          <button
+            type="button"
             onClick={handleAdd}
             disabled={outOfStock}
             className={`rounded-lg px-3 py-2 text-sm font-semibold ring-4 ring-cyan-400/20 transition ${
               outOfStock
-                ? "bg-[#0c2430] text-slate-400 cursor-not-allowed ring-white/10"
+                ? 'bg-[#0c2430] text-slate-400 cursor-not-allowed ring-white/10'
                 : addedFlash
-                  ? "bg-emerald-400 text-black"
-                  : "bg-cyan-400 text-black"
+                  ? 'bg-emerald-400 text-black'
+                  : 'bg-cyan-400 text-black'
             }`}
             title="Adicionar ao carrinho"
           >
-            {outOfStock ? "Esgotado" : addedFlash ? "Adicionado!" : "Adicionar"}
+            {outOfStock ? 'Esgotado' : addedFlash ? 'Adicionado!' : 'Adicionar'}
           </button>
-          <button type="button"
+          <button
+            type="button"
             onClick={() => buyNow(p, { escala, unitPrice: currentPrice })}
             disabled={outOfStock}
             className={`rounded-lg px-3 py-2 text-sm ring-1 ring-white/15 ${
-              outOfStock ? "bg-[#0c2430] text-slate-400 cursor-not-allowed" : "hover:bg-white/4"
+              outOfStock
+                ? 'bg-[#0c2430] text-slate-400 cursor-not-allowed'
+                : 'hover:bg-white/4'
             }`}
             title="Comprar agora"
           >
-            {outOfStock ? "Esgotado" : "Comprar"}
+            {outOfStock ? 'Esgotado' : 'Comprar'}
           </button>
         </div>
-
       </div>
     </article>
-  );
+  )
 }
