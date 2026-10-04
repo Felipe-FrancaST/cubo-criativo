@@ -9,253 +9,189 @@ import { useFavorites } from '../state/FavoritesProvider.jsx'
 import { useAuth } from '../auth/AuthProvider.jsx'
 import { navigateClient, saveProductReturnState } from '../lib/navigation.js'
 
-/**
- * Props:
- * - p (produto)
- * - addToCart(p, {escala, unitPrice})
- * - buyNow(p, {escala, unitPrice})
- * - openGallery(p)                (abre galeria com as imagens do produto)
- */
 export default function ProductCard({
   p,
   addToCart,
   buyNow,
   openGallery,
   onRequireLogin,
+  promotion = false,
+  showFavorite = true,
 }) {
   const { user } = useAuth()
   const { isFavorite, toggleFavorite } = useFavorites()
   const defaultIndex = Math.max(
     0,
-    p.variants?.findIndex((v) => v.label === p.defaultVariant)
+    p.variants?.findIndex((variant) => variant.label === p.defaultVariant) ?? 0
   )
   const [selIndex, setSelIndex] = React.useState(defaultIndex)
   const [imgError, setImgError] = React.useState(false)
   const [addedFlash, setAddedFlash] = React.useState(false)
-  const flashT = React.useRef(null)
+  const flashTimer = React.useRef(null)
+  React.useEffect(() => () => window.clearTimeout(flashTimer.current), [])
+  React.useEffect(() => setImgError(false), [p.img])
+  React.useEffect(() => setSelIndex(defaultIndex), [p.id, defaultIndex])
 
-  React.useEffect(() => {
-    return () => clearTimeout(flashT.current)
-  }, [])
-  React.useEffect(() => {
-    setImgError(false)
-  }, [p?.img])
-  React.useEffect(() => {
-    setSelIndex(defaultIndex)
-  }, [p.id, defaultIndex])
-
-  const hasVariants = Array.isArray(p.variants) && p.variants.length > 0
   const pricing = getVariantPricingCents(p, selIndex, defaultIndex)
-  const escala = pricing.sel?.label ?? p.escala ?? ''
   const currentPrice = centsToBRL(pricing.currentCents)
   const originalPrice = centsToBRL(pricing.originalCents)
   const off = percentOffCents(pricing.originalCents, pricing.currentCents)
-
+  const escala = pricing.sel?.label ?? p.escala ?? ''
   const outOfStock =
-    typeof p?.stock === 'number' && Number.isFinite(p.stock) && p.stock <= 0
-
-  const fav = isFavorite(p?.id)
+    typeof p.stock === 'number' && Number.isFinite(p.stock) && p.stock <= 0
+  const favorite = isFavorite(p.id)
 
   function handleAdd() {
     if (outOfStock) return
-    addToCart(p, { escala, unitPrice: currentPrice })
+    addToCart?.(p, { escala, unitPrice: currentPrice })
     setAddedFlash(true)
-    clearTimeout(flashT.current)
-    flashT.current = setTimeout(() => setAddedFlash(false), 900)
+    window.clearTimeout(flashTimer.current)
+    flashTimer.current = window.setTimeout(() => setAddedFlash(false), 1200)
+  }
+  function openProduct(event) {
+    if (
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
+    )
+      return
+    saveProductReturnState(`/p/${p.slug}`)
+    event.preventDefault()
+    navigateClient(`/p/${p.slug}`)
   }
 
   return (
     <article
-      id={p?.id ? `product-${p.id}` : undefined}
-      className="product-card flex h-full w-full min-w-0 flex-col group rounded-2xl overflow-hidden ring-1 ring-white/10 bg-[#07161d]/60 shadow-[0_12px_30px_-18px_rgba(0,0,0,0.70)] hover:ring-cyan-400/30 hover:-translate-y-0.5 hover:shadow-[0_18px_45px_-22px_rgba(0,0,0,0.85)] transition-[transform,box-shadow] duration-200"
+      id={p.id ? `product-${p.id}` : undefined}
+      className={`product-card compact-product-card ${promotion ? 'promo-product-card' : ''}`}
     >
-      {/* Imagem -> abre galeria */}
-      <div
-        role="button"
-        tabIndex={0}
-        // Suas imagens são 1:1 (1200x1200). Para evitar corte, usamos área 1:1 e object-contain.
-        className="aspect-square shrink-0 bg-[#07161d]/40 p-3 sm:p-4 grid place-items-center overflow-hidden w-full relative cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
-        onClick={() => openGallery?.(p)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault()
-            openGallery?.(p)
-          }
-        }}
-        title="Ver mais fotos"
-        aria-label={`Ver fotos de ${p?.nome ?? 'produto'}`}
-      >
-        {!imgError ? (
-          <img
-            src={p.img}
-            alt={p.nome}
-            loading="lazy"
-            decoding="async"
-            // Mantém a imagem inteira (sem recortar). Se existir "respiro" no PNG,
-            // ele aparece como margem/área vazia, mas o produto não fica cortado.
-            className="block object-contain w-full h-full rounded-2xl bg-slate-950/20 ring-1 ring-white/10 origin-center group-hover:scale-[1.02] transition"
-            onError={() => setImgError(true)}
-          />
-        ) : (
-          <div className="text-slate-300 text-xs px-3 text-center">
-            Imagem indisponível.
-            <br />
-            Abra o produto para ver mais detalhes.
-          </div>
-        )}
-
-        {/* Favoritar */}
+      <div className="product-card-media">
         <button
           type="button"
-          className={`absolute top-2 left-2 rounded-full px-2.5 py-2 text-sm ring-1 transition ${
-            fav
-              ? 'bg-rose-500/90 text-white ring-rose-200/40'
-              : 'bg-[#020b10]/65 text-white ring-white/20 hover:bg-black/70'
-          }`}
-          aria-pressed={fav}
-          aria-label={fav ? 'Remover dos favoritos' : 'Favoritar'}
-          title={fav ? 'Remover dos favoritos' : 'Favoritar'}
-          onClick={async (e) => {
-            e.preventDefault()
-            e.stopPropagation()
-            const res = await toggleFavorite(p?.id)
-            if (!res.ok && !user) {
-              onRequireLogin?.('Faça login para favoritar.')
-            } else if (!res.ok && res.error) {
-              console.warn(res.error)
-            }
-          }}
+          className="product-card-image"
+          onClick={() => openGallery?.(p)}
+          aria-label={`Ver fotos de ${p.nome || 'produto'}`}
         >
-          {fav ? '♥' : '♡'}
-        </button>
-      </div>
-
-      <div className="p-3 sm:p-4">
-        {p?._availabilityLabel || p?._typeLabel ? (
-          <div className="mb-2 flex flex-wrap items-center gap-2">
-            {p?._availabilityLabel ? (
-              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-white/6 ring-1 ring-white/15">
-                {p._availabilityLabel}
-                {p?._leadTimeLabel && !p?._isStock
-                  ? ` • ${p._leadTimeLabel}`
-                  : ''}
-              </span>
-            ) : null}
-            {p?._typeLabel ? (
-              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-white/6 ring-1 ring-white/15">
-                {p._typeLabel}
-              </span>
-            ) : null}
-          </div>
-        ) : null}
-        <div className="flex items-start justify-between gap-3">
-          <h3 className="font-bold tracking-tight text-sm sm:text-base leading-snug break-words min-w-0 flex-1">
-            {p.nome}
-          </h3>
-
-          {/* Link de detalhes (SEO + compartilhamento) */}
-          {p?.slug ? (
-            <a
-              href={`/p/${p.slug}`}
-              onClick={(event) => {
-                saveProductReturnState(`/p/${p.slug}`)
-                // Mantém os atalhos do navegador (abrir em nova aba/janela).
-                if (
-                  event.button !== 0 ||
-                  event.metaKey ||
-                  event.ctrlKey ||
-                  event.shiftKey ||
-                  event.altKey
-                )
-                  return
-                event.preventDefault()
-                navigateClient(`/p/${p.slug}`)
-              }}
-              className="text-xs font-semibold text-cyan-300 hover:text-cyan-200 underline underline-offset-4 shrink-0"
-              aria-label={`Abrir página de ${p.nome}`}
-              title="Abrir página do produto"
-            >
-              detalhes
-            </a>
-          ) : null}
-        </div>
-
-        {/* Preços (promo com riscado) */}
-        <div className="mt-2 flex items-center justify-start gap-2 flex-wrap">
-          {pricing.showStrike && originalPrice > currentPrice ? (
-            <>
-              <span className="text-xs text-slate-300 line-through opacity-80">
-                {fmtBRL(originalPrice)}
-              </span>
-              <span className="text-base sm:text-lg font-black text-emerald-300">
-                {fmtBRL(currentPrice)}
-              </span>
-              {off > 0 && (
-                <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-400 text-black ring-4 ring-emerald-400/20">
-                  -{off}%
-                </span>
-              )}
-            </>
-          ) : (
-            <span className="text-base sm:text-lg font-extrabold text-slate-100">
-              {fmtBRL(currentPrice)}
+          {imgError ? (
+            <span className="product-card-image-fallback">
+              Imagem indisponível
             </span>
+          ) : (
+            <img
+              src={p.img}
+              alt={p.nome}
+              loading="lazy"
+              decoding="async"
+              onError={() => setImgError(true)}
+            />
           )}
+        </button>
+        {showFavorite && (
+          <button
+            type="button"
+            className={`product-card-favorite ${favorite ? 'is-favorite' : ''}`}
+            aria-pressed={favorite}
+            aria-label={favorite ? 'Remover dos favoritos' : 'Favoritar'}
+            onClick={async () => {
+              const result = await toggleFavorite(p.id)
+              if (!result.ok && !user)
+                onRequireLogin?.('Faça login para favoritar.')
+            }}
+          >
+            <span aria-hidden="true">{favorite ? '♥' : '♡'}</span>
+          </button>
+        )}
+        {(off > 0 || promotion) && (
+          <span className="product-card-offer">
+            {off > 0 ? `−${off}%` : 'Promoção'}
+          </span>
+        )}
+      </div>
+      <div className="product-card-main">
+        {(p._availabilityLabel || p._typeLabel) && (
+          <div className="product-card-meta">
+            <span>{p._availabilityLabel || p._typeLabel}</span>
+            {p._availabilityLabel && p._typeLabel && (
+              <span className="product-card-extra">{p._typeLabel}</span>
+            )}
+            {p._leadTimeLabel && !p._isStock && (
+              <span className="product-card-extra">{p._leadTimeLabel}</span>
+            )}
+          </div>
+        )}
+        <h3 title={p.nome} className="product-card-title">
+          {p.slug ? (
+            <a href={`/p/${p.slug}`} onClick={openProduct}>
+              {p.nome}
+            </a>
+          ) : (
+            p.nome
+          )}
+        </h3>
+        <div className="product-card-prices">
+          {pricing.showStrike && originalPrice > currentPrice && (
+            <del>{fmtBRL(originalPrice)}</del>
+          )}
+          <strong className={pricing.showStrike ? 'is-discounted' : ''}>
+            {fmtBRL(currentPrice)}
+          </strong>
         </div>
-
-        {hasVariants && (
-          <div className="mt-3">
+        {pricing.hasVariants && (
+          <div className="product-card-variant">
             <select
-              className="mt-1 w-full rounded-lg bg-[#0c2430]/68 ring-1 ring-white/10 px-3 py-2 text-xs sm:text-sm"
               value={selIndex}
               aria-label={`Escala de ${p.nome}`}
-              onChange={(e) => setSelIndex(Number(e.target.value))}
+              onChange={(event) => setSelIndex(Number(event.target.value))}
             >
-              {p.variants.map((v, i) => (
-                <option key={v.label} value={i}>
-                  {v.label} —{' '}
-                  {fmtBRL(
-                    centsToBRL(
-                      getVariantPricingCents(p, i, defaultIndex).currentCents
-                    )
-                  )}
+              {p.variants.map((variant, index) => (
+                <option key={`${variant.label}-${index}`} value={index}>
+                  {variant.label}
                 </option>
               ))}
             </select>
-            <p className="mt-2 text-xs text-slate-300">Resina Premium</p>
           </div>
         )}
-
-        {/* Em 2 colunas no mobile, empilhar botões evita texto quebrando/overlap */}
-        <div className="product-card-actions mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={handleAdd}
-            disabled={outOfStock}
-            className={`rounded-lg px-3 py-2 text-sm font-semibold ring-4 ring-cyan-400/20 transition ${
-              outOfStock
-                ? 'bg-[#0c2430] text-slate-400 cursor-not-allowed ring-white/10'
-                : addedFlash
-                  ? 'bg-emerald-400 text-black'
-                  : 'bg-cyan-400 text-black'
-            }`}
-            title="Adicionar ao carrinho"
-          >
-            {outOfStock ? 'Esgotado' : addedFlash ? 'Adicionado!' : 'Adicionar'}
-          </button>
-          <button
-            type="button"
-            onClick={() => buyNow(p, { escala, unitPrice: currentPrice })}
-            disabled={outOfStock}
-            className={`rounded-lg px-3 py-2 text-sm ring-1 ring-white/15 ${
-              outOfStock
-                ? 'bg-[#0c2430] text-slate-400 cursor-not-allowed'
-                : 'hover:bg-white/4'
-            }`}
-            title="Comprar agora"
-          >
-            {outOfStock ? 'Esgotado' : 'Comprar'}
-          </button>
+        <div
+          className={`product-card-actions ${outOfStock ? 'is-unavailable' : ''}`}
+        >
+          {outOfStock ? (
+            <button type="button" disabled className="product-card-buy">
+              Esgotado
+            </button>
+          ) : (
+            <>
+              <button
+                type="button"
+                className={`product-card-add ${addedFlash ? 'is-added' : ''}`}
+                onClick={handleAdd}
+                aria-label={
+                  addedFlash
+                    ? `${p.nome} adicionado ao carrinho`
+                    : `Adicionar ${p.nome} ao carrinho`
+                }
+                title={addedFlash ? 'Adicionado!' : 'Adicionar ao carrinho'}
+              >
+                <span
+                  className="material-icons product-card-add-icon"
+                  aria-hidden="true"
+                >
+                  {addedFlash ? 'check' : 'add_shopping_cart'}
+                </span>
+                <span className="product-card-add-label">
+                  {addedFlash ? 'Adicionado!' : 'Adicionar'}
+                </span>
+              </button>
+              <button
+                type="button"
+                className="product-card-buy"
+                onClick={() => buyNow?.(p, { escala, unitPrice: currentPrice })}
+              >
+                Comprar
+              </button>
+            </>
+          )}
         </div>
       </div>
     </article>

@@ -1,23 +1,34 @@
-import React from 'react';
-import Modal from '../components/Modal.jsx';
-import { trackEvent } from '../lib/analytics.js';
+import React from 'react'
+import Modal from '../components/Modal.jsx'
+import VipGalleryModal from '../components/vip-area/VipGalleryModal.jsx'
+import { trackEvent } from '../lib/analytics.js'
+import { copyText } from '../lib/clipboard.js'
+import { fmtBRL } from '../lib/pricing.js'
+import { getAffiliateCheckoutContext } from '../lib/affiliate.js'
 
-function Badge({ children }) {
-  return (
-    <span className="inline-flex items-center rounded-full bg-white/6 ring-1 ring-white/15 px-3 py-1 text-xs text-slate-200">
-      {children}
-    </span>
-  );
-}
-
-function fmtBRL(v) {
-  const n = Number(v);
-  if (!Number.isFinite(n)) return '—';
-  return `R$ ${n.toFixed(2).replace('.', ',')}`;
-}
-
-function pluralize(count, singular, plural = `${singular}s`) {
-  return `${count} ${count === 1 ? singular : plural}`;
+const planName = (plan) =>
+  plan?.short_name || plan?.name || plan?.title || 'Plano VIP'
+const planPrice = (plan) =>
+  Math.max(
+    0,
+    Number(plan?.price_brl ?? Number(plan?.price_cents || 0) / 100) || 0
+  )
+const count = (value) => Math.max(0, Math.floor(Number(value) || 0))
+const plural = (value, singular, pluralName = `${singular}s`) =>
+  `${count(value)} ${count(value) === 1 ? singular : pluralName}`
+const paidStatus = (status) =>
+  ['paid', 'approved'].includes(String(status || '').toLowerCase())
+const pendingStatus = (status) =>
+  ['pending', 'in_process'].includes(String(status || '').toLowerCase())
+function statusLabel(status) {
+  if (paidStatus(status)) return 'Pagamento confirmado'
+  if (
+    ['failed', 'rejected', 'cancelled'].includes(
+      String(status || '').toLowerCase()
+    )
+  )
+    return 'Pagamento não aprovado'
+  return 'Aguardando pagamento'
 }
 
 export default function VipRpgPage({
@@ -29,741 +40,906 @@ export default function VipRpgPage({
   onOpenVipArea,
   onGoHome,
 }) {
-  const [busy, setBusy] = React.useState(false);
-  const [submittingMethod, setSubmittingMethod] = React.useState(''); // 'card' | 'pix'
-  const [error, setError] = React.useState('');
-  const [ok, setOk] = React.useState('');
-  const [pix, setPix] = React.useState(null);
-  const [pendingStart, setPendingStart] = React.useState(null); // 'pix' | 'card'
-  const [pixChecking, setPixChecking] = React.useState(false);
-  const [pixStatus, setPixStatus] = React.useState('');
-  const [vipProfile, setVipProfile] = React.useState(null);
-  const [vipLoading, setVipLoading] = React.useState(false);
-  const [vipChecked, setVipChecked] = React.useState(() => !accessToken);
-  const [plans, setPlans] = React.useState([]);
-  const [selectedPlanId, setSelectedPlanId] = React.useState('');
-  const [plansLoading, setPlansLoading] = React.useState(true);
-  const [collectionItems, setCollectionItems] = React.useState([]);
-  const [collectionLoading, setCollectionLoading] = React.useState(true);
-  const [collectionPreviewIndex, setCollectionPreviewIndex] = React.useState(-1);
-  const [couponCode, setCouponCode] = React.useState('');
-  const [couponInfo, setCouponInfo] = React.useState(null);
-  const [couponBusy, setCouponBusy] = React.useState(false);
+  const [plans, setPlans] = React.useState([])
+  const [plansLoading, setPlansLoading] = React.useState(true)
+  const [plansError, setPlansError] = React.useState('')
+  const [selectedPlanId, setSelectedPlanId] = React.useState('')
+  const [collection, setCollection] = React.useState([])
+  const [cycle, setCycle] = React.useState('')
+  const [collectionLoading, setCollectionLoading] = React.useState(true)
+  const [collectionError, setCollectionError] = React.useState('')
+  const [preview, setPreview] = React.useState(null)
+  const [profile, setProfile] = React.useState(null)
+  const [profileChecked, setProfileChecked] = React.useState(!accessToken)
+  const [profileError, setProfileError] = React.useState('')
+  const [profileRefresh, setProfileRefresh] = React.useState(0)
+  const [busy, setBusy] = React.useState(false)
+  const [method, setMethod] = React.useState('')
+  const [error, setError] = React.useState('')
+  const [message, setMessage] = React.useState('')
+  const [couponCode, setCouponCode] = React.useState('')
+  const [couponInfo, setCouponInfo] = React.useState(null)
+  const [couponBusy, setCouponBusy] = React.useState(false)
+  const [pix, setPix] = React.useState(null)
+  const [pixOpen, setPixOpen] = React.useState(false)
+  const [pixStatus, setPixStatus] = React.useState('')
+  const [pixChecking, setPixChecking] = React.useState(false)
+  const [copyMessage, setCopyMessage] = React.useState('')
+  const mounted = React.useRef(false)
+  const checkoutLock = React.useRef(false)
+  const verificationLock = React.useRef(false)
+  const couponLock = React.useRef(false)
+  const couponRequest = React.useRef(0)
+  const plansRequest = React.useRef(0)
+  const collectionRequest = React.useRef(0)
+  const pendingStart = React.useRef(null)
+  const checkoutRef = React.useRef(null)
+  const verifyRef = React.useRef(null)
+  const checkoutPanel = React.useRef(null)
+  const accountKey = user?.id || accessToken || 'guest'
+  const accountRef = React.useRef(accountKey)
+  accountRef.current = accountKey
+  const paymentRef = React.useRef(pix?.order_id)
+  paymentRef.current = pix?.order_id
 
-
-  const vipUntil = vipProfile?.vip_until || null;
-  const isVip = Boolean(vipUntil && new Date(vipUntil) > new Date());
-
-  // Cache local (reduz "flash" ao abrir /vip para quem já é VIP)
-  const cachedVipUntil = React.useMemo(() => {
+  React.useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+      couponRequest.current += 1
+      plansRequest.current += 1
+      collectionRequest.current += 1
+    }
+  }, [])
+  const loadPlans = React.useCallback(async () => {
+    const request = ++plansRequest.current
+    setPlansLoading(true)
+    setPlansError('')
     try {
-      return String((typeof window !== "undefined" ? window.localStorage : null)?.getItem('vip_until_cache') || '');
+      const response = await fetch('/api/vip-plans')
+      const data = await response.json().catch(() => ({}))
+      if (!mounted.current || request !== plansRequest.current) return
+      if (!response.ok)
+        throw new Error('Não foi possível carregar os planos. Tente novamente.')
+      const available = (Array.isArray(data.plans) ? data.plans : []).filter(
+        (plan) => plan?.id && plan.active !== false
+      )
+      setPlans(available)
+      setSelectedPlanId((previous) =>
+        available.some((plan) => plan.id === previous)
+          ? previous
+          : available[0]?.id || ''
+      )
     } catch {
-      return '';
+      if (mounted.current && request === plansRequest.current)
+        setPlansError(
+          'Não foi possível carregar os planos. Confira sua conexão e tente novamente.'
+        )
+    } finally {
+      if (mounted.current && request === plansRequest.current)
+        setPlansLoading(false)
     }
-  }, [accessToken]);
-
-  const isVipCached = Boolean(
-    accessToken &&
-      cachedVipUntil &&
-      (() => {
-        const d = new Date(cachedVipUntil);
-        return Number.isFinite(d.getTime()) && d > new Date();
-      })()
-  );
-
-  // Se o usuário já é VIP, não mostramos página intermediária.
-  // Ao acessar /vip, redirecionamos direto para /area-vip.
+  }, [])
+  const loadCollection = React.useCallback(async () => {
+    const request = ++collectionRequest.current
+    setCollectionLoading(true)
+    setCollectionError('')
+    try {
+      const response = await fetch('/api/core?action=vip-cycle')
+      const data = await response.json().catch(() => ({}))
+      if (!mounted.current || request !== collectionRequest.current) return
+      if (!response.ok) throw new Error('Falha ao carregar coleção')
+      setCollection(Array.isArray(data.items) ? data.items : [])
+      setCycle(data.active_cycle_key || '')
+    } catch {
+      if (mounted.current && request === collectionRequest.current)
+        setCollectionError(
+          'Não foi possível carregar a coleção. Tente atualizar.'
+        )
+    } finally {
+      if (mounted.current && request === collectionRequest.current)
+        setCollectionLoading(false)
+    }
+  }, [])
   React.useEffect(() => {
-    // Se já temos cache válido, redireciona imediatamente.
-    if (isVipCached) {
-      onOpenVipArea?.();
-      return;
+    loadPlans()
+    loadCollection()
+  }, [loadPlans, loadCollection])
+  React.useEffect(() => {
+    const controller = new AbortController()
+    setProfileError('')
+    if (!accessToken) {
+      setProfile(null)
+      setProfileChecked(true)
+      return () => controller.abort()
     }
-    if (vipLoading) return;
-    if (!isVip) return;
-    onOpenVipArea?.();
-  }, [vipLoading, isVip, isVipCached, onOpenVipArea]);
-
-  const visiblePlans = (Array.isArray(plans) ? plans : []).filter((p) => p?.id);
-  const selectedPlan = visiblePlans.find((p) => p.id === selectedPlanId) || visiblePlans[0] || null;
-  React.useEffect(() => { setCouponInfo(null); }, [selectedPlanId]);
-  const selectedMiniaturesCount = Math.max(0, Number(selectedPlan?.miniatures_count || 0) || 0);
-  const selectedBossCount = Math.max(0, Number(selectedPlan?.boss_count || 0) || 0);
-  const selectedItemsPerMonth = Math.max(
-    0,
-    Number(selectedPlan?.items_per_month ?? (selectedMiniaturesCount + selectedBossCount)) || (selectedMiniaturesCount + selectedBossCount)
-  );
-  const selectedReceiveItems = React.useMemo(() => {
-    if (!selectedPlan) return [];
-    const items = [];
-
-    if (selectedMiniaturesCount > 0) {
-      items.push(`${pluralize(selectedMiniaturesCount, 'miniatura')} ${selectedMiniaturesCount > 1 ? 'mensais' : 'mensal'} em resina premium`);
+    setProfileChecked(false)
+    ;(async () => {
+      try {
+        const response = await fetch('/api/profile', {
+          signal: controller.signal,
+          headers: { Authorization: `Bearer ${accessToken}` },
+        })
+        const data = await response.json().catch(() => ({}))
+        if (controller.signal.aborted) return
+        if (!response.ok)
+          throw new Error('Não foi possível verificar sua assinatura.')
+        setProfile(data.profile || null)
+      } catch {
+        if (!controller.signal.aborted)
+          setProfileError(
+            'Não foi possível verificar sua assinatura. Tente novamente.'
+          )
+      } finally {
+        if (!controller.signal.aborted) setProfileChecked(true)
+      }
+    })()
+    return () => controller.abort()
+  }, [accessToken, profileRefresh])
+  const isVip = Boolean(
+    profile?.vip_until && new Date(profile.vip_until).getTime() > Date.now()
+  )
+  React.useEffect(() => {
+    if (profileChecked && isVip) onOpenVipArea?.()
+  }, [profileChecked, isVip, onOpenVipArea])
+  React.useEffect(() => {
+    setCouponInfo(null)
+    setCouponCode('')
+    setPix(null)
+    setPixOpen(false)
+    setError('')
+    setMessage('')
+    setBusy(false)
+    setMethod('')
+    setCouponBusy(false)
+    setPixChecking(false)
+    setPixStatus('')
+    checkoutLock.current = false
+    couponLock.current = false
+    verificationLock.current = false
+    pendingStart.current = null
+    couponRequest.current += 1
+  }, [accountKey])
+  React.useEffect(() => {
+    const resume = () => {
+      const pending = pendingStart.current
+      if (!pending || pending.accountKey !== accountRef.current) return
+      pendingStart.current = null
+      checkoutRef.current?.(pending.method, pending.planId)
     }
+    window.addEventListener('profile:saved', resume)
+    return () => window.removeEventListener('profile:saved', resume)
+  }, [])
 
-    if (selectedBossCount > 0) {
-      items.push(`${pluralize(selectedBossCount, 'boss', 'bosses')} exclusivo${selectedBossCount > 1 ? 's' : ''} por mês`);
+  const selectedPlan =
+    plans.find((plan) => plan.id === selectedPlanId) || plans[0] || null
+  const price = planPrice(selectedPlan)
+  const activeCoupon =
+    couponInfo?.planId === selectedPlan?.id ? couponInfo : null
+  const total = activeCoupon?.final_total ?? price
+  const reusablePix = Boolean(
+    pix?.planId === selectedPlan?.id &&
+    pendingStatus(pixStatus) &&
+    (pix.couponCode || '') === (activeCoupon?.code || '') &&
+    Math.round(Number(pix.total) * 100) === Math.round(Number(total) * 100)
+  )
+  function choosePlan(id) {
+    if (checkoutLock.current || id === selectedPlanId) return
+    setSelectedPlanId(id)
+    setCouponInfo(null)
+    setCouponCode('')
+    setError('')
+    setMessage('')
+    couponRequest.current += 1
+  }
+  async function applyCoupon() {
+    if (!accessToken) {
+      onRequireLogin?.('Faça login para usar seu cupom.')
+      return
     }
-
-    if (selectedItemsPerMonth > 0) {
-      items.push(`Escolha de até ${pluralize(selectedItemsPerMonth, 'item')} por ciclo na Área VIP`);
-    } else {
-      items.push('Escolha na Área VIP');
+    if (!selectedPlan || couponLock.current || checkoutLock.current) return
+    const code = couponCode.trim().toUpperCase()
+    if (!code) {
+      setCouponInfo(null)
+      return
     }
-
-    items.push('Cubo Game e benefícios VIP');
-    return items;
-  }, [selectedPlan, selectedMiniaturesCount, selectedBossCount, selectedItemsPerMonth]);
-
-  function pixStatusPtLabel(v) {
-    const st = String(v || '').toLowerCase();
-    if (!st || st === 'pending' || st === 'in_process') return 'Pendente';
-    if (st === 'paid' || st === 'approved') return 'Pago';
-    if (st === 'rejected' || st === 'failed' || st === 'cancelled') return 'Recusado';
-    return st.replaceAll('_', ' ');
+    const request = ++couponRequest.current
+    const planId = selectedPlan.id
+    couponLock.current = request
+    setCouponBusy(true)
+    setError('')
+    setCouponInfo(null)
+    try {
+      const response = await fetch('/api/coupons?action=validate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          code,
+          subtotal: price,
+          order_type: 'vip',
+          vip_plan_id: planId,
+        }),
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!mounted.current || request !== couponRequest.current) return
+      if (!response.ok)
+        throw new Error(data.error || 'Não foi possível aplicar este cupom.')
+      setCouponInfo({
+        planId,
+        code: data.coupon?.code || code,
+        discount: Number(data.discount) || 0,
+        final_total: Number(data.final_total ?? price),
+      })
+    } catch (failure) {
+      if (mounted.current && request === couponRequest.current)
+        setError(
+          failure instanceof TypeError
+            ? 'Não foi possível aplicar o cupom. Confira sua conexão.'
+            : failure.message
+        )
+    } finally {
+      if (couponLock.current === request) {
+        couponLock.current = false
+        if (mounted.current) setCouponBusy(false)
+      }
+    }
   }
 
-  React.useEffect(() => {
-    let alive = true;
-    (async () => {
-      try {
-        setPlansLoading(true);
-        const res = await fetch('/api/vip-plans');
-        const data = await res.json().catch(() => ({}));
-        if (!alive) return;
-        const arr = Array.isArray(data?.plans) ? data.plans : [];
-        setPlans(arr);
-        if (arr.length && (!selectedPlanId || !arr.find((p) => p.id === selectedPlanId))) setSelectedPlanId(arr[0]?.id || '');
-      } catch {
-        if (alive) setPlans([]);
-      } finally {
-        if (alive) setPlansLoading(false);
+  async function startCheckout(paymentMethod, planId = selectedPlan?.id) {
+    if (checkoutLock.current || couponLock.current || !planId) return
+    if (!accessToken) {
+      ;(onRequireLogin || onOpenAuth)?.('Faça login para assinar.')
+      return
+    }
+    if (!profileChecked || profileError || isVip) return
+    const operation = { accountKey, paymentMethod }
+    checkoutLock.current = operation
+    setBusy(true)
+    setMethod(paymentMethod)
+    setError('')
+    setMessage('')
+    const current = () => mounted.current && accountRef.current === accountKey
+    try {
+      const profileResponse = await fetch('/api/profile', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      })
+      const profileData = await profileResponse.json().catch(() => ({}))
+      if (!current()) return
+      if (!profileResponse.ok)
+        throw new Error(
+          'Não foi possível conferir seu cadastro. Tente novamente.'
+        )
+      const customer = profileData.profile || {}
+      const complete =
+        String(customer.cpf || '').replace(/\D/g, '').length === 11 &&
+        customer.birthdate &&
+        customer.address_line1 &&
+        customer.address_number &&
+        customer.city &&
+        customer.state &&
+        customer.zip
+      const requestProfile = () => {
+        pendingStart.current = { method: paymentMethod, planId, accountKey }
+        onOpenSettings?.('profile', { autoClose: true })
+        setError(
+          'Complete CPF, data de nascimento e endereço para continuar. Seu plano fica selecionado.'
+        )
       }
-    })();
-    return () => {
-      alive = false;
-    };
-  }, []);
-
-  React.useEffect(() => {
-    let alive = true;
-    (async () => {
-      try {
-        setCollectionLoading(true);
-        const res = await fetch('/api/core?action=vip-cycle');
-        const data = await res.json().catch(() => ({}));
-        if (!alive) return;
-        setCollectionItems(Array.isArray(data?.items) ? data.items : []);
-      } catch {
-        if (alive) setCollectionItems([]);
-      } finally {
-        if (alive) setCollectionLoading(false);
+      if (!complete) {
+        requestProfile()
+        return
       }
-    })();
-    return () => { alive = false; };
-  }, []);
-
-  const activeCollectionItem = collectionPreviewIndex >= 0 ? collectionItems[collectionPreviewIndex] || null : null;
-
-  const openCollectionPreview = React.useCallback((index) => {
-    setCollectionPreviewIndex(index);
-  }, []);
-
-  const closeCollectionPreview = React.useCallback(() => {
-    setCollectionPreviewIndex(-1);
-  }, []);
-
-  const moveCollectionPreview = React.useCallback((direction) => {
-    setCollectionPreviewIndex((current) => {
-      if (!collectionItems.length || current < 0) return -1;
-      return (current + direction + collectionItems.length) % collectionItems.length;
-    });
-  }, [collectionItems.length]);
-
-  React.useEffect(() => {
-    if (!activeCollectionItem || collectionItems.length < 2) return undefined;
-    const onKeyDown = (event) => {
-      if (event.key === 'ArrowLeft') {
-        event.preventDefault();
-        moveCollectionPreview(-1);
+      const coupon = activeCoupon?.planId === planId ? activeCoupon.code : null
+      const response = await fetch(
+        paymentMethod === 'pix'
+          ? '/api/create-pix-payment'
+          : '/api/create-checkout-session',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            vip_plan_id: planId,
+            ...(paymentMethod === 'pix'
+              ? {
+                  description: `Assinatura ${planName(plans.find((plan) => plan.id === planId))}`,
+                }
+              : {}),
+            coupon_code: coupon,
+            ...getAffiliateCheckoutContext(),
+          }),
+        }
+      )
+      const data = await response.json().catch(() => ({}))
+      if (!current()) return
+      if (!response.ok) {
+        if (data.code === 'profile_incomplete') {
+          requestProfile()
+          return
+        }
+        throw new Error(data.error || 'Não foi possível iniciar seu pagamento.')
       }
-      if (event.key === 'ArrowRight') {
-        event.preventDefault();
-        moveCollectionPreview(1);
+      if (paymentMethod === 'pix') {
+        setPix({
+          ...data,
+          planId,
+          couponCode: coupon || '',
+          planName: planName(plans.find((plan) => plan.id === planId)),
+          total:
+            activeCoupon?.planId === planId
+              ? activeCoupon.final_total
+              : planPrice(plans.find((plan) => plan.id === planId)),
+        })
+        setPixStatus(String(data.status || 'pending').toLowerCase())
+        setCopyMessage('')
+        setPixOpen(true)
+        trackEvent('vip_pix_created', { plan_id: planId })
+      } else {
+        if (!data.url)
+          throw new Error(
+            'O link de pagamento não ficou disponível. Tente novamente.'
+          )
+        trackEvent('vip_card_checkout_created', { plan_id: planId })
+        window.location.assign(data.url)
       }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [activeCollectionItem, collectionItems.length, moveCollectionPreview]);
-
-  React.useEffect(() => {
-    let alive = true;
-    async function loadVipProfile() {
-      if (!accessToken) {
-        if (alive) setVipProfile(null);
-        if (alive) setVipChecked(true);
-        return;
-      }
-      try {
-        setVipLoading(true);
-        setVipChecked(false);
-        const res = await fetch('/api/profile', { headers: { Authorization: `Bearer ${accessToken}` } });
-        const data = await res.json().catch(() => ({}));
-        if (!alive) return;
-        setVipProfile(data?.profile || null);
-
-        // Atualiza cache local
-        try {
-          const until = data?.profile?.vip_until ? String(data.profile.vip_until) : '';
-          if (until && new Date(until) > new Date()) window.localStorage.setItem('vip_until_cache', until);
-          else window.localStorage.removeItem('vip_until_cache');
-        } catch {}
-      } catch {
-        if (alive) setVipProfile(null);
-      } finally {
-        if (alive) setVipLoading(false);
-        if (alive) setVipChecked(true);
+    } catch (failure) {
+      if (current())
+        setError(
+          failure instanceof TypeError
+            ? 'Não foi possível iniciar o pagamento. Confira sua conexão e tente novamente.'
+            : failure.message
+        )
+    } finally {
+      if (checkoutLock.current === operation) checkoutLock.current = false
+      if (current()) {
+        setBusy(false)
+        setMethod('')
       }
     }
-    loadVipProfile();
-    return () => {
-      alive = false;
-    };
-  }, [accessToken, ok]);
-
-  // IMPORTANTE: estes effects precisam ficar antes de qualquer "return" condicional
-  // para evitar erro do React (hooks em ordem diferente entre renders).
-  React.useEffect(() => {
-    const onSaved = async () => {
-      if (!pendingStart) return;
-      const method = pendingStart;
-      setPendingStart(null);
-      if (method === 'pix') startPix(selectedPlanId);
-      else startCard(selectedPlanId);
-    };
-    window.addEventListener('profile:saved', onSaved);
-    return () => window.removeEventListener('profile:saved', onSaved);
-  }, [pendingStart, selectedPlanId]);
-
-  React.useEffect(() => {
-    if (!pix?.order_id || !accessToken) return;
-    let stopped = false;
-    const t = setInterval(async () => {
-      if (stopped) return;
-      const done = await verifyVipPix(pix.order_id);
-      if (done) {
-        stopped = true;
-        clearInterval(t);
+  }
+  checkoutRef.current = startCheckout
+  async function verifyPix() {
+    if (
+      !pix?.order_id ||
+      !accessToken ||
+      verificationLock.current ||
+      paidStatus(pixStatus)
+    )
+      return
+    const operation = { accountKey, orderId: pix.order_id }
+    verificationLock.current = operation
+    setPixChecking(true)
+    setError('')
+    try {
+      const response = await fetch('/api/pix-payment?action=verify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ order_id: pix.order_id }),
+      })
+      const data = await response.json().catch(() => ({}))
+      if (
+        !mounted.current ||
+        accountRef.current !== accountKey ||
+        paymentRef.current !== pix.order_id
+      )
+        return
+      if (!response.ok)
+        throw new Error(
+          data.error || 'Não foi possível verificar seu pagamento.'
+        )
+      const status = String(
+        data.status || data.mp_status || 'pending'
+      ).toLowerCase()
+      setPixStatus(status)
+      if (paidStatus(status)) {
+        setMessage(
+          'Pagamento confirmado! Sua Área VIP será liberada em instantes.'
+        )
+        setProfileRefresh((value) => value + 1)
+        trackEvent('vip_pix_paid_confirmed', { plan_id: pix.planId })
       }
-    }, 5000);
-    return () => {
-      stopped = true;
-      clearInterval(t);
-    };
-  }, [pix?.order_id, accessToken]);
-
-  // Evita "flash" dos planos ao entrar em /planos-vip e já ser VIP.
-  // Mostra um estado neutro até confirmar (ou redirecionar).
-  if (accessToken && (isVipCached || !vipChecked || vipLoading || isVip)) {
-    return (
-      <main className="min-h-[70vh] flex items-center justify-center">
-        <div className="container-cc rounded-2xl p-6 ring-1 ring-white/10 bg-white/4 text-center">
-          <div className="text-sm text-slate-200 font-semibold">Abrindo Área VIP…</div>
-          <div className="mt-1 text-xs text-slate-400">Verificando sua assinatura</div>
-        </div>
-      </main>
-    );
+    } catch (failure) {
+      if (
+        mounted.current &&
+        accountRef.current === accountKey &&
+        paymentRef.current === pix.order_id
+      )
+        setError(
+          failure instanceof TypeError
+            ? 'Não foi possível verificar o Pix. Tente novamente.'
+            : failure.message
+        )
+    } finally {
+      if (verificationLock.current === operation) {
+        verificationLock.current = false
+        if (mounted.current) setPixChecking(false)
+      }
+    }
   }
+  verifyRef.current = verifyPix
+  React.useEffect(() => {
+    if (!pix?.order_id || !accessToken || !pendingStatus(pixStatus)) return
+    const timer = window.setInterval(() => {
+      if (!document.hidden) verifyRef.current?.()
+    }, 5000)
+    return () => window.clearInterval(timer)
+  }, [pix?.order_id, accessToken, pixStatus])
+  const canPay = Boolean(
+    selectedPlan &&
+    !busy &&
+    !couponBusy &&
+    profileChecked &&
+    !profileError &&
+    !isVip
+  )
 
-  // Enquanto carrega os planos do Supabase, mostramos um estado neutro
-  // (evita tela "indisponível" antes do fetch terminar).
-  if (plansLoading) {
+  if (accessToken && (!profileChecked || (isVip && onOpenVipArea)))
     return (
-      <main className="min-h-[70vh] flex items-center justify-center">
-        <div className="container-cc rounded-2xl p-6 ring-1 ring-white/10 bg-white/4 text-center">
-          <div className="text-sm text-slate-200 font-semibold">Carregando planos VIP…</div>
-          <div className="mt-1 text-xs text-slate-400">Aguarde um instante</div>
-        </div>
-      </main>
-    );
-  }
-
-  // Se não há planos no Supabase, mostramos um estado claro (sem valores fixos).
-  if (!visiblePlans.length) {
-    return (
-      <main className="min-h-[70vh] flex items-center justify-center">
-        <div className="container-cc rounded-2xl p-6 ring-1 ring-white/10 bg-white/4 text-center">
-          <div className="text-sm text-slate-200 font-semibold">Planos VIP indisponíveis</div>
-          <div className="mt-1 text-xs text-slate-400">
-            Nenhum plano ativo encontrado. Verifique a tabela <b>vip_plans</b> no Supabase.
+      <main className="customer-page vip-plans-page">
+        <div className="container-cc customer-page-inner">
+          <div className="account-empty" role="status">
+            <span className="material-icons" aria-hidden="true">
+              workspace_premium
+            </span>
+            <h1>
+              {isVip ? 'Abrindo sua Área VIP…' : 'Verificando sua assinatura…'}
+            </h1>
           </div>
-          <button
-            className="mt-4 rounded-xl px-4 py-2 bg-white/6 hover:bg-white/8 text-slate-100"
-            onClick={() => onGoHome?.()}
-          >
-            Voltar
-          </button>
         </div>
       </main>
-    );
-  }
-
-  async function ensureProfileComplete() {
-    const res = await fetch('/api/profile', { headers: { Authorization: `Bearer ${accessToken}` } });
-    const data = await res.json().catch(() => ({}));
-    const p = data?.profile || {};
-    const hasCpf = String(p.cpf || '').trim().length >= 11;
-    const hasAddr =
-      String(p.address_line1 || '').trim() &&
-      String(p.address_number || '').trim() &&
-      String(p.city || '').trim() &&
-      String(p.state || '').trim() &&
-      String(p.zip || '').trim();
-    const hasBirth = String(p.birthdate || '').trim();
-    return Boolean(hasCpf && hasAddr && hasBirth);
-  }
-
-  async function verifyVipPix(orderId) {
-    if (!orderId) return false;
-    try {
-      setPixChecking(true);
-      const res = await fetch('/api/pix-payment?action=verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ order_id: orderId }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || 'Não foi possível verificar o pagamento Pix.');
-      const st = String(data?.status || data?.mp_status || '').toLowerCase();
-      setPixStatus(st);
-      if (st === 'paid' || st === 'approved') {
-        setOk('Pagamento confirmado! Seu VIP será ativado em instantes.');
-        setError('');
-        trackEvent('vip_pix_paid_confirmed', { plan_id: selectedPlanId });
-        return true;
-      }
-      if (st === 'failed' || st === 'rejected') {
-        setError('Pagamento Pix não foi aprovado. Tente novamente.');
-      }
-      return false;
-    } catch (e) {
-      setError(String(e?.message || e));
-      return false;
-    } finally {
-      setPixChecking(false);
-    }
-  }
-
-  async function handleVipPixPaidClick() {
-    if (!pix?.order_id) return;
-    await verifyVipPix(pix.order_id);
-  }
-
-  async function applyVipCoupon() {
-    if (!accessToken || !selectedPlan) { onRequireLogin?.('Faça login para usar cupom.'); return; }
-    if (!couponCode.trim()) { setCouponInfo(null); return; }
-    setCouponBusy(true); setError('');
-    try { const r=await fetch('/api/coupons?action=validate',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${accessToken}`},body:JSON.stringify({code:couponCode.trim().toUpperCase(),subtotal:Number(selectedPlan.price_brl||0),order_type:'vip',vip_plan_id:selectedPlan.id})}); const j=await r.json().catch(()=>({})); if(!r.ok)throw new Error(j.error||'Cupom inválido.'); setCouponInfo({code:j.coupon?.code||couponCode.toUpperCase(),discount:Number(j.discount||0),final_total:Number(j.final_total||selectedPlan.price_brl||0)}); } catch(e){setCouponInfo(null);setError(e.message||String(e))} finally{setCouponBusy(false)}
-  }
-
-  async function startPix(planId) {
-    setSubmittingMethod('pix');
-    setError('');
-    setOk('');
-    setPix(null);
-    if (!accessToken) {
-      setSubmittingMethod('');
-      onRequireLogin?.('Faça login para assinar');
-      return;
-    }
-    if (!(await ensureProfileComplete())) {
-      setSubmittingMethod('');
-      setPendingStart('pix');
-      onOpenSettings?.('profile', { autoClose: true });
-      setError('Complete seus dados no perfil (CPF e endereço) para assinar.');
-      return;
-    }
-    try {
-      setBusy(true);
-      const res = await fetch('/api/create-pix-payment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ vip_plan_id: planId, description: `Assinatura ${planId}`, coupon_code: couponInfo?.code || null, ...(() => { try { const a=JSON.parse(localStorage.getItem('cc_affiliate_attribution')||'{}'); return { affiliate_slug:a.slug||'', visitor_id:a.visitor_id||''}; } catch { return {}; } })() }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        if (data?.code === 'profile_incomplete') {
-          setSubmittingMethod('');
-          setPendingStart('pix');
-          onOpenSettings?.('profile', { autoClose: true });
-          setError('Complete seus dados no perfil (CPF e endereço) para assinar.');
-          return;
-        }
-        throw new Error(data?.error || 'Não foi possível gerar o Pix.');
-      }
-      setPix({
-        order_id: data?.order_id || '',
-        payment_id: data?.id || '',
-        qr_code: data?.qr_code || '',
-        qr_code_base64: data?.qr_code_base64 || '',
-        ticket_url: data?.ticket_url || '',
-      });
-      setPixStatus(String(data?.status || '').toLowerCase());
-      setOk('Pix gerado! Escaneie o QR Code ou copie o código. A confirmação é automática.');
-      trackEvent('vip_pix_created', { plan_id: planId });
-    } catch (e) {
-      setError(String(e?.message || e));
-    } finally {
-      setBusy(false);
-      setSubmittingMethod('');
-    }
-  }
-
-  async function startCard(planId) {
-    setSubmittingMethod('card');
-    setError('');
-    setOk('');
-    if (!accessToken) {
-      setSubmittingMethod('');
-      onRequireLogin?.('Faça login para assinar');
-      return;
-    }
-    if (!(await ensureProfileComplete())) {
-      setSubmittingMethod('');
-      setPendingStart('card');
-      onOpenSettings?.('profile', { autoClose: true });
-      setError('Complete seus dados no perfil (CPF e endereço) para assinar.');
-      return;
-    }
-    try {
-      setBusy(true);
-      const res = await fetch('/api/create-checkout-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ vip_plan_id: planId, coupon_code: couponInfo?.code || null, ...(() => { try { const a=JSON.parse(localStorage.getItem('cc_affiliate_attribution')||'{}'); return { affiliate_slug:a.slug||'', visitor_id:a.visitor_id||''}; } catch { return {}; } })() }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        if (data?.code === 'profile_incomplete') {
-          setSubmittingMethod('');
-          setPendingStart('card');
-          onOpenSettings?.('profile', { autoClose: true });
-          setError('Complete seus dados no perfil (CPF e endereço) para assinar.');
-          return;
-        }
-        throw new Error(data?.error || 'Não foi possível iniciar o pagamento.');
-      }
-      if (data?.url) {
-        window.location.href = data.url;
-        return;
-      }
-      setOk('Checkout criado.');
-      trackEvent('vip_card_checkout_created', { plan_id: planId });
-    } catch (e) {
-      setError(String(e?.message || e));
-    } finally {
-      setBusy(false);
-      setSubmittingMethod('');
-    }
-  }
+    )
 
   return (
-    <>
-      <main className="flex-1">
-      <section className="container-cc px-4 sm:px-6 lg:px-8 py-10 sm:py-14" >
-        <div className="relative overflow-hidden rounded-3xl ring-1 ring-white/10 bg-gradient-to-br from-slate-900/60 via-slate-950/50 to-black/60 backdrop-blur p-6 sm:p-10">
-          <div
-            className="absolute inset-0 opacity-30 pointer-events-none"
-            style={{
-              backgroundImage:
-                'radial-gradient(circle at 20% 10%, rgba(56,189,248,0.35), transparent 45%), radial-gradient(circle at 80% 20%, rgba(167,139,250,0.30), transparent 45%), radial-gradient(circle at 50% 90%, rgba(34,197,94,0.18), transparent 55%)',
-            }}
-          />
-
-          <div className="relative">
-            <div className="flex items-start justify-between gap-4 flex-wrap">
+    <main className="customer-page vip-plans-page">
+      <div className="container-cc customer-page-inner">
+        <header className="customer-page-heading">
+          <div>
+            <p className="customer-eyebrow">Clube Cubo Criativo</p>
+            <h1>Sua coleção, todo mês</h1>
+            <p className="customer-subtitle">
+              Compare os planos VIP de RPG e encontre o seu ritmo de coleção.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="customer-secondary"
+            onClick={onGoHome}
+          >
+            <span className="material-icons" aria-hidden="true">
+              arrow_back
+            </span>
+            Loja
+          </button>
+        </header>
+        <div className="vip-plan-highlights">
+          <span>
+            <span className="material-icons" aria-hidden="true">
+              view_in_ar
+            </span>
+            Resina premium · 32 mm
+          </span>
+          <span>
+            <span className="material-icons" aria-hidden="true">
+              redeem
+            </span>
+            Presente mensal d20
+          </span>
+          <span>
+            <span className="material-icons" aria-hidden="true">
+              sports_esports
+            </span>
+            Cubo Game diário
+          </span>
+        </div>
+        <div className="vip-subscription-layout">
+          <section aria-labelledby="vip-plan-title">
+            <div className="account-section-heading">
               <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge>Assinatura VIP</Badge>
-                  <Badge>RPG • Resina Premium</Badge>
-                  <Badge>32mm</Badge>
-                </div>
-                <h1 className="mt-3 text-3xl sm:text-4xl font-extrabold tracking-tight">Planos VIP — RPG</h1>
-                <p className="mt-3 text-slate-300 max-w-2xl">
-                  Assine e escolha suas miniaturas do mês na Área VIP. Pagamento via cartão ou Pix.
-                </p>
-              </div>
-              <div className="hidden sm:block text-right">
-                <div className="text-slate-400 text-sm">Plano selecionado</div>
-                <div className="text-2xl font-extrabold">{selectedPlan?.name || '—'}</div>
-                <div className="text-slate-300 text-sm mt-1">{selectedPlan ? fmtBRL(selectedPlan.price_brl) : ''}</div>
+                <h2 id="vip-plan-title">Escolha seu plano</h2>
+                <p>Veja a quantidade de peças incluídas em cada ciclo.</p>
               </div>
             </div>
-
-            
-            <div className="mt-8">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-xl font-bold">Coleção Atual</h2>
-                <span className="text-xs text-slate-400">Prévia das miniaturas disponíveis neste ciclo</span>
+            {plansLoading ? (
+              <div className="vip-plan-grid" aria-label="Carregando planos">
+                {[0, 1, 2].map((index) => (
+                  <div
+                    key={index}
+                    className="vip-plan-skeleton animate-pulse"
+                  />
+                ))}
               </div>
-
-              {collectionLoading ? (
-                <div className="rounded-2xl bg-white/4 ring-1 ring-white/10 p-4 text-slate-300">Carregando coleção...</div>
-              ) : collectionItems.length ? (
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                  {collectionItems.map((item, index) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => openCollectionPreview(index)}
-                      className="group relative overflow-hidden rounded-2xl bg-white/4 text-left ring-1 ring-white/10 transition hover:-translate-y-0.5 hover:bg-white/6 hover:ring-cyan-300/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
-                      aria-label={`Ampliar ${item.title || 'miniatura'}`}
-                    >
-                      <div className="relative aspect-square bg-black/20 overflow-hidden">
-                        <img
-                          src={item.image_url}
-                          alt={item.title || 'Miniatura'}
-                          className="w-full h-full object-cover transition duration-300 group-hover:scale-[1.04]"
-                          loading="lazy"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-70 sm:opacity-0 sm:group-hover:opacity-100 transition" />
-                        <span className="absolute bottom-2 right-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/65 text-white ring-1 ring-white/20 backdrop-blur">
-                          <span className="material-icons text-[18px]">zoom_in</span>
-                        </span>
-                      </div>
-                      <div className="p-2.5">
-                        <div className="text-xs sm:text-sm font-semibold line-clamp-2">
-                          {item.title}
-                        </div>
-                        <div className="mt-1 text-[11px] text-cyan-200/80">Toque para ampliar</div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-
-              <div className="sm:hidden mt-4 text-center">
-                <div className="text-slate-400 text-sm">Plano selecionado</div>
-                <div className="text-xl font-extrabold">{selectedPlan?.name || '—'}</div>
-                <div className="text-slate-300 text-sm mt-1">{selectedPlan ? fmtBRL(selectedPlan.price_brl) : ''}</div>
+            ) : plansError ? (
+              <div role="alert" className="customer-alert">
+                <p>{plansError}</p>
+                <button
+                  type="button"
+                  className="customer-secondary"
+                  onClick={loadPlans}
+                >
+                  Tentar novamente
+                </button>
               </div>
-
-{vipLoading ? (
-              <div className="mt-8 rounded-2xl bg-white/4 ring-1 ring-white/10 p-5 text-slate-200">Carregando…</div>
-            ) : isVip ? (
-              <div className="mt-8 rounded-2xl bg-white/4 ring-1 ring-white/10 p-5 text-slate-200">
-                Abrindo Área VIP…
+            ) : !plans.length ? (
+              <div className="account-empty">
+                <h3>Os planos estão indisponíveis no momento</h3>
+                <p>Atualize para conferir novamente.</p>
+                <button
+                  type="button"
+                  className="customer-secondary"
+                  onClick={loadPlans}
+                >
+                  Atualizar planos
+                </button>
               </div>
             ) : (
-              <div className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-4">
-                <div className="rounded-2xl bg-white/4 ring-1 ring-white/10 p-5">
-                  <p className="text-sm font-extrabold">O que você recebe</p>
-                  <ul className="mt-3 space-y-2 text-sm text-slate-200">
-                    {selectedReceiveItems.map((item) => (
-                      <li key={item} className="flex gap-2">
-                        <span className="text-emerald-300">✓</span>
-                        <span>{item}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div className="rounded-2xl bg-white/4 ring-1 ring-white/10 p-5">
-                  <p className="text-sm font-extrabold">Planos</p>
-                  <div className="mt-3 grid grid-cols-1 gap-2">
-                    {visiblePlans.map((pl) => (
-                      <button
-                        key={pl.id}
-                        type="button"
-                        onClick={() => setSelectedPlanId(pl.id)}
-                        className={`text-left rounded-xl p-3 ring-1 ${
-                          selectedPlanId === pl.id ? 'ring-cyan-300 bg-cyan-400/10' : 'ring-white/10 bg-white/4 hover:bg-white/6'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <div>
-                            <div className="font-bold">{pl.name || pl.title || pl.id}</div>
-                            <div className="text-xs text-slate-300">
-                              {Number(pl.miniatures_count || 0)} miniaturas
-                              {Number(pl.boss_count || 0) ? ` + ${Number(pl.boss_count)} boss` : ''}
-                            </div>
-                          </div>
-                          <div className="font-extrabold">{fmtBRL(pl.price_brl)}</div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="rounded-2xl bg-white/4 ring-1 ring-white/10 p-5">
-                  <p className="text-sm font-extrabold">Assinar agora</p>
-
-                  <div className="mt-3 rounded-xl bg-black/20 p-3 ring-1 ring-white/10">
-                    <div className="text-xs text-slate-400">Cupom de desconto</div>
-                    <div className="mt-2 flex gap-2"><input value={couponCode} onChange={e=>setCouponCode(e.target.value.toUpperCase())} placeholder="CUPOM" className="min-w-0 flex-1 rounded-xl bg-black/30 px-3 py-2 text-white ring-1 ring-white/10"/><button disabled={couponBusy} onClick={applyVipCoupon} className="rounded-xl px-3 py-2 font-bold bg-white/10 ring-1 ring-white/10">{couponBusy?'…':'Aplicar'}</button></div>
-                    {couponInfo?<div className="mt-2 text-xs text-emerald-200">Desconto {fmtBRL(couponInfo.discount)} • total {fmtBRL(couponInfo.final_total)}</div>:null}
-                  </div>
-
-                  {error ? (
-                    <div className="mt-3 rounded-2xl bg-rose-500/10 ring-1 ring-rose-500/20 p-3 text-sm text-rose-100">{error}</div>
-                  ) : null}
-                  {ok ? (
-                    <div className="mt-3 rounded-2xl bg-emerald-500/10 ring-1 ring-emerald-500/20 p-3 text-sm text-emerald-100">{ok}</div>
-                  ) : null}
-
-                  <div className="mt-4 grid grid-cols-1 gap-2">
-                    <button
+              <div
+                className="vip-plan-grid"
+                role="radiogroup"
+                aria-label="Planos VIP"
+              >
+                {plans.map((plan) => (
+                  <label
+                    key={plan.id}
+                    className={`vip-plan-card ${selectedPlan?.id === plan.id ? 'is-selected' : ''}`}
+                  >
+                    <input
+                      type="radio"
+                      name="vip-plan"
+                      value={plan.id}
+                      checked={selectedPlan?.id === plan.id}
+                      onChange={() => choosePlan(plan.id)}
                       disabled={busy}
-                      onClick={() => startCard(selectedPlanId)}
-                      className="container-cc rounded-xl px-4 py-3 font-extrabold bg-cyan-400 text-black ring-4 ring-cyan-400/20 disabled:opacity-60"
-                    >
-                      {submittingMethod === 'card' ? 'Aguarde' : 'Assinar com cartão'}
-                    </button>
-                    <button
-                      disabled={busy}
-                      onClick={() => startPix(selectedPlanId)}
-                      className="container-cc rounded-xl px-4 py-3 font-semibold ring-1 ring-white/15 hover:bg-white/4 disabled:opacity-60"
-                    >
-                      {submittingMethod === 'pix' ? 'Aguarde' : 'Assinar com Pix'}
-                    </button>
-                  </div>
-
-                  {pix ? (
-                    <div className="mt-4 rounded-2xl bg-black/20 ring-1 ring-white/10 p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-extrabold">Pix do VIP</p>
-                          <p className="mt-1 text-xs text-slate-400">Escaneie o QR Code ou copie o código abaixo.</p>
-                        </div>
-                        {pix.ticket_url ? (
-                          <a
-                            href={pix.ticket_url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="rounded-xl px-3 py-2 text-xs ring-1 ring-white/10 hover:bg-white/4"
-                          >
-                            Abrir no Mercado Pago
-                          </a>
-                        ) : null}
-                      </div>
-
-                      {pix.qr_code_base64 ? (
-                        <div className="mt-3 rounded-xl bg-white p-3 inline-flex">
-                          <img alt="QR Code Pix" className="h-44 w-44" src={`data:image/png;base64,${pix.qr_code_base64}`} />
-                        </div>
-                      ) : null}
-
-                      {pix.qr_code ? (
-                        <div className="mt-3">
-                          <div className="flex gap-2">
-                            <input
-                              readOnly
-                              value={pix.qr_code}
-                              className="w-full rounded-xl bg-[#07161d] ring-1 ring-white/10 px-3 py-2 text-xs text-slate-200"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => navigator.clipboard.writeText(String(pix.qr_code || ''))}
-                              className="rounded-xl px-3 py-2 text-xs font-semibold bg-emerald-400/15 ring-1 ring-emerald-300/30 hover:bg-emerald-400/20"
-                            >
-                              Copiar
-                            </button>
-                          </div>
-
-                          <div className="mt-3 flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
-                            <div className="text-xs text-slate-300">
-                              Status do Pix: <b className="uppercase">{pixStatusPtLabel(pixStatus || 'pending')}</b>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={handleVipPixPaidClick}
-                              disabled={pixChecking}
-                              className={`rounded-xl px-3 py-2 text-xs font-extrabold ring-1 disabled:opacity-60 ${
-                                ['paid', 'approved'].includes(String(pixStatus || '').toLowerCase())
-                                  ? 'bg-emerald-500/20 text-emerald-100 ring-emerald-300/30'
-                                  : 'bg-white/6 ring-white/15 hover:bg-white/8'
-                              }`}
-                            >
-                              {pixChecking
-                                ? 'Verificando...'
-                                : ['paid', 'approved'].includes(String(pixStatus || '').toLowerCase())
-                                ? 'Pago ✓'
-                                : 'Já paguei'}
-                            </button>
-                          </div>
-                        </div>
-                      ) : null}
+                      aria-label={planName(plan)}
+                    />
+                    <div className="vip-plan-card-heading">
+                      <h3>{planName(plan)}</h3>
+                      <span>
+                        {selectedPlan?.id === plan.id
+                          ? 'Selecionado'
+                          : 'Selecionar'}
+                      </span>
                     </div>
-                  ) : null}
-                </div>
+                    <p className="vip-plan-price">
+                      <strong>{fmtBRL(planPrice(plan))}</strong>
+                      <span>/ ciclo</span>
+                    </p>
+                    <ul>
+                      <li>
+                        <span className="material-icons" aria-hidden="true">
+                          check
+                        </span>
+                        {plural(plan.miniatures_count, 'miniatura')}
+                      </li>
+                      <li>
+                        <span className="material-icons" aria-hidden="true">
+                          {count(plan.boss_count) ? 'check' : 'remove'}
+                        </span>
+                        {count(plan.boss_count)
+                          ? plural(plan.boss_count, 'boss', 'bosses')
+                          : 'Sem boss neste plano'}
+                      </li>
+                    </ul>
+                    <p className="vip-plan-pieces">
+                      {plural(
+                        plan.items_per_month ??
+                          count(plan.miniatures_count) + count(plan.boss_count),
+                        'peça'
+                      )}{' '}
+                      por ciclo
+                    </p>
+                  </label>
+                ))}
               </div>
             )}
-
-            <div className="mt-8 flex flex-wrap gap-2">
-              <button onClick={onGoHome} className="container-cc rounded-xl px-4 py-2 text-sm ring-1 ring-white/10 hover:bg-white/4">Voltar</button>
-              {!user ? (
-                <button onClick={onOpenAuth} className="container-cc rounded-xl px-4 py-2 text-sm ring-1 ring-white/10 hover:bg-white/4">Entrar para assinar</button>
-              ) : null}
+            <div className="vip-shared-benefits">
+              <h3>Seu clube vai além das miniaturas</h3>
+              <p>
+                Acesso à Área VIP, votação de temas, presente d20 do ciclo e
+                partidas diárias no Cubo Game.
+              </p>
             </div>
-          </div>
-        </div>
-      </section>
-      </main>
-
-      <Modal
-        open={Boolean(activeCollectionItem)}
-        onClose={closeCollectionPreview}
-        title={activeCollectionItem?.title || 'Miniatura da coleção'}
-        ariaLabel="Visualização ampliada da miniatura"
-        widthClass="w-[96vw] sm:w-[92vw]"
-        maxWidth="max-w-5xl"
-        bodyClassName="p-2 sm:p-4"
-        panelClassName="bg-[#030b10]"
-        zIndexClass="z-[220]"
-      >
-        {activeCollectionItem ? (
-          <div className="relative">
-            <div className="flex min-h-[55vh] max-h-[76vh] items-center justify-center overflow-hidden rounded-2xl bg-black/40 ring-1 ring-white/10">
-              <img
-                src={activeCollectionItem.image_url}
-                alt={activeCollectionItem.title || 'Miniatura da coleção atual'}
-                className="max-h-[76vh] w-full object-contain"
-              />
-            </div>
-
-            {collectionItems.length > 1 ? (
+          </section>
+          <aside
+            className="vip-checkout customer-surface"
+            ref={checkoutPanel}
+            aria-labelledby="vip-checkout-title"
+          >
+            <p className="customer-eyebrow">Seu próximo ciclo</p>
+            <h2 id="vip-checkout-title">Resumo da assinatura</h2>
+            {selectedPlan ? (
               <>
-                <button
-                  type="button"
-                  onClick={() => moveCollectionPreview(-1)}
-                  className="absolute left-2 top-1/2 -translate-y-1/2 inline-flex h-11 w-11 items-center justify-center rounded-full bg-black/70 text-white ring-1 ring-white/20 backdrop-blur hover:bg-black/85 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 sm:left-4"
-                  aria-label="Imagem anterior"
+                <h3>{planName(selectedPlan)}</h3>
+                <p className="vip-checkout-description">
+                  {plural(selectedPlan.miniatures_count, 'miniatura')}
+                  {count(selectedPlan.boss_count)
+                    ? ` + ${plural(selectedPlan.boss_count, 'boss', 'bosses')}`
+                    : ''}
+                </p>
+                <form
+                  className="vip-coupon-form"
+                  onSubmit={(event) => {
+                    event.preventDefault()
+                    applyCoupon()
+                  }}
                 >
-                  <span className="material-icons">chevron_left</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => moveCollectionPreview(1)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-11 w-11 items-center justify-center rounded-full bg-black/70 text-white ring-1 ring-white/20 backdrop-blur hover:bg-black/85 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 sm:right-4"
-                  aria-label="Próxima imagem"
-                >
-                  <span className="material-icons">chevron_right</span>
-                </button>
+                  <label htmlFor="vip-coupon">Tem um cupom?</label>
+                  <div>
+                    <input
+                      id="vip-coupon"
+                      value={couponCode}
+                      onChange={(event) => {
+                        setCouponCode(event.target.value.toUpperCase())
+                        setCouponInfo(null)
+                        couponRequest.current += 1
+                      }}
+                      placeholder="Código do cupom"
+                      autoComplete="off"
+                      disabled={busy}
+                    />
+                    <button
+                      type="submit"
+                      className="customer-secondary"
+                      disabled={couponBusy || busy || !couponCode.trim()}
+                    >
+                      {couponBusy ? 'Aplicando…' : 'Aplicar'}
+                    </button>
+                  </div>
+                </form>
+                {activeCoupon && (
+                  <div className="vip-coupon-applied" role="status">
+                    <span>
+                      {activeCoupon.code} · {fmtBRL(activeCoupon.discount)} de
+                      desconto
+                    </span>
+                    <button
+                      type="button"
+                      aria-label="Remover cupom"
+                      onClick={() => {
+                        setCouponInfo(null)
+                        setCouponCode('')
+                      }}
+                      disabled={busy}
+                    >
+                      <span className="material-icons" aria-hidden="true">
+                        close
+                      </span>
+                    </button>
+                  </div>
+                )}
+                <div className="vip-checkout-total">
+                  <span>Total do ciclo</span>
+                  <div>
+                    {activeCoupon && <del>{fmtBRL(price)}</del>}
+                    <strong>{fmtBRL(total)}</strong>
+                  </div>
+                </div>
+                {profileError && (
+                  <div className="customer-alert" role="alert">
+                    <p>{profileError}</p>
+                    <button
+                      type="button"
+                      className="customer-secondary"
+                      onClick={() => setProfileRefresh((value) => value + 1)}
+                    >
+                      Verificar novamente
+                    </button>
+                  </div>
+                )}
+                {error && (
+                  <p role="alert" className="vip-payment-message is-error">
+                    {error}
+                  </p>
+                )}
+                {message && (
+                  <p role="status" className="vip-payment-message">
+                    {message}
+                  </p>
+                )}
+                <div className="vip-checkout-actions">
+                  <button
+                    type="button"
+                    className="customer-primary"
+                    disabled={!canPay}
+                    onClick={() => startCheckout('card')}
+                  >
+                    {busy && method === 'card'
+                      ? 'Preparando pagamento…'
+                      : 'Assinar com cartão'}
+                  </button>
+                  <button
+                    type="button"
+                    className="customer-secondary"
+                    disabled={!canPay}
+                    onClick={() => {
+                      if (reusablePix) setPixOpen(true)
+                      else startCheckout('pix')
+                    }}
+                  >
+                    {busy && method === 'pix'
+                      ? 'Gerando Pix…'
+                      : reusablePix
+                        ? 'Ver Pix gerado'
+                        : 'Assinar com Pix'}
+                  </button>
+                </div>
+                <p className="vip-checkout-help">
+                  Após a confirmação do pagamento, acompanhe suas escolhas e o
+                  pedido na Área VIP.
+                </p>
               </>
-            ) : null}
-
-            <div className="mt-3 flex flex-col gap-1 px-1 sm:flex-row sm:items-center sm:justify-between">
-              <div className="text-sm font-semibold text-slate-100">{activeCollectionItem.title || 'Miniatura'}</div>
-              <div className="text-xs text-slate-400">
-                {collectionPreviewIndex + 1} de {collectionItems.length}
-                {collectionItems.length > 1 ? ' • use as setas para navegar' : ''}
-              </div>
+            ) : (
+              <p className="vip-checkout-description">
+                Selecione um plano disponível para continuar.
+              </p>
+            )}
+          </aside>
+        </div>
+        <section
+          className="vip-current-collection"
+          aria-labelledby="vip-collection-title"
+        >
+          <div className="account-section-heading">
+            <div>
+              <h2 id="vip-collection-title">
+                Conheça a coleção do ciclo
+                {cycle ? ` · ${cycle.split('-').reverse().join('/')}` : ''}
+              </h2>
+              <p>Toque em uma peça para ver todos os detalhes.</p>
             </div>
           </div>
-        ) : null}
-      </Modal>
-    </>
-  );
+          {collectionError ? (
+            <div className="customer-alert" role="alert">
+              <p>{collectionError}</p>
+              <button
+                type="button"
+                className="customer-secondary"
+                onClick={loadCollection}
+              >
+                Atualizar coleção
+              </button>
+            </div>
+          ) : collectionLoading ? (
+            <p role="status" className="account-help">
+              Carregando coleção…
+            </p>
+          ) : collection.length ? (
+            <div className="vip-collection-grid">
+              {collection.map((item) => (
+                <button
+                  type="button"
+                  key={item.id}
+                  onClick={() => setPreview(item)}
+                  aria-label={`Ampliar ${item.title}`}
+                >
+                  <img src={item.image_url} alt={item.title} loading="lazy" />
+                  <span>{item.title}</span>
+                  <small>
+                    {item.item_type === 'boss' ? 'Boss' : 'Miniatura'}
+                  </small>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="account-help">
+              A coleção será exibida aqui assim que estiver disponível.
+            </p>
+          )}
+        </section>
+        <section
+          className="vip-plan-questions"
+          aria-labelledby="vip-questions-title"
+        >
+          <h2 id="vip-questions-title">Como funciona</h2>
+          <details>
+            <summary>Quando posso escolher minhas peças?</summary>
+            <p>
+              Após a confirmação do pagamento, acesse sua Área VIP. As escolhas
+              seguem o plano e o ciclo liberado para sua conta.
+            </p>
+          </details>
+          <details>
+            <summary>Como acompanho minha coleção?</summary>
+            <p>
+              A Área VIP reúne escolhas, votação, presente do ciclo e etapas de
+              produção e envio do pedido.
+            </p>
+          </details>
+          <details>
+            <summary>Como faço a renovação?</summary>
+            <p>
+              Quando um novo ciclo estiver disponível, consulte a opção de
+              renovação na Área VIP.
+            </p>
+          </details>
+        </section>
+        <VipGalleryModal item={preview} onClose={() => setPreview(null)} />
+        <Modal
+          open={pixOpen}
+          onClose={() => setPixOpen(false)}
+          title="Pagamento Pix"
+          maxWidth="max-w-md"
+          zIndexClass="z-[220]"
+          busy={pixChecking}
+        >
+          {pix && (
+            <div className="vip-pix-panel">
+              <p className="customer-eyebrow">{pix.planName}</p>
+              <h3>{fmtBRL(pix.total)}</h3>
+              <p>
+                Escaneie o QR Code ou copie o código para pagar no seu banco.
+              </p>
+              {pix.qr_code_base64 && (
+                <img
+                  src={`data:image/png;base64,${pix.qr_code_base64}`}
+                  alt="QR Code Pix"
+                />
+              )}
+              <label htmlFor="vip-pix-code">Código Pix</label>
+              <textarea
+                id="vip-pix-code"
+                readOnly
+                value={pix.qr_code || ''}
+                rows={3}
+              />
+              <button
+                type="button"
+                className="customer-primary"
+                disabled={!pix.qr_code}
+                onClick={async () => {
+                  const copied = await copyText(pix.qr_code)
+                  if (mounted.current)
+                    setCopyMessage(
+                      copied
+                        ? 'Código Pix copiado.'
+                        : 'Selecione o código para copiar manualmente.'
+                    )
+                }}
+              >
+                Copiar código Pix
+              </button>
+              {copyMessage && <p role="status">{copyMessage}</p>}
+              <p role="status" className="vip-pix-status">
+                {statusLabel(pixStatus)}
+              </p>
+              {error && (
+                <p role="alert" className="vip-payment-message is-error">
+                  {error}
+                </p>
+              )}
+              <button
+                type="button"
+                className="customer-secondary"
+                onClick={verifyPix}
+                disabled={pixChecking || paidStatus(pixStatus)}
+              >
+                {pixChecking
+                  ? 'Verificando…'
+                  : paidStatus(pixStatus)
+                    ? 'Pago ✓'
+                    : 'Já paguei'}
+              </button>
+              {pix.ticket_url && (
+                <a
+                  href={pix.ticket_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="customer-text-button"
+                >
+                  Abrir no Mercado Pago
+                </a>
+              )}
+            </div>
+          )}
+        </Modal>
+      </div>
+    </main>
+  )
 }
