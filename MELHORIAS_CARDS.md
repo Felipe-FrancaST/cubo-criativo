@@ -2,6 +2,8 @@
 
 Atualização de 4 de outubro de 2026. Este pacote contém o projeto completo e mantém as revisões anteriores de administração, configurações, planos VIP, Área VIP e Cubo Game.
 
+Ajuste adicional no celular: ícone de favorito reduzido de 20 para 16 px e ícone de informações de 17 para 14 px. Os círculos visíveis têm 30 px, com área de toque de 44 px preservada.
+
 ## Nova apresentação
 
 - O card mostra imagem, nome, preço e uma linha com ícone de carrinho e Comprar.
