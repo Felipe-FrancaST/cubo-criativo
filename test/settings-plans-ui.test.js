@@ -2,6 +2,7 @@ import test, { before, after, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
 import { register } from 'node:module'
 import { JSDOM } from 'jsdom'
+import { readProductReturnState } from '../src/lib/navigation.js'
 register(new URL('../scripts/jsx-loader.mjs', import.meta.url))
 
 let dom, React, render, cleanup, fireEvent, waitFor, act
@@ -231,6 +232,7 @@ afterEach(() => {
   cleanup()
   localStorage.clear()
   sessionStorage.clear()
+  window.history.replaceState(null, '', '/configuracoes')
   requests.length = 0
   profile = { ...baseProfile }
   failProfileLoad = false
@@ -417,7 +419,7 @@ test('exclusão abre acima das configurações, exige confirmação e Escape fec
   assert.equal(document.body.style.overflow, 'hidden')
 })
 
-test('card separa favorito da galeria e mantém preço por escala na compra', async () => {
+test('card sem seletor separa favorito da galeria e compra a opção padrão pelo preço exibido', async () => {
   let galleryCalls = 0
   let purchase
   let view
@@ -425,7 +427,7 @@ test('card separa favorito da galeria e mantém preço por escala na compra', as
     view = render(
       withProviders(
         h(ProductCard, {
-          p: product,
+          p: { ...product, defaultVariant: '75mm' },
           openGallery: () => {
             galleryCalls += 1
           },
@@ -454,18 +456,25 @@ test('card separa favorito da galeria e mantém preço por escala na compra', as
     view.getByRole('button', { name: `Ver fotos de ${product.nome}` })
   )
   assert.equal(galleryCalls, 1)
-  fireEvent.change(view.getByLabelText(`Escala de ${product.nome}`), {
-    target: { value: '1' },
-  })
+  assert.equal(Boolean(view.queryByRole('combobox')), false)
+  assert.equal(
+    view.container
+      .querySelector('.product-card-prices strong')
+      .textContent.replace(/\s+/g, ' ')
+      .trim(),
+    'R$ 180,00'
+  )
   fireEvent.click(view.getByRole('button', { name: 'Comprar' }))
   assert.deepEqual(purchase, { escala: '75mm', unitPrice: 180 })
   assert.equal(
-    view.getByRole('link', { name: product.nome }).getAttribute('href'),
+    view
+      .getByRole('link', { name: `Ver descrição de ${product.nome}` })
+      .getAttribute('href'),
     `/p/${product.slug}`
   )
 })
 
-test('card promocional mantém preço por escala ao adicionar ao carrinho', async () => {
+test('card promocional adiciona a opção padrão com desconto e sem seletor no card', async () => {
   let cartItem
   let view
   await act(async () => {
@@ -481,17 +490,58 @@ test('card promocional mantém preço por escala ao adicionar ao carrinho', asyn
       )
     )
   })
-  fireEvent.change(view.getByLabelText(`Escala de ${product.nome}`), {
-    target: { value: '1' },
-  })
+  assert.equal(Boolean(view.queryByRole('combobox')), false)
   fireEvent.click(
     view.getByRole('button', { name: `Adicionar ${product.nome} ao carrinho` })
   )
-  assert.deepEqual(cartItem, { escala: '75mm', unitPrice: 180 })
+  assert.deepEqual(cartItem, { escala: '32mm', unitPrice: 90 })
   assert.equal(
     Boolean(view.queryByRole('button', { name: 'Favoritar' })),
     false
   )
+})
+
+test('Detalhes abre a página da peça e preserva a posição de retorno ao catálogo', async () => {
+  window.history.replaceState(null, '', '/catalogo?tipo=rpg')
+  let view
+  await act(async () => {
+    view = render(withProviders(h(ProductCard, { p: product })))
+  })
+  fireEvent.click(
+    view.getByRole('link', { name: `Ver descrição de ${product.nome}` })
+  )
+  assert.equal(window.location.pathname, `/p/${product.slug}`)
+  const saved = readProductReturnState()
+  assert.equal(saved.path, '/catalogo?tipo=rpg')
+  assert.equal(saved.targetPath, `/p/${product.slug}`)
+})
+
+test('peça sem link próprio abre descrição sem disparar galeria e fecha com Escape', async () => {
+  let galleryCalls = 0
+  let view
+  const description = 'Peça em resina sem pintura, com base removível.'
+  await act(async () => {
+    view = render(
+      withProviders(
+        h(ProductCard, {
+          p: { ...product, slug: '', descricao: description, stock: 0 },
+          openGallery() {
+            galleryCalls += 1
+          },
+        })
+      )
+    )
+  })
+  assert.equal(view.getByRole('button', { name: 'Esgotado' }).disabled, true)
+  fireEvent.click(
+    view.getByRole('button', { name: `Ver descrição de ${product.nome}` })
+  )
+  assert.ok(view.getByRole('dialog', { name: product.nome }))
+  assert.ok(view.getByText(description))
+  assert.equal(galleryCalls, 0)
+  fireEvent.keyDown(window, { key: 'Escape' })
+  assert.equal(Boolean(view.queryByRole('dialog')), false)
+  assert.equal(document.body.style.overflow, '')
 })
 
 test('trocar plano atualiza total e descarta resposta atrasada de cupom', async () => {

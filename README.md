@@ -8,7 +8,9 @@ A revisão de layout, pedidos e controle VIP está documentada em [MELHORIAS.md]
 
 A atualização da área VIP do cliente, Cubo Game e responsividade está em [MELHORIAS_MOBILE.md](MELHORIAS_MOBILE.md), com os fluxos verificados e os cenários de conferência no celular.
 
-A revisão mais recente de configurações, planos VIP e cards compactos no celular está em [MELHORIAS_CONFIGURACOES.md](MELHORIAS_CONFIGURACOES.md). Ela substitui a disposição anterior dos botões dos cards por ações na mesma linha.
+A revisão de configurações, planos VIP e cards compactos no celular está em [MELHORIAS_CONFIGURACOES.md](MELHORIAS_CONFIGURACOES.md). Ela substitui a disposição anterior dos botões dos cards por ações na mesma linha.
+
+O redesenho mais recente dos cards está em [MELHORIAS_CARDS.md](MELHORIAS_CARDS.md): imagem maior, nome e preço, acesso discreto aos detalhes e compra pela opção padrão, sem seletor de escala na vitrine.
 
 ## Visão geral
 
