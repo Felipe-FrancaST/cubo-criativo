@@ -15,7 +15,7 @@ export default function VipGalleryModal({
       [
         item?.image_url,
         ...(Array.isArray(item?.gallery_images) ? item.gallery_images : []),
-      ].filter(Boolean)
+      ].filter((url) => typeof url === 'string' && url.trim())
     ),
   ]
   React.useEffect(() => setIndex(0), [item?.id])
@@ -99,9 +99,18 @@ export default function VipGalleryModal({
                 onClick={() => move(-1)}
                 aria-label="Imagem anterior"
               >
-                <span className="material-icons" aria-hidden="true">
-                  chevron_left
-                </span>
+                <svg
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  aria-hidden="true"
+                  focusable="false"
+                >
+                  <path d="m15 18-6-6 6-6" />
+                </svg>
               </button>
               <button
                 type="button"
@@ -109,67 +118,28 @@ export default function VipGalleryModal({
                 onClick={() => move(1)}
                 aria-label="Próxima imagem"
               >
-                <span className="material-icons" aria-hidden="true">
-                  chevron_right
-                </span>
+                <svg
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  aria-hidden="true"
+                  focusable="false"
+                >
+                  <path d="m9 6 6 6-6 6" />
+                </svg>
               </button>
               <span className="vip-gallery-count" aria-live="polite">
                 {images.length
                   ? `${selectedIndex + 1}/${images.length}`
                   : 'Sem foto'}
+                {canBrowse ? ` · Peça ${itemIndex + 1} de ${items.length}` : ''}
               </span>
             </>
           )}
         </div>
-        {images.length > 1 && (
-          <div
-            className="vip-gallery-thumbnails"
-            aria-label="Imagens da miniatura"
-          >
-            {images.map((url, imageIndex) => (
-              <button
-                type="button"
-                key={url}
-                onClick={() => setIndex(imageIndex)}
-                aria-label={`Ver imagem ${imageIndex + 1}`}
-                aria-pressed={selectedIndex === imageIndex}
-              >
-                <img src={url} alt="" loading="lazy" onError={onImageError} />
-              </button>
-            ))}
-          </div>
-        )}
-        {canBrowse && (
-          <nav
-            className="vip-gallery-navigation"
-            aria-label="Navegar pela coleção"
-          >
-            <button
-              type="button"
-              className="customer-secondary"
-              onClick={() => changeItem(-1)}
-              aria-label="Miniatura anterior"
-            >
-              ← Anterior
-            </button>
-            <span role="status">
-              Peça {itemIndex + 1} de {items.length}
-            </span>
-            <button
-              type="button"
-              className="customer-secondary"
-              onClick={() => changeItem(1)}
-              aria-label="Próxima miniatura"
-            >
-              Próxima →
-            </button>
-          </nav>
-        )}
-        {(canBrowse || images.length > 1) && (
-          <p className="vip-gallery-hint">
-            Use as setas ou deslize para explorar a coleção.
-          </p>
-        )}
         {item?.description && (
           <p className="vip-gallery-description">{item.description}</p>
         )}

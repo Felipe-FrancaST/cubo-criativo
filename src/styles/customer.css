@@ -673,27 +673,6 @@
   background: #102131e8;
   font-size: 12px;
 }
-.vip-gallery-thumbnails {
-  display: flex;
-  overflow-x: auto;
-  gap: 8px;
-  padding: 12px 2px;
-}
-.vip-gallery-thumbnails button {
-  flex: 0 0 60px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 10px;
-  overflow: hidden;
-  background: #091722;
-}
-.vip-gallery-thumbnails [aria-pressed='true'] {
-  border-color: #c4b5fd;
-}
-.vip-gallery-thumbnails img {
-  width: 100%;
-  aspect-ratio: 1;
-  object-fit: contain;
-}
 .vip-gallery-description {
   margin-top: 10px;
   font-size: 14px;

@@ -20,6 +20,8 @@ let completed = false
 let failGameSave = false
 let savedSelection = null
 let gamePayload
+let galleryRequests = 0
+let galleryPhotos = ['/dragon.webp', '/dragon-back.webp']
 const user = {
   id: '11111111-1111-4111-8111-111111111111',
   email: 'cliente@example.com',
@@ -122,11 +124,14 @@ async function mockFetch(input, options = {}) {
     return response(savedSelection)
   }
   if (url.pathname.endsWith('/vip_theme_polls')) return response(null)
-  if (url.pathname.endsWith('/vip_mini_options'))
+  if (url.pathname.endsWith('/vip_mini_options')) {
+    galleryRequests += 1
     return response({
       ...items[0],
-      gallery_images: ['/dragon.webp', '/dragon-back.webp'],
+      description: 'Detalhe carregado',
+      gallery_images: galleryPhotos,
     })
+  }
   throw new Error(`Requisição sem simulação: ${url.pathname} ${action || ''}`)
 }
 const originalFetch = globalThis.fetch
@@ -198,6 +203,8 @@ afterEach(() => {
   localStorage.clear()
   sessionStorage.clear()
   selectionSaves = 0
+  galleryRequests = 0
+  galleryPhotos = ['/dragon.webp', '/dragon-back.webp']
   gameSaves = 0
   completed = false
   failGameSave = false
@@ -329,7 +336,11 @@ test('galeria remove imagens duplicadas, navega por teclado e fecha com Escape',
     return h(Gallery, { item, onClose: () => setItem(null) })
   }
   const view = render(h(Example))
-  assert.equal(view.getAllByRole('button', { name: /^Ver imagem / }).length, 2)
+  assert.equal(
+    view.queryAllByRole('button', { name: /^Ver imagem / }).length,
+    0
+  )
+  assert.equal(view.getAllByRole('button').length, 3)
   fireEvent.click(view.getByRole('button', { name: 'Próxima imagem' }))
   assert.equal(
     view
@@ -526,10 +537,13 @@ test('galeria percorre a coleção, reinicia fotos e respeita a ordem recebida',
   assert.ok(view.getByRole('img', { name: 'Dragão, imagem 2 de 2' }))
   fireEvent.click(view.getByRole('button', { name: 'Próxima imagem' }))
   assert.ok(view.getByRole('img', { name: 'Mago, imagem 1 de 1' }))
-  assert.match(view.getByRole('status').textContent, /Peça 2 de 2/)
-  fireEvent.click(view.getByRole('button', { name: 'Próxima miniatura' }))
+  assert.match(
+    view.container.querySelector('.vip-gallery-count').textContent,
+    /Peça 2 de 2/
+  )
+  fireEvent.click(view.getByRole('button', { name: 'Próxima imagem' }))
   assert.ok(view.getByRole('img', { name: 'Dragão, imagem 1 de 2' }))
-  fireEvent.click(view.getByRole('button', { name: 'Miniatura anterior' }))
+  fireEvent.click(view.getByRole('button', { name: 'Imagem anterior' }))
   assert.ok(view.getByRole('img', { name: 'Mago, imagem 1 de 1' }))
 })
 
@@ -575,4 +589,22 @@ test('galeria aceita deslize horizontal e ignora gesto vertical ou cancelado', (
   fireEvent.pointerUp(stage, { clientX: 140, clientY: 105 })
   assert.ok(view.getByRole('img', { name: 'Mago, imagem 1 de 1' }))
   delete window.PointerEvent
+})
+
+test('VIP reutiliza detalhes carregados mesmo sem fotos adicionais', async () => {
+  galleryPhotos = []
+  const view = renderVip()
+  await waitFor(() =>
+    assert.ok(
+      view.getByRole('button', { name: 'Selecionar Dragão da floresta' })
+    )
+  )
+  fireEvent.click(view.getAllByRole('button', { name: 'Ver imagens' })[0])
+  await waitFor(() => assert.ok(view.getByText('Detalhe carregado')))
+  assert.equal(galleryRequests, 1)
+  fireEvent.click(view.getByRole('button', { name: 'Fechar', exact: true }))
+  fireEvent.click(view.getAllByRole('button', { name: 'Ver imagens' })[0])
+  await act(async () => {})
+  assert.ok(view.getByText('Detalhe carregado'))
+  assert.equal(galleryRequests, 1)
 })

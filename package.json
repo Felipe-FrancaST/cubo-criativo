@@ -5,14 +5,15 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && node scripts/prerender-products.mjs",
+    "build": "npm run sitemap:generate && vite build && node scripts/prerender-products.mjs",
     "preview": "vite preview --port 4173",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier . --write",
     "format:check": "prettier . --check",
     "test": "node --test",
-    "check": "npm run lint && npm run test"
+    "check": "npm run lint && npm run test",
+    "sitemap:generate": "node scripts/generate-sitemap.mjs"
   },
   "dependencies": {
     "@react-three/fiber": "^8.18.0",

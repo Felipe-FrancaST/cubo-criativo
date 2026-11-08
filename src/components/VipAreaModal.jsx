@@ -848,17 +848,23 @@ export default function VipAreaModal({
     if (!opt?.id) return
     const request = ++previewRequestRef.current
     setPreview(opt)
-    if (Array.isArray(opt.gallery_images) && opt.gallery_images.length) return
+    if (Array.isArray(opt.gallery_images)) return
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('vip_mini_options')
         .select(
           'id,title,description,image_url,gallery_images,sort_order,active,item_type'
         )
         .eq('id', opt.id)
         .maybeSingle()
-      if (request !== previewRequestRef.current) return
-      const merged = { ...opt, ...(data || {}) }
+      if (request !== previewRequestRef.current || error || !data) return
+      const merged = {
+        ...opt,
+        ...data,
+        gallery_images: Array.isArray(data.gallery_images)
+          ? data.gallery_images
+          : [],
+      }
       setOptions((previous) =>
         previous.map((option) =>
           String(option.id) === String(opt.id) ? merged : option
