@@ -860,7 +860,12 @@ export default function VipRpgPage({
             </p>
           </details>
         </section>
-        <VipGalleryModal item={preview} onClose={() => setPreview(null)} />
+        <VipGalleryModal
+          item={preview}
+          items={collection}
+          onItemChange={setPreview}
+          onClose={() => setPreview(null)}
+        />
         <Modal
           open={pixOpen}
           onClose={() => setPixOpen(false)}

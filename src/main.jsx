@@ -7,6 +7,7 @@ import './index.css' // pode ficar vazio, mas vamos usar pra qualquer ajuste seu
 import './styles/mobile.css'
 import './styles/customer.css'
 import './styles/commerce.css'
+import './styles/refinements.css'
 import { Analytics } from '@vercel/analytics/react'
 import { isSupabaseConfigured } from './lib/supabaseClient.js'
 

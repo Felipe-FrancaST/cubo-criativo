@@ -22,6 +22,7 @@ export default function Modal({
   zIndexClass = 'z-[150]',
   mobileLayout = 'sheet',
   busy = false,
+  onKeyDown,
 }) {
   const showHeader = typeof title === 'string' && title.trim().length > 0
   const panelRef = useDialog(open, onClose, { busy })
@@ -42,6 +43,7 @@ export default function Modal({
       {/* painel */}
       <div
         ref={panelRef}
+        onKeyDown={onKeyDown}
         role="dialog"
         aria-modal="true"
         aria-label={label}

@@ -497,3 +497,82 @@ test('copiar cupom usa alternativa móvel e relata falha sem confirmação falsa
   document.execCommand = () => false
   assert.equal(await copyText('CUBO20'), false)
 })
+
+test('galeria percorre a coleção, reinicia fotos e respeita a ordem recebida', async () => {
+  const collection = [
+    {
+      id: 'a',
+      title: 'Dragão',
+      image_url: '/a.webp',
+      gallery_images: ['/b.webp'],
+    },
+    { id: 'b', title: 'Mago', image_url: '/c.webp' },
+  ]
+  function Example() {
+    const [item, setItem] = React.useState(collection[0])
+    return h(Gallery, {
+      item,
+      items: collection,
+      onItemChange: setItem,
+      onClose() {},
+    })
+  }
+  const view = render(h(Example))
+  await act(async () => {})
+  // The dialog initially focuses its close button: arrows must work there too.
+  fireEvent.keyDown(view.getByRole('button', { name: 'Fechar' }), {
+    key: 'ArrowRight',
+  })
+  assert.ok(view.getByRole('img', { name: 'Dragão, imagem 2 de 2' }))
+  fireEvent.click(view.getByRole('button', { name: 'Próxima imagem' }))
+  assert.ok(view.getByRole('img', { name: 'Mago, imagem 1 de 1' }))
+  assert.match(view.getByRole('status').textContent, /Peça 2 de 2/)
+  fireEvent.click(view.getByRole('button', { name: 'Próxima miniatura' }))
+  assert.ok(view.getByRole('img', { name: 'Dragão, imagem 1 de 2' }))
+  fireEvent.click(view.getByRole('button', { name: 'Miniatura anterior' }))
+  assert.ok(view.getByRole('img', { name: 'Mago, imagem 1 de 1' }))
+})
+
+test('galeria tolera fotos inválidas e uma coleção vazia', () => {
+  const view = render(
+    h(Gallery, {
+      item: { id: 'empty', title: 'Sem foto', gallery_images: 'invalid' },
+      onClose() {},
+    })
+  )
+  assert.ok(view.getByText('Imagem indisponível.'))
+  fireEvent.keyDown(view.getByRole('button', { name: 'Fechar' }), {
+    key: 'ArrowRight',
+  })
+  assert.equal(view.queryByRole('button', { name: 'Próxima imagem' }), null)
+})
+
+test('galeria aceita deslize horizontal e ignora gesto vertical ou cancelado', () => {
+  window.PointerEvent = window.MouseEvent
+  const collection = [
+    { id: 'a', title: 'Dragão', image_url: '/a.webp' },
+    { id: 'b', title: 'Mago', image_url: '/b.webp' },
+  ]
+  function Example() {
+    const [item, setItem] = React.useState(collection[0])
+    return h(Gallery, {
+      item,
+      items: collection,
+      onItemChange: setItem,
+      onClose() {},
+    })
+  }
+  const view = render(h(Example))
+  const stage = view.container.querySelector('.vip-gallery-stage')
+  fireEvent.pointerDown(stage, { clientX: 220, clientY: 100 })
+  fireEvent.pointerUp(stage, { clientX: 140, clientY: 105 })
+  assert.ok(view.getByRole('img', { name: 'Mago, imagem 1 de 1' }))
+  fireEvent.pointerDown(stage, { clientX: 220, clientY: 100 })
+  fireEvent.pointerUp(stage, { clientX: 140, clientY: 250 })
+  assert.ok(view.getByRole('img', { name: 'Mago, imagem 1 de 1' }))
+  fireEvent.pointerDown(stage, { clientX: 220, clientY: 100 })
+  fireEvent.pointerCancel(stage)
+  fireEvent.pointerUp(stage, { clientX: 140, clientY: 105 })
+  assert.ok(view.getByRole('img', { name: 'Mago, imagem 1 de 1' }))
+  delete window.PointerEvent
+})

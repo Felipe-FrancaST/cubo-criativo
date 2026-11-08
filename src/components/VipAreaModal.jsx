@@ -2866,6 +2866,8 @@ export default function VipAreaModal({
                       </Modal>
                       <VipGalleryModal
                         item={preview}
+                        items={filteredOptions}
+                        onItemChange={openPreviewLite}
                         onClose={() => {
                           previewRequestRef.current += 1
                           setPreview(null)

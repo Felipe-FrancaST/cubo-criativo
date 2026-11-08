@@ -1,18 +1,42 @@
 import React from 'react'
 import Modal from '../Modal.jsx'
 
-export default function VipGalleryModal({ item, onClose, onImageError }) {
+export default function VipGalleryModal({
+  item,
+  items = [],
+  onItemChange,
+  onClose,
+  onImageError,
+}) {
   const [index, setIndex] = React.useState(0)
   const gesture = React.useRef(null)
   const images = [
     ...new Set(
-      [item?.image_url, ...(item?.gallery_images || [])].filter(Boolean)
+      [
+        item?.image_url,
+        ...(Array.isArray(item?.gallery_images) ? item.gallery_images : []),
+      ].filter(Boolean)
     ),
   ]
   React.useEffect(() => setIndex(0), [item?.id])
   const selectedIndex = Math.min(index, Math.max(0, images.length - 1))
-  const move = (delta) =>
-    setIndex((previous) => (previous + delta + images.length) % images.length)
+  const itemIndex = items.findIndex(
+    (entry) => String(entry.id) === String(item?.id)
+  )
+  const canBrowse = items.length > 1 && itemIndex >= 0 && Boolean(onItemChange)
+  const changeItem = (delta) => {
+    if (!canBrowse) return
+    setIndex(0)
+    onItemChange(items[(itemIndex + delta + items.length) % items.length])
+  }
+  const move = (delta) => {
+    const next = selectedIndex + delta
+    if (canBrowse && (next < 0 || next >= images.length)) {
+      changeItem(delta)
+    } else if (images.length) {
+      setIndex((next + images.length) % images.length)
+    }
+  }
   return (
     <Modal
       open={Boolean(item)}
@@ -22,20 +46,23 @@ export default function VipGalleryModal({ item, onClose, onImageError }) {
       maxWidth="max-w-[600px]"
       zIndexClass="z-[240]"
       bodyClassName="vip-gallery-body"
+      panelClassName="vip-gallery-panel"
+      onKeyDown={(event) => {
+        if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+          event.preventDefault()
+          event.stopPropagation()
+          move(event.key === 'ArrowRight' ? 1 : -1)
+        }
+      }}
     >
-      <div
-        className="vip-gallery"
-        onKeyDown={(event) => {
-          if (!images.length) return
-          if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
-            event.preventDefault()
-            move(event.key === 'ArrowRight' ? 1 : -1)
-          }
-        }}
-      >
+      <div className="vip-gallery">
         <div
           className="vip-gallery-stage"
           onPointerDown={(event) => {
+            if (event.target.closest('button') || event.isPrimary === false)
+              return
+            if (event.pointerType === 'mouse' && event.button !== 0) return
+            event.currentTarget.setPointerCapture?.(event.pointerId)
             gesture.current = { x: event.clientX, y: event.clientY }
           }}
           onPointerCancel={() => {
@@ -44,7 +71,7 @@ export default function VipGalleryModal({ item, onClose, onImageError }) {
           onPointerUp={(event) => {
             const start = gesture.current
             gesture.current = null
-            if (!start || images.length < 2) return
+            if (!start || (images.length < 2 && !canBrowse)) return
             const delta = event.clientX - start.x
             if (
               Math.abs(delta) > 40 &&
@@ -55,6 +82,8 @@ export default function VipGalleryModal({ item, onClose, onImageError }) {
         >
           {images.length ? (
             <img
+              key={images[selectedIndex]}
+              draggable={false}
               src={images[selectedIndex]}
               alt={`${item?.title}, imagem ${selectedIndex + 1} de ${images.length}`}
               onError={onImageError}
@@ -62,7 +91,7 @@ export default function VipGalleryModal({ item, onClose, onImageError }) {
           ) : (
             <p>Imagem indisponível.</p>
           )}
-          {images.length > 1 && (
+          {(images.length > 1 || canBrowse) && (
             <>
               <button
                 type="button"
@@ -85,7 +114,9 @@ export default function VipGalleryModal({ item, onClose, onImageError }) {
                 </span>
               </button>
               <span className="vip-gallery-count" aria-live="polite">
-                {selectedIndex + 1}/{images.length}
+                {images.length
+                  ? `${selectedIndex + 1}/${images.length}`
+                  : 'Sem foto'}
               </span>
             </>
           )}
@@ -107,6 +138,37 @@ export default function VipGalleryModal({ item, onClose, onImageError }) {
               </button>
             ))}
           </div>
+        )}
+        {canBrowse && (
+          <nav
+            className="vip-gallery-navigation"
+            aria-label="Navegar pela coleção"
+          >
+            <button
+              type="button"
+              className="customer-secondary"
+              onClick={() => changeItem(-1)}
+              aria-label="Miniatura anterior"
+            >
+              ← Anterior
+            </button>
+            <span role="status">
+              Peça {itemIndex + 1} de {items.length}
+            </span>
+            <button
+              type="button"
+              className="customer-secondary"
+              onClick={() => changeItem(1)}
+              aria-label="Próxima miniatura"
+            >
+              Próxima →
+            </button>
+          </nav>
+        )}
+        {(canBrowse || images.length > 1) && (
+          <p className="vip-gallery-hint">
+            Use as setas ou deslize para explorar a coleção.
+          </p>
         )}
         {item?.description && (
           <p className="vip-gallery-description">{item.description}</p>
