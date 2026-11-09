@@ -2294,7 +2294,7 @@ export default function App() {
                   >
                     WhatsApp
                   </a>
-                  : (77) 99821-1169
+                  : (77) 99847-2372
                 </li>
                 <li>
                   <a

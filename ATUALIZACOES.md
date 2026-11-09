@@ -1,3 +1,8 @@
+# WhatsApp — 09/11/2026
+
+- Número atualizado para (77) 99847-2372 nos links, rodapé e dados estruturados do site.
+- .env.example atualizado. Se WHATSAPP_NUMBER estiver configurada na hospedagem para os e-mails, ajuste seu valor para 5577998472372.
+
 # Atualização institucional — 09/11/2026
 
 - CNPJ 69.869.629/0001-79 incluído no rodapé, Sobre, Contato, Política de Privacidade e Termos (inclusive páginas HTML independentes).

@@ -3,7 +3,7 @@ const brand = {
   name: "Cubo Criativo",
   cnpj: "69.869.629/0001-79",
   slogan: "Action Figures • Miniaturas RPG",
-  whatsapp: "5577998211169",
+  whatsapp: "5577998472372",
   email: "cubocriativosuporte@gmail.com",
   insta: "@cubo_criativo3d",
   city: "Barreiras - BA",
