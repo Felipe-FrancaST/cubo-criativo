@@ -1,4 +1,5 @@
 import React from "react";
+import brand from "../data/config.js";
 
 export default function SobrePage({ onGoHome }) {
   return (
@@ -17,6 +18,7 @@ export default function SobrePage({ onGoHome }) {
               <h1 className="mt-3 text-3xl sm:text-4xl font-black tracking-tight">
                 Cubo Criativo
               </h1>
+              <p className="mt-2 text-sm text-slate-300">CNPJ: {brand.cnpj}</p>
               <p className="mt-2 text-slate-300 text-sm sm:text-base max-w-2xl">
                 Fundada em <b>março de 2025</b>, a Cubo Criativo nasceu para transformar ideias em peças
                 com presença — da vitrine ao colecionável, sempre com acabamento e cuidado em cada detalhe.
@@ -65,14 +67,6 @@ export default function SobrePage({ onGoHome }) {
                 <li className="flex items-start gap-2">
                   <span className="material-icons text-[18px] text-emerald-300">verified</span>
                   <span>Adriele Lira de Jesus</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="material-icons text-[18px] text-emerald-300">verified</span>
-                  <span>Luis Gustavo Silva Soares</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="material-icons text-[18px] text-emerald-300">verified</span>
-                  <span>Tainara Arcanjo Guimarães</span>
                 </li>
               </ul>
 

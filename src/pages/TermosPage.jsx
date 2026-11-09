@@ -1,3 +1,4 @@
+import brand from "../data/config.js";
 import React from 'react';
 
 export default function TermosPage({ onGoHome }) {
@@ -7,6 +8,7 @@ export default function TermosPage({ onGoHome }) {
         <div className="flex items-start sm:items-end justify-between gap-4 flex-col sm:flex-row">
           <div>
             <h1 className="text-3xl sm:text-4xl font-black tracking-tight">Termos de uso</h1>
+            <p className="mt-2 text-sm text-slate-300">{brand.name} · CNPJ: {brand.cnpj}</p>
             <p className="mt-2 text-slate-300 text-sm">Condições gerais de navegação, compra e atendimento.</p>
           </div>
           <button onClick={onGoHome} className="container-cc rounded-xl px-4 py-2 ring-1 ring-white/15 hover:bg-white/4 text-sm">Voltar</button>

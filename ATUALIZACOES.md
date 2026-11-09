@@ -1,3 +1,11 @@
+# Atualização institucional — 09/11/2026
+
+- CNPJ 69.869.629/0001-79 incluído no rodapé, Sobre, Contato, Política de Privacidade e Termos (inclusive páginas HTML independentes).
+- Fundadores: mantidos somente Felipe França Alves e Adriele Lira de Jesus.
+- CNPJ centralizado em src/data/config.js para as telas React.
+- Configurações do Mercado Pago e variáveis de ambiente não foram alteradas. O token da conta PJ continua configurado na hospedagem.
+- Build de produção verificado; o ZIP contém os fontes para publicação, sem credenciais.
+
 # Melhorias — 08/11/2026
 
 ## Galeria VIP

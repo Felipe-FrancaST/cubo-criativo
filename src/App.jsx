@@ -2220,6 +2220,7 @@ export default function App() {
           <div className="container-cc grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 text-sm px-4 sm:px-6 lg:px-8 py-10">
             <div>
               <p className="font-extrabold text-lg">{brand.name}</p>
+              <p className="mt-2 text-xs text-slate-300">CNPJ: {brand.cnpj}</p>
               <p className="text-cyan-200/54 mt-2">
                 Cultura geek, qualidade de coleção.
               </p>

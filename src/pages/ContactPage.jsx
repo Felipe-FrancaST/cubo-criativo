@@ -38,6 +38,7 @@ export default function ContactPage({ onGoHome, onGoFaq, onGoPoliticas }) {
                 Contato
               </p>
               <h1 className="mt-3 text-3xl sm:text-4xl font-black tracking-tight">Fale com a gente</h1>
+              <p className="mt-2 text-sm text-slate-300">{brand.name} · CNPJ: {brand.cnpj}</p>
               <p className="mt-2 text-slate-300 text-sm sm:text-base max-w-2xl">
                 Suporte, dúvidas, orçamento e acompanhamento do pedido — escolha o canal que preferir.
               </p>

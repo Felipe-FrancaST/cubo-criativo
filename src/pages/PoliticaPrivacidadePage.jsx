@@ -1,3 +1,4 @@
+import brand from "../data/config.js";
 import React from 'react';
 
 export default function PoliticaPrivacidadePage({ onGoHome }) {
@@ -7,7 +8,8 @@ export default function PoliticaPrivacidadePage({ onGoHome }) {
         <div className="flex items-start sm:items-end justify-between gap-4 flex-col sm:flex-row">
           <div>
             <h1 className="text-3xl sm:text-4xl font-black tracking-tight">Política de Privacidade</h1>
-            <p className="mt-2 text-slate-300 text-sm">Última atualização: fevereiro de 2026.</p>
+            <p className="mt-2 text-sm text-slate-300">{brand.name} · CNPJ: {brand.cnpj}</p>
+            <p className="mt-2 text-slate-300 text-sm">Última atualização: 9 de novembro de 2026.</p>
           </div>
           <button onClick={onGoHome} className="container-cc rounded-xl px-4 py-2 ring-1 ring-white/15 hover:bg-white/4 text-sm">Voltar</button>
         </div>
