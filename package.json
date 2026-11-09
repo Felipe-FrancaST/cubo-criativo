@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "npm run sitemap:generate && vite build && node scripts/prerender-products.mjs",
+    "build": "npm run sitemap:generate && npm run legal:generate && vite build && node scripts/prerender-products.mjs",
     "preview": "vite preview --port 4173",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
@@ -13,7 +13,8 @@
     "format:check": "prettier . --check",
     "test": "node --test",
     "check": "npm run lint && npm run test",
-    "sitemap:generate": "node scripts/generate-sitemap.mjs"
+    "sitemap:generate": "node scripts/generate-sitemap.mjs",
+    "legal:generate": "node scripts/generate-legal.mjs"
   },
   "dependencies": {
     "@react-three/fiber": "^8.18.0",

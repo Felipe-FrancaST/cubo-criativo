@@ -1,3 +1,4 @@
+import CheckoutPolicies from '../components/CheckoutPolicies.jsx'
 import React from 'react'
 import Modal from '../components/Modal.jsx'
 import VipGalleryModal from '../components/vip-area/VipGalleryModal.jsx'
@@ -743,6 +744,7 @@ export default function VipRpgPage({
                     {message}
                   </p>
                 )}
+                <CheckoutPolicies />
                 <div className="vip-checkout-actions">
                   <button
                     type="button"

@@ -62,7 +62,6 @@ if (req.method !== "POST") return res.status(405).json({ error: "Method not allo
 
     // Para alguns status, exigimos confirmação explícita no body.
     const confirm = !!body.confirm;
-    const requestedRefundMode = String(body.refund_mode || "").toLowerCase();
 
     const sb = supabaseAdmin();
 
@@ -99,14 +98,14 @@ if (req.method !== "POST") return res.status(405).json({ error: "Method not allo
     // Cancelamento não é permitido após envio/entrega
     if (prod === "enviado") {
       return res.status(409).json({
-        error: "Cancelamento não permitido: o pedido já foi enviado.",
+        error: "O pedido já foi enviado. Solicite devolução ou arrependimento pelo atendimento da loja.",
         code: "not_allowed_shipped",
         production_status: prod,
       });
     }
     if (prod === "entregue") {
       return res.status(409).json({
-        error: "Cancelamento não permitido: o pedido já foi entregue.",
+        error: "O pedido já foi entregue. Solicite devolução ou comunique um defeito pelo atendimento da loja.",
         code: "not_allowed_delivered",
         production_status: prod,
       });
@@ -120,11 +119,8 @@ if (req.method !== "POST") return res.status(405).json({ error: "Method not allo
       });
     }
 
-    // Define modo padrão de reembolso com base no status atual
-    const defaultRefundMode = prod === "recebido" ? "full" : (prod === "pronto" ? "partial30" : "partial");
-    const refundMode = ["full", "partial", "partial30"].includes(requestedRefundMode)
-      ? requestedRefundMode
-      : defaultRefundMode;
+    // This endpoint records a request; it does not execute a refund or decide its amount.
+    const refundMode = "review";
 
     // Se já está cancelado (talvez cancelado pelo admin), o cliente ainda pode estar solicitando reembolso.
     if (prod === "cancelado") {
@@ -147,7 +143,7 @@ if (req.method !== "POST") return res.status(405).json({ error: "Method not allo
       return res.status(409).json({
         error:
           prod === "pronto"
-            ? "Pedido já está pronto. Confirme para prosseguir com o cancelamento. O estorno será de 30% do valor."
+            ? "Pedido já está pronto. Confirme para prosseguir com o cancelamento. O reembolso será tratado conforme os direitos legais aplicáveis."
             : "Pedido já está em produção. Confirme para prosseguir com o cancelamento.",
         code: "needs_confirmation",
         production_status: prod,

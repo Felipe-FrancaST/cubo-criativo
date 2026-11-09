@@ -30,7 +30,12 @@ export function resolveTrackingCarrier({ carrier, trackingUrl } = {}) {
 
 export function buildTrackingUrl({ code, carrier, fallbackUrl } = {}) {
   const explicit = String(fallbackUrl || '').trim();
-  if (explicit) return explicit;
+  if (explicit) {
+    try {
+      const url = new URL(explicit);
+      if (['https:', 'http:'].includes(url.protocol) && !url.username && !url.password) return url.href;
+    } catch { /* Fall back to the carrier when a stored URL is invalid. */ }
+  }
 
   const normalizedCarrier = normalizeTrackingCarrier(carrier);
   const normalizedCode = String(code || '').trim();

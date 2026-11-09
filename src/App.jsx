@@ -763,7 +763,14 @@ export default function App() {
       trackEvent('page_view', { route })
       return
     }
-    applySeo(seoByRoute[route] || seoByRoute['/'])
+    applySeo(
+      seoByRoute[route] || {
+        title: 'Página não encontrada | Cubo Criativo',
+        description: 'Confira o endereço ou acesse o catálogo da loja.',
+        path: route,
+        robots: 'noindex,follow',
+      }
+    )
     trackEvent('page_view', { route })
   }, [route])
 
@@ -1985,7 +1992,29 @@ export default function App() {
     if (route === '/conta') {
       return <AccountPage onGoHome={() => navigate('/')} />
     }
-    // Home default
+    if (route !== '/') {
+      return (
+        <main className="container-cc px-4 py-16 text-center">
+          <p className="text-sm text-cyan-300">Página não encontrada</p>
+          <h1 className="mt-3 text-3xl font-bold">
+            Não encontramos este endereço
+          </h1>
+          <p className="mt-4 text-slate-300">
+            O link pode ter mudado. Continue pela página inicial ou pelo
+            catálogo.
+          </p>
+          <div className="mt-6 flex flex-wrap justify-center gap-4">
+            <a href="/" className="customer-secondary">
+              Página inicial
+            </a>
+            <a href="/catalogo" className="customer-secondary">
+              Ver catálogo
+            </a>
+          </div>
+        </main>
+      )
+    }
+    // Home
     return (
       <HomePage
         featured={featured}

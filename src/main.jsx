@@ -9,6 +9,7 @@ import './styles/customer.css'
 import './styles/commerce.css'
 import './styles/refinements.css'
 import { Analytics } from '@vercel/analytics/react'
+import { sanitizeAnalyticsEvent } from './lib/analyticsPrivacy.js'
 import { isSupabaseConfigured } from './lib/supabaseClient.js'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
@@ -18,7 +19,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         <FavoritesProvider>
           <App />
         </FavoritesProvider>
-        <Analytics />
+        <Analytics beforeSend={sanitizeAnalyticsEvent} />
       </AuthProvider>
     ) : (
       <main className="grid min-h-dvh place-items-center px-6">

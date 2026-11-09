@@ -1,3 +1,4 @@
+import CheckoutPolicies from './CheckoutPolicies.jsx'
 import React from 'react'
 import useDialog from '../lib/useDialog.js'
 import { supabase } from '../lib/supabaseClient'
@@ -691,6 +692,7 @@ export default function CartDrawer({
               </div>
             )}
 
+            <CheckoutPolicies />
             <button
               onClick={() =>
                 onPayWithCoupon ? onPayWithCoupon(couponInfo) : onPay?.()

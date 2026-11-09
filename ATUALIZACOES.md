@@ -1,3 +1,7 @@
+# Revisão geral — 09/11/2026
+
+Políticas unificadas, transparência de cancelamento, proteção de métricas, links de condições no checkout e correções de navegação. Consulte REVISAO_SITE_2026-11-09.md para o escopo, validações e limitações.
+
 # WhatsApp — 09/11/2026
 
 - Número atualizado para (77) 99847-2372 nos links, rodapé e dados estruturados do site.

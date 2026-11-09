@@ -110,7 +110,7 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
     open: false,
     order: null,
     // full: reembolso integral (status recebido)
-    // partial: reembolso 50% (status != recebido)
+    // partial: confirmação de cancelamento durante produção (sem percentual automático)
     // info: apenas informativo
     mode: "full",
     // confirm | processing | success | info
@@ -568,7 +568,7 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
         mode: "info",
         step: "info",
         busy: false,
-        msg: "Cancelamento não permitido: o pedido já foi enviado.",
+        msg: "Este pedido já foi enviado. Solicite devolução ou arrependimento pelo atendimento abaixo.",
       });
       return;
     }
@@ -595,7 +595,7 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
       return;
     }
 
-    // Se for "Pronto": pede confirmação e informa estorno de 30%
+    // Pedido pronto: confirma cancelamento sem impor redução automática.
     if (prod === "pronto") {
       setCancelModal({
         open: true,
@@ -655,11 +655,7 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
       const hasPaidBeforeCancel = paymentStatusBeforeCancel === "paid";
       const successMsg = !hasPaidBeforeCancel
         ? "Pedido cancelado."
-        : mode === "full"
-          ? "Pedido cancelado. Seu reembolso será processado de forma integral."
-          : mode === "partial30"
-            ? "Pedido cancelado. Como o pedido já está pronto, o estorno será de 30% do valor."
-            : "Pedido cancelado. Como o pedido já está em produção, o reembolso será de 50% do valor para cobrir custos do processo.";
+        : "Pedido cancelado e reembolso solicitado. O atendimento confirmará o processamento conforme seus direitos legais. Esta mensagem não confirma um estorno já realizado.";
 
       setCancelModal((s) => ({
         ...s,
@@ -1252,7 +1248,7 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
               <div className="mt-4 rounded-xl bg-cyan-500/10 ring-1 ring-amber-400/30 px-3 py-3">
                 <p className="font-semibold text-cyan-200">Atenção</p>
                 <p className="mt-1 text-slate-200">
-                  Este pedido já está em produção. Se desejar continuar, o reembolso será somente da metade do valor para suprir os custos do processo.
+                  Este pedido já está em produção. Confirme se deseja cancelar. O pedido de reembolso será tratado conforme seus direitos legais, sem redução automática por etapa de produção.
                 </p>
               </div>
             ) : null}
@@ -1261,7 +1257,7 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
               <div className="mt-4 rounded-xl bg-cyan-500/10 ring-1 ring-cyan-400/30 px-3 py-3">
                 <p className="font-semibold text-cyan-200">Pedido pronto</p>
                 <p className="mt-1 text-slate-200">
-                  Este pedido já está pronto. Tem certeza que quer cancelar? Se prosseguir, o estorno será de apenas 30% do valor.
+                  Este pedido já está pronto. Confirme se deseja cancelar. A etapa de produção não define, por si só, o valor do reembolso.
                 </p>
               </div>
             ) : null}
@@ -1278,6 +1274,9 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
               </p>
             ) : null}
 
+            <p className="mt-4 text-sm text-slate-300">
+              Para devolução, arrependimento ou dúvidas, <a className="text-cyan-300 underline" href={`https://wa.me/${brand.whatsapp}?text=${encodeURIComponent('Olá! Preciso de atendimento sobre cancelamento ou devolução do pedido ' + (cancelModal.order?.id || ''))}`} target="_blank" rel="noreferrer">fale com o atendimento</a> ou consulte a <a className="text-cyan-300 underline" href="/trocas-e-devolucoes" target="_blank" rel="noreferrer">política de trocas</a>.
+            </p>
             {/* Ações */}
             <div className="mt-5 flex items-center justify-end gap-2">
               <button
