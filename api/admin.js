@@ -1,3 +1,4 @@
+import { handleAdminHomeBanner } from '../server/homeBanner.js'
 /**
  * Admin multiplexer (Hobby plan friendly)
  *
@@ -5357,6 +5358,7 @@ export default async function handler(req, res) {
       .trim()
       .toLowerCase()
 
+    if (action === 'home-banner') return await handleAdminHomeBanner(req, res)
     if (action === 'admins-list') return await handleAdminsList(req, res)
     if (action === 'admin-users-search')
       return await handleAdminUsersSearch(req, res)

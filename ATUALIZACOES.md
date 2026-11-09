@@ -1,3 +1,27 @@
+# Galeria, retorno e banners — 09/11/2026
+
+- Galeria de produtos: indicadores de 6 px dentro de controles discretos, sem as bolas ampliadas pela regra mobile.
+- Botão de informação: círculo de 32 px e ícone de 17 px no celular e no computador.
+- Voltar dos detalhes: guarda a URL com filtros, a rolagem e a posição do card. Aguarda a lista reaparecer e interrompe a restauração se o usuário tocar, rolar ou usar o teclado.
+- Pesquisa do estoque também é mantida na URL; filtros do catálogo preservam o estado de navegação.
+- Nova seção Admin → Banners do site: imagens independentes para celular e computador, prévia, envio, salvar, descartar e restaurar padrão.
+- Upload permitido para gerente/proprietário, com autorização verificada no servidor. JPG, PNG e WebP até 8 MB.
+- Banners e configuração são gravados no Supabase Storage, no bucket público site-assets, criado automaticamente no primeiro envio/salvamento se necessário. Nenhuma nova tabela SQL é exigida. Um bucket site-assets existente precisa ser público; o código não altera sua visibilidade automaticamente.
+- A gravação usa a chave de serviço já configurada no backend. Essa chave não é enviada ao navegador. O navegador recebe somente a autorização temporária de upload para um arquivo específico.
+- Imagens carregadas ficam como rascunho até clicar em Salvar banners. Arquivos anteriores não são excluídos automaticamente; descartes podem deixar arquivos sem uso no Storage.
+- O banner continua abrindo a área de planos VIP. A nova configuração prevalece sobre a tabela antiga home_banners; se não existir, a Home mantém a fonte antiga e as imagens locais.
+
+## Como usar depois de publicar
+1. Entre como gerente ou proprietário e abra Administração → Banners do site.
+2. Escolha as imagens. Para computador, use aproximadamente 1200 × 450 px (8:3); para celular, 1280 × 720 px (16:9). Imagens com outra proporção podem sofrer recorte na Home.
+3. Confira as prévias e clique em Salvar banners. Abra ou atualize a página inicial para verificar.
+
+## Validação desta entrega
+- 17 testes focados de navegação, autorização, validação de upload e interface administrativa passaram.
+- Suíte geral: 102 de 104 testes passaram. Os dois erros continuam sendo arquivos SQL ausentes no pacote original (SQL_NIVEIS_ADMIN.sql e SQL_AVALIACOES.sql).
+- Build de produção aprovado. Sem credenciais reais, o upload ao Supabase e a exibição em produção precisam ser conferidos após publicar.
+- Não foi concluída inspeção visual interativa em navegador neste ambiente; não se deve interpretar os testes automatizados como validação em todos os aparelhos.
+
 # Revisão geral — 09/11/2026
 
 Políticas unificadas, transparência de cancelamento, proteção de métricas, links de condições no checkout e correções de navegação. Consulte REVISAO_SITE_2026-11-09.md para o escopo, validações e limitações.

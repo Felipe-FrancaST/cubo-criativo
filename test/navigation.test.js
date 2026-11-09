@@ -93,9 +93,9 @@ test('código trata chunks antigos e evita restaurar documento antigo no botão 
 
   assert.match(
     card,
-    /event\.preventDefault\(\)[\s\S]*navigateClient\(`\/p\/\$\{p\.slug\}`\)/
+    /event\.preventDefault\(\)[\s\S]*navigateClient\(`\/p\/\$\{encodeURIComponent\(p\.slug\)\}`\)/
   )
-  assert.match(app, /isSpaHistoryEntry\(\)[\s\S]*window\.history\.back\(\)/)
+  assert.match(app, /restoreProductScroll\(restore\)/)
   assert.match(
     app,
     /navigate\(returnState\.path,\s*\{\s*replace:\s*true,\s*preserveScroll:\s*true,?\s*\},?\s*\)/
@@ -133,4 +133,69 @@ test('Vercel não mantém HTML de produto em cache após um novo deploy', async 
         header.key === 'Cache-Control' && /immutable/i.test(header.value)
     )
   )
+})
+
+test('retorno guarda o produto, sua posição na tela e filtros da listagem', () => {
+  const fakeWindow = installWindow('/catalogo?tipo=rpg&q=mago&tag=Arcano')
+  const anchor = {
+    dataset: { productId: '42' },
+    getBoundingClientRect: () => ({ top: 160 }),
+  }
+  globalThis.document = { querySelectorAll: () => [anchor] }
+  try {
+    saveProductReturnState('/p/mago', anchor)
+    const state = readProductReturnState()
+    assert.equal(state.productId, '42')
+    assert.equal(state.anchorOffset, 160)
+    assert.equal(state.scrollY, fakeWindow.scrollY)
+    assert.equal(state.path, '/catalogo?tipo=rpg&q=mago&tag=Arcano')
+  } finally {
+    delete globalThis.window
+    delete globalThis.document
+  }
+})
+
+test('restauração aguarda o card aparecer e interrompe ao usuário interagir', async () => {
+  const { restoreProductScroll } =
+    await import('../src/lib/restoreProductScroll.js')
+  const listeners = new Map()
+  const positions = []
+  let nextFrame
+  let anchor = null
+  globalThis.window = {
+    scrollY: 0,
+    scrollTo: ({ top }) => {
+      positions.push(top)
+      globalThis.window.scrollY = top
+    },
+    addEventListener: (key, cb) => listeners.set(key, cb),
+    removeEventListener: (key) => listeners.delete(key),
+  }
+  globalThis.document = { querySelectorAll: () => (anchor ? [anchor] : []) }
+  globalThis.requestAnimationFrame = (cb) => {
+    nextFrame = cb
+    return 1
+  }
+  globalThis.cancelAnimationFrame = () => {
+    nextFrame = null
+  }
+  try {
+    restoreProductScroll({ scrollY: 900, productId: '42', anchorOffset: 150 })
+    nextFrame()
+    assert.equal(positions.at(-1), 900)
+    anchor = {
+      dataset: { productId: '42' },
+      getBoundingClientRect: () => ({ top: 250 }),
+    }
+    nextFrame()
+    assert.equal(positions.at(-1), 1000)
+    listeners.get('touchstart')()
+    assert.equal(nextFrame, null)
+    assert.equal(listeners.size, 0)
+  } finally {
+    delete globalThis.window
+    delete globalThis.document
+    delete globalThis.requestAnimationFrame
+    delete globalThis.cancelAnimationFrame
+  }
 })

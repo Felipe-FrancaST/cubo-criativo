@@ -82,6 +82,16 @@ const mockFetch = async (input, options = {}) => {
       localidade: client.city,
       uf: 'SP',
     })
+  if (action === 'home-banner') {
+    if (options.method === 'POST')
+      return response({ banner: JSON.parse(options.body) })
+    return response({
+      banner: {
+        image_url: '/old-desktop.jpg',
+        mobile_image_url: '/old-mobile.jpg',
+      },
+    })
+  }
   if (action === 'orders')
     return response({
       orders: [order],
@@ -426,4 +436,39 @@ test('navegação por Tab ignora controles de etapas ocultas', () => {
   assert.equal(document.activeElement === confirm, true)
   fireEvent.keyDown(confirm, { key: 'Tab' })
   assert.equal(document.activeElement === close, true)
+})
+
+test('gerente acessa banners, mantém imagens separadas e salva após confirmação', async () => {
+  const view = renderAdmin()
+  await waitFor(() => assert.ok(view.getAllByRole('button', { name: 'Banners do site' })[0]))
+  fireEvent.click(view.getAllByRole('button', { name: 'Banners do site' })[0])
+  await waitFor(() =>
+    assert.ok(view.getByRole('heading', { name: 'Banners da assinatura VIP' }))
+  )
+  await waitFor(() =>
+    assert.ok(
+      view.getByRole('img', { name: 'Prévia do banner para computador' })
+    )
+  )
+  assert.equal(
+    view.getByRole('button', { name: 'Salvar banners' }).disabled,
+    true
+  )
+  fireEvent.click(
+    view.getAllByRole('button', { name: 'Usar imagem padrão' })[0]
+  )
+  assert.equal(
+    view
+      .getByRole('img', { name: 'Prévia do banner para celular' })
+      .getAttribute('src'),
+    '/old-mobile.jpg'
+  )
+  fireEvent.click(view.getByRole('button', { name: 'Salvar banners' }))
+  await waitFor(() => assert.ok(view.getByText(/Banners publicados/)))
+  const save = requests.find(
+    (item) =>
+      item.url.searchParams.get('action') === 'home-banner' &&
+      item.options.method === 'POST'
+  )
+  assert.ok(save)
 })

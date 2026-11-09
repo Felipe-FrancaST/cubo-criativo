@@ -1,3 +1,4 @@
+import { handlePublicHomeBanner } from '../server/homeBanner.js'
 import handleAdminStatus from '../server/api_handlers/admin-status.js';
 import handleCancelOrder from '../server/api_handlers/cancel-order.js';
 import handleCoupons from '../server/api_handlers/coupons.js';
@@ -15,6 +16,7 @@ import handleVipCycle from '../server/api_handlers/vip-cycle.js';
 export const config = { runtime: 'nodejs' };
 
 const ACTIONS = {
+  'home-banner': handlePublicHomeBanner,
   'admin-status': handleAdminStatus,
   'cancel-order': handleCancelOrder,
   'coupons': handleCoupons,

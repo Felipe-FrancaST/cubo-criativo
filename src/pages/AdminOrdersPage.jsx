@@ -1,3 +1,6 @@
+const AdminBannersSection = lazyWithReload(
+  () => import('./admin/banners/AdminBannersSection.jsx')
+)
 import React from 'react'
 import { lazyWithReload } from '../lib/lazyWithReload.js'
 import useDialog from '../lib/useDialog.js'
@@ -2213,6 +2216,7 @@ export default function AdminOrdersPage({
       'finance',
       'clients',
       'products',
+      'banners',
       'reviews',
       'coupons',
       'affiliates',
@@ -2225,6 +2229,7 @@ export default function AdminOrdersPage({
       'finance',
       'clients',
       'products',
+      'banners',
       'reviews',
       'coupons',
       'affiliates',
@@ -3893,6 +3898,7 @@ export default function AdminOrdersPage({
         ['finance', 'payments', 'Financeiro', canManageBusiness],
         ['clients', 'groups', 'Clientes', canManageBusiness],
         ['products', 'inventory', 'Produtos', canManageBusiness],
+        ['banners', 'image', 'Banners do site', canManageBusiness],
         ['reviews', 'reviews', 'Avaliações', canManageBusiness],
         ['coupons', 'sell', 'Cupons e campanhas', canManageBusiness],
         ['affiliates', 'handshake', 'Vendedores', canManageBusiness],
@@ -3921,7 +3927,9 @@ export default function AdminOrdersPage({
       fetchGameCoupon()
       fetchGameCouponMetrics()
     } else if (
-      ['products', 'reviews', 'affiliates', 'admins'].includes(section)
+      ['products', 'reviews', 'affiliates', 'admins', 'banners'].includes(
+        section
+      )
     )
       setSectionRevision((revision) => revision + 1)
     else fetchOrders()
@@ -4101,6 +4109,9 @@ export default function AdminOrdersPage({
               )}
               {section === 'clients' && canManageBusiness && (
                 <AdminClientsSection admin={adminContext} />
+              )}
+              {section === 'banners' && canManageBusiness && (
+                <AdminBannersSection accessToken={accessToken} />
               )}
               {section === 'products' && canManageBusiness && (
                 <AdminProductsSection onNotify={showToast} />

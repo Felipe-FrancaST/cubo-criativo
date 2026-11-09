@@ -62,14 +62,18 @@ export default function ProductCard({
       event.altKey
     )
       return
-    saveProductReturnState(`/p/${p.slug}`)
+    saveProductReturnState(
+      `/p/${encodeURIComponent(p.slug)}`,
+      event.currentTarget.closest('[data-product-id]')
+    )
     event.preventDefault()
-    navigateClient(`/p/${p.slug}`)
+    navigateClient(`/p/${encodeURIComponent(p.slug)}`)
   }
 
   return (
     <>
       <article
+        data-product-id={p.id}
         id={p.id ? `product-${p.id}` : undefined}
         className={`product-card compact-product-card ${promotion ? 'promo-product-card' : ''}`}
       >
@@ -117,7 +121,7 @@ export default function ProductCard({
           {p.slug ? (
             <a
               className="product-card-details"
-              href={`/p/${p.slug}`}
+              href={`/p/${encodeURIComponent(p.slug)}`}
               onClick={openProduct}
               aria-label={`Ver descrição de ${p.nome}`}
               title="Descrição e opções da peça"

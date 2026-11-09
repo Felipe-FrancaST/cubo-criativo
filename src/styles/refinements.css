@@ -147,3 +147,54 @@
     display: none;
   }
 }
+
+/* The touch area stays generous; only the small inner dot is painted. */
+.product-gallery-dots {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  max-width: 100%;
+}
+.site-shell button.product-gallery-dot {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  min-width: 28px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+}
+.product-gallery-dot::after {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ffffff55;
+  transition: background 150ms;
+}
+.product-gallery-dot[aria-current='true']::after {
+  background: #fff;
+}
+.site-shell .compact-product-card .product-card-details {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0;
+  border-radius: 50%;
+  right: 8px;
+  bottom: 8px;
+}
+.product-card-details-label {
+  display: none;
+}
+.site-shell .compact-product-card .product-card-details .material-icons {
+  font-size: 17px;
+}
+.site-shell .compact-product-card .product-card-details { background:#07151ee8; border:1px solid #b8d4e62e; }
+.site-shell .compact-product-card .product-card-details::before { content:none; }

@@ -1,3 +1,4 @@
+import { restoreProductScroll } from './lib/restoreProductScroll.js'
 // src/App.jsx
 import React from 'react'
 import useMobileViewport from './lib/useMobileViewport.js'
@@ -68,7 +69,6 @@ import {
 import {
   currentClientPath,
   consumeScrollRestore,
-  isSpaHistoryEntry,
   readProductReturnState,
   queueScrollRestore,
 } from './lib/navigation.js'
@@ -774,32 +774,22 @@ export default function App() {
     trackEvent('page_view', { route })
   }, [route])
 
-  // Garante que ao navegar para outra aba/página o usuário comece do topo.
-  // (Alguns cliques usam links normais/popstate e o browser manteria o scroll.)
+  const previousRoute = React.useRef(route)
   React.useEffect(() => {
-    if (typeof window === 'undefined') return
-
-    const restore = consumeScrollRestore(currentClientPath())
-    if (restore) {
-      const targetY = Math.max(0, Number(restore.scrollY || 0))
-      const restorePosition = () => {
-        try {
-          window.scrollTo({ top: targetY, left: 0, behavior: 'auto' })
-        } catch {}
-        try {
-          document.documentElement.scrollTop = targetY
-          document.body.scrollTop = targetY
-        } catch {}
-      }
-      requestAnimationFrame(() => requestAnimationFrame(restorePosition))
-      setTimeout(restorePosition, 120)
-      return
+    const previous = previousRoute.current
+    previousRoute.current = route
+    let restore = consumeScrollRestore(currentClientPath())
+    if (!restore && previous.startsWith('/p/')) {
+      const saved = readProductReturnState()
+      if (saved?.path === currentClientPath()) restore = saved
     }
-
-    // Faz o scroll depois do repaint da nova rota (mais confiável em mobile),
-    // e repete em seguida para neutralizar "scroll restoration" em alguns browsers.
-    requestAnimationFrame(() => scrollToTop())
-    setTimeout(() => scrollToTop(), 50)
+    if (restore) return restoreProductScroll(restore)
+    const frame = requestAnimationFrame(() => scrollToTop())
+    const timer = setTimeout(() => scrollToTop(), 50)
+    return () => {
+      cancelAnimationFrame(frame)
+      clearTimeout(timer)
+    }
   }, [route])
 
   function navigate(path, options = {}) {
@@ -1771,16 +1761,11 @@ export default function App() {
               returnState?.path &&
               (!returnTarget || returnTarget === currentProductPath)
             ) {
-              queueScrollRestore(returnState.path, returnState.scrollY)
-              try {
-                // Quando o produto foi aberto dentro da SPA, voltar é seguro e preserva o histórico.
-                if (isSpaHistoryEntry() && window.history.length > 1) {
-                  window.history.back()
-                  return
-                }
-              } catch {}
-
-              // Produto aberto por carregamento completo: não restaura a página antiga do cache.
+              queueScrollRestore(
+                returnState.path,
+                returnState.scrollY,
+                returnState
+              )
               navigate(returnState.path, {
                 replace: true,
                 preserveScroll: true,
@@ -2600,7 +2585,7 @@ export default function App() {
               {/* Pontinhos indicativos */}
               {galleryData.imgs.length > 1 && (
                 <div className="mt-3 flex items-center justify-center">
-                  <div className="flex items-center gap-2 rounded-full bg-black/35 ring-1 ring-white/10 px-3 py-2">
+                  <div className="product-gallery-dots">
                     {galleryData.imgs.map((_, idx) => (
                       <button
                         key={idx}
@@ -2608,7 +2593,7 @@ export default function App() {
                         onClick={() => setGalleryIndex(idx)}
                         aria-label={`Ir para imagem ${idx + 1}`}
                         aria-current={idx === galleryIndex ? 'true' : 'false'}
-                        className={`h-2.5 w-2.5 rounded-full ring-1 ring-white/15 transition ${idx === galleryIndex ? 'bg-white' : 'bg-white/35 hover:bg-white/60'}`}
+                        className="product-gallery-dot"
                       />
                     ))}
                   </div>

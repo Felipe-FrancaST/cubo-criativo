@@ -109,7 +109,7 @@ export default function CatalogPage({
       if (selectedTag && selectedTag !== 'Todos') params.set('tag', selectedTag)
       else params.delete('tag')
       const next = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}`
-      window.history.replaceState({}, '', next)
+      window.history.replaceState(window.history.state, '', next)
     } catch {}
   }, [type, query, selectedTag])
 

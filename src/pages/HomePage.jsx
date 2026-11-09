@@ -65,6 +65,18 @@ export default function HomePage({
     ;(async () => {
       try {
         setBannerLoading(true)
+        // Prefer images published through the admin; retain legacy/local fallbacks.
+        try {
+          const response = await fetch('/api/core?action=home-banner')
+          const result = response.ok ? await response.json() : null
+          if (!alive) return
+          if (result?.banner?.image_url && result?.banner?.mobile_image_url) {
+            setBanner(result.banner)
+            return
+          }
+        } catch {
+          /* Keep the previous banner source when the service is unavailable. */
+        }
         const now = new Date().toISOString()
         const { data, error } = await supabase
           .from('home_banners')

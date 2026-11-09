@@ -1,76 +1,119 @@
-import React from "react";
-import ProductCard from "../components/ProductCard.jsx";
+import React from 'react'
+import ProductCard from '../components/ProductCard.jsx'
 
-export default function StockPage({ items, loading = false, error = "", addToCart, buyNow, openGallery , onRequireLogin}) {
+export default function StockPage({
+  items,
+  loading = false,
+  error = '',
+  addToCart,
+  buyNow,
+  openGallery,
+  onRequireLogin,
+}) {
   const [q, setQ] = React.useState(() => {
-    if (typeof window === "undefined") return "";
+    if (typeof window === 'undefined') return ''
     try {
-      return String(new URLSearchParams(window.location.search || "").get("q") || "");
+      return String(
+        new URLSearchParams(window.location.search || '').get('q') || ''
+      )
     } catch {
-      return "";
+      return ''
     }
-  });
+  })
+
+  React.useEffect(() => {
+    const url = new URL(window.location.href)
+    if (q.trim()) url.searchParams.set('q', q.trim())
+    else url.searchParams.delete('q')
+    window.history.replaceState(
+      window.history.state,
+      '',
+      url.pathname + url.search + url.hash
+    )
+  }, [q])
 
   const filtered = React.useMemo(() => {
-    const query = String(q || "").trim().toLowerCase();
-    if (!query) return items;
+    const query = String(q || '')
+      .trim()
+      .toLowerCase()
+    if (!query) return items
     return (items || []).filter((p) => {
-      const name = String(p?.nome || "").toLowerCase();
-      const desc = String(p?.descricao || "").toLowerCase();
-      const tags = Array.isArray(p?.tags) ? p.tags.map((t) => String(t).toLowerCase()).join(" ") : "";
-      return name.includes(query) || desc.includes(query) || tags.includes(query);
-    });
-  }, [items, q]);
+      const name = String(p?.nome || '').toLowerCase()
+      const desc = String(p?.descricao || '').toLowerCase()
+      const tags = Array.isArray(p?.tags)
+        ? p.tags.map((t) => String(t).toLowerCase()).join(' ')
+        : ''
+      return (
+        name.includes(query) || desc.includes(query) || tags.includes(query)
+      )
+    })
+  }, [items, q])
 
   // Deep link: /estoque?product=<id>&open=1
   React.useEffect(() => {
-    if (typeof window === "undefined") return;
-    const sp = new URLSearchParams(window.location.search || "");
-    const pid = sp.get("product");
-    if (!pid) return;
-    if (loading) return;
+    if (typeof window === 'undefined') return
+    const sp = new URLSearchParams(window.location.search || '')
+    const pid = sp.get('product')
+    if (!pid) return
+    if (loading) return
 
-    const prod = items.find((p) => String(p.id) === String(pid));
-    if (!prod) return;
+    const prod = items.find((p) => String(p.id) === String(pid))
+    if (!prod) return
 
     // Scroll até o card
-    const el = document.getElementById(`product-${pid}`);
+    const el = document.getElementById(`product-${pid}`)
     if (el) {
-      const top = el.getBoundingClientRect().top + window.scrollY - 92;
-      window.scrollTo({ top, behavior: "smooth" });
+      const top = el.getBoundingClientRect().top + window.scrollY - 92
+      window.scrollTo({ top, behavior: 'smooth' })
     }
 
     // Abre o produto (galeria) se solicitado
-    if (sp.get("open") === "1") {
+    if (sp.get('open') === '1') {
       // pequeno atraso para garantir render
-      setTimeout(() => openGallery?.(prod), 250);
+      setTimeout(() => openGallery?.(prod), 250)
     }
 
     // limpa os params de deep-link para não reabrir ao voltar/atualizar
     try {
-      const keptQ = sp.get("q");
-      window.history.replaceState({}, "", keptQ ? `/estoque?q=${encodeURIComponent(keptQ)}` : "/estoque");
+      const keptQ = sp.get('q')
+      window.history.replaceState(
+        {},
+        '',
+        keptQ ? `/estoque?q=${encodeURIComponent(keptQ)}` : '/estoque'
+      )
     } catch {
       // ignore
     }
-  }, [loading, items, openGallery]);
+  }, [loading, items, openGallery])
 
   return (
     <main className="flex-1">
-      <section
-        className="container-cc px-4 sm:px-6 lg:px-8 py-10 sm:py-14" >
+      <section className="container-cc px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
         <div className="flex items-end justify-between gap-4 flex-wrap">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold">Pronta entrega</h1>
-            <p className="mt-1 text-sm text-slate-400">Action figures e miniaturas colecionáveis prontas para envio.</p>
+            <h1 className="text-2xl sm:text-3xl font-extrabold">
+              Pronta entrega
+            </h1>
+            <p className="mt-1 text-sm text-slate-400">
+              Action figures e miniaturas colecionáveis prontas para envio.
+            </p>
           </div>
           <span className="text-xs sm:text-sm text-slate-400">
-            {loading ? "carregando…" : (q ? `${filtered.length} de ${items.length}` : `${items.length} item(ns)`) }
+            {loading
+              ? 'carregando…'
+              : q
+                ? `${filtered.length} de ${items.length}`
+                : `${items.length} item(ns)`}
           </span>
         </div>
 
         <div className="mt-5">
-          <label className="block text-xs font-semibold text-slate-300" htmlFor="stock-search">Pesquisar</label>
+          <label
+            className="block text-xs font-semibold text-slate-300"
+            htmlFor="stock-search"
+          >
+            Pesquisar
+          </label>
           <div className="mt-2 flex gap-2">
             <input
               id="stock-search"
@@ -84,7 +127,7 @@ export default function StockPage({ items, loading = false, error = "", addToCar
             {q && (
               <button
                 type="button"
-                onClick={() => setQ("")}
+                onClick={() => setQ('')}
                 className="container-cc shrink-0 rounded-xl px-4 py-3 ring-1 ring-white/15 hover:bg-white/4"
               >
                 Limpar
@@ -125,18 +168,20 @@ export default function StockPage({ items, loading = false, error = "", addToCar
                   addToCart={addToCart}
                   buyNow={buyNow}
                   openGallery={openGallery}
-              onRequireLogin={onRequireLogin}
+                  onRequireLogin={onRequireLogin}
                 />
               ))}
 
             {!loading && filtered.length === 0 && (
               <div className="col-span-full text-center text-slate-400 text-sm">
-                {q ? "Nenhum resultado para a sua busca." : "Nenhum item em estoque no momento."}
+                {q
+                  ? 'Nenhum resultado para a sua busca.'
+                  : 'Nenhum item em estoque no momento.'}
               </div>
             )}
           </div>
         )}
       </section>
     </main>
-  );
+  )
 }
