@@ -157,3 +157,7 @@
 @media(max-width:620px){.cm-confirmation{align-items:flex-start;flex-wrap:wrap;padding:18px;gap:12px}.cm-confirmation-icon{width:44px;height:44px}.cm-confirmation h2{font-size:17px}.cm-confirmation button{width:100%;justify-content:center}}
 
 .cm-return .cm-return-orders{display:inline-flex;align-items:center;gap:5px;background:#85e7ca20;border:1px solid #b6f9dd4e;border-radius:9px;padding:8px 12px;margin-top:10px;font-size:11px;font-weight:800}.cm-return .cm-return-orders .material-icons{font-size:16px}
+
+/* O mesmo bloco de pagamento é reutilizado no carrinho e na assinatura. */
+.cm-payment-area{padding:0 24px 22px}
+.cm-action-wrap{padding:0 24px}

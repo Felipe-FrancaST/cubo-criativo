@@ -348,7 +348,7 @@ export default async function handleCustomMiniatures(req, res) {
           base_cents: baseCents, discount_cents: coupon.discountCents,
           total_cents: baseCents - coupon.discountCents, coupon_label: coupon.label,
         });
-      } catch (error) { return jsonError(res, 400, safeCustomError(error)); }
+      } catch (error) { return jsonError(res, 400, safeCustomError(error), error?.code); }
     }
 
     if (op === 'prepare') {
@@ -395,7 +395,7 @@ export default async function handleCustomMiniatures(req, res) {
       let coupon;
       try {
         coupon = await evaluateCustomCoupon(sb, { code: body.coupon_code, user, baseCents });
-      } catch (error) { return jsonError(res, 400, safeCustomError(error)); }
+      } catch (error) { return jsonError(res, 400, safeCustomError(error), error?.code); }
       const totalCents = baseCents - coupon.discountCents;
       if (totalCents < 1) return jsonError(res, 400, 'Valor final inválido.');
       // Preço sempre calculado no servidor, mas nunca cobramos um total

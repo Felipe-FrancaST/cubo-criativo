@@ -1,4 +1,5 @@
 import CheckoutPolicies from '../components/CheckoutPolicies.jsx'
+import { PaymentChoice, PaymentActionButton } from '../components/PaymentChoice.jsx'
 import React from 'react'
 import Modal from '../components/Modal.jsx'
 import VipGalleryModal from '../components/vip-area/VipGalleryModal.jsx'
@@ -56,6 +57,7 @@ export default function VipRpgPage({
   const [profileRefresh, setProfileRefresh] = React.useState(0)
   const [busy, setBusy] = React.useState(false)
   const [method, setMethod] = React.useState('')
+  const [paymentSelection, setPaymentSelection] = React.useState('pix')
   const [error, setError] = React.useState('')
   const [message, setMessage] = React.useState('')
   const [couponCode, setCouponCode] = React.useState('')
@@ -746,32 +748,20 @@ export default function VipRpgPage({
                 )}
                 <CheckoutPolicies />
                 <div className="vip-checkout-actions">
-                  <button
-                    type="button"
-                    className="customer-primary"
-                    disabled={!canPay}
-                    onClick={() => startCheckout('card')}
-                  >
-                    {busy && method === 'card'
-                      ? 'Preparando pagamento…'
-                      : 'Assinar com cartão'}
-                  </button>
-                  <button
-                    type="button"
-                    className="customer-secondary"
+                  <PaymentChoice value={paymentSelection} onChange={setPaymentSelection} disabled={busy || couponBusy || isVip} />
+                  <PaymentActionButton
+                    method={paymentSelection}
+                    loading={busy}
                     disabled={!canPay}
                     onClick={() => {
-                      if (reusablePix) setPixOpen(true)
-                      else startCheckout('pix')
+                      if (paymentSelection === 'pix' && reusablePix) setPixOpen(true)
+                      else void startCheckout(paymentSelection)
                     }}
-                  >
-                    {busy && method === 'pix'
-                      ? 'Gerando Pix…'
-                      : reusablePix
-                        ? 'Ver Pix gerado'
-                        : 'Assinar com Pix'}
-                  </button>
+                    loadingLabel={method === 'pix' ? 'Gerando Pix…' : 'Preparando pagamento…'}
+                    label={paymentSelection === 'pix' ? reusablePix ? 'Ver Pix gerado' : 'Assinar com Pix' : 'Assinar com cartão'}
+                  />
                 </div>
+                <p className="checkout-safe-note"><span className="material-icons" aria-hidden="true">verified_user</span> Pagamento protegido pelo Mercado Pago.</p>
                 <p className="vip-checkout-help">
                   Após a confirmação do pagamento, acompanhe suas escolhas e o
                   pedido na Área VIP.

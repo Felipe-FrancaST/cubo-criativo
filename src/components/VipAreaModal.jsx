@@ -1,5 +1,6 @@
 import React from 'react'
 import Modal from './Modal.jsx'
+import { PaymentChoice, PaymentActionButton } from './PaymentChoice.jsx'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthProvider.jsx'
 import { lazyWithReload } from '../lib/lazyWithReload.js'
@@ -148,11 +149,11 @@ export default function VipAreaModal({
   const [upgrade, setUpgrade] = React.useState(null) // {order_id, qr_code, qr_code_base64, ticket_url, status}
   const [upgradeBusy, setUpgradeBusy] = React.useState(false)
   const [upgradePayOpen, setUpgradePayOpen] = React.useState(false)
-  const [upgradePayMethod, setUpgradePayMethod] = React.useState(null) // 'pix' | 'card'
+  const [upgradePayMethod, setUpgradePayMethod] = React.useState('pix') // 'pix' | 'card'
   const [upgradeSuccess, setUpgradeSuccess] = React.useState(false)
   const [renewBusy, setRenewBusy] = React.useState(false)
   const [renewPayOpen, setRenewPayOpen] = React.useState(false)
-  const [renewPayMethod, setRenewPayMethod] = React.useState(null)
+  const [renewPayMethod, setRenewPayMethod] = React.useState('pix')
   const [renewPix, setRenewPix] = React.useState(null)
   const [renewPixStatus, setRenewPixStatus] = React.useState('')
   const [renewChecking, setRenewChecking] = React.useState(false)
@@ -2123,31 +2124,22 @@ export default function VipAreaModal({
                   </div>
                 </div>
 
-                <div className="mt-4 grid grid-cols-1 gap-2">
-                  <button
-                    disabled={upgradeBusy}
-                    onClick={() => {
-                      setUpgradePayMethod('card')
-                      startUpgradeCard()
+                <div className="checkout-total-bar"><span>Total do upgrade</span><strong>{fmtBRLFromCents(upgradeDiffCents)}</strong></div>
+                <div className="mt-4 grid gap-3">
+                  <PaymentChoice value={upgradePayMethod} onChange={setUpgradePayMethod} disabled={upgradeBusy} />
+                  <PaymentActionButton
+                    method={upgradePayMethod} loading={upgradeBusy} disabled={upgradeBusy || !selectedUpgradePlan}
+                    onClick={async () => {
+                      try {
+                        if (upgradePayMethod === 'pix') await startUpgradePix()
+                        else await startUpgradeCard()
+                      } finally {
+                        setUpgradePayOpen(false)
+                      }
                     }}
-                    className={`rounded-xl px-4 py-3 font-extrabold ring-4 transition ${upgradeBusy ? 'bg-cyan-400/20 text-cyan-50 ring-cyan-200/15 cursor-wait' : 'bg-cyan-400 text-black ring-cyan-400/20 hover:opacity-95'}`}
-                  >
-                    {upgradeBusy && upgradePayMethod === 'card'
-                      ? 'Aguarde…'
-                      : 'Pagar com cartão'}
-                  </button>
-                  <button
-                    disabled={upgradeBusy}
-                    onClick={() => {
-                      setUpgradePayMethod('pix')
-                      startUpgradePix()
-                    }}
-                    className={`rounded-xl px-4 py-3 font-semibold ring-1 transition ${upgradeBusy ? 'bg-cyan-400/20 text-cyan-50 ring-cyan-200/15 cursor-wait' : 'ring-white/15 hover:bg-white/4'}`}
-                  >
-                    {upgradeBusy && upgradePayMethod === 'pix'
-                      ? 'Aguarde…'
-                      : 'Pagar com Pix'}
-                  </button>
+                    loadingLabel={upgradePayMethod === 'pix' ? 'Gerando Pix…' : 'Preparando pagamento…'}
+                    label={upgradePayMethod === 'pix' ? 'Pagar upgrade com Pix' : 'Pagar upgrade com cartão'}
+                  />
                 </div>
               </Modal>
 
@@ -2173,33 +2165,22 @@ export default function VipAreaModal({
                     </div>
                   </div>
                 </div>
-                <div className="mt-4 grid grid-cols-1 gap-2">
-                  <button
-                    disabled={renewBusy}
-                    onClick={() => {
-                      setRenewPayMethod('card')
-                      setRenewPayOpen(false)
-                      startRenewCard()
+                <div className="checkout-total-bar"><span>Valor da renovação</span><strong>{currentPriceCents > 0 ? fmtBRLFromCents(currentPriceCents) : 'Consulte o valor'}</strong></div>
+                <div className="mt-4 grid gap-3">
+                  <PaymentChoice value={renewPayMethod} onChange={setRenewPayMethod} disabled={renewBusy} />
+                  <PaymentActionButton
+                    method={renewPayMethod} loading={renewBusy} disabled={renewBusy}
+                    onClick={async () => {
+                      try {
+                        if (renewPayMethod === 'pix') await startRenewPix()
+                        else await startRenewCard()
+                      } finally {
+                        setRenewPayOpen(false)
+                      }
                     }}
-                    className={`rounded-xl px-4 py-3 font-extrabold ring-4 transition ${renewBusy ? 'bg-cyan-400/20 text-cyan-50 ring-cyan-200/15 cursor-wait' : 'bg-cyan-400 text-black ring-cyan-400/20 hover:opacity-95'}`}
-                  >
-                    {renewBusy && renewPayMethod === 'card'
-                      ? 'Aguarde…'
-                      : 'Pagar com cartão'}
-                  </button>
-                  <button
-                    disabled={renewBusy}
-                    onClick={() => {
-                      setRenewPayMethod('pix')
-                      setRenewPayOpen(false)
-                      startRenewPix()
-                    }}
-                    className={`rounded-xl px-4 py-3 font-semibold ring-1 transition ${renewBusy ? 'bg-cyan-400/20 text-cyan-50 ring-cyan-200/15 cursor-wait' : 'ring-white/15 hover:bg-white/4'}`}
-                  >
-                    {renewBusy && renewPayMethod === 'pix'
-                      ? 'Aguarde…'
-                      : 'Pagar com Pix'}
-                  </button>
+                    loadingLabel={renewPayMethod === 'pix' ? 'Gerando Pix…' : 'Preparando pagamento…'}
+                    label={renewPayMethod === 'pix' ? 'Renovar com Pix' : 'Renovar com cartão'}
+                  />
                 </div>
               </Modal>
 

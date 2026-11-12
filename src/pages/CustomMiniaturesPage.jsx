@@ -1,6 +1,8 @@
 import React from 'react'
 import { supabase } from '../lib/supabaseClient.js'
 import { getAffiliateCheckoutContext } from '../lib/affiliate.js'
+import { PaymentChoice, PaymentActionButton } from '../components/PaymentChoice.jsx'
+import { needsProfileCompletion } from '../lib/profileCheckout.js'
 import './custom-miniatures.css'
 
 const API = '/api/core?api_action=custom-miniatures'
@@ -35,7 +37,11 @@ async function apiCall(op, { accessToken, method = 'GET', body, signal } = {}) {
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   })
   const payload = await res.json().catch(() => ({}))
-  if (!res.ok) throw new Error(typeof payload.error === 'string' ? payload.error : 'Falha ao comunicar com a loja.')
+  if (!res.ok) {
+    const error = new Error(typeof payload.error === 'string' ? payload.error : 'Falha ao comunicar com a loja.')
+    error.code = payload.code || ''
+    throw error
+  }
   return payload
 }
 
@@ -61,7 +67,7 @@ function StatusPill({ request }) {
   )
 }
 
-export default function CustomMiniaturesPage({ user, accessToken, onRequireLogin, onGoHome, onOpenOrders }) {
+export default function CustomMiniaturesPage({ user, accessToken, onRequireLogin, onRequireProfile, onGoHome, onOpenOrders }) {
   const [settings, setSettings] = React.useState(null)
   const [configError, setConfigError] = React.useState('')
   const [kind, setKind] = React.useState('miniatura')
@@ -72,6 +78,7 @@ export default function CustomMiniaturesPage({ user, accessToken, onRequireLogin
   const [dragActive, setDragActive] = React.useState(false)
   const [couponCode, setCouponCode] = React.useState('')
   const [discount, setDiscount] = React.useState(null)
+  const reapplyCouponAfterProfile = React.useRef(false)
   const [quoteBusy, setQuoteBusy] = React.useState(false)
   const [paymentMethod, setPaymentMethod] = React.useState('pix')
   const [busy, setBusy] = React.useState(false)
@@ -240,7 +247,7 @@ export default function CustomMiniaturesPage({ user, accessToken, onRequireLogin
   const paymentReady = !!settings && files.length > 0 && !busy && !pixData && !confirmedOrder
   const returnedOrder = mine.find(request => request.order_id && request.order_id === returnInfo?.orderId)
 
-  async function applyCoupon() {
+  async function applyCoupon({ promptForProfile = true } = {}) {
     setError('')
     const code = couponCode.trim().toUpperCase()
     if (!code) { setDiscount(null); return }
@@ -254,11 +261,30 @@ export default function CustomMiniaturesPage({ user, accessToken, onRequireLogin
       setDiscount({ ...quote, code })
     } catch (err) {
       setDiscount(null)
-      setError(err.message)
+      if (needsProfileCompletion(err)) {
+        setError('Complete seu cadastro para utilizar o cupom. O código foi mantido para você tentar novamente após salvar.')
+        if (promptForProfile) {
+          reapplyCouponAfterProfile.current = true
+          onRequireProfile?.()
+        }
+      } else {
+        setError(err.message)
+      }
     } finally {
       setQuoteBusy(false)
     }
   }
+
+  // Após salvar a janela de cadastro, valida o cupom novamente sem perder a escolha.
+  React.useEffect(() => {
+    const onSaved = () => {
+      if (!reapplyCouponAfterProfile.current) return
+      reapplyCouponAfterProfile.current = false
+      void applyCoupon({ promptForProfile: false })
+    }
+    window.addEventListener('profile:saved', onSaved)
+    return () => window.removeEventListener('profile:saved', onSaved)
+  })
 
   async function startCheckout() {
     if (busy || pixData || confirmedOrder) return
@@ -310,6 +336,7 @@ export default function CustomMiniaturesPage({ user, accessToken, onRequireLogin
       setPixData({ ...result.pix, orderId: result.order_id, amount: result.total_cents })
       await refreshMine({ silent: true })
     } catch (err) {
+      if (needsProfileCompletion(err)) onRequireProfile?.()
       if (/preço do pedido foi atualizado/i.test(err.message)) {
         try {
           const fresh = await apiCall('config')
@@ -501,28 +528,19 @@ export default function CustomMiniaturesPage({ user, accessToken, onRequireLogin
               </div>
               <div className="cm-total"><span>Total</span><strong>{settings ? money(totalCents) : '—'}</strong></div>
               <p className="cm-shipping">O valor apresentado é da personalização. Eventual frete não está incluído.</p>
-              <div className="cm-payment-head">FORMA DE PAGAMENTO</div>
-              <div className="cm-payments">
-                <button type="button" className={paymentMethod === 'pix' ? 'is-selected' : ''}
-                  aria-pressed={paymentMethod === 'pix'} disabled={busy || !!pixData || !!confirmedOrder} onClick={() => setPaymentMethod('pix')}>
-                  <span className="material-icons">qr_code_2</span><span><strong>Pix</strong><small>QR Code ou copia e cola</small></span><span className="material-icons cm-radio">{paymentMethod === 'pix' ? 'radio_button_checked' : 'radio_button_unchecked'}</span>
-                </button>
-                <button type="button" className={paymentMethod === 'card' ? 'is-selected' : ''}
-                  aria-pressed={paymentMethod === 'card'} disabled={busy || !!pixData || !!confirmedOrder} onClick={() => setPaymentMethod('card')}>
-                  <span className="material-icons">credit_card</span><span><strong>Cartão</strong><small>Checkout seguro Mercado Pago</small></span><span className="material-icons cm-radio">{paymentMethod === 'card' ? 'radio_button_checked' : 'radio_button_unchecked'}</span>
-                </button>
+              <div className="cm-payment-area">
+                <PaymentChoice value={paymentMethod} onChange={setPaymentMethod} disabled={busy || !!pixData || !!confirmedOrder} />
               </div>
               {error ? <div className="cm-error" role="alert"><span className="material-icons">error_outline</span><span>{error}</span></div> : null}
               {configError ? <div className="cm-error" role="alert">{configError}</div> : null}
               {pixData || confirmedOrder ? (
                 <button type="button" className="cm-submit cm-submit-new" onClick={resetForm}>Criar outro pedido <span className="material-icons">add</span></button>
               ) : (
-                <button type="button" className="cm-submit" onClick={startCheckout}
-                  disabled={!paymentReady} aria-disabled={!paymentReady}>
-                  <span className="material-icons">{busy ? 'sync' : paymentMethod === 'pix' ? 'qr_code_2' : 'lock'}</span>
-                  {busy ? 'Preparando pedido…' : !files.length ? 'Adicione imagens para continuar' : !user ? 'Entrar e continuar' : paymentMethod === 'pix' ? 'Gerar Pix e finalizar' : 'Pagar com cartão'}
-                  {!busy ? <span className="material-icons">arrow_forward</span> : null}
-                </button>
+                <div className="cm-action-wrap">
+                  <PaymentActionButton method={paymentMethod} onClick={startCheckout}
+                    loading={busy} loadingLabel={progress || 'Preparando pedido…'} disabled={!paymentReady}
+                    label={!files.length ? 'Adicione imagens para continuar' : !user ? 'Entrar e continuar' : paymentMethod === 'pix' ? 'Gerar Pix e finalizar' : 'Pagar com cartão'} />
+                </div>
               )}
               {!user ? <button className="cm-login-link" type="button" onClick={() => onRequireLogin?.('Entre ou crie sua conta para solicitar uma miniatura personalizada.')}>Já tem conta? Entre aqui</button> : null}
               {progress ? <div className="cm-progress" role="status"><span className="cm-spinner" />{progress}</div> : null}
@@ -600,3 +618,4 @@ export default function CustomMiniaturesPage({ user, accessToken, onRequireLogin
     </main>
   )
 }
+

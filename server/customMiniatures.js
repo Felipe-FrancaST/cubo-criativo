@@ -55,7 +55,11 @@ export async function evaluateCustomCoupon(sb, { code, user, baseCents }) {
     .select('cpf').eq('id', user.id).maybeSingle();
   if (profileError) throw profileError;
   const cpf = String(profile?.cpf || '').replace(/\D/g, '');
-  if (!cpf) throw new Error('Complete seu CPF no perfil para utilizar um cupom.');
+  if (cpf.length !== 11) {
+    const missingCpf = new Error('Complete seu CPF no perfil para utilizar um cupom.');
+    missingCpf.code = 'profile_incomplete';
+    throw missingCpf;
+  }
   if (coupon.user_id && String(coupon.user_id) !== String(user.id)) {
     const { data: owner, error: ownerError } = await sb.from('profiles')
       .select('cpf').eq('id', coupon.user_id).maybeSingle();

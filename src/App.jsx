@@ -1872,6 +1872,7 @@ export default function App() {
           user={user}
           accessToken={accessToken}
           onRequireLogin={requireLogin}
+          onRequireProfile={() => openSettings('profile', { autoClose: true, overlay: true })}
           onGoHome={() => navigate('/')}
           onOpenOrders={() => setOrdersOpen(true)}
         />

@@ -1,4 +1,5 @@
 import CheckoutPolicies from './CheckoutPolicies.jsx'
+import { PaymentChoice, PaymentActionButton } from './PaymentChoice.jsx'
 import React from 'react'
 import useDialog from '../lib/useDialog.js'
 import { supabase } from '../lib/supabaseClient'
@@ -46,6 +47,7 @@ export default function CartDrawer({
   const [pix, setPix] = React.useState(null)
   const [pixOpen, setPixOpen] = React.useState(false)
   const [pixLoading, setPixLoading] = React.useState(false)
+  const [paymentMethod, setPaymentMethod] = React.useState('pix')
   const [, setPixStatus] = React.useState('pending')
   const [checkingPix, setCheckingPix] = React.useState(false)
   const [pixCompletedOpen, setPixCompletedOpen] = React.useState(false)
@@ -84,6 +86,7 @@ export default function CartDrawer({
       setPixCompletedOpen(false)
       setPix(null)
       setPixLoading(false)
+      setPaymentMethod('pix')
       setCopyToast(null)
       if (copyToastTimer.current) {
         window.clearTimeout(copyToastTimer.current)
@@ -696,37 +699,12 @@ export default function CartDrawer({
               </div>
             </div>
 
-            {couponInfo && canCheckout && (
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-slate-400">Total com cupom</span>
-                <span className="font-semibold text-emerald-300">
-                  {fmtBRL(couponInfo.final_total)}
-                </span>
-              </div>
-            )}
-
+            <div className="checkout-total-bar" aria-live="polite">
+              <span>Total</span>
+              <strong>{canCheckout ? fmtBRL(Number(couponInfo?.final_total ?? subtotal)) : '—'}</strong>
+            </div>
             <CheckoutPolicies />
-            <button
-              onClick={() =>
-                onPayWithCoupon ? onPayWithCoupon(couponInfo) : onPay?.()
-              }
-              disabled={paying || !canCheckout}
-              className={`w-full text-center rounded-lg px-4 py-3 font-semibold ring-1 ring-white/10 transition \
-              ${
-                paying
-                  ? 'bg-cyan-400/20 text-cyan-50 cursor-wait ring-cyan-200/15'
-                  : !canCheckout
-                    ? 'bg-[#12303b]/55 text-slate-300 cursor-not-allowed'
-                    : 'bg-cyan-600 hover:bg-cyan-500 text-white'
-              }`}
-              title={
-                !canCheckout
-                  ? 'Defina os preços dos produtos antes de pagar.'
-                  : ''
-              }
-            >
-              {paying ? 'Aguarde…' : 'Pagar com cartão'}
-            </button>
+            <PaymentChoice value={paymentMethod} onChange={setPaymentMethod} disabled={paying || pixLoading || pixOpen || pixCompletedOpen} />
 
             {pixNotice && (
               <div
@@ -747,19 +725,19 @@ export default function CartDrawer({
               </div>
             )}
 
-            <button
-              onClick={handlePix}
-              disabled={pixLoading || !canCheckout}
-              className={`w-full rounded-lg px-4 py-3 font-semibold transition ${
-                pixLoading
-                  ? 'bg-cyan-400/20 text-cyan-50 cursor-wait'
-                  : !canCheckout
-                    ? 'bg-[#12303b]/55 text-slate-300 cursor-not-allowed'
-                    : 'bg-sky-400 hover:bg-sky-300 text-black'
-              }`}
-            >
-              {pixLoading ? 'Aguarde…' : 'Pagar com Pix'}
-            </button>
+            <PaymentActionButton
+              method={paymentMethod}
+              loading={paying || pixLoading}
+              disabled={!canCheckout || paying || pixLoading}
+              onClick={() => {
+                if (paymentMethod === 'pix') void handlePix()
+                else if (onPayWithCoupon) void onPayWithCoupon(couponInfo)
+                else void onPay?.()
+              }}
+              loadingLabel={paymentMethod === 'pix' ? 'Gerando Pix…' : 'Preparando pagamento…'}
+              label={!canCheckout ? 'Adicione produtos para continuar' : paymentMethod === 'pix' ? 'Gerar Pix e finalizar' : 'Pagar com cartão'}
+            />
+            <p className="checkout-safe-note"><span className="material-icons" aria-hidden="true">verified_user</span> Pagamento protegido pelo Mercado Pago.</p>
 
             <a
               href={`https://wa.me/${brand.whatsapp}?text=${waMsg}`}
