@@ -29,6 +29,7 @@ import { supabase } from './lib/supabaseClient'
 // Páginas
 const HomePage = lazyWithReload(() => import('./pages/HomePage.jsx'))
 const StockPage = lazyWithReload(() => import('./pages/StockPage.jsx'))
+const CustomMiniaturesPage = lazyWithReload(() => import('./pages/CustomMiniaturesPage.jsx'))
 const CatalogPage = lazyWithReload(() => import('./pages/CatalogPage.jsx'))
 const AccountPage = lazyWithReload(() => import('./pages/AccountPage.jsx'))
 const SettingsPage = lazyWithReload(() => import('./pages/SettingsPage.jsx'))
@@ -630,6 +631,11 @@ export default function App() {
           'Catálogo de action figures, miniaturas de RPG e colecionáveis em resina com pintura artística.',
         path: '/catalogo',
       },
+      '/miniaturas-personalizadas': {
+        title: 'Miniaturas personalizadas | Cubo Criativo',
+        description: 'Encomende uma miniatura ou busto personalizado com imagens de referência, Pix ou cartão.',
+        path: '/miniaturas-personalizadas',
+      },
       '/promocoes': {
         title: 'Promoções | Cubo Criativo',
         description:
@@ -1103,7 +1109,9 @@ export default function App() {
     const provider = params.get('provider')
     const orderId = params.get('order_id')
 
-    if (!payment) return
+    // Pedidos personalizados têm retorno específico e não devem disparar
+    // o modal de sucesso do carrinho comum.
+    if (!payment || window.location.pathname === '/miniaturas-personalizadas') return
 
     const cleanupUrl = () => {
       params.delete('payment')
@@ -1780,6 +1788,17 @@ export default function App() {
         />
       )
     }
+    if (route === '/miniaturas-personalizadas') {
+      return (
+        <CustomMiniaturesPage
+          user={user}
+          accessToken={accessToken}
+          onRequireLogin={requireLogin}
+          onGoHome={() => navigate('/')}
+          onOpenOrders={() => setOrdersOpen(true)}
+        />
+      )
+    }
     if (route === '/admin') {
       return (
         <AdminOrdersPage
@@ -2019,6 +2038,7 @@ export default function App() {
             window.location.href = '/privacy.html'
         }}
         onGoCupom={() => navigate('/cupom')}
+        onGoCustomMiniatures={() => navigate('/miniaturas-personalizadas')}
         onGoReviews={() => navigate('/avaliacoes')}
         onGoVipPlans={() => navigate('/planos-vip')}
         onGoSobEncomenda={() => navigate('/catalogo?tipo=rpg')}

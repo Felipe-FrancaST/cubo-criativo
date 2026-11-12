@@ -29,6 +29,7 @@ export default function HomePage({
   onGoFaq,
   onGoPoliticas,
   onGoCupom,
+  onGoCustomMiniatures,
   onGoVipPlans,
   onGoReviews,
   onRequireLogin,
@@ -326,6 +327,25 @@ export default function HomePage({
               </div>
               <CarrosselPromo onActivate={onGoPromocoes} />
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="container-cc px-4 sm:px-6 lg:px-8 py-5 sm:py-8">
+        <div className="relative overflow-hidden rounded-[24px] border border-teal-300/20 bg-[linear-gradient(115deg,rgba(17,66,71,.70),rgba(9,28,42,.94))] p-6 sm:p-8">
+          <div className="pointer-events-none absolute -right-3 -top-7 text-teal-100/[.07]" aria-hidden="true">
+            <span className="material-icons text-[180px]">view_in_ar</span>
+          </div>
+          <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="text-[11px] font-bold uppercase tracking-[.2em] text-teal-200">Uma peça só sua</div>
+              <h2 className="mt-2 text-2xl sm:text-3xl font-extrabold text-white">Dê vida ao seu personagem</h2>
+              <p className="mt-2 max-w-xl text-sm leading-6 text-slate-300">Envie referências, escolha busto ou miniatura e solicite uma criação exclusiva.</p>
+            </div>
+            <button type="button" onClick={onGoCustomMiniatures}
+              className="relative inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-teal-200 px-5 py-3.5 text-sm font-extrabold text-slate-950 transition hover:bg-teal-100">
+              Personalizar miniatura <span className="material-icons text-[18px]">arrow_forward</span>
+            </button>
           </div>
         </div>
       </section>

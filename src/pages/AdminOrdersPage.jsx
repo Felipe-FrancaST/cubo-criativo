@@ -40,6 +40,9 @@ const NewManualOrderModal = lazyWithReload(
 const AdminProductsSection = lazyWithReload(
   () => import('./admin/products/AdminProductsSection.jsx')
 )
+const AdminCustomMiniaturesSection = lazyWithReload(
+  () => import('./admin/custom/AdminCustomMiniaturesSection.jsx')
+)
 const AdminReviewsSection = lazyWithReload(
   () => import('./admin/reviews/AdminReviewsSection.jsx')
 )
@@ -2226,6 +2229,7 @@ export default function AdminOrdersPage({
       'dashboard',
       'orders',
       'production',
+      'custom',
       'finance',
       'clients',
       'products',
@@ -3890,6 +3894,7 @@ export default function AdminOrdersPage({
         ['dashboard', 'space_dashboard', 'Visão geral', true],
         ['orders', 'inventory_2', 'Pedidos', canOperate],
         ['production', 'view_kanban', 'Produção', canOperate],
+        ['custom', 'design_services', 'Personalizadas', canOperate],
       ],
     },
     {
@@ -3927,7 +3932,7 @@ export default function AdminOrdersPage({
       fetchGameCoupon()
       fetchGameCouponMetrics()
     } else if (
-      ['products', 'reviews', 'affiliates', 'admins', 'banners'].includes(
+      ['products', 'reviews', 'affiliates', 'admins', 'banners', 'custom'].includes(
         section
       )
     )
@@ -4103,6 +4108,12 @@ export default function AdminOrdersPage({
 
               {section === 'production' && (
                 <AdminProductionSection admin={adminContext} />
+              )}
+              {section === 'custom' && canOperate && (
+                <AdminCustomMiniaturesSection
+                  accessToken={accessToken}
+                  canManageBusiness={canManageBusiness}
+                />
               )}
               {section === 'finance' && canManageBusiness && (
                 <AdminFinanceSection admin={adminContext} />

@@ -156,6 +156,24 @@ async function loadOrderSnapshot(sb, orderId) {
     }));
   }
 
+  // Compatibilidade: se o esquema de order_items exigir product_id, um
+  // item de personalização sem SKU pode não ter sido gravado. O pedido
+  // continua tendo descrição correta nos e-mails de confirmação.
+  if (order?.id && !items.length) {
+    try {
+      const { data: custom } = await sb.from('custom_miniature_requests')
+        .select('kind,total_cents')
+        .eq('order_id', order.id).maybeSingle();
+      if (custom) {
+        items = [{
+          name: custom.kind === 'busto' ? 'Busto personalizado' : 'Miniatura personalizada',
+          qty: 1, scale: null, unit_price_brl: Number(custom.total_cents || 0) / 100,
+          img: null,
+        }];
+      }
+    } catch (error) { console.error('custom email items fallback', error); }
+  }
+
   return { order, profile, items };
 }
 
@@ -723,6 +741,28 @@ export default async function handler(req, res) {
           if (payerPhone) updateData.customer_phone = payerPhone;
 
           await sb.from("orders").update(updateData).eq("id", orderId);
+          // As miniaturas personalizadas usam a tabela de pedidos da loja
+          // para cobrança/cupom/e-mail, mas possuem fluxo de produção próprio.
+          // Atualiza somente a solicitação vinculada a este pagamento.
+          try {
+            const nextCustomStatus = mapped === 'paid' ? 'paid' : (mapped === 'failed' ? 'failed' : 'pending');
+            const customPatch = {
+              payment_status: nextCustomStatus,
+              provider_payment_id: String(payment.id || ''),
+              updated_at: new Date().toISOString(),
+            };
+            if (mapped === 'paid') customPatch.production_status = 'recebido';
+            const update = sb.from('custom_miniature_requests')
+              .update(customPatch).eq('order_id', orderId)
+              .in('payment_status', ['processing', 'pending', 'failed']);
+            const { data: changed, error: customError } = await update.select('id');
+            if (customError) console.error('custom miniature webhook sync', customError);
+            if (mapped === 'paid' && changed?.length) {
+              await sb.from('orders').update({ production_status: 'recebido' }).eq('id', orderId);
+            }
+          } catch (customError) {
+            console.error('custom miniature webhook sync error', customError);
+          }
           if (shouldCleanupOrder3dForStatus(mapped)) {
             await cleanupOrder3dModel(sb, orderId).catch((e) => console.error("order 3d cleanup on webhook status failed", e));
           }

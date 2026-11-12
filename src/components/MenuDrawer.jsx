@@ -113,6 +113,16 @@ export default function MenuDrawer({
               Catálogo
             </DrawerButton>
             <DrawerButton
+              icon="design_services"
+              active={route === '/miniaturas-personalizadas'}
+              onClick={() => {
+                onNavigate('/miniaturas-personalizadas')
+                onClose?.()
+              }}
+            >
+              Miniatura personalizada
+            </DrawerButton>
+            <DrawerButton
               icon="local_shipping"
               active={route === '/estoque'}
               onClick={() => {
