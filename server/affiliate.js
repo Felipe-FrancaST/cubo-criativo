@@ -18,7 +18,7 @@ export function normalizeCouponCode(value) {
 export async function getActiveAffiliateBySlug(sb, slug) {
   const normalized = normalizeAffiliateSlug(slug);
   if (!normalized) return null;
-  const { data, error } = await sb.from('affiliates').select('id,user_id,slug,active,commission_type,commission_value,commission_base,attribution_days,recurring_vip,recurring_commission_value').eq('slug', normalized).eq('active', true).maybeSingle();
+  const { data, error } = await sb.from('affiliates').select('id,user_id,slug,active,deleted_at,commission_type,commission_value,commission_base,attribution_days,recurring_vip,recurring_commission_value').eq('slug', normalized).eq('active', true).is('deleted_at', null).maybeSingle();
   if (error) throw error;
   return data || null;
 }
@@ -26,7 +26,7 @@ export async function getActiveAffiliateBySlug(sb, slug) {
 export async function getAffiliateById(sb, id) {
   const key = String(id || '').trim();
   if (!key) return null;
-  const { data, error } = await sb.from('affiliates').select('id,user_id,slug,active,commission_type,commission_value,commission_base,attribution_days,recurring_vip,recurring_commission_value').eq('id', key).maybeSingle();
+  const { data, error } = await sb.from('affiliates').select('id,user_id,slug,active,deleted_at,commission_type,commission_value,commission_base,attribution_days,recurring_vip,recurring_commission_value').eq('id', key).is('deleted_at', null).maybeSingle();
   if (error) throw error;
   return data || null;
 }
@@ -40,26 +40,39 @@ export async function getAffiliateAttribution(sb, { visitorId, affiliateId, now 
   return data;
 }
 
-export async function resolveAffiliateForCheckout(sb, { affiliateSlug, visitorId, couponCode, orderType = 'shop', userId }) {
-  const coupon = couponCode ? await sb.from('coupons').select('code,affiliate_id').eq('code', normalizeCouponCode(couponCode)).maybeSingle() : { data: null };
-  const couponAffiliateId = coupon?.data?.affiliate_id || null;
-  // Regra definida pelo Cubo: quando há conflito, o vendedor do cupom vence.
-  if (couponAffiliateId) {
-    const aff = await getAffiliateById(sb, couponAffiliateId);
-    if (aff?.active) return { affiliate: aff, source: 'coupon', coupon: coupon?.data || null };
-  }
-
-  let candidate = null;
-  if (affiliateSlug) candidate = await getActiveAffiliateBySlug(sb, affiliateSlug);
-  if (!candidate && visitorId) {
-    const { data } = await sb.from('affiliate_attributions').select('affiliate_id,expires_at').eq('visitor_id', visitorId).order('last_visit_at', { ascending: false }).limit(1).maybeSingle();
-    if (data?.affiliate_id) {
-      const expires = data.expires_at ? new Date(data.expires_at).getTime() : 0;
-      if (!expires || expires > Date.now()) candidate = await getAffiliateById(sb, data.affiliate_id);
+export async function resolveAffiliateForCheckout(sb, { affiliateSlug, visitorId, couponCode, userId }) {
+  // O cupom válido tem prioridade; o vínculo é resolvido do banco, nunca do navegador.
+  const code = normalizeCouponCode(couponCode);
+  let coupon = null;
+  if (code) {
+    const result = await sb.from('coupons').select('code,affiliate_id,active').eq('code', code).maybeSingle();
+    if (result.error) throw result.error;
+    coupon = result.data || null;
+    if (coupon?.active && coupon.affiliate_id) {
+      const affiliate = await getAffiliateById(sb, coupon.affiliate_id);
+      if (affiliate?.active && affiliate.user_id !== userId) {
+        return { affiliate, source: 'coupon', coupon };
+      }
     }
   }
-  if (!candidate?.active) return { affiliate: null, source: null, coupon: coupon?.data || null };
-  return { affiliate: candidate, source: 'link', coupon: coupon?.data || null };
+
+  // Uma slug informada manualmente NÃO gera comissão. Exige visita real
+  // registrada no servidor, dentro da janela de atribuição.
+  const visitor = String(visitorId || '').trim();
+  if (!visitor || visitor.length > 120) return { affiliate: null, source: null, coupon };
+  let query = sb.from('affiliate_attributions')
+    .select('affiliate_id,expires_at')
+    .eq('visitor_id', visitor)
+    .gt('expires_at', new Date().toISOString())
+    .order('last_visit_at', { ascending: false }).limit(1);
+  // Se existir slug no cookie, só poderá ser atribuída se corresponder
+  // à visita persistida do mesmo vendedor.
+  const result = await query.maybeSingle();
+  if (result.error) throw result.error;
+  const candidate = result.data?.affiliate_id ? await getAffiliateById(sb, result.data.affiliate_id) : null;
+  if (!candidate?.active || candidate.user_id === userId) return { affiliate: null, source: null, coupon };
+  // Não usar slug para substituir o histórico real de visitas.
+  return { affiliate: candidate, source: 'link', coupon };
 }
 
 export async function trackAffiliateVisit(sb, { slug, visitorId, landingPage = '/', referrer = '', userAgent = '' }) {
@@ -69,12 +82,16 @@ export async function trackAffiliateVisit(sb, { slug, visitorId, landingPage = '
   const now = new Date();
   const days = Math.max(1, Number(affiliate.attribution_days || AFFILIATE_ATTRIBUTION_DAYS_DEFAULT) || AFFILIATE_ATTRIBUTION_DAYS_DEFAULT);
   const expires = new Date(now.getTime() + days * 86400000).toISOString();
-  await sb.from('affiliate_visits').insert({ affiliate_id: affiliate.id, visitor_id: visitor, landing_page: String(landingPage || '/').slice(0, 500), referrer: String(referrer || '').slice(0, 1000), user_agent: String(userAgent || '').slice(0, 1000) });
+  if (visitor.length > 120 || !/^[a-zA-Z0-9_-]{8,120}$/.test(visitor)) return { ok: false, status: 400, error: 'Identificador de visitante inválido.' };
+  const visit = await sb.from('affiliate_visits').insert({ affiliate_id: affiliate.id, visitor_id: visitor, landing_page: String(landingPage || '/').slice(0, 500), referrer: String(referrer || '').slice(0, 1000), user_agent: String(userAgent || '').slice(0, 1000) });
+  if (visit.error) throw visit.error;
   const existing = await sb.from('affiliate_attributions').select('id,first_visit_at').eq('visitor_id', visitor).eq('affiliate_id', affiliate.id).maybeSingle();
   if (existing?.data?.id) {
-    await sb.from('affiliate_attributions').update({ last_visit_at: now.toISOString(), expires_at: expires }).eq('id', existing.data.id);
+    const changed = await sb.from('affiliate_attributions').update({ last_visit_at: now.toISOString(), expires_at: expires }).eq('id', existing.data.id);
+    if (changed.error) throw changed.error;
   } else {
-    await sb.from('affiliate_attributions').insert({ affiliate_id: affiliate.id, visitor_id: visitor, first_visit_at: now.toISOString(), last_visit_at: now.toISOString(), expires_at: expires });
+    const created = await sb.from('affiliate_attributions').insert({ affiliate_id: affiliate.id, visitor_id: visitor, first_visit_at: now.toISOString(), last_visit_at: now.toISOString(), expires_at: expires });
+    if (created.error) throw created.error;
   }
   return { ok: true, visitor_id: visitor, affiliate: { id: affiliate.id, slug: affiliate.slug, attribution_days: days }, expires_at: expires };
 }
@@ -103,9 +120,53 @@ export async function maybeCreateAffiliateCommission(sb, { order, subtotal, affi
 
 export async function finalizeAffiliateCommission(sb, orderId, paid) {
   if (!orderId) return;
-  const status = paid ? 'confirmed' : 'cancelled';
-  await sb.from('affiliate_commissions').update({ status, confirmed_at: paid ? new Date().toISOString() : null }).eq('order_id', orderId).in('status', paid ? ['pending','confirmed'] : ['pending','confirmed']);
+  if (!paid) {
+    const { error } = await sb.rpc('affiliate_reverse_commission', { p_order_id: orderId });
+    if (error) throw error;
+    return;
+  }
+  // Confirmar apenas após aprovação real; chamadas repetidas são idempotentes.
+  const { error } = await sb.from('affiliate_commissions').update({
+    status: 'confirmed', confirmed_at: new Date().toISOString(),
+  }).eq('order_id', orderId).in('status', ['pending','cancelled']).is('withdrawal_id', null);
+  if (error) throw error;
 }
+
+// Recuperação para webhooks que chegaram antes do registro da comissão
+// ou pedidos mais antigos que já tinham vendedor atribuído.
+export async function ensureAffiliateCommissionAfterPayment(sb, order) {
+  if (!order?.id) return null;
+  const { data: existing, error } = await sb.from('affiliate_commissions')
+    .select('id,status').eq('order_id', order.id).maybeSingle();
+  if (error) throw error;
+  if (existing) return existing;
+  let affiliateId = order.affiliate_id;
+  if (!affiliateId && order.coupon_code) {
+    const { data: coupon, error: couponError } = await sb.from('coupons')
+      .select('affiliate_id').eq('code', normalizeCouponCode(order.coupon_code)).maybeSingle();
+    if (couponError) throw couponError;
+    affiliateId = coupon?.affiliate_id || null;
+  }
+  if (!affiliateId) return null;
+  const orderType = String(order.order_type || 'shop');
+  let firstVip = true;
+  if (orderType === 'vip') {
+    const { count, error: ordersError } = await sb.from('orders').select('id', { count: 'exact', head: true })
+      .eq('user_id', order.user_id).eq('order_type','vip').eq('status','paid').neq('id',order.id);
+    if (ordersError) throw ordersError;
+    firstVip = !count;
+  }
+  const base = Number(order.total || 0) + Number(order.coupon_discount || 0);
+  const created = await maybeCreateAffiliateCommission(sb, { order, affiliateId,
+    subtotal: base, orderType, isFirstVipSubscription: firstVip });
+  if (created) {
+    const update = await sb.from('orders').update({ affiliate_id: affiliateId,
+      affiliate_source: order.affiliate_id ? order.affiliate_source : 'coupon', affiliate_commission: created.commission_value }).eq('id',order.id);
+    if (update.error) throw update.error;
+  }
+  return created;
+}
+
 
 export function couponEligibleSubtotal({ coupon, total, items = [], vipPlanId = '' }) {
   const appliesTo = String(coupon?.applies_to || 'products').toLowerCase();

@@ -5111,241 +5111,200 @@ async function handleSetAdminLevel(req, res) {
 
 async function handleAffiliates(req, res) {
   const auth = await requireAdmin(req, ADMIN_LEVEL.MANAGER)
-  if (!auth.ok)
-    return res
-      .status(auth.status || 403)
-      .json({ error: auth.error || 'Sem permissão.' })
+  if (!auth.ok) return res.status(auth.status || 403).json({ error: auth.error || 'Sem permissão.' })
   const sb = supabaseAdmin()
-  const [
-    { data: affiliates, error: affErr },
-    { data: profiles },
-    { data: products },
-    { data: vipPlans },
-  ] = await Promise.all([
+  const [affResp, profilesResp, productsResp, vipResp, couponResp, withdrawalsResp] = await Promise.all([
     sb.from('affiliates').select('*').order('created_at', { ascending: false }),
-    sb
-      .from('profiles')
-      .select('id,full_name,phone')
-      .order('full_name', { ascending: true })
-      .limit(5000),
-    sb
-      .from('products')
-      .select('id,name')
-      .eq('active', true)
-      .order('name')
-      .limit(1000),
-    sb
-      .from('vip_plans')
-      .select('id,name,short_name,price_brl')
-      .order('sort_order')
-      .limit(100),
+    sb.from('profiles').select('id,full_name,phone').order('full_name').limit(5000),
+    sb.from('products').select('id,name').eq('active', true).order('name').limit(1000),
+    sb.from('vip_plans').select('id,name,short_name,price_brl').order('sort_order').limit(100),
+    sb.from('coupons').select('code,affiliate_id,label,discount_type,discount_value,active,max_uses,used_count,applies_to,expires_at')
+      .not('affiliate_id', 'is', null).order('code').limit(1000),
+    sb.from('affiliate_withdrawal_requests')
+      .select('id,affiliate_id,amount,pix_key,holder_name,status,requested_at,paid_at,rejected_at,notes')
+      .order('requested_at', { ascending: false }).limit(500),
   ])
-  if (affErr)
-    return res
-      .status(400)
-      .json({
-        error:
-          affErr.message ||
-          'Tabela de vendedores não encontrada. Rode supabase/sql/affiliates.sql.',
-      })
-  const ids = (affiliates || []).map((a) => a.id)
-  const { data: commissions } = ids.length
-    ? await sb
-        .from('affiliate_commissions')
-        .select(
-          'id,order_id,affiliate_id,commission_base,commission_rate,commission_value,status,created_at,confirmed_at,paid_at'
-        )
-        .in('affiliate_id', ids)
-        .order('created_at', { ascending: false })
-    : { data: [] }
-  const { data: visits } = ids.length
-    ? await sb
-        .from('affiliate_visits')
-        .select('affiliate_id,visitor_id')
-        .in('affiliate_id', ids)
-    : { data: [] }
-  const visitMap = new Map()
-  ;(visits || []).forEach((v) => {
-    const k = String(v.affiliate_id)
-    const cur = visitMap.get(k) || { visits: 0, unique: new Set() }
-    cur.visits++
-    if (v.visitor_id) cur.unique.add(v.visitor_id)
-    visitMap.set(k, cur)
-  })
-  const profileMap = new Map((profiles || []).map((p) => [String(p.id), p]))
-  const commsBy = new Map()
-  ;(commissions || []).forEach((c) => {
-    const k = String(c.affiliate_id)
-    if (!commsBy.has(k)) commsBy.set(k, [])
-    commsBy.get(k).push(c)
-  })
-  const items = (affiliates || []).map((a) => {
-    const cs = commsBy.get(String(a.id)) || []
+  for (const response of [affResp, profilesResp, productsResp, vipResp, couponResp, withdrawalsResp]) {
+    if (response.error) return res.status(400).json({ error: response.error.message || 'Execute a migração SQL de vendedores e saques.' })
+  }
+  const allAffiliates = affResp.data || []
+  const visible = allAffiliates.filter(a => !a.deleted_at)
+  const profiles = profilesResp.data || []
+  const profileMap = new Map(profiles.map(p => [String(p.id), p]))
+  const statsResults = await Promise.all(visible.map(async a => {
+    const [stats, commissions] = await Promise.all([
+      sb.rpc('affiliate_dashboard_stats', { p_affiliate_id: a.id }),
+      sb.from('affiliate_commissions')
+        .select('id,order_id,commission_base,commission_rate,commission_value,status,created_at,confirmed_at,paid_at,withdrawal_id')
+        .eq('affiliate_id', a.id).order('created_at', { ascending: false }).limit(40),
+    ])
+    if (stats.error || commissions.error) throw stats.error || commissions.error
     return {
-      ...a,
-      profile: profileMap.get(String(a.user_id)) || null,
+      ...a, profile: profileMap.get(String(a.user_id)) || null,
       stats: {
-        visits: visitMap.get(String(a.id))?.visits || 0,
-        unique_visitors: visitMap.get(String(a.id))?.unique?.size || 0,
-        orders: cs.length,
-        revenue: cs.reduce((s, c) => s + Number(c.commission_base || 0), 0),
-        commission: cs.reduce((s, c) => s + Number(c.commission_value || 0), 0),
-        pending: cs
-          .filter((c) => c.status === 'pending' || c.status === 'confirmed')
-          .reduce((s, c) => s + Number(c.commission_value || 0), 0),
-        paid: cs
-          .filter((c) => c.status === 'paid')
-          .reduce((s, c) => s + Number(c.commission_value || 0), 0),
+        ...stats.data,
+        commission: Number(stats.data?.total_commission || 0),
+        pending: Number(stats.data?.pending_commission || 0) + Number(stats.data?.confirmed_commission || 0),
+        paid: Number(stats.data?.paid_commission || 0),
       },
-      commissions: cs.slice(0, 100),
+      commissions: commissions.data || [],
     }
-  })
-  const { data: coupons } = await sb
-    .from('coupons')
-    .select(
-      'code,affiliate_id,label,discount_type,discount_value,active,max_uses,used_count,applies_to,expires_at'
-    )
-    .eq('source', 'affiliate')
-    .order('code')
-    .limit(1000)
-  const couponRows = (coupons || []).map((c) => ({
-    ...c,
-    affiliate_name:
-      profileMap.get(
-        String(
-          (affiliates || []).find(
-            (a) => String(a.id) === String(c.affiliate_id)
-          )?.user_id || ''
-        )
-      )?.full_name || null,
   }))
-  return res
-    .status(200)
-    .json({
-      affiliates: items,
-      profiles: profiles || [],
-      products: products || [],
-      vip_plans: vipPlans || [],
-      coupons: couponRows,
-    })
+  const lookupName = new Map(allAffiliates.map(a => [String(a.id),
+    profileMap.get(String(a.user_id))?.full_name || a.slug || 'Vendedor removido']))
+  return res.status(200).json({
+    affiliates: statsResults,
+    profiles,
+    products: productsResp.data || [],
+    vip_plans: vipResp.data || [],
+    coupons: (couponResp.data || []).filter(c => visible.some(a => a.id === c.affiliate_id))
+      .map(c => ({ ...c, affiliate_name: lookupName.get(String(c.affiliate_id)) || null })),
+    withdrawals: (withdrawalsResp.data || []).map(w => ({
+      ...w, affiliate_name: lookupName.get(String(w.affiliate_id)) || 'Vendedor removido',
+    })),
+  })
+}
+
+function normalizeSellerCoupon(body, affiliateId) {
+  const code = String(body?.code || '').trim().toUpperCase().replace(/\s+/g, '-')
+  if (!/^[A-Z0-9_-]{3,50}$/.test(code)) throw new Error('O cupom precisa ter de 3 a 50 caracteres (letras, números, - ou _).')
+  const discountType = String(body.discount_type || 'percent')
+  if (!['percent', 'fixed_min'].includes(discountType)) throw new Error('Tipo de desconto inválido.')
+  const value = Number(body.discount_value)
+  if (!Number.isFinite(value) || value <= 0 || (discountType === 'percent' && value > 100)) {
+    throw new Error('Informe um desconto válido (percentual de até 100%).')
+  }
+  const limit = Number(body.max_uses || 100)
+  if (!Number.isInteger(limit) || limit < 1 || limit > 100000) throw new Error('Limite de usos inválido.')
+  return {
+    code, affiliate_id: affiliateId,
+    label: String(body.label || code).trim().slice(0, 160),
+    discount_type: discountType, discount_value: value,
+    min_order_value: Math.max(0, Number(body.min_order_value || 0)),
+    expires_at: body.expires_at || null, active: body.active !== false,
+    max_uses: limit, used_count: 0, source: 'affiliate',
+    applies_to: ['products','vip','both'].includes(String(body.applies_to)) ? body.applies_to : 'products',
+    product_ids: Array.isArray(body.product_ids) ? body.product_ids.map(String) : [],
+    vip_plan_ids: Array.isArray(body.vip_plan_ids) ? body.vip_plan_ids.map(String) : [],
+  }
 }
 
 async function handleSaveAffiliate(req, res) {
   const auth = await requireAdmin(req, ADMIN_LEVEL.MANAGER)
-  if (!auth.ok)
-    return res
-      .status(auth.status || 403)
-      .json({ error: auth.error || 'Sem permissão.' })
+  if (!auth.ok) return res.status(auth.status || 403).json({ error: auth.error || 'Sem permissão.' })
   const body = await readJsonBody(req)
   const sb = supabaseAdmin()
   const userId = String(body.user_id || '').trim()
-  if (!userId) return res.status(400).json({ error: 'Selecione um cliente.' })
-  let slug = String(body.slug || '')
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9-]+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '')
-    .slice(0, 80)
+  if (!/^[0-9a-f-]{36}$/i.test(userId)) return res.status(400).json({ error: 'Selecione um cliente válido.' })
+  const { data: profile } = await sb.from('profiles').select('id').eq('id', userId).maybeSingle()
+  if (!profile) return res.status(400).json({ error: 'Cliente não encontrado.' })
+  const slug = String(body.slug || '').trim().toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9-]+/g, '-')
+    .replace(/-+/g, '-').replace(/^-|-$/g, '').slice(0, 80)
   if (!slug) return res.status(400).json({ error: 'Informe um link válido.' })
+  const commission = Number(body.commission_value)
+  const type = body.commission_type === 'fixed' ? 'fixed' : 'percent'
+  if (!Number.isFinite(commission) || commission < 0 || (type === 'percent' && commission > 100)) {
+    return res.status(400).json({ error: 'Valor da comissão inválido.' })
+  }
   const payload = {
-    user_id: userId,
-    slug,
-    active: body.active !== false,
-    commission_type:
-      String(body.commission_type || 'percent') === 'fixed'
-        ? 'fixed'
-        : 'percent',
-    commission_value: Math.max(0, Number(body.commission_value || 0)),
+    user_id: userId, slug, active: body.active !== false,
+    commission_type: type, commission_value: commission,
     commission_base: 'subtotal_before_coupon',
-    attribution_days: Math.min(
-      365,
-      Math.max(1, Number(body.attribution_days || 30))
-    ),
-    recurring_vip: false,
-    recurring_commission_value: 0,
+    attribution_days: Math.min(365, Math.max(1, Number(body.attribution_days || 30))),
+    recurring_vip: false, recurring_commission_value: 0, deleted_at: null,
   }
+  let initialCoupon = null
+  if (body.initial_coupon?.code) {
+    try { initialCoupon = normalizeSellerCoupon(body.initial_coupon, 'placeholder'); initialCoupon.active = payload.active }
+    catch (error) { return res.status(400).json({ error: error.message }) }
+  }
+  let existing = null
   if (body.id) {
-    const { data, error } = await sb
-      .from('affiliates')
-      .update(payload)
-      .eq('id', String(body.id))
-      .select('*')
-      .single()
-    if (error) return res.status(400).json({ error: error.message })
-    return res.status(200).json({ affiliate: data })
+    const result = await sb.from('affiliates').select('id,user_id,deleted_at').eq('id', String(body.id)).maybeSingle()
+    if (result.error || !result.data || result.data.deleted_at) return res.status(404).json({ error: 'Vendedor não encontrado.' })
+    existing = result.data
+  } else {
+    const result = await sb.from('affiliates').select('id,deleted_at').eq('user_id', userId).maybeSingle()
+    if (result.error) return res.status(400).json({ error: result.error.message })
+    if (result.data && !result.data.deleted_at) return res.status(409).json({ error: 'Este cliente já possui cadastro de vendedor.' })
+    existing = result.data || null // reativa cadastro arquivado, preservando o histórico
   }
-  const { data, error } = await sb
-    .from('affiliates')
-    .insert(payload)
-    .select('*')
-    .single()
-  if (error) return res.status(400).json({ error: error.message })
-  return res.status(200).json({ affiliate: data })
+  const isFresh = !existing
+  const result = existing
+    ? await sb.from('affiliates').update(payload).eq('id', existing.id).select('*').single()
+    : await sb.from('affiliates').insert(payload).select('*').single()
+  if (result.error) return res.status(400).json({ error: result.error.message })
+  if (!payload.active) {
+    const disabled = await sb.from('coupons').update({ active: false }).eq('affiliate_id', result.data.id)
+    if (disabled.error) return res.status(500).json({ error: 'Vendedor inativado, mas não foi possível suspender os cupons. Confira os cupons manualmente.' })
+  }
+  if (initialCoupon) {
+    const couponInsert = await sb.from('coupons').insert({ ...initialCoupon, affiliate_id: result.data.id })
+    if (couponInsert.error) {
+      if (isFresh) await sb.from('affiliates').delete().eq('id', result.data.id)
+      return res.status(400).json({ error: `Cupom não criado: ${couponInsert.error.message}. ${isFresh ? 'O cadastro foi revertido.' : 'O vendedor foi salvo; revise o cupom.'}` })
+    }
+  }
+  return res.status(200).json({ affiliate: result.data })
 }
 
-async function handleAffiliatePay(req, res) {
+async function handleDeleteAffiliate(req, res) {
   const auth = await requireAdmin(req, ADMIN_LEVEL.MANAGER)
-  if (!auth.ok)
-    return res
-      .status(auth.status || 403)
-      .json({ error: auth.error || 'Sem permissão.' })
-  const body = await readJsonBody(req)
+  if (!auth.ok) return res.status(auth.status || 403).json({ error: auth.error || 'Sem permissão.' })
+  const { id } = await readJsonBody(req)
   const sb = supabaseAdmin()
-  const id = String(body.id || '').trim()
-  if (!id) return res.status(400).json({ error: 'Comissão inválida.' })
-  const { data, error } = await sb
-    .from('affiliate_commissions')
-    .update({ status: 'paid', paid_at: new Date().toISOString() })
-    .eq('id', id)
-    .select('*')
-    .single()
+  const { data, error } = await sb.from('affiliates')
+    .update({ active: false, deleted_at: new Date().toISOString() })
+    .eq('id', String(id || '')).is('deleted_at', null).select('id').maybeSingle()
   if (error) return res.status(400).json({ error: error.message })
-  return res.status(200).json({ commission: data })
+  if (!data) return res.status(404).json({ error: 'Vendedor não encontrado.' })
+  const coupons = await sb.from('coupons').update({ active: false }).eq('affiliate_id', data.id)
+  if (coupons.error) return res.status(500).json({ error: 'Vendedor removido, mas não foi possível desativar seus cupons. Desative-os manualmente.' })
+  // Exclusão lógica é deliberada: não apaga pagamentos, saques ou comissões.
+  return res.status(200).json({ ok: true })
+}
+
+async function handleAffiliateWithdrawalCount(req, res) {
+  const auth = await requireAdmin(req, ADMIN_LEVEL.MANAGER)
+  if (!auth.ok) return res.status(auth.status || 403).json({ error: auth.error || 'Sem permissão.' })
+  const { count, error } = await supabaseAdmin().from('affiliate_withdrawal_requests')
+    .select('id', { count: 'exact', head: true }).eq('status', 'requested')
+  if (error) return res.status(400).json({ error: error.message })
+  return res.status(200).json({ count: count || 0 })
+}
+
+async function handleSettleAffiliateWithdrawal(req, res) {
+  const auth = await requireAdmin(req, ADMIN_LEVEL.MANAGER)
+  if (!auth.ok) return res.status(auth.status || 403).json({ error: auth.error || 'Sem permissão.' })
+  const body = await readJsonBody(req)
+  const id = String(body.id || '')
+  const action = String(body.status || '')
+  if (!/^[0-9a-f-]{36}$/i.test(id) || !['paid','rejected'].includes(action)) {
+    return res.status(400).json({ error: 'Solicitação ou ação inválida.' })
+  }
+  const { data, error } = await supabaseAdmin().rpc('affiliate_settle_withdrawal', {
+    p_request_id: id, p_actor: auth.user.id, p_action: action,
+    p_notes: String(body.notes || '').slice(0,500),
+  })
+  if (error) return res.status(409).json({ error: error.message })
+  return res.status(200).json({ withdrawal: data, ok: true })
 }
 
 async function handleSaveAffiliateCoupon(req, res) {
   const auth = await requireAdmin(req, ADMIN_LEVEL.MANAGER)
-  if (!auth.ok)
-    return res
-      .status(auth.status || 403)
-      .json({ error: auth.error || 'Sem permissão.' })
+  if (!auth.ok) return res.status(auth.status || 403).json({ error: auth.error || 'Sem permissão.' })
   const body = await readJsonBody(req)
   const sb = supabaseAdmin()
-  const code = String(body.code || '')
-    .trim()
-    .toUpperCase()
-    .replace(/\s+/g, '-')
   const affiliateId = String(body.affiliate_id || '').trim()
-  if (!code || !affiliateId)
-    return res.status(400).json({ error: 'Informe vendedor e código.' })
-  const payload = {
-    code,
-    affiliate_id: affiliateId,
-    label: String(body.label || code).trim(),
-    discount_type: String(body.discount_type || 'percent'),
-    discount_value: Math.max(0, Number(body.discount_value || 0)),
-    min_order_value: Math.max(0, Number(body.min_order_value || 0)),
-    expires_at: body.expires_at || null,
-    active: body.active !== false,
-    max_uses: Math.max(1, Number(body.max_uses || 1)),
-    used_count: 0,
-    source: 'affiliate',
-    applies_to: ['products', 'vip', 'both'].includes(String(body.applies_to))
-      ? String(body.applies_to)
-      : 'products',
-    product_ids: Array.isArray(body.product_ids)
-      ? body.product_ids.map(String)
-      : [],
-    vip_plan_ids: Array.isArray(body.vip_plan_ids)
-      ? body.vip_plan_ids.map(String)
-      : [],
-  }
-  const { data, error } = await sb
-    .from('coupons')
-    .upsert(payload, { onConflict: 'code' })
-    .select('*')
-    .single()
+  const { data: affiliate, error: affiliateError } = await sb.from('affiliates')
+    .select('id,active').eq('id', affiliateId).is('deleted_at', null).maybeSingle()
+  if (affiliateError || !affiliate?.active) return res.status(400).json({ error: 'Vendedor inativo ou não encontrado.' })
+  let payload
+  try { payload = normalizeSellerCoupon(body, affiliateId) }
+  catch (error) { return res.status(400).json({ error: error.message }) }
+  // Nunca reescreve um cupom existente nem zera seu histórico de usos.
+  const { data, error } = await sb.from('coupons').insert(payload).select('*').single()
   if (error) return res.status(400).json({ error: error.message })
   return res.status(200).json({ coupon: data })
 }
@@ -5407,7 +5366,9 @@ export default async function handler(req, res) {
       return await handleGameCouponMetrics(req, res)
     if (action === 'affiliates') return await handleAffiliates(req, res)
     if (action === 'save-affiliate') return await handleSaveAffiliate(req, res)
-    if (action === 'affiliate-pay') return await handleAffiliatePay(req, res)
+    if (action === 'delete-affiliate') return await handleDeleteAffiliate(req, res)
+    if (action === 'affiliate-withdrawal-count') return await handleAffiliateWithdrawalCount(req, res)
+    if (action === 'settle-affiliate-withdrawal') return await handleSettleAffiliateWithdrawal(req, res)
     if (action === 'save-affiliate-coupon')
       return await handleSaveAffiliateCoupon(req, res)
 

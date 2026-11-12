@@ -1,3 +1,5 @@
+> **Sistema de vendedores/afiliados e saques (12/11/2026):** veja [REVISAO_AFILIADOS_VENDEDORES.md](REVISAO_AFILIADOS_VENDEDORES.md) e execute a migração SQL correspondente antes do deploy.
+
 # Cubo Criativo
 
 Loja online da **Cubo Criativo** para venda de miniaturas, action figures, peças em resina, itens pintados à mão e produtos para colecionadores. O projeto foi desenvolvido com **React + Vite** no frontend, **Supabase** para autenticação e dados, **Mercado Pago** para pagamentos e **Vercel** para deploy e APIs serverless.

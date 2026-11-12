@@ -12,6 +12,8 @@ const emptyForm = {
   commission_value: 10,
   attribution_days: 30,
   active: true,
+  create_coupon: false,
+  initial_coupon: { code: '', label: '', discount_type: 'percent', discount_value: 10, applies_to: 'products', max_uses: 100 },
 }
 const emptyCoupon = {
   affiliate_id: '',
@@ -33,6 +35,7 @@ export default function AdminAffiliatesSection({ accessToken }) {
     products: [],
     vip_plans: [],
     coupons: [],
+    withdrawals: [],
   })
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState('')
@@ -64,6 +67,7 @@ export default function AdminAffiliatesSection({ accessToken }) {
         products: json.products || [],
         vip_plans: json.vip_plans || [],
         coupons: json.coupons || [],
+        withdrawals: json.withdrawals || [],
       })
     } catch (err) {
       setError(err.message || String(err))
@@ -96,6 +100,8 @@ export default function AdminAffiliatesSection({ accessToken }) {
       commission_value: affiliate.commission_value || 0,
       attribution_days: affiliate.attribution_days || 30,
       active: affiliate.active !== false,
+      create_coupon: false,
+      initial_coupon: emptyForm.initial_coupon,
     })
   }
   async function save() {
@@ -111,6 +117,7 @@ export default function AdminAffiliatesSection({ accessToken }) {
         },
         body: JSON.stringify({
           ...form,
+          initial_coupon: !editing && form.create_coupon ? form.initial_coupon : null,
           id: editing,
         }),
       })
@@ -150,22 +157,38 @@ export default function AdminAffiliatesSection({ accessToken }) {
       setCouponBusy(false)
     }
   }
-  async function paid(id) {
-    if (!window.confirm('Marcar esta comissão como paga?')) return
-    const response = await fetch('/api/admin?action=affiliate-pay', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({
-        id,
-      }),
-    })
-    const json = await response.json().catch(() => ({}))
-    if (!response.ok) return setError(json.error || 'Erro ao marcar comissão.')
-    await load()
+  async function deleteAffiliate(affiliate) {
+    const name = affiliate.profile?.full_name || affiliate.slug
+    if (!window.confirm(`Remover ${name} do programa de vendedores? O link e os cupons serão desativados. Comissões e saques anteriores serão preservados.`)) return
+    setError('')
+    try {
+      const response = await fetch('/api/admin?action=delete-affiliate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ id: affiliate.id }),
+      })
+      const result = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(result.error || 'Não foi possível excluir o vendedor.')
+      if (editing === affiliate.id) resetForm()
+      await load()
+    } catch (error) { setError(error.message) }
   }
+  async function settleWithdrawal(withdrawal, action) {
+    const verb = action === 'paid' ? 'Confirmar saque executado' : 'Recusar saque'
+    if (!window.confirm(`${verb} de ${fmt(withdrawal.amount)} para ${withdrawal.holder_name} — chave Pix ${withdrawal.pix_key}? ${action === 'paid' ? 'Confirme somente depois de realizar a transferência.' : 'O saldo ficará novamente disponível ao vendedor.'}`)) return
+    setError('')
+    try {
+      const response = await fetch('/api/admin?action=settle-affiliate-withdrawal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ id: withdrawal.id, status: action }),
+      })
+      const result = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(result.error || 'Não foi possível processar o saque.')
+      await load()
+    } catch (error) { setError(error.message) }
+  }
+  const pendingWithdrawals = data.withdrawals.filter(w => w.status === 'requested')
   const activeAffiliates = data.affiliates.filter((a) => a.active).length
   const totals = data.affiliates.reduce(
     (acc, a) => ({
@@ -220,13 +243,14 @@ export default function AdminAffiliatesSection({ accessToken }) {
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
         {[
           ['Vendedores ativos', activeAffiliates],
           ['Acessos', totals.visits],
           ['Vendas atribuídas', fmt(totals.revenue)],
           ['Comissões', fmt(totals.commission)],
           ['Pendentes', fmt(totals.pending)],
+          ['Saques solicitados', pendingWithdrawals.length],
         ].map(([label, value]) => (
           <div
             key={label}
@@ -238,6 +262,18 @@ export default function AdminAffiliatesSection({ accessToken }) {
             <div className="mt-1 text-lg font-black text-white">{value}</div>
           </div>
         ))}
+      </div>
+
+      <div className={`rounded-3xl border p-5 ${pendingWithdrawals.length ? 'border-amber-300/35 bg-amber-400/[.08]' : 'border-white/10 bg-white/[.03]'}`}>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div><h3 className="flex items-center gap-2 text-lg font-black text-white"><span className="material-icons text-amber-300">payments</span> Solicitações de saque</h3><p className="mt-1 text-sm text-slate-400">{pendingWithdrawals.length ? `${pendingWithdrawals.length} solicitações aguardando transferência Pix.` : 'Nenhuma solicitação de saque pendente.'}</p></div>
+          {pendingWithdrawals.length > 0 && <span className="rounded-full bg-amber-300 px-3 py-1 text-xs font-black text-black">Ação necessária · {pendingWithdrawals.length}</span>}
+        </div>
+        {pendingWithdrawals.length > 0 && <div className="mt-4 space-y-3">{pendingWithdrawals.map(w => <div key={w.id} className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-white/10 bg-[#081c27] p-4">
+          <div className="min-w-0"><div className="font-black text-white">{w.affiliate_name} <span className="ml-2 text-emerald-300">{fmt(w.amount)}</span></div><p className="mt-1 text-sm text-slate-200">Titular: <b>{w.holder_name}</b></p><p className="break-all text-sm text-cyan-200">Chave Pix: {w.pix_key}</p><p className="mt-1 text-xs text-slate-500">Solicitado em {new Date(w.requested_at).toLocaleString('pt-BR')}</p></div>
+          <div className="flex flex-wrap gap-2"><button onClick={() => navigator.clipboard?.writeText(w.pix_key)} className="rounded-xl border border-white/10 px-3 py-2 text-xs font-bold text-white">Copiar Pix</button><button onClick={() => settleWithdrawal(w, 'paid')} className="rounded-xl bg-emerald-300 px-4 py-2 text-xs font-black text-black">Marcar saque executado</button><button onClick={() => settleWithdrawal(w, 'rejected')} className="rounded-xl border border-rose-300/25 px-3 py-2 text-xs font-bold text-rose-200">Recusar</button></div>
+        </div>)}</div>}
+        {data.withdrawals.some(w=>w.status !== 'requested') && <details className="mt-4"><summary className="cursor-pointer text-sm font-semibold text-slate-300">Histórico de saques processados</summary><div className="mt-3 space-y-2">{data.withdrawals.filter(w=>w.status !== 'requested').map(w=><div key={w.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-black/20 px-4 py-3 text-sm"><div><b className="text-white">{w.affiliate_name}</b><span className="ml-3 text-slate-400">{new Date(w.requested_at).toLocaleDateString('pt-BR')}</span></div><div className="flex gap-3"><span className="font-bold text-white">{fmt(w.amount)}</span><span className={w.status === 'paid' ? 'text-emerald-300' : 'text-rose-300'}>{w.status === 'paid' ? 'Executado' : 'Recusado'}</span></div></div>)}</div></details>}
       </div>
 
       {showForm && (
@@ -364,6 +400,18 @@ export default function AdminAffiliatesSection({ accessToken }) {
             link e cupom forem de vendedores diferentes, o vendedor do cupom
             recebe a comissão. Renovação VIP não gera nova comissão.
           </div>
+          {!editing && <div className="mt-4 rounded-2xl border border-cyan-300/20 bg-cyan-400/[.05] p-4">
+            <label className="flex cursor-pointer items-center gap-3 text-sm font-bold text-white"><input type="checkbox" checked={form.create_coupon} onChange={e=>setForm({...form, create_coupon:e.target.checked})}/> Criar cupom exclusivo junto com o vendedor</label>
+            {form.create_coupon && <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <label className="text-xs font-semibold text-slate-300">Código do cupom<input value={form.initial_coupon.code} onChange={e=>setForm({...form,initial_coupon:{...form.initial_coupon,code:e.target.value.toUpperCase()}})} placeholder="VENDEDORA10" className="mt-1 w-full rounded-xl bg-black/30 px-3 py-3 text-sm text-white ring-1 ring-white/10"/></label>
+              <label className="text-xs font-semibold text-slate-300">Descrição<input value={form.initial_coupon.label} onChange={e=>setForm({...form,initial_coupon:{...form.initial_coupon,label:e.target.value}})} placeholder="Cupom da vendedora" className="mt-1 w-full rounded-xl bg-black/30 px-3 py-3 text-sm text-white ring-1 ring-white/10"/></label>
+              <label className="text-xs font-semibold text-slate-300">Tipo de desconto<select value={form.initial_coupon.discount_type} onChange={e=>setForm({...form,initial_coupon:{...form.initial_coupon,discount_type:e.target.value}})} className="mt-1 w-full rounded-xl bg-black/30 px-3 py-3 text-sm text-white ring-1 ring-white/10"><option value="percent">Porcentagem (%)</option><option value="fixed_min">Valor fixo (R$)</option></select></label>
+              <label className="text-xs font-semibold text-slate-300">Valor do desconto<input type="number" min="0.01" max={form.initial_coupon.discount_type === 'percent' ? 100 : undefined} step=".01" value={form.initial_coupon.discount_value} onChange={e=>setForm({...form,initial_coupon:{...form.initial_coupon,discount_value:e.target.value}})} className="mt-1 w-full rounded-xl bg-black/30 px-3 py-3 text-sm text-white ring-1 ring-white/10"/></label>
+              <label className="text-xs font-semibold text-slate-300">Onde funciona<select value={form.initial_coupon.applies_to} onChange={e=>setForm({...form,initial_coupon:{...form.initial_coupon,applies_to:e.target.value}})} className="mt-1 w-full rounded-xl bg-black/30 px-3 py-3 text-sm text-white ring-1 ring-white/10"><option value="products">Produtos e personalizadas</option><option value="vip">VIP</option><option value="both">Produtos + VIP</option></select></label>
+              <label className="text-xs font-semibold text-slate-300">Limite de usos<input type="number" min="1" value={form.initial_coupon.max_uses} onChange={e=>setForm({...form,initial_coupon:{...form.initial_coupon,max_uses:e.target.value}})} className="mt-1 w-full rounded-xl bg-black/30 px-3 py-3 text-sm text-white ring-1 ring-white/10"/></label>
+              <div className="col-span-full text-xs text-slate-400">Se este cupom for utilizado em uma compra elegível, a comissão será atribuída automaticamente a este vendedor, mesmo que o visitante tenha acessado o link de outro vendedor.</div>
+            </div>}
+          </div>}
           <div className="mt-4 flex gap-2">
             <button
               disabled={saving || !form.user_id || !form.slug}
@@ -446,12 +494,14 @@ export default function AdminAffiliatesSection({ accessToken }) {
                     >
                       Copiar link
                     </button>
+                    <button onClick={() => { setCoupon({...emptyCoupon, affiliate_id: a.id}); setShowCoupon(true); }} className="rounded-xl border border-cyan-300/20 px-3 py-2 text-xs font-bold text-cyan-200">Criar cupom</button>
                     <button
                       onClick={() => edit(a)}
                       className="rounded-xl bg-white/5 px-3 py-2 text-xs font-bold text-white ring-1 ring-white/10"
                     >
                       Editar
                     </button>
+                    <button onClick={() => deleteAffiliate(a)} className="rounded-xl border border-rose-300/20 px-3 py-2 text-xs font-bold text-rose-200 hover:bg-rose-400/10">Excluir</button>
                   </div>
                 </div>
                 <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-7">
@@ -486,14 +536,7 @@ export default function AdminAffiliatesSection({ accessToken }) {
                         </span>
                         <span className="flex items-center gap-2">
                           <b>{c.status}</b>
-                          {['pending', 'confirmed'].includes(c.status) && (
-                            <button
-                              onClick={() => paid(c.id)}
-                              className="rounded-lg bg-emerald-400 px-2 py-1 font-bold text-black"
-                            >
-                              Marcar paga
-                            </button>
-                          )}
+                          {c.withdrawal_id && <span className="text-cyan-200">Saque solicitado</span>}
                         </span>
                       </div>
                     ))}

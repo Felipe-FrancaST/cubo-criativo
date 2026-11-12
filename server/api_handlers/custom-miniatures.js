@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { getUserFromAuthHeader, supabaseAdmin } from '../supabase.js';
 import { requireAdmin, ADMIN_LEVEL } from '../admin/adminAuth.js';
 import { rateLimit } from '../rateLimit.js';
+import { resolveAffiliateForCheckout, maybeCreateAffiliateCommission, finalizeAffiliateCommission } from '../affiliate.js';
 import {
   CUSTOM_BUCKET, CUSTOM_FORMATS, CUSTOM_MIMES, CUSTOM_PRODUCTION_STATES,
   evaluateCustomCoupon, resolveCustomPrice, safeCustomError, validateCustomFiles,
@@ -71,7 +72,7 @@ async function verifyUploadedFiles(sb, row) {
       Object.hasOwn(CUSTOM_MIMES, mimetype);
   });
 }
-async function createMercadoPagoPayment({ req, orderId, user, kind, method, totalCents, coupon }) {
+async function createMercadoPagoPayment({ req, orderId, user, kind, method, totalCents, coupon, visitorId }) {
   const token = String(process.env.MP_ACCESS_TOKEN || '').trim();
   if (!token) throw new Error('Mercado Pago não está configurado.');
   const origin = baseUrl(req);
@@ -79,6 +80,7 @@ async function createMercadoPagoPayment({ req, orderId, user, kind, method, tota
     order_id: orderId, order_type: 'custom_miniature', user_id: user.id,
     coupon_code: coupon.code || null,
     coupon_discount: coupon.discountCents / 100,
+    visitor_id: String(visitorId || '').slice(0, 120) || null,
   };
   const common = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
   const title = CUSTOM_FORMATS[kind];
@@ -405,6 +407,11 @@ export default async function handleCustomMiniatures(req, res) {
         });
       }
 
+      const affiliateResolution = await resolveAffiliateForCheckout(sb, {
+        affiliateSlug: body.affiliate_slug, visitorId: body.visitor_id,
+        couponCode: coupon.code, userId: user.id,
+      });
+
       // Claim atômico; duas abas/requisições não criam cobranças duplicadas.
       const { data: claimed, error: claimError } = await sb.from(REQUEST_TABLE)
         .update({ payment_status: 'processing', updated_at: new Date().toISOString() })
@@ -423,8 +430,23 @@ export default async function handleCustomMiniatures(req, res) {
           order_type: 'shop', production_status: 'recebido',
           customer_email: user.email || null,
           coupon_code: coupon.code, coupon_discount: coupon.discountCents / 100,
+          affiliate_id: affiliateResolution.affiliate?.id || null,
+          affiliate_source: affiliateResolution.source || null,
+          affiliate_visitor_id: affiliateResolution.source === 'link' ? String(body.visitor_id || '') : null,
         });
         if (orderError) throw orderError;
+        if (affiliateResolution.affiliate?.id) {
+          const commission = await maybeCreateAffiliateCommission(sb, {
+            order: { id: orderId, order_type: 'shop' },
+            subtotal: baseCents / 100,
+            affiliateId: affiliateResolution.affiliate.id,
+            orderType: 'shop', isFirstVipSubscription: false,
+          });
+          if (commission) {
+            const updated = await sb.from('orders').update({ affiliate_commission: commission.commission_value }).eq('id', orderId);
+            if (updated.error) throw updated.error;
+          }
+        }
 
         // Best effort: permite também exibir a compra no histórico já existente.
         const { error: itemError } = await sb.from('order_items').insert({
@@ -450,7 +472,7 @@ export default async function handleCustomMiniatures(req, res) {
         if (linkError) throw linkError;
         gatewayInvoked = true;
         const result = await createMercadoPagoPayment({
-          req, orderId, user, kind, method, totalCents, coupon,
+          req, orderId, user, kind, method, totalCents, coupon, visitorId: body.visitor_id,
         });
         const paymentDetails = method === 'pix' ? (result.pix || {}) : {};
         const { error: customUpdateError } = await sb.from(REQUEST_TABLE).update({
@@ -465,7 +487,10 @@ export default async function handleCustomMiniatures(req, res) {
         });
       } catch (error) {
         console.error('custom miniature checkout error', error);
-        if (orderId) await sb.from('orders').update({ status: 'failed' }).eq('id', orderId);
+        if (orderId) {
+          await sb.from('orders').update({ status: 'failed' }).eq('id', orderId);
+          if (!gatewayInvoked) await finalizeAffiliateCommission(sb, orderId, false).catch(console.error);
+        }
         // Depois de iniciar a requisição ao Mercado Pago, nunca liberar novo
         // checkout automático, mesmo em erro de rede (resultado incerto).
         await sb.from(REQUEST_TABLE).update({

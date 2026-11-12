@@ -1,5 +1,6 @@
 import React from 'react'
 import { supabase } from '../lib/supabaseClient.js'
+import { getAffiliateCheckoutContext } from '../lib/affiliate.js'
 import './custom-miniatures.css'
 
 const API = '/api/core?api_action=custom-miniatures'
@@ -296,6 +297,7 @@ export default function CustomMiniaturesPage({ user, accessToken, onRequireLogin
           request_id: prepared.request_id,
           kind, payment_method: paymentMethod,
           coupon_code: discount?.code || '',
+          ...getAffiliateCheckoutContext(),
           expected_total_cents: totalCents,
         },
       })

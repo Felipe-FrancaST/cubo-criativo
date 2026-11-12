@@ -32,6 +32,7 @@ const StockPage = lazyWithReload(() => import('./pages/StockPage.jsx'))
 const CustomMiniaturesPage = lazyWithReload(() => import('./pages/CustomMiniaturesPage.jsx'))
 const CatalogPage = lazyWithReload(() => import('./pages/CatalogPage.jsx'))
 const AccountPage = lazyWithReload(() => import('./pages/AccountPage.jsx'))
+const SellerDashboardPage = lazyWithReload(() => import('./pages/SellerDashboardPage.jsx'))
 const SettingsPage = lazyWithReload(() => import('./pages/SettingsPage.jsx'))
 const PromocoesPage = lazyWithReload(() => import('./pages/PromocoesPage.jsx'))
 const ProductPage = lazyWithReload(() => import('./pages/ProductPage.jsx'))
@@ -703,6 +704,12 @@ export default function App() {
         description: 'Configurações privadas da conta.',
         path: '/configuracoes',
         robots: 'noindex,follow',
+      },
+      '/vendedor': {
+        title: 'Área do vendedor | Cubo Criativo',
+        description: 'Painel privado de comissões, vendas e saques de vendedores.',
+        path: '/vendedor',
+        robots: 'noindex,nofollow',
       },
       '/conta': {
         title: 'Minha conta | Cubo Criativo',
@@ -1993,8 +2000,11 @@ export default function App() {
     if (route === '/avaliacoes') {
       return <ReviewsPage onGoHome={() => navigate('/')} />
     }
+    if (route === '/vendedor') {
+      return <SellerDashboardPage onGoAccount={() => navigate('/conta')} onGoHome={() => navigate('/')} />
+    }
     if (route === '/conta') {
-      return <AccountPage onGoHome={() => navigate('/')} />
+      return <AccountPage onGoHome={() => navigate('/')} onGoSeller={() => navigate('/vendedor')} />
     }
     if (route !== '/') {
       return (

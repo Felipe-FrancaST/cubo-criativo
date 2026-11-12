@@ -129,7 +129,7 @@ function PasswordInput({ value, onChange, autoComplete = "current-password", pla
   );
 }
 
-export default function AccountPage({ onClose, onGoHome }) {
+export default function AccountPage({ onClose, onGoHome, onGoSeller }) {
   const { user, signIn, signUp, signOut, resetPassword } = useAuth();
 
   const [mode, setMode] = React.useState("login"); // login | signup
@@ -215,15 +215,6 @@ export default function AccountPage({ onClose, onGoHome }) {
         events: timeline,
         vip: profileResp?.data || null,
       });
-      try {
-        setAffiliateLoading(true);
-        const jwt = (await supabase.auth.getSession())?.data?.session?.access_token;
-        if (jwt) {
-          const ar = await fetch('/api/affiliate?action=me', { headers: { Authorization: `Bearer ${jwt}` } });
-          const aj = await ar.json().catch(() => ({}));
-          setAffiliateDashboard(ar.ok && aj?.affiliate ? aj : null);
-        } else setAffiliateDashboard(null);
-      } catch { setAffiliateDashboard(null); } finally { setAffiliateLoading(false); }
     } catch (e) {
       setDashboardError(e?.message || 'Não foi possível carregar os dados da sua conta.');
     } finally {
@@ -235,6 +226,23 @@ export default function AccountPage({ onClose, onGoHome }) {
     if (!user?.id) return;
     fetchDashboard();
   }, [user?.id, fetchDashboard]);
+
+  React.useEffect(() => {
+    if (!user?.id) { setAffiliateDashboard(null); return; }
+    let active = true;
+    (async () => {
+      setAffiliateLoading(true);
+      try {
+        const jwt = (await supabase.auth.getSession())?.data?.session?.access_token;
+        if (!jwt) return;
+        const response = await fetch('/api/affiliate?action=me', { headers: { Authorization: `Bearer ${jwt}` }, cache: 'no-store' });
+        const result = await response.json().catch(() => ({}));
+        if (active) setAffiliateDashboard(response.ok && result.affiliate ? result : null);
+      } catch { if (active) setAffiliateDashboard(null); }
+      finally { if (active) setAffiliateLoading(false); }
+    })();
+    return () => { active = false; };
+  }, [user?.id]);
 
   async function handleSubmit(e) {
     e?.preventDefault?.();
@@ -318,64 +326,14 @@ export default function AccountPage({ onClose, onGoHome }) {
 
   return (
     <main className="flex-1">
-      {affiliateLoading ? null : affiliateDashboard?.affiliate ? (
+      {affiliateDashboard?.affiliate && (
         <section className="container-cc px-4 sm:px-6 lg:px-8 pt-6">
-          <div className="rounded-3xl bg-gradient-to-br from-cyan-500/10 via-white/[0.03] to-violet-500/10 p-5 sm:p-6 ring-1 ring-cyan-400/20">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-              <div>
-                <div className="text-xs uppercase tracking-[0.18em] text-cyan-300">Painel exclusivo</div>
-                <div className="mt-1 text-2xl font-black text-white">Área do vendedor</div>
-                <p className="mt-1 text-sm text-slate-400">Acompanhe seu link, acessos, vendas, comissão e cupons em um só lugar.</p>
-              </div>
-              <span className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-bold ring-1 ${affiliateDashboard.affiliate.active ? 'bg-emerald-500/10 text-emerald-200 ring-emerald-400/20' : 'bg-rose-500/10 text-rose-200 ring-rose-400/20'}`}>{affiliateDashboard.affiliate.active ? 'Vendedor ativo' : 'Vendedor inativo'}</span>
-            </div>
-
-            <div className="mt-5 rounded-2xl bg-black/25 p-4 ring-1 ring-white/10">
-              <div className="text-xs uppercase tracking-wide text-slate-500">Seu link de indicação</div>
-              <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center">
-                <div className="min-w-0 flex-1 break-all rounded-xl bg-black/20 px-3 py-3 font-mono text-sm text-cyan-200 ring-1 ring-white/10">{window.location.origin}/v/{affiliateDashboard.affiliate.slug}</div>
-                <button type="button" onClick={async ()=>{ try { await navigator.clipboard?.writeText(`${window.location.origin}/v/${affiliateDashboard.affiliate.slug}`); setInfo('Link do vendedor copiado!'); } catch {} }} className="rounded-xl bg-cyan-300 px-4 py-3 text-sm font-black text-black hover:bg-cyan-200">Copiar link</button>
-              </div>
-              <div className="mt-2 text-xs text-slate-500">As indicações ficam atribuídas por {affiliateDashboard.affiliate.attribution_days || 30} dias.</div>
-            </div>
-
-            <div className="mt-4 grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-2">
-              {[
-                ['Acessos', affiliateDashboard.stats?.visits || 0],
-                ['Visitantes', affiliateDashboard.stats?.unique_visitors || 0],
-                ['Conversões', affiliateDashboard.stats?.converted_visitors || 0],
-                ['Conversão', `${affiliateDashboard.stats?.conversion_rate || 0}%`],
-                ['Pedidos', affiliateDashboard.stats?.orders || 0],
-                ['Vendas', fmtBRL(affiliateDashboard.stats?.revenue || 0)],
-                ['Comissão', fmtBRL(affiliateDashboard.stats?.confirmed_commission || 0)],
-              ].map(([k,v])=><div key={k} className="rounded-xl bg-black/20 p-3 ring-1 ring-white/5"><div className="text-[10px] uppercase tracking-wide text-slate-500">{k}</div><div className="mt-1 font-bold text-white">{v}</div></div>)}
-            </div>
-
-            <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <div className="rounded-2xl bg-black/20 p-4 ring-1 ring-white/10">
-                <div className="text-sm font-bold text-white">Comissões</div>
-                <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
-                  <div><div className="text-xs text-slate-500">Pendente</div><div className="font-bold text-amber-200">{fmtBRL(affiliateDashboard.stats?.pending_commission || 0)}</div></div>
-                  <div><div className="text-xs text-slate-500">Confirmada</div><div className="font-bold text-emerald-200">{fmtBRL(affiliateDashboard.stats?.confirmed_commission || 0)}</div></div>
-                  <div><div className="text-xs text-slate-500">Paga</div><div className="font-bold text-cyan-200">{fmtBRL(affiliateDashboard.stats?.paid_commission || 0)}</div></div>
-                </div>
-                <div className="mt-4 space-y-2">
-                  {(affiliateDashboard.commissions || []).slice(0,5).map((c)=><div key={c.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white/[0.03] px-3 py-2 text-xs"><span className="text-slate-300">Pedido {String(c.order_id).slice(0,8)}… · base {fmtBRL(c.commission_base)}</span><b className={c.status === 'paid' ? 'text-cyan-200' : c.status === 'confirmed' ? 'text-emerald-200' : c.status === 'cancelled' ? 'text-rose-200' : 'text-amber-200'}>{fmtBRL(c.commission_value)} · {c.status === 'paid' ? 'Paga' : c.status === 'confirmed' ? 'Confirmada' : c.status === 'cancelled' ? 'Cancelada' : 'Pendente'}</b></div>)}
-                  {!(affiliateDashboard.commissions || []).length && <div className="text-xs text-slate-500">Ainda não há comissões registradas.</div>}
-                </div>
-              </div>
-
-              <div className="rounded-2xl bg-black/20 p-4 ring-1 ring-white/10">
-                <div className="text-sm font-bold text-white">Seus cupons</div>
-                <div className="mt-2 space-y-2">
-                  {(affiliateDashboard.coupons || []).map((c)=><div key={c.code} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white/[0.03] px-3 py-2"><div><b className="text-cyan-200">{c.code}</b><div className="text-xs text-slate-500">{c.label || 'Cupom'} · {c.discount_type === 'percent' ? `${c.discount_value}%` : fmtBRL(c.discount_value)} · {c.applies_to === 'both' ? 'Produtos + VIP' : c.applies_to === 'vip' ? 'VIP' : 'Produtos'}</div></div><span className={c.active ? 'text-xs text-emerald-200' : 'text-xs text-slate-500'}>{c.active ? 'Ativo' : 'Inativo'}</span></div>)}
-                  {!(affiliateDashboard.coupons || []).length && <div className="text-xs text-slate-500">Nenhum cupom vinculado a você.</div>}
-                </div>
-              </div>
-            </div>
+          <div className="flex flex-wrap items-center justify-between gap-4 rounded-3xl border border-cyan-300/20 bg-gradient-to-r from-cyan-500/10 to-violet-500/10 p-6">
+            <div><p className="text-xs font-black uppercase tracking-widest text-cyan-300">Área exclusiva</p><h2 className="mt-1 text-xl font-black text-white">Painel do vendedor</h2><p className="mt-1 text-sm text-slate-300">Acessos, comissões, saldo para saque e dados Pix em um único painel.</p></div>
+            <button onClick={onGoSeller} className="rounded-xl bg-cyan-300 px-5 py-3 font-black text-black">Abrir painel de vendedor</button>
           </div>
         </section>
-      ) : null}
+      )}
       <section
         className="container-cc px-4 sm:px-6 lg:px-8 py-10 sm:py-14" >
         <div className="rounded-3xl ring-1 ring-white/10 bg-[#07161d]/40 backdrop-blur p-6 sm:p-8">

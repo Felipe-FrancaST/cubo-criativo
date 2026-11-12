@@ -396,23 +396,11 @@ export default async function handler(req, res) {
       coupon_discount: couponApplied?.discount || 0,
       affiliate_id: affiliateResolution?.affiliate?.id || null,
       affiliate_source: affiliateResolution?.source || null,
+      affiliate_visitor_id: affiliateResolution?.source === 'link' ? visitorId : null,
     });
-    if (orderInsert?.error && /coupon_code|coupon_discount|column/i.test(String(orderInsert.error.message || ""))) {
-      orderInsert = await sb.from("orders").insert({
-        id: orderId,
-        user_id: user.id,
-        status: "pending",
-        currency: "BRL",
-        total: finalAmount,
-        payment_provider: "mercado_pago",
-        production_status: vipPlanId ? 'editavel' : 'recebido',
-        order_type: vipPlanId ? 'vip' : 'shop',
-        vip_plan_id: vipPlanId || null,
-        customer_email: payerEmail,
-        customer_name: prof?.full_name || null,
-        customer_phone: prof?.phone || null,
-      });
-    }
+    // Falhar explicitamente se a migração de afiliados ainda não foi aplicada.
+    // Nunca gravar o pedido sem a atribuição para evitar perda de comissão.
+
     if (orderInsert?.error) {
       console.error("supabase order insert error", orderInsert.error);
       return res.status(500).json({ error: "Não foi possível criar o pedido." });
@@ -495,6 +483,7 @@ export default async function handler(req, res) {
           coupon_discount: couponApplied?.discount || 0,
           affiliate_id: affiliateResolution?.affiliate?.id || null,
           affiliate_source: affiliateResolution?.source || null,
+          visitor_id: visitorId || null,
           items_json: serializeResolvedItems(resolvedOrderItems),
         },
         notification_url: `${origin}/api/mp-webhook`,

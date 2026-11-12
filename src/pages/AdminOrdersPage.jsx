@@ -2065,6 +2065,23 @@ export default function AdminOrdersPage({
       return 'dashboard'
     }
   })
+  const [withdrawalAlerts, setWithdrawalAlerts] = React.useState(0)
+  React.useEffect(() => {
+    if (!canManageBusiness || !accessToken) return undefined
+    let active = true
+    async function checkWithdrawals() {
+      try {
+        const response = await fetch('/api/admin?action=affiliate-withdrawal-count', {
+          headers: { Authorization: `Bearer ${accessToken}` }, cache: 'no-store',
+        })
+        const result = await response.json().catch(() => ({}))
+        if (active && response.ok) setWithdrawalAlerts(Number(result.count || 0))
+      } catch { /* aviso permanece no painel mesmo se a rede falhar */ }
+    }
+    checkWithdrawals()
+    const timer = window.setInterval(checkWithdrawals, 45000)
+    return () => { active = false; window.clearInterval(timer) }
+  }, [accessToken, canManageBusiness, section])
   React.useEffect(() => {
     try {
       sessionStorage.setItem('cc_admin_section', section)
@@ -3990,6 +4007,9 @@ export default function AdminOrdersPage({
       <span>{label}</span>
       {key === 'orders' && stats.total > 0 ? (
         <span className="admin-nav-count">{stats.total}</span>
+      ) : null}
+      {key === 'affiliates' && withdrawalAlerts > 0 ? (
+        <span className="admin-nav-count" aria-label={`${withdrawalAlerts} saques aguardando pagamento`}>{withdrawalAlerts}</span>
       ) : null}
     </button>
   )

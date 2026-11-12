@@ -3,7 +3,7 @@ import { getVipPlanById } from "../server/vipPlans.js";
 import { applyStockDeductionWithClaim } from "../server/inventory.js";
 import { cleanupOrder3dModel, shouldCleanupOrder3dForStatus } from "../server/order3dCleanup.js";
 import { buildOrderDetailsUrl, buildVipAreaUrl } from "../server/orderLinks.js";
-import { finalizeAffiliateCommission } from '../server/affiliate.js';
+import { finalizeAffiliateCommission, ensureAffiliateCommissionAfterPayment } from '../server/affiliate.js';
 /**
  * Vercel Serverless Function
  * Route: /api/mp-webhook
@@ -106,7 +106,7 @@ async function loadOrderSnapshot(sb, orderId) {
   const { data: order } = await sb
     .from("orders")
     .select(
-      "id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,production_status,shipping_tracking,order_type,vip_plan_id,affiliate_id"
+      "id,user_id,status,total,currency,payment_provider,provider_payment_id,customer_email,customer_name,customer_phone,created_at,production_status,shipping_tracking,order_type,vip_plan_id,affiliate_id,affiliate_source,affiliate_visitor_id,coupon_code,coupon_discount"
     )
     .eq("id", orderId)
     .maybeSingle();
@@ -791,11 +791,17 @@ export default async function handler(req, res) {
 
     if (sb && order?.id) {
       try {
+        await ensureAffiliateCommissionAfterPayment(sb, order);
         await finalizeAffiliateCommission(sb, order.id, true);
         if (order.affiliate_id) {
-          await sb.from('affiliate_attributions').update({ converted: true, converted_at: new Date().toISOString() }).eq('affiliate_id', order.affiliate_id).eq('visitor_id', payment?.metadata?.visitor_id || '').eq('converted', false);
+          await sb.from('affiliate_attributions').update({ converted: true, converted_at: new Date().toISOString() }).eq('affiliate_id', order.affiliate_id).eq('visitor_id', order.affiliate_visitor_id || payment?.metadata?.visitor_id || '').eq('converted', false);
         }
-      } catch (e) { console.error('affiliate finalize error', e); }
+      } catch (e) {
+        console.error('affiliate finalize error', e);
+        // Não reconhecer webhook como concluído enquanto o crédito do vendedor
+        // não foi persistido. O Mercado Pago poderá reenviar a notificação.
+        return res.status(503).json({ error: 'Falha temporária ao registrar comissão.' });
+      }
     }
 
     // Se for assinatura VIP, marca VIP no perfil (best-effort)
