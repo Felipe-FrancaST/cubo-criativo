@@ -1,4 +1,5 @@
 import React from 'react'
+import ConfirmationDialog from '../../../components/ConfirmationDialog.jsx'
 const fmt = (n) =>
   Number(n || 0).toLocaleString('pt-BR', {
     style: 'currency',
@@ -46,6 +47,9 @@ export default function AdminAffiliatesSection({ accessToken }) {
   const [coupon, setCoupon] = React.useState(emptyCoupon)
   const [couponBusy, setCouponBusy] = React.useState(false)
   const [showCoupon, setShowCoupon] = React.useState(false)
+  const [settlement, setSettlement] = React.useState(null)
+  const [settlementBusy, setSettlementBusy] = React.useState(false)
+  const [settlementError, setSettlementError] = React.useState('')
   const load = React.useCallback(async () => {
     if (!accessToken) return
     setLoading(true)
@@ -173,9 +177,11 @@ export default function AdminAffiliatesSection({ accessToken }) {
       await load()
     } catch (error) { setError(error.message) }
   }
-  async function settleWithdrawal(withdrawal, action) {
-    const verb = action === 'paid' ? 'Confirmar saque executado' : 'Recusar saque'
-    if (!window.confirm(`${verb} de ${fmt(withdrawal.amount)} para ${withdrawal.holder_name} — chave Pix ${withdrawal.pix_key}? ${action === 'paid' ? 'Confirme somente depois de realizar a transferência.' : 'O saldo ficará novamente disponível ao vendedor.'}`)) return
+  async function settleWithdrawal() {
+    if (!settlement || settlementBusy) return
+    const { withdrawal, action } = settlement
+    setSettlementBusy(true)
+    setSettlementError('')
     setError('')
     try {
       const response = await fetch('/api/admin?action=settle-affiliate-withdrawal', {
@@ -185,8 +191,10 @@ export default function AdminAffiliatesSection({ accessToken }) {
       })
       const result = await response.json().catch(() => ({}))
       if (!response.ok) throw new Error(result.error || 'Não foi possível processar o saque.')
+      setSettlement(null)
       await load()
-    } catch (error) { setError(error.message) }
+    } catch (error) { setSettlementError(error.message || 'Não foi possível processar o saque.') }
+    finally { setSettlementBusy(false) }
   }
   const pendingWithdrawals = data.withdrawals.filter(w => w.status === 'requested')
   const activeAffiliates = data.affiliates.filter((a) => a.active).length
@@ -211,6 +219,14 @@ export default function AdminAffiliatesSection({ accessToken }) {
   )
   return (
     <div className="space-y-5">
+      <ConfirmationDialog open={Boolean(settlement)} title={settlement?.action === 'paid' ? 'Confirmar saque executado' : 'Recusar solicitação de saque'} description={settlement?.action === 'paid' ? 'Confirme somente após concluir a transferência Pix. Esta ação ficará registrada no histórico financeiro.' : 'O saldo reservado voltará a ficar disponível para o vendedor.'} tone={settlement?.action === 'paid' ? 'green' : 'red'} confirmLabel={settlement?.action === 'paid' ? 'Confirmar pagamento' : 'Confirmar recusa'} busy={settlementBusy} onClose={() => { if (!settlementBusy) setSettlement(null) }} onConfirm={settleWithdrawal}>
+        {settlement && <div className="space-y-3 rounded-2xl border border-white/10 bg-black/20 p-4">
+          <div><p className="text-xs uppercase tracking-wider text-slate-400">Valor</p><p className="mt-1 text-2xl font-black text-emerald-200">{fmt(settlement.withdrawal.amount)}</p></div>
+          <div><p className="text-xs text-slate-400">Titular</p><p className="font-bold text-white">{settlement.withdrawal.holder_name}</p></div>
+          <div><p className="text-xs text-slate-400">Chave Pix</p><p className="break-all font-mono text-sm text-cyan-200">{settlement.withdrawal.pix_key}</p></div>
+        </div>}
+        {settlementError && <p role="alert" className="mt-3 rounded-xl border border-rose-300/25 bg-rose-300/10 p-3 text-sm text-rose-200">{settlementError}</p>}
+      </ConfirmationDialog>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-black text-white">
@@ -271,7 +287,7 @@ export default function AdminAffiliatesSection({ accessToken }) {
         </div>
         {pendingWithdrawals.length > 0 && <div className="mt-4 space-y-3">{pendingWithdrawals.map(w => <div key={w.id} className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-white/10 bg-[#081c27] p-4">
           <div className="min-w-0"><div className="font-black text-white">{w.affiliate_name} <span className="ml-2 text-emerald-300">{fmt(w.amount)}</span></div><p className="mt-1 text-sm text-slate-200">Titular: <b>{w.holder_name}</b></p><p className="break-all text-sm text-cyan-200">Chave Pix: {w.pix_key}</p><p className="mt-1 text-xs text-slate-500">Solicitado em {new Date(w.requested_at).toLocaleString('pt-BR')}</p></div>
-          <div className="flex flex-wrap gap-2"><button onClick={() => navigator.clipboard?.writeText(w.pix_key)} className="rounded-xl border border-white/10 px-3 py-2 text-xs font-bold text-white">Copiar Pix</button><button onClick={() => settleWithdrawal(w, 'paid')} className="rounded-xl bg-emerald-300 px-4 py-2 text-xs font-black text-black">Marcar saque executado</button><button onClick={() => settleWithdrawal(w, 'rejected')} className="rounded-xl border border-rose-300/25 px-3 py-2 text-xs font-bold text-rose-200">Recusar</button></div>
+          <div className="flex flex-wrap gap-2"><button onClick={() => navigator.clipboard?.writeText(w.pix_key)} className="rounded-xl border border-white/10 px-3 py-2 text-xs font-bold text-white">Copiar Pix</button><button onClick={() => { setSettlementError(''); setSettlement({ withdrawal: w, action: 'paid' }) }} className="rounded-xl bg-emerald-300 px-4 py-2 text-xs font-black text-black">Marcar saque executado</button><button onClick={() => { setSettlementError(''); setSettlement({ withdrawal: w, action: 'rejected' }) }} className="rounded-xl border border-rose-300/25 px-3 py-2 text-xs font-bold text-rose-200">Recusar</button></div>
         </div>)}</div>}
         {data.withdrawals.some(w=>w.status !== 'requested') && <details className="mt-4"><summary className="cursor-pointer text-sm font-semibold text-slate-300">Histórico de saques processados</summary><div className="mt-3 space-y-2">{data.withdrawals.filter(w=>w.status !== 'requested').map(w=><div key={w.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-black/20 px-4 py-3 text-sm"><div><b className="text-white">{w.affiliate_name}</b><span className="ml-3 text-slate-400">{new Date(w.requested_at).toLocaleDateString('pt-BR')}</span></div><div className="flex gap-3"><span className="font-bold text-white">{fmt(w.amount)}</span><span className={w.status === 'paid' ? 'text-emerald-300' : 'text-rose-300'}>{w.status === 'paid' ? 'Executado' : 'Recusado'}</span></div></div>)}</div></details>}
       </div>

@@ -40,6 +40,51 @@ export async function getAffiliateAttribution(sb, { visitorId, affiliateId, now 
   return data;
 }
 
+
+// Só cupons ativos e não esgotados são oferecidos aos visitantes do link.
+export async function getAffiliateWelcomeCoupon(sb, affiliateId) {
+  const { data, error } = await sb.from('coupons')
+    .select('code,label,discount_type,discount_value,active,used_count,max_uses,expires_at')
+    .eq('affiliate_id', affiliateId).eq('active', true)
+    .order('created_at', { ascending: false }).limit(50);
+  if (error) throw error;
+  const now = Date.now();
+  return (data || []).find(c =>
+    (!c.expires_at || new Date(c.expires_at).getTime() > now) &&
+    (Number(c.used_count || 0) < (Number(c.max_uses) || 1))
+  ) || null;
+}
+
+// O vínculo entre login e visita impede que a indicação se perca ao trocar
+// de navegador/dispositivo depois que o cliente entrou na sua conta.
+export async function claimAffiliateReferral(sb, { userId, visitorId, slug }) {
+  const affiliate = await getActiveAffiliateBySlug(sb, slug);
+  if (!affiliate) return { ok: false, status: 404, error: 'Link de vendedor indisponível.' };
+  if (affiliate.user_id === userId) return { ok: false, status: 403, error: 'Você não pode resgatar seu próprio link.' };
+  const visitor = String(visitorId || '').trim();
+  if (!/^[a-zA-Z0-9_-]{8,120}$/.test(visitor)) return { ok: false, status: 400, error: 'Identificador de visita inválido.' };
+  const attribution = await getAffiliateAttribution(sb, { visitorId: visitor, affiliateId: affiliate.id });
+  if (!attribution) return { ok: false, status: 409, error: 'A indicação expirou ou não foi registrada. Abra novamente o link do vendedor.' };
+  const { data: current, error: readError } = await sb.from('affiliate_user_attributions')
+    .select('last_visit_at').eq('user_id', userId).maybeSingle();
+  if (readError) throw readError;
+  if (!current?.last_visit_at || new Date(attribution.last_visit_at) >= new Date(current.last_visit_at)) {
+    const { error } = await sb.from('affiliate_user_attributions').upsert({
+      user_id: userId, affiliate_id: affiliate.id, visitor_id: visitor,
+      last_visit_at: attribution.last_visit_at, expires_at: attribution.expires_at,
+    }, { onConflict: 'user_id' });
+    if (error) throw error;
+  }
+  const coupon = await getAffiliateWelcomeCoupon(sb, affiliate.id);
+  if (coupon) {
+    const { error } = await sb.from('affiliate_coupon_claims').upsert({
+      user_id: userId, affiliate_id: affiliate.id, coupon_code: coupon.code,
+    }, { onConflict: 'user_id,coupon_code', ignoreDuplicates: true });
+    if (error) throw error;
+  }
+  return { ok: true, coupon: coupon ? { code: coupon.code, label: coupon.label, discount_type: coupon.discount_type, discount_value: coupon.discount_value } : null };
+}
+
 export async function resolveAffiliateForCheckout(sb, { affiliateSlug, visitorId, couponCode, userId }) {
   // O cupom válido tem prioridade; o vínculo é resolvido do banco, nunca do navegador.
   const code = normalizeCouponCode(couponCode);
@@ -59,20 +104,30 @@ export async function resolveAffiliateForCheckout(sb, { affiliateSlug, visitorId
   // Uma slug informada manualmente NÃO gera comissão. Exige visita real
   // registrada no servidor, dentro da janela de atribuição.
   const visitor = String(visitorId || '').trim();
-  if (!visitor || visitor.length > 120) return { affiliate: null, source: null, coupon };
-  let query = sb.from('affiliate_attributions')
-    .select('affiliate_id,expires_at')
-    .eq('visitor_id', visitor)
-    .gt('expires_at', new Date().toISOString())
-    .order('last_visit_at', { ascending: false }).limit(1);
-  // Se existir slug no cookie, só poderá ser atribuída se corresponder
-  // à visita persistida do mesmo vendedor.
-  const result = await query.maybeSingle();
-  if (result.error) throw result.error;
-  const candidate = result.data?.affiliate_id ? await getAffiliateById(sb, result.data.affiliate_id) : null;
-  if (!candidate?.active || candidate.user_id === userId) return { affiliate: null, source: null, coupon };
-  // Não usar slug para substituir o histórico real de visitas.
-  return { affiliate: candidate, source: 'link', coupon };
+  if (visitor && /^[a-zA-Z0-9_-]{8,120}$/.test(visitor)) {
+    const result = await sb.from('affiliate_attributions')
+      .select('affiliate_id,expires_at')
+      .eq('visitor_id', visitor)
+      .gt('expires_at', new Date().toISOString())
+      .order('last_visit_at', { ascending: false }).limit(1).maybeSingle();
+    if (result.error) throw result.error;
+    const candidate = result.data?.affiliate_id ? await getAffiliateById(sb, result.data.affiliate_id) : null;
+    if (candidate?.active && candidate.user_id !== userId)
+      return { affiliate: candidate, source: 'link', coupon, visitorId: visitor };
+  }
+  // A indicação vinculada à conta também atende pedidos em outro dispositivo
+  // após o cliente autenticar-se pela primeira vez no link do vendedor.
+  if (userId) {
+    const result = await sb.from('affiliate_user_attributions')
+      .select('affiliate_id,visitor_id,expires_at').eq('user_id', userId)
+      .gt('expires_at', new Date().toISOString()).maybeSingle();
+    if (result.error) throw result.error;
+    const candidate = result.data?.affiliate_id ? await getAffiliateById(sb, result.data.affiliate_id) : null;
+    if (candidate?.active && candidate.user_id !== userId)
+      return { affiliate: candidate, source: 'link', coupon, visitorId: result.data.visitor_id };
+  }
+  // Nenhuma slug enviada pelo cliente cria indicação sem visita validada.
+  return { affiliate: null, source: null, coupon };
 }
 
 export async function trackAffiliateVisit(sb, { slug, visitorId, landingPage = '/', referrer = '', userAgent = '' }) {
@@ -93,7 +148,11 @@ export async function trackAffiliateVisit(sb, { slug, visitorId, landingPage = '
     const created = await sb.from('affiliate_attributions').insert({ affiliate_id: affiliate.id, visitor_id: visitor, first_visit_at: now.toISOString(), last_visit_at: now.toISOString(), expires_at: expires });
     if (created.error) throw created.error;
   }
-  return { ok: true, visitor_id: visitor, affiliate: { id: affiliate.id, slug: affiliate.slug, attribution_days: days }, expires_at: expires };
+  const coupon = await getAffiliateWelcomeCoupon(sb, affiliate.id);
+  return { ok: true, visitor_id: visitor,
+    affiliate: { id: affiliate.id, slug: affiliate.slug, attribution_days: days },
+    coupon: coupon ? { code: coupon.code, label: coupon.label, discount_type: coupon.discount_type, discount_value: coupon.discount_value } : null,
+    expires_at: expires };
 }
 
 function roundMoney(n) { return Number((Number(n) || 0).toFixed(2)); }

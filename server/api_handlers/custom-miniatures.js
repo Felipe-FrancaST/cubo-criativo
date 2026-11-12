@@ -432,7 +432,7 @@ export default async function handleCustomMiniatures(req, res) {
           coupon_code: coupon.code, coupon_discount: coupon.discountCents / 100,
           affiliate_id: affiliateResolution.affiliate?.id || null,
           affiliate_source: affiliateResolution.source || null,
-          affiliate_visitor_id: affiliateResolution.source === 'link' ? String(body.visitor_id || '') : null,
+          affiliate_visitor_id: affiliateResolution.source === 'link' ? affiliateResolution.visitorId : null,
         });
         if (orderError) throw orderError;
         if (affiliateResolution.affiliate?.id) {

@@ -396,7 +396,7 @@ export default async function handler(req, res) {
       coupon_discount: couponApplied?.discount || 0,
       affiliate_id: affiliateResolution?.affiliate?.id || null,
       affiliate_source: affiliateResolution?.source || null,
-      affiliate_visitor_id: affiliateResolution?.source === 'link' ? visitorId : null,
+      affiliate_visitor_id: affiliateResolution?.source === 'link' ? affiliateResolution.visitorId : null,
     });
     // Falhar explicitamente se a migração de afiliados ainda não foi aplicada.
     // Nunca gravar o pedido sem a atribuição para evitar perda de comissão.
@@ -483,7 +483,7 @@ export default async function handler(req, res) {
           coupon_discount: couponApplied?.discount || 0,
           affiliate_id: affiliateResolution?.affiliate?.id || null,
           affiliate_source: affiliateResolution?.source || null,
-          visitor_id: visitorId || null,
+          visitor_id: affiliateResolution?.visitorId || visitorId || null,
           items_json: serializeResolvedItems(resolvedOrderItems),
         },
         notification_url: `${origin}/api/mp-webhook`,

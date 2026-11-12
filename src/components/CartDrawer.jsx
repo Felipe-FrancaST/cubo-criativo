@@ -2,6 +2,7 @@ import CheckoutPolicies from './CheckoutPolicies.jsx'
 import React from 'react'
 import useDialog from '../lib/useDialog.js'
 import { supabase } from '../lib/supabaseClient'
+import { getAffiliateCheckoutContext } from '../lib/affiliate.js'
 
 const fmtBRL = (n) =>
   typeof n === 'number' && isFinite(n)
@@ -38,6 +39,8 @@ export default function CartDrawer({
   onOpenOrders,
   onPaymentConfirmed,
   onPayWithCoupon,
+  autoOpenCoupons = false,
+  onAutoOpenCoupons,
 }) {
   // Pix state
   const [pix, setPix] = React.useState(null)
@@ -220,6 +223,15 @@ export default function CartDrawer({
     }
   }
 
+  React.useEffect(() => {
+    if (!open || !autoOpenCoupons) return
+    setMyCouponsOpen(true)
+    void loadMyCoupons()
+    onAutoOpenCoupons?.()
+    // A abertura é consumida uma única vez pelo carrinho.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, autoOpenCoupons])
+
   function removeCoupon() {
     setCouponInfo(null)
     setCouponMsg('Cupom removido.')
@@ -333,6 +345,7 @@ export default function CartDrawer({
           })),
           description: 'Pagamento via Pix',
           coupon_code: couponInfo?.code || null,
+          ...getAffiliateCheckoutContext(),
         }),
       })
 

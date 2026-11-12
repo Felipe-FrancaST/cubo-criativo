@@ -34,3 +34,14 @@ export async function getUserFromAuthHeader(req) {
   if (error) return null;
   return data?.user || null;
 }
+
+/** Reautentica em cliente descartável e sem sessão persistida; nunca usa a service key para conferir senha. */
+export async function verifyAccountPassword(user, password) {
+  if (!user?.id || !user?.email || typeof password !== 'string' || password.length < 1 || password.length > 1024) return false;
+  assertSupabaseEnv();
+  const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  });
+  const { data, error } = await sb.auth.signInWithPassword({ email: user.email, password });
+  return !error && data?.user?.id === user.id;
+}

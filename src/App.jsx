@@ -66,6 +66,7 @@ import { trackEvent } from './lib/analytics.js'
 import {
   getAffiliateCheckoutContext,
   getAffiliateVisitorId,
+  getPendingAffiliateReferral,
   saveAffiliateAttribution,
 } from './lib/affiliate.js'
 import {
@@ -591,6 +592,9 @@ export default function App() {
   const [trustOpen, setTrustOpen] = React.useState(false)
 
   // ===== Rotas (history API sem dependências) =====
+  const [referralOffer, setReferralOffer] = React.useState(null)
+  const [referralClaimRetry, setReferralClaimRetry] = React.useState(0)
+  const referralClaimRef = React.useRef('')
   const [route, setRoute] = React.useState(() =>
     typeof window === 'undefined' ? '/' : getRouteFromLocation()
   )
@@ -894,6 +898,7 @@ export default function App() {
   // ===== Carrinho =====
   const CART_STORAGE_KEY = 'cc_cart_v1'
   const [cartOpen, setCartOpen] = React.useState(false)
+  const [openReferralCoupons, setOpenReferralCoupons] = React.useState(false)
   const [cart, setCart] = React.useState(() => {
     if (typeof window === 'undefined') return []
     try {
@@ -1686,16 +1691,54 @@ export default function App() {
             visitor_id: data.visitor_id,
             expires_at: data.expires_at,
           })
+          setReferralOffer({ slug: data.affiliate.slug, coupon: data.coupon || null, claimed: false, error: '' })
         }
+        if (alive && !resp.ok) setReferralOffer({ error: 'Não foi possível registrar a indicação. Reabra o link do vendedor.', failed: true })
         if (alive) navigate('/', { replace: true })
       } catch {
-        if (alive) navigate('/', { replace: true })
+        if (alive) {
+          setReferralOffer({ error: 'Não foi possível registrar a indicação. Reabra o link do vendedor.', failed: true })
+          navigate('/', { replace: true })
+        }
       }
     })()
     return () => {
       alive = false
     }
   }, [route])
+
+  // Depois do login, vincula a visita verificada à conta e salva o cupom
+  // compartilhado entre os cupons do cliente (idempotente no servidor).
+  React.useEffect(() => {
+    if (!user?.id || !accessToken) { referralClaimRef.current = ''; return }
+    const referral = getPendingAffiliateReferral()
+    if (!referral) return
+    const key = `${user.id}:${referral.affiliate_slug}:${referral.visitor_id}`
+    if (referralClaimRef.current === key) return
+    referralClaimRef.current = key
+    let active = true
+    ;(async () => {
+      try {
+        const response = await fetch('/api/affiliate?action=claim-referral', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify(referral),
+        })
+        const result = await response.json().catch(() => ({}))
+        if (!response.ok) throw new Error(result.error || 'Não foi possível salvar seu cupom.')
+        if (active) setReferralOffer(previous => {
+          if (!previous || previous.slug !== referral.affiliate_slug) return previous
+          return { ...previous, coupon: result.coupon || previous.coupon, claimed: true, error: '' }
+        })
+      } catch (error) {
+        if (active) setReferralOffer(previous => {
+          if (!previous || previous.slug !== referral.affiliate_slug) return previous
+          return { ...previous, error: error.message || 'Não foi possível salvar seu cupom.' }
+        })
+      }
+    })()
+    return () => { active = false }
+  }, [accessToken, user?.id, referralOffer?.slug, referralClaimRetry])
 
   // ===== SEO + Schema para página de produto (/p/:slug) =====
   React.useEffect(() => {
@@ -2090,6 +2133,24 @@ export default function App() {
           onGoHomeSection={goHomeSection}
         />
 
+        {referralOffer && (
+          <aside role="status" className="relative z-20 border-y border-cyan-300/20 bg-gradient-to-r from-[#0b2933] via-[#11313a] to-[#102333] px-4 py-4 text-slate-100 shadow-lg">
+            <div className="container-cc mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 pr-9">
+              <div className="flex min-w-0 flex-1 items-center gap-3">
+                <span aria-hidden="true" className="material-icons rounded-xl bg-cyan-300/10 p-3 text-cyan-200">{referralOffer.failed ? 'error_outline' : 'local_offer'}</span>
+                <div className="min-w-0">
+                  <p className="font-black text-white">{referralOffer.failed ? 'Não foi possível validar seu link' : referralOffer.claimed && referralOffer.coupon ? 'Seu cupom foi salvo!' : 'Você chegou por um link de vendedor!'}</p>
+                  <p className="mt-1 text-sm leading-5 text-cyan-50/85">{referralOffer.error || (referralOffer.claimed ? (referralOffer.coupon ? `Cupom ${referralOffer.coupon.code} adicionado aos seus cupons.` : 'Sua indicação está vinculada à sua conta.') : referralOffer.coupon ? (user ? 'Salvando o seu cupom na conta…' : 'Faça login ou crie sua conta para garantir o seu cupom.') : (user ? 'Vinculando sua indicação à conta…' : 'Faça login ou crie sua conta para registrar sua indicação.'))}</p>
+                </div>
+              </div>
+              {!referralOffer.failed && user && referralOffer.error && <button type="button" onClick={() => { referralClaimRef.current = ''; setReferralClaimRetry(v => v + 1) }} className="rounded-xl border border-cyan-300/30 px-4 py-2 text-sm font-bold text-cyan-100 hover:bg-white/10">Tentar novamente</button>}
+              {!referralOffer.failed && !user && <button type="button" onClick={() => requireLogin('Faça login ou crie sua conta para garantir o seu cupom.')} className="rounded-xl bg-cyan-300 px-5 py-3 text-sm font-black text-[#082531] transition hover:bg-cyan-200">Entrar ou criar conta</button>}
+              {referralOffer.claimed && referralOffer.coupon && <button type="button" onClick={() => { setOpenReferralCoupons(true); setCartOpen(true); setReferralOffer(null) }} className="rounded-xl border border-cyan-300/30 px-4 py-2 text-sm font-bold text-cyan-100 hover:bg-white/10">Ver meus cupons no carrinho</button>}
+            </div>
+            <button type="button" aria-label="Fechar aviso de indicação" onClick={() => setReferralOffer(null)} className="absolute right-3 top-3 rounded-lg p-2 text-slate-300 hover:bg-white/10"><span className="material-icons text-xl">close</span></button>
+          </aside>
+        )}
+
         {menuDrawerOpen ? (
           <Suspense fallback={null}>
             <MenuDrawer
@@ -2389,6 +2450,8 @@ export default function App() {
               authToken={accessToken}
               userId={user?.id || ''}
               userEmail={user?.email || ''}
+              autoOpenCoupons={openReferralCoupons}
+              onAutoOpenCoupons={() => setOpenReferralCoupons(false)}
               onRequireLogin={requireLogin}
               onRequireProfile={() =>
                 openSettings('profile', { autoClose: true })

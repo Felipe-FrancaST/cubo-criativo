@@ -245,21 +245,36 @@ async function handleMyCoupons(req, res) {
     // ignore (tabela pode não existir em alguns ambientes)
   }
 
-  const { data, error } = await sb
-    .from('coupons')
-    .select('code,label,discount_type,discount_value,min_order_value,expires_at,active,used_count,max_uses,source,created_at')
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false });
-  if (error) throw error;
+  const [own, claimed] = await Promise.all([
+    sb.from('coupons')
+      .select('code,label,discount_type,discount_value,min_order_value,expires_at,active,used_count,max_uses,source,created_at')
+      .eq('user_id', user.id).order('created_at', { ascending: false }),
+    sb.from('affiliate_coupon_claims').select('coupon_code').eq('user_id', user.id),
+  ]);
+  if (own.error) throw own.error;
+  if (claimed.error) throw claimed.error;
+  const claimedCodes = [...new Set((claimed.data || []).map(c => String(c.coupon_code || '').trim().toUpperCase()).filter(Boolean))];
+  let shared = [];
+  if (claimedCodes.length) {
+    const sharedResult = await sb.from('coupons')
+      .select('code,label,discount_type,discount_value,min_order_value,expires_at,active,used_count,max_uses,source,created_at')
+      .in('code', claimedCodes);
+    if (sharedResult.error) throw sharedResult.error;
+    shared = (sharedResult.data || []).map(c => ({ ...c, source: 'affiliate_referral' }));
+  }
+  const unique = new Map();
+  for (const coupon of [...(own.data || []), ...shared]) {
+    const key = String(coupon.code || '').trim().toUpperCase();
+    if (key && !unique.has(key)) unique.set(key, coupon);
+  }
   const now = Date.now();
-  const rows = (data || []).filter((c) => {
+  const rows = [...unique.values()].filter(c => {
     const exp = c?.expires_at ? new Date(c.expires_at).getTime() : 0;
-    const withinWindow = !Number.isFinite(exp) || exp > (now - 3 * 24 * 60 * 60 * 1000);
-    const used = (Number(c?.used_count) || 0) >= (Number(c?.max_uses) || 1);
-    const code = String(c?.code || '').trim().toUpperCase();
-    const redeemed = code && redeemedSet.has(code);
-    return withinWindow && !used && !redeemed;
-  });
+    const expired = exp && (!Number.isFinite(exp) || exp <= now);
+    const used = Number(c?.used_count || 0) >= (Number(c?.max_uses) || 1);
+    const redeemed = redeemedSet.has(String(c?.code || '').trim().toUpperCase());
+    return c.active !== false && !expired && !used && !redeemed;
+  }).sort((a,b) => Date.parse(b.created_at || 0) - Date.parse(a.created_at || 0));
   return res.status(200).json({ coupons: rows });
 }
 

@@ -1,6 +1,6 @@
-import { supabaseAdmin, getUserFromAuthHeader } from '../server/supabase.js';
+import { supabaseAdmin, getUserFromAuthHeader, verifyAccountPassword } from '../server/supabase.js';
 import { rateLimit } from '../server/rateLimit.js';
-import { normalizeAffiliateSlug, trackAffiliateVisit } from '../server/affiliate.js';
+import { normalizeAffiliateSlug, trackAffiliateVisit, claimAffiliateReferral } from '../server/affiliate.js';
 
 function parseBody(req) {
   if (!req.body) return {};
@@ -10,6 +10,7 @@ function parseBody(req) {
 function problem(res, code, message) { return res.status(code).json({ error: message }); }
 function readableError(error, fallback) {
   const message = String(error?.message || '');
+  if (/affiliate_(?:user_attributions|coupon_claims)/i.test(message)) return 'Atualização do banco pendente. Execute 20261112_affiliate_link_coupons_and_secure_withdrawal.sql.';
   if (/affiliate_(?:payout|withdrawal|dashboard)|withdrawal_id|deleted_at|column|function|relation/i.test(message)) {
     return 'Atualização do banco de vendedores pendente. Execute a migração SQL 20261112_affiliates_withdrawals.sql.';
   }
@@ -94,8 +95,20 @@ async function handleSavePix(req, res, context) {
   return res.status(200).json({ ok: true, payout_profile: data });
 }
 
+async function handleClaimReferral(req, res, context) {
+  const body = parseBody(req);
+  const result = await claimAffiliateReferral(context.sb, {
+    userId: context.user.id, visitorId: body.visitor_id,
+    slug: normalizeAffiliateSlug(body.affiliate_slug),
+  });
+  return result.ok ? res.status(200).json(result) : problem(res, result.status || 400, result.error);
+}
+
 async function handleWithdrawal(req, res, context) {
   if (!context.affiliate?.active) return problem(res, 403, 'Vendedor inativo.');
+  if (!rateLimit(req, res, { key: 'affiliate:withdrawal-password', limit: 6, windowMs: 900000 })) return;
+  const password = parseBody(req).password;
+  if (!await verifyAccountPassword(context.user, password)) return problem(res, 403, 'Senha incorreta. Confira sua senha e tente novamente.');
   const { data, error } = await context.sb.rpc('affiliate_request_withdrawal', { p_affiliate_id: context.affiliate.id });
   if (error) return problem(res, 409, readableError(error, 'Não foi possível solicitar o saque.'));
   // Alerta no painel é persistente; o e-mail adicional é enviado quando configurado.
@@ -109,11 +122,12 @@ export default async function handler(req, res) {
   try {
     const action = String(req.query?.action || '').toLowerCase();
     if (action === 'track' && req.method === 'POST') return await handleTrack(req, res);
-    if (!['me', 'save-pix', 'request-withdrawal'].includes(action)) return problem(res, 404, 'Ação inválida.');
+    if (!['me', 'save-pix', 'request-withdrawal', 'claim-referral'].includes(action)) return problem(res, 404, 'Ação inválida.');
     const context = await authenticatedAffiliate(req);
     if (context.error) return problem(res, context.status, context.error);
     if (action === 'me' && req.method === 'GET') return await handleMe(req, res, context);
     if (action === 'save-pix' && req.method === 'POST') return await handleSavePix(req, res, context);
+    if (action === 'claim-referral' && req.method === 'POST') return await handleClaimReferral(req, res, context);
     if (action === 'request-withdrawal' && req.method === 'POST') return await handleWithdrawal(req, res, context);
     return problem(res, 405, 'Método não permitido.');
   } catch (error) {
