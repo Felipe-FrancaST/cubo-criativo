@@ -31,6 +31,7 @@ export default function MenuDrawer({
   route,
   user,
   isAdmin,
+  isSeller = false,
   isVip,
   onNavigate,
   onOpenAuth,
@@ -248,6 +249,20 @@ export default function MenuDrawer({
                     Ajustes
                   </button>
                 </div>
+
+                {isSeller ? (
+                  <DrawerButton
+                    icon="storefront"
+                    right="chevron_right"
+                    active={route === '/vendedor'}
+                    onClick={() => {
+                      onNavigate('/vendedor')
+                      onClose?.()
+                    }}
+                  >
+                    Minha área de vendedor
+                  </DrawerButton>
+                ) : null}
 
                 {isAdmin ? (
                   <DrawerButton

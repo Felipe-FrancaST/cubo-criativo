@@ -48,6 +48,9 @@ export default function AdminAffiliatesSection({ accessToken }) {
   const [couponBusy, setCouponBusy] = React.useState(false)
   const [showCoupon, setShowCoupon] = React.useState(false)
   const [settlement, setSettlement] = React.useState(null)
+  const [deleteTarget, setDeleteTarget] = React.useState(null)
+  const [deleteBusy, setDeleteBusy] = React.useState(false)
+  const [deleteError, setDeleteError] = React.useState('')
   const [settlementBusy, setSettlementBusy] = React.useState(false)
   const [settlementError, setSettlementError] = React.useState('')
   const load = React.useCallback(async () => {
@@ -161,21 +164,23 @@ export default function AdminAffiliatesSection({ accessToken }) {
       setCouponBusy(false)
     }
   }
-  async function deleteAffiliate(affiliate) {
-    const name = affiliate.profile?.full_name || affiliate.slug
-    if (!window.confirm(`Remover ${name} do programa de vendedores? O link e os cupons serão desativados. Comissões e saques anteriores serão preservados.`)) return
-    setError('')
+  async function deleteAffiliate() {
+    if (!deleteTarget || deleteBusy) return
+    setDeleteBusy(true)
+    setDeleteError('')
     try {
       const response = await fetch('/api/admin?action=delete-affiliate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ id: affiliate.id }),
+        body: JSON.stringify({ id: deleteTarget.id }),
       })
       const result = await response.json().catch(() => ({}))
       if (!response.ok) throw new Error(result.error || 'Não foi possível excluir o vendedor.')
-      if (editing === affiliate.id) resetForm()
+      if (editing === deleteTarget.id) resetForm()
+      setDeleteTarget(null)
       await load()
-    } catch (error) { setError(error.message) }
+    } catch (error) { setDeleteError(error.message || 'Falha ao remover vendedor.') }
+    finally { setDeleteBusy(false) }
   }
   async function settleWithdrawal() {
     if (!settlement || settlementBusy) return
@@ -219,6 +224,19 @@ export default function AdminAffiliatesSection({ accessToken }) {
   )
   return (
     <div className="space-y-5">
+      <ConfirmationDialog
+        open={Boolean(deleteTarget)}
+        title="Remover vendedor?"
+        description="O link e os cupons serão desativados. As comissões e os saques anteriores permanecerão no histórico."
+        tone="red"
+        confirmLabel="Remover vendedor"
+        busy={deleteBusy}
+        onClose={() => { if (!deleteBusy) setDeleteTarget(null) }}
+        onConfirm={deleteAffiliate}
+      >
+        {deleteTarget && <p className="rounded-xl border border-white/10 bg-black/20 p-4 text-sm font-semibold text-white">{deleteTarget.profile?.full_name || deleteTarget.slug}</p>}
+        {deleteError && <p role="alert" className="mt-3 text-sm text-rose-200">{deleteError}</p>}
+      </ConfirmationDialog>
       <ConfirmationDialog open={Boolean(settlement)} title={settlement?.action === 'paid' ? 'Confirmar saque executado' : 'Recusar solicitação de saque'} description={settlement?.action === 'paid' ? 'Confirme somente após concluir a transferência Pix. Esta ação ficará registrada no histórico financeiro.' : 'O saldo reservado voltará a ficar disponível para o vendedor.'} tone={settlement?.action === 'paid' ? 'green' : 'red'} confirmLabel={settlement?.action === 'paid' ? 'Confirmar pagamento' : 'Confirmar recusa'} busy={settlementBusy} onClose={() => { if (!settlementBusy) setSettlement(null) }} onConfirm={settleWithdrawal}>
         {settlement && <div className="space-y-3 rounded-2xl border border-white/10 bg-black/20 p-4">
           <div><p className="text-xs uppercase tracking-wider text-slate-400">Valor</p><p className="mt-1 text-2xl font-black text-emerald-200">{fmt(settlement.withdrawal.amount)}</p></div>
@@ -517,7 +535,7 @@ export default function AdminAffiliatesSection({ accessToken }) {
                     >
                       Editar
                     </button>
-                    <button onClick={() => deleteAffiliate(a)} className="rounded-xl border border-rose-300/20 px-3 py-2 text-xs font-bold text-rose-200 hover:bg-rose-400/10">Excluir</button>
+                    <button onClick={() => { setDeleteError(''); setDeleteTarget(a) }} className="rounded-xl border border-rose-300/20 px-3 py-2 text-xs font-bold text-rose-200 hover:bg-rose-400/10">Excluir</button>
                   </div>
                 </div>
                 <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-7">

@@ -36,6 +36,7 @@ function NavPill({ active, children, onClick }) {
 export default function SiteHeader({
   route,
   user,
+  isSeller = false,
   menuOpen,
   onToggleMenu,
   cartCount,
@@ -203,6 +204,18 @@ export default function SiteHeader({
                   />
                 </a>
               </div>
+
+              {/* Acesso rápido: exibido apenas para vendedor ativo, verificado pela API. */}
+              {user && isSeller && (
+                <IconButton
+                  title="Área do vendedor"
+                  onClick={() => onNavigate('/vendedor')}
+                  className={route === '/vendedor' ? 'bg-cyan-300/15 text-cyan-200 ring-cyan-300/40' : 'text-cyan-100'}
+                  aria-current={route === '/vendedor' ? 'page' : undefined}
+                >
+                  <span className="material-icons text-[19px] sm:text-[21px]" aria-hidden="true">storefront</span>
+                </IconButton>
+              )}
 
               {/* Conta */}
               {!user ? (

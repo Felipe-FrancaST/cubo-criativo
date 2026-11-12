@@ -32,6 +32,7 @@ import {
   renderManualOrderPaymentEmail,
   renderOrderStatusEmail,
   renderVipWelcomeEmail,
+  renderSellerWithdrawalStatusEmail,
 } from '../server/emailTemplates.js'
 import { decideOrderEmailNotification } from '../server/orderEmailNotifications.js'
 import { rateLimit } from '../server/rateLimit.js'
@@ -1281,13 +1282,14 @@ async function recordOrderEvent(sb, payload) {
   return resp?.error ? { ok: false, error: resp.error } : { ok: true }
 }
 
-async function sendResendEmail({ to, subject, html }) {
+async function sendResendEmail({ to, subject, html, timeoutMs = 0 }) {
   const apiKey = String(process.env.RESEND_API_KEY || '').trim()
   const from = String(process.env.RESEND_FROM || '').trim()
   if (!apiKey || !from || !to) return { skipped: true }
 
   const r = await fetch('https://api.resend.com/emails', {
     method: 'POST',
+    ...(timeoutMs > 0 ? { signal: AbortSignal.timeout(timeoutMs) } : {}),
     headers: {
       Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
@@ -5283,11 +5285,28 @@ async function handleSettleAffiliateWithdrawal(req, res) {
   if (!/^[0-9a-f-]{36}$/i.test(id) || !['paid','rejected'].includes(action)) {
     return res.status(400).json({ error: 'Solicitação ou ação inválida.' })
   }
-  const { data, error } = await supabaseAdmin().rpc('affiliate_settle_withdrawal', {
+  const sb = supabaseAdmin()
+  const { data, error } = await sb.rpc('affiliate_settle_withdrawal', {
     p_request_id: id, p_actor: auth.user.id, p_action: action,
     p_notes: String(body.notes || '').slice(0,500),
   })
   if (error) return res.status(409).json({ error: error.message })
+  // Apenas depois do sucesso da transação: nunca avisar que um saque foi pago antes de confirmar.
+  // Falhas no provedor de email não revertem a movimentação financeira.
+  try {
+    const { data: seller } = await sb.from('affiliates').select('user_id').eq('id', data.affiliate_id).maybeSingle()
+    if (seller?.user_id) {
+      const { data: account } = await sb.auth.admin.getUserById(seller.user_id)
+      const email = String(account?.user?.email || '').trim()
+      if (email) {
+        const mail = renderSellerWithdrawalStatusEmail({ amount: data.amount, status: data.status })
+        const sent = await sendResendEmail({ to: email, subject: mail.subject, html: mail.html, timeoutMs: 4500 })
+        if (!sent?.ok && !sent?.skipped) console.error('affiliate withdrawal email failed', { status: data.status, requestId: id })
+      }
+    }
+  } catch (mailError) {
+    console.error('affiliate withdrawal notification', mailError)
+  }
   return res.status(200).json({ withdrawal: data, ok: true })
 }
 

@@ -1,5 +1,6 @@
 import { supabaseAdmin, getUserFromAuthHeader, verifyAccountPassword } from '../server/supabase.js';
 import { rateLimit } from '../server/rateLimit.js';
+import { renderOwnerAffiliateWithdrawalEmail } from '../server/emailTemplates.js';
 import { normalizeAffiliateSlug, trackAffiliateVisit, claimAffiliateReferral } from '../server/affiliate.js';
 
 function parseBody(req) {
@@ -21,11 +22,10 @@ async function alertOwnerAboutWithdrawal(withdrawal) {
   const from = String(process.env.RESEND_FROM || '').trim();
   const to = String(process.env.ORDER_EMAIL_TO || '').split(/[;,\n]/).map(s => s.trim()).filter(Boolean);
   if (!apiKey || !from || !to.length) return;
-  const amount = Number(withdrawal.amount || 0).toLocaleString('pt-BR', { style:'currency', currency:'BRL' });
+  const mail = renderOwnerAffiliateWithdrawalEmail({ amount: withdrawal.amount, requestId: withdrawal.id });
   const response = await fetch('https://api.resend.com/emails', {
-    method:'POST', headers: { Authorization:`Bearer ${apiKey}`, 'Content-Type':'application/json' },
-    body: JSON.stringify({ from, to, subject:'Nova solicitação de saque - Cubo Criativo',
-      text:`Um vendedor solicitou um saque de ${amount}.\nAcesse Administração > Vendedores para verificar e executar a transferência Pix.\nSolicitação: ${withdrawal.id}` }),
+    method:'POST', signal: AbortSignal.timeout(4500), headers: { Authorization:`Bearer ${apiKey}`, 'Content-Type':'application/json' },
+    body: JSON.stringify({ from, to, subject: mail.subject, html: mail.html }),
   });
   if (!response.ok) throw new Error(`Falha ao enviar aviso de saque (${response.status}).`);
 }
@@ -122,9 +122,13 @@ export default async function handler(req, res) {
   try {
     const action = String(req.query?.action || '').toLowerCase();
     if (action === 'track' && req.method === 'POST') return await handleTrack(req, res);
-    if (!['me', 'save-pix', 'request-withdrawal', 'claim-referral'].includes(action)) return problem(res, 404, 'Ação inválida.');
+    if (!['status', 'me', 'save-pix', 'request-withdrawal', 'claim-referral'].includes(action)) return problem(res, 404, 'Ação inválida.');
     const context = await authenticatedAffiliate(req);
     if (context.error) return problem(res, context.status, context.error);
+    if (action === 'status' && req.method === 'GET') {
+      res.setHeader('Cache-Control', 'private, no-store');
+      return res.status(200).json({ isSeller: Boolean(context.affiliate?.active) });
+    }
     if (action === 'me' && req.method === 'GET') return await handleMe(req, res, context);
     if (action === 'save-pix' && req.method === 'POST') return await handleSavePix(req, res, context);
     if (action === 'claim-referral' && req.method === 'POST') return await handleClaimReferral(req, res, context);

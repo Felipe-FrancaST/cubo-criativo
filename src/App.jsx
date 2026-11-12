@@ -528,6 +528,34 @@ export default function App() {
     }
   }, [accessToken])
 
+  // Acesso de vendedor validado no servidor (não confiar em localStorage ou flags do perfil).
+  // Atualiza ao voltar à aba, incluindo vendedores recém-habilitados pelo administrador.
+  const [isSeller, setIsSeller] = React.useState(false)
+  React.useEffect(() => {
+    let alive = true
+    if (!accessToken) { setIsSeller(false); return () => { alive = false } }
+    const loadSeller = async () => {
+      try {
+        const response = await fetch('/api/affiliate?action=status', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          cache: 'no-store',
+        })
+        const result = response.ok ? await response.json() : null
+        if (alive) setIsSeller(Boolean(result?.isSeller))
+      } catch { if (alive) setIsSeller(false) }
+    }
+    setIsSeller(false)
+    loadSeller()
+    const onFocus = () => { if (!document.hidden) loadSeller() }
+    window.addEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', onFocus)
+    return () => {
+      alive = false
+      window.removeEventListener('focus', onFocus)
+      document.removeEventListener('visibilitychange', onFocus)
+    }
+  }, [accessToken])
+
   // VIP (best-effort) via cache local para evitar flashes no menu.
   // IMPORTANTE: o cache pode ficar "stale" se um pagamento falhar/cancelar.
   // Por isso, validamos via /api/profile ao iniciar sessão e limpamos o cache quando não for VIP.
@@ -2110,6 +2138,7 @@ export default function App() {
         </a>
         <SiteHeader
           route={route}
+          isSeller={isSeller}
           user={user}
           isAdmin={isAdmin}
           menuOpen={menuDrawerOpen}
@@ -2159,6 +2188,7 @@ export default function App() {
               route={route}
               user={user}
               isAdmin={isAdmin}
+              isSeller={isSeller}
               isVip={isVip}
               onNavigate={navigate}
               onGoHomeSection={goHomeSection}

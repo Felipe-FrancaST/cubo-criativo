@@ -66,9 +66,9 @@ function renderEmailSummaryBanner({ eyebrow = 'Atualização', title = '', descr
   if (!title && !description) return '';
   return `
     <div style="margin:0 0 14px;padding:14px 16px;border-radius:16px;background:linear-gradient(135deg,rgba(34,197,94,.10),rgba(6,182,212,.10));border:1px solid rgba(103,232,249,.18);">
-      ${eyebrow ? `<div style="font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#67e8f9;">${esc(eyebrow)}</div>` : ''}
-      ${title ? `<div style="margin-top:4px;color:#f8fafc;font-size:18px;font-weight:800;line-height:1.35;">${esc(title)}</div>` : ''}
-      ${description ? `<div style="margin-top:6px;color:#cbd5e1;font-size:13px;line-height:1.65;">${esc(description)}</div>` : ''}
+      ${eyebrow ? `<div style="font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#0f7082;">${esc(eyebrow)}</div>` : ''}
+      ${title ? `<div style="margin-top:4px;color:#122e3b;font-size:18px;font-weight:800;line-height:1.35;">${esc(title)}</div>` : ''}
+      ${description ? `<div style="margin-top:6px;color:#40596a;font-size:13px;line-height:1.65;">${esc(description)}</div>` : ''}
     </div>`;
 }
 
@@ -88,9 +88,9 @@ function renderActionButton(href, label, { secondary = false } = {}) {
   const url = String(href || '').trim();
   const text = String(label || '').trim();
   if (!url || !text) return '';
-  const background = secondary ? '#172033' : 'linear-gradient(135deg,#22c55e,#06b6d4)';
-  const color = secondary ? '#e2e8f0' : '#04110d';
-  const border = secondary ? '1px solid rgba(255,255,255,.14)' : '1px solid rgba(103,232,249,.28)';
+  const background = secondary ? '#e7f2f4' : '#0B3440';
+  const color = secondary ? '#243e4a' : '#FFFFFF';
+  const border = secondary ? '1px solid rgba(11,52,64,.14)' : '1px solid rgba(103,232,249,.28)';
   return `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer" style="display:inline-block;margin:0 8px 8px 0;padding:12px 17px;border-radius:12px;background:${background};border:${border};color:${color};text-decoration:none;font-size:13px;font-weight:800;line-height:1.2;">${esc(text)}</a>`;
 }
 
@@ -98,11 +98,11 @@ function renderSupportCard({ supportEmail = '', whatsapp = '' } = {}) {
   const email = String(supportEmail || '').trim();
   const phone = String(whatsapp || '').trim();
   const rows = [];
-  if (phone) rows.push(`<div style="margin-top:4px;color:#e2e8f0;"><b>WhatsApp:</b> ${esc(phone)}</div>`);
-  if (email) rows.push(`<div style="margin-top:4px;color:#e2e8f0;"><b>E-mail:</b> ${esc(email)}</div>`);
+  if (phone) rows.push(`<div style="margin-top:4px;color:#243e4a;"><b>WhatsApp:</b> ${esc(phone)}</div>`);
+  if (email) rows.push(`<div style="margin-top:4px;color:#243e4a;"><b>E-mail:</b> ${esc(email)}</div>`);
   return `
-    <div style="margin-top:16px;padding:13px 15px;border-radius:14px;background:#111a2d;border:1px solid rgba(255,255,255,.09);color:#aebcd0;font-size:12px;line-height:1.6;">
-      <div style="color:#f8fafc;font-weight:800;">Precisa de ajuda?</div>
+    <div style="margin-top:16px;padding:13px 15px;border-radius:14px;background:#f4f9fa;border:1px solid rgba(11,52,64,.09);color:#5b7181;font-size:12px;line-height:1.6;">
+      <div style="color:#122e3b;font-weight:800;">Precisa de ajuda?</div>
       ${rows.length ? rows.join('') : '<div style="margin-top:4px;">Responda este e-mail e nossa equipe ajudará você.</div>'}
     </div>`;
 }
@@ -121,8 +121,8 @@ function renderLayout({ title, preheader, brandName, contentHtml, footerNote, si
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <meta name="color-scheme" content="dark" />
-    <meta name="supported-color-schemes" content="dark" />
+    <meta name="color-scheme" content="light" />
+    <meta name="supported-color-schemes" content="light" />
     <title>${safeTitle}</title>
     <style>
       @media only screen and (max-width: 640px) {
@@ -134,25 +134,25 @@ function renderLayout({ title, preheader, brandName, contentHtml, footerNote, si
       }
     </style>
   </head>
-  <body style="margin:0;padding:0;background:#080d18;font-family:Inter,Arial,Helvetica,sans-serif;color:#e2e8f0;-webkit-text-size-adjust:100%;">
+  <body style="margin:0;padding:0;background:#f3f7f8;font-family:Inter,Arial,Helvetica,sans-serif;color:#243e4a;-webkit-text-size-adjust:100%;">
     <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;mso-hide:all;">${safePre}&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;</div>
 
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="email-shell" style="width:100%;background:#080d18;padding:26px 12px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#F3F7F8" class="email-shell" style="width:100%;background:#F3F7F8;padding:26px 12px;">
       <tr>
         <td align="center">
-          <table role="presentation" width="640" cellpadding="0" cellspacing="0" border="0" class="email-card" style="width:100%;max-width:640px;background:#0f1728;border:1px solid #263248;border-radius:20px;overflow:hidden;box-shadow:0 20px 55px rgba(0,0,0,.30);">
+          <table role="presentation" width="640" cellpadding="0" cellspacing="0" border="0" bgcolor="#FFFFFF" class="email-card" style="width:100%;max-width:640px;background:#FFFFFF;border:1px solid #DCE9EC;border-radius:20px;overflow:hidden;box-shadow:0 8px 28px rgba(11,52,64,.07);">
             <tr>
-              <td class="email-pad" style="padding:22px 24px 18px;background:linear-gradient(135deg,#111c30,#0c1627);border-bottom:1px solid #263248;">
+              <td class="email-pad" style="padding:22px 24px 18px;background:#F6FBFC;border-bottom:1px solid #DCE9EC;">
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                   <tr>
                     <td width="56" valign="middle">
                       ${logoUrl
-                        ? `<img src="${esc(logoUrl)}" alt="${safeBrand}" width="48" height="48" style="display:block;width:48px;height:48px;border-radius:13px;object-fit:contain;background:#070b13;border:1px solid rgba(103,232,249,.20);" />`
-                        : `<div style="width:48px;height:48px;line-height:48px;text-align:center;border-radius:13px;background:linear-gradient(135deg,#22c55e,#06b6d4);color:#04110d;font-size:17px;font-weight:900;">CC</div>`}
+                        ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" bgcolor="#FFFFFF" style="width:56px;height:56px;background:#FFFFFF!important;border:1px solid #DCE9EC;border-radius:14px;"><tr><td align="center" valign="middle" bgcolor="#FFFFFF" style="background:#FFFFFF!important;padding:4px;border-radius:14px;"><img src="${esc(logoUrl)}" alt="${safeBrand}" width="46" height="46" style="display:block;width:46px;height:46px;object-fit:contain;background:#FFFFFF!important;border:0;" /></td></tr></table>`
+                        : `<div style="width:52px;height:52px;line-height:52px;text-align:center;border-radius:13px;background:#FFFFFF;color:#0B3440;border:1px solid #DCE9EC;font-size:17px;font-weight:900;">CC</div>`}
                     </td>
                     <td valign="middle" style="padding-left:13px;">
-                      <div style="font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#7dd3fc;font-weight:800;">${safeBrand}</div>
-                      <div class="email-title" style="font-size:23px;font-weight:850;color:#f8fafc;margin-top:4px;line-height:1.25;">${safeTitle}</div>
+                      <div style="font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#075985;font-weight:800;">${safeBrand}</div>
+                      <div class="email-title" style="font-size:23px;font-weight:850;color:#122e3b;margin-top:4px;line-height:1.25;">${safeTitle}</div>
                     </td>
                   </tr>
                 </table>
@@ -166,14 +166,14 @@ function renderLayout({ title, preheader, brandName, contentHtml, footerNote, si
             </tr>
 
             <tr>
-              <td class="email-pad" style="padding:17px 24px;background:#0b1322;border-top:1px solid #263248;">
-                <div style="font-size:12px;line-height:1.55;color:#8ea0b8;">${esc(footerNote || 'Mensagem automática da Cubo Criativo.')}</div>
-                ${homeUrl || accountUrl ? `<div style="margin-top:9px;font-size:12px;line-height:1.6;">${homeUrl ? `<a href="${esc(homeUrl)}" style="color:#67e8f9;text-decoration:none;font-weight:700;">Visitar o site</a>` : ''}${homeUrl && accountUrl ? `<span style="color:#46556d;"> &nbsp;•&nbsp; </span>` : ''}${accountUrl ? `<a href="${esc(accountUrl)}" style="color:#67e8f9;text-decoration:none;font-weight:700;">Meus pedidos</a>` : ''}</div>` : ''}
+              <td class="email-pad" style="padding:17px 24px;background:#f8fbfb;border-top:1px solid #dce9ec;">
+                <div style="font-size:12px;line-height:1.55;color:#617889;">${esc(footerNote || 'Mensagem automática da Cubo Criativo.')}</div>
+                ${homeUrl || accountUrl ? `<div style="margin-top:9px;font-size:12px;line-height:1.6;">${homeUrl ? `<a href="${esc(homeUrl)}" style="color:#0f7082;text-decoration:none;font-weight:700;">Visitar o site</a>` : ''}${homeUrl && accountUrl ? `<span style="color:#a0b1ba;"> &nbsp;•&nbsp; </span>` : ''}${accountUrl ? `<a href="${esc(accountUrl)}" style="color:#0f7082;text-decoration:none;font-weight:700;">Meus pedidos</a>` : ''}</div>` : ''}
               </td>
             </tr>
           </table>
 
-          <div style="max-width:640px;margin-top:13px;padding:0 8px;font-size:11px;color:#52627a;line-height:1.5;text-align:center;">
+          <div style="max-width:640px;margin-top:13px;padding:0 8px;font-size:11px;color:#718692;line-height:1.5;text-align:center;">
             Este e-mail foi enviado porque houve uma ação relacionada a um pedido ou serviço da Cubo Criativo.
           </div>
         </td>
@@ -190,36 +190,36 @@ function renderItemsTable(items) {
     const unit = Number(it?.unit_price ?? it?.price ?? 0) || 0;
     const total = unit * qty;
     const img = it?.img ? String(it.img) : "";
-    const scale = it?.scale ? ` <span style="color:#94a3b8;">(Escala: ${esc(it.scale)})</span>` : "";
+    const scale = it?.scale ? ` <span style="color:#64748b;">(Escala: ${esc(it.scale)})</span>` : "";
 
     const imgCell = img
-      ? `<img src="${esc(img)}" alt="${name}" width="44" height="44" style="display:block;width:44px;height:44px;border-radius:10px;object-fit:cover;border:1px solid rgba(255,255,255,.12);background:#0b1020;" />`
-      : `<div style="width:44px;height:44px;border-radius:10px;border:1px solid rgba(255,255,255,.12);background:#0b1020;"></div>`;
+      ? `<img src="${esc(img)}" alt="${name}" width="44" height="44" style="display:block;width:44px;height:44px;border-radius:10px;object-fit:cover;border:1px solid rgba(11,52,64,.12);background:#f0f6f8;" />`
+      : `<div style="width:44px;height:44px;border-radius:10px;border:1px solid rgba(11,52,64,.12);background:#f0f6f8;"></div>`;
 
     return `
       <tr>
-        <td style="padding:10px 8px;border-bottom:1px solid rgba(255,255,255,.08);">${imgCell}</td>
-        <td style="padding:10px 8px;border-bottom:1px solid rgba(255,255,255,.08);color:#e2e8f0;">
+        <td style="padding:10px 8px;border-bottom:1px solid rgba(11,52,64,.08);">${imgCell}</td>
+        <td style="padding:10px 8px;border-bottom:1px solid rgba(11,52,64,.08);color:#243e4a;">
           <div style="font-weight:700;">${name}${scale}</div>
         </td>
-        <td align="center" style="padding:10px 8px;border-bottom:1px solid rgba(255,255,255,.08);color:#e2e8f0;">${qty}</td>
-        <td align="right" style="padding:10px 8px;border-bottom:1px solid rgba(255,255,255,.08);color:#e2e8f0;">${fmtBRL(unit)}</td>
-        <td align="right" style="padding:10px 8px;border-bottom:1px solid rgba(255,255,255,.08);color:#e2e8f0;font-weight:700;">${fmtBRL(total)}</td>
+        <td align="center" style="padding:10px 8px;border-bottom:1px solid rgba(11,52,64,.08);color:#243e4a;">${qty}</td>
+        <td align="right" style="padding:10px 8px;border-bottom:1px solid rgba(11,52,64,.08);color:#243e4a;">${fmtBRL(unit)}</td>
+        <td align="right" style="padding:10px 8px;border-bottom:1px solid rgba(11,52,64,.08);color:#243e4a;font-weight:700;">${fmtBRL(total)}</td>
       </tr>
     `;
   }).join("");
 
   return `
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid rgba(255,255,255,.10);border-radius:14px;overflow:hidden;background:rgba(255,255,255,.02);">
-      <tr style="background:rgba(255,255,255,.04);">
-        <th align="left" style="padding:10px 8px;font-size:12px;color:#94a3b8;font-weight:700;">&nbsp;</th>
-        <th align="left" style="padding:10px 8px;font-size:12px;color:#94a3b8;font-weight:700;">Item</th>
-        <th align="center" style="padding:10px 8px;font-size:12px;color:#94a3b8;font-weight:700;">Qtd</th>
-        <th align="right" style="padding:10px 8px;font-size:12px;color:#94a3b8;font-weight:700;">Unit.</th>
-        <th align="right" style="padding:10px 8px;font-size:12px;color:#94a3b8;font-weight:700;">Total</th>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid rgba(11,52,64,.10);border-radius:14px;overflow:hidden;background:rgba(11,52,64,.02);">
+      <tr style="background:rgba(11,52,64,.04);">
+        <th align="left" style="padding:10px 8px;font-size:12px;color:#64748b;font-weight:700;">&nbsp;</th>
+        <th align="left" style="padding:10px 8px;font-size:12px;color:#64748b;font-weight:700;">Item</th>
+        <th align="center" style="padding:10px 8px;font-size:12px;color:#64748b;font-weight:700;">Qtd</th>
+        <th align="right" style="padding:10px 8px;font-size:12px;color:#64748b;font-weight:700;">Unit.</th>
+        <th align="right" style="padding:10px 8px;font-size:12px;color:#64748b;font-weight:700;">Total</th>
       </tr>
       ${rows || `
-        <tr><td colspan="5" style="padding:14px;color:#94a3b8;">(sem itens)</td></tr>
+        <tr><td colspan="5" style="padding:14px;color:#64748b;">(sem itens)</td></tr>
       `}
     </table>
   `;
@@ -233,9 +233,9 @@ function renderMetaPills(items) {
       const label = esc(it.label || '');
       const value = esc(it.value || '');
       return `
-        <span style="display:inline-flex;align-items:center;gap:6px;padding:7px 10px;border-radius:999px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.10);margin:0 8px 8px 0;">
-          ${label ? `<span style="color:#94a3b8;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">${label}</span>` : ''}
-          ${value ? `<span style="color:#e2e8f0;font-size:12px;font-weight:800;">${value}</span>` : ''}
+        <span style="display:inline-flex;align-items:center;gap:6px;padding:7px 10px;border-radius:999px;background:rgba(11,52,64,.04);border:1px solid rgba(11,52,64,.10);margin:0 8px 8px 0;">
+          ${label ? `<span style="color:#64748b;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">${label}</span>` : ''}
+          ${value ? `<span style="color:#243e4a;font-size:12px;font-weight:800;">${value}</span>` : ''}
         </span>`;
     })
     .join('');
@@ -252,7 +252,7 @@ function renderShowcaseGrid(items, { title = '', emptyText = '' } = {}) {
   const safeItems = (Array.isArray(items) ? items : []).filter(Boolean).slice(0, 8);
   if (!safeItems.length) {
     return emptyText
-      ? `<div style="margin-top:14px;color:#94a3b8;font-size:12px;line-height:1.55;">${esc(emptyText)}</div>`
+      ? `<div style="margin-top:14px;color:#64748b;font-size:12px;line-height:1.55;">${esc(emptyText)}</div>`
       : '';
   }
 
@@ -261,14 +261,14 @@ function renderShowcaseGrid(items, { title = '', emptyText = '' } = {}) {
     const subtitle = esc(it?.subtitle || it?.scale || it?.caption || '');
     const img = String(it?.img || it?.image_url || '').trim();
     const media = img
-      ? `<img src="${esc(img)}" alt="${name}" width="120" height="120" style="display:block;width:100%;height:120px;border-radius:12px;object-fit:cover;background:#0b1020;border:1px solid rgba(255,255,255,.08);" />`
-      : `<div style="width:100%;height:120px;border-radius:12px;background:linear-gradient(135deg,rgba(34,197,94,.08),rgba(6,182,212,.08));border:1px solid rgba(255,255,255,.08);"></div>`;
+      ? `<img src="${esc(img)}" alt="${name}" width="120" height="120" style="display:block;width:100%;height:120px;border-radius:12px;object-fit:cover;background:#f0f6f8;border:1px solid rgba(11,52,64,.08);" />`
+      : `<div style="width:100%;height:120px;border-radius:12px;background:linear-gradient(135deg,rgba(34,197,94,.08),rgba(6,182,212,.08));border:1px solid rgba(11,52,64,.08);"></div>`;
     return `
       <td width="50%" valign="top" style="padding:0 6px 12px;">
-        <div style="padding:10px;border-radius:16px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);">
+        <div style="padding:10px;border-radius:16px;background:rgba(11,52,64,.03);border:1px solid rgba(11,52,64,.08);">
           ${media}
-          <div style="margin-top:10px;color:#e2e8f0;font-size:13px;font-weight:800;line-height:1.35;">${name}</div>
-          ${subtitle ? `<div style="margin-top:4px;color:#94a3b8;font-size:11px;line-height:1.45;">${subtitle}</div>` : ''}
+          <div style="margin-top:10px;color:#243e4a;font-size:13px;font-weight:800;line-height:1.35;">${name}</div>
+          ${subtitle ? `<div style="margin-top:4px;color:#64748b;font-size:11px;line-height:1.45;">${subtitle}</div>` : ''}
         </div>
       </td>`;
   });
@@ -282,7 +282,7 @@ function renderShowcaseGrid(items, { title = '', emptyText = '' } = {}) {
 
   return `
     <div style="margin-top:16px;">
-      ${title ? `<div style="font-size:13px;font-weight:800;color:#e2e8f0;margin-bottom:8px;">${esc(title)}</div>` : ''}
+      ${title ? `<div style="font-size:13px;font-weight:800;color:#243e4a;margin-bottom:8px;">${esc(title)}</div>` : ''}
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}</table>
     </div>`;
 }
@@ -292,18 +292,18 @@ function renderKeyValueCard(title, pairs) {
     .filter((p) => p && (p.value ?? "") !== "")
     .map((p) => `
       <tr>
-        <td style="padding:6px 0;color:#94a3b8;font-size:12px;width:140px;">${esc(p.label)}</td>
-        <td style="padding:6px 0;color:#e2e8f0;font-size:13px;font-weight:600;">${esc(p.value)}</td>
+        <td style="padding:6px 0;color:#64748b;font-size:12px;width:140px;">${esc(p.label)}</td>
+        <td style="padding:6px 0;color:#243e4a;font-size:13px;font-weight:600;">${esc(p.value)}</td>
       </tr>
     `)
     .join("");
 
   return `
     <div style="margin:14px 0 0;">
-      <div style="font-size:13px;font-weight:800;color:#e2e8f0;margin-bottom:6px;">${esc(title)}</div>
-      <div style="border:1px solid rgba(255,255,255,.10);border-radius:14px;background:rgba(255,255,255,.02);padding:12px 14px;">
+      <div style="font-size:13px;font-weight:800;color:#243e4a;margin-bottom:6px;">${esc(title)}</div>
+      <div style="border:1px solid rgba(11,52,64,.10);border-radius:14px;background:rgba(11,52,64,.02);padding:12px 14px;">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-          ${rows || `<tr><td style="color:#94a3b8;">—</td></tr>`}
+          ${rows || `<tr><td style="color:#64748b;">—</td></tr>`}
         </table>
       </div>
     </div>
@@ -326,13 +326,13 @@ export function renderOwnerOrderEmail(payload) {
 
   const headerPills = `
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin:0 0 12px;">
-      <span style="display:inline-block;padding:6px 10px;border-radius:999px;background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.25);color:#bbf7d0;font-weight:800;font-size:12px;">
+      <span style="display:inline-block;padding:6px 10px;border-radius:999px;background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.25);color:#166534;font-weight:800;font-size:12px;">
         ${esc(String(orderStatus || "paid").toLowerCase() === "paid" ? "PAGO" : "PENDENTE")}
       </span>
-      <span style="display:inline-block;padding:6px 10px;border-radius:999px;background:rgba(6,182,212,.12);border:1px solid rgba(6,182,212,.25);color:#a5f3fc;font-weight:800;font-size:12px;">
+      <span style="display:inline-block;padding:6px 10px;border-radius:999px;background:rgba(6,182,212,.12);border:1px solid rgba(6,182,212,.25);color:#0f7082;font-weight:800;font-size:12px;">
         ${esc(paymentMethod || "Pagamento")}
       </span>
-      <span style="display:inline-block;padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);color:#e2e8f0;font-weight:800;font-size:12px;">
+      <span style="display:inline-block;padding:6px 10px;border-radius:999px;background:rgba(11,52,64,.06);border:1px solid rgba(11,52,64,.10);color:#243e4a;font-weight:800;font-size:12px;">
         ${esc(fmtBRL(total))}
       </span>
     </div>
@@ -353,21 +353,21 @@ export function renderOwnerOrderEmail(payload) {
 
   const itemsTable = `
     <div style="margin:14px 0 0;">
-      <div style="font-size:13px;font-weight:800;color:#e2e8f0;margin-bottom:6px;">Itens</div>
+      <div style="font-size:13px;font-weight:800;color:#243e4a;margin-bottom:6px;">Itens</div>
       ${renderItemsTable(items)}
     </div>
   `;
 
   const contentHtml = `
     ${headerPills}
-    <div style="color:#cbd5e1;font-size:13px;line-height:1.6;">
+    <div style="color:#40596a;font-size:13px;line-height:1.6;">
       Você recebeu um novo pedido com pagamento confirmado. Use os dados abaixo para produção e envio.
     </div>
     ${metaCard}
     ${customerCard}
     ${itemsTable}
-    <div style="margin-top:14px;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.03);border:1px dashed rgba(255,255,255,.14);color:#94a3b8;font-size:12px;line-height:1.5;">
-      Forma de pagamento: <b style="color:#e2e8f0;">${esc(paymentMethod || "-")}</b>
+    <div style="margin-top:14px;padding:12px 14px;border-radius:14px;background:rgba(11,52,64,.03);border:1px dashed rgba(11,52,64,.14);color:#64748b;font-size:12px;line-height:1.5;">
+      Forma de pagamento: <b style="color:#243e4a;">${esc(paymentMethod || "-")}</b>
     </div>
   `;
 
@@ -416,7 +416,7 @@ export function renderCustomerOrderEmail(payload) {
 
   const itemsTable = `
     <div style="margin:16px 0 0;">
-      <div style="font-size:13px;font-weight:800;color:#f8fafc;margin-bottom:7px;">Itens do pedido</div>
+      <div style="font-size:13px;font-weight:800;color:#122e3b;margin-bottom:7px;">Itens do pedido</div>
       ${renderItemsTable(items)}
     </div>`;
 
@@ -435,15 +435,15 @@ export function renderCustomerOrderEmail(payload) {
       { label: 'Pagamento', value: paymentMethod || 'Aprovado' },
       { label: 'Total', value: fmtBRL(total) },
     ])}
-    <div style="margin-top:6px;color:#cbd5e1;font-size:14px;line-height:1.7;">
-      Olá <b style="color:#f8fafc;">${esc(customer?.name || 'cliente')}</b>! Seu pedido foi confirmado com sucesso.
+    <div style="margin-top:6px;color:#40596a;font-size:14px;line-height:1.7;">
+      Olá <b style="color:#122e3b;">${esc(customer?.name || 'cliente')}</b>! Seu pedido foi confirmado com sucesso.
       Agora nossa equipe fará a conferência e avisará você quando a produção começar.
     </div>
     ${meta}
     ${delivery}
     ${itemsTable}
-    <div style="margin-top:16px;padding:14px 15px;border-radius:14px;background:rgba(6,182,212,.09);border:1px solid rgba(103,232,249,.20);color:#cffafe;font-size:12px;line-height:1.65;">
-      <b style="color:#f8fafc;">Próximas atualizações:</b> início da produção, peça pronta, postagem com rastreio e confirmação de entrega.
+    <div style="margin-top:16px;padding:14px 15px;border-radius:14px;background:rgba(6,182,212,.09);border:1px solid rgba(103,232,249,.20);color:#075985;font-size:12px;line-height:1.65;">
+      <b style="color:#122e3b;">Próximas atualizações:</b> início da produção, peça pronta, postagem com rastreio e confirmação de entrega.
     </div>
     ${accountUrl ? `<div style="margin-top:17px;">${renderActionButton(accountUrl, 'Acompanhar meu pedido')}</div>` : ''}
     ${renderSupportCard({ supportEmail, whatsapp })}
@@ -555,7 +555,7 @@ export function renderOrderStatusEmail(payload) {
   let ctaText = '';
   let accent = 'rgba(6,182,212,.12)';
   let accentBorder = 'rgba(6,182,212,.25)';
-  let accentColor = '#a5f3fc';
+  let accentColor = '#0f7082';
 
   if (kind === 'tracking') {
     intro = isVipOrder
@@ -568,7 +568,7 @@ export function renderOrderStatusEmail(payload) {
     ctaText = trackingUrl ? 'Acompanhar entrega' : (isVipOrder ? 'Abrir Área VIP' : 'Ver meu pedido');
     accent = 'rgba(168,85,247,.12)';
     accentBorder = 'rgba(168,85,247,.25)';
-    accentColor = '#ddd6fe';
+    accentColor = '#6d28d9';
   } else if (kind === 'eta') {
     intro = 'A previsão informada para a produção do seu pedido foi atualizada.';
     highlight = productionEta
@@ -578,7 +578,7 @@ export function renderOrderStatusEmail(payload) {
     ctaText = isVipOrder ? 'Abrir Área VIP' : 'Ver andamento do pedido';
     accent = 'rgba(245,158,11,.12)';
     accentBorder = 'rgba(245,158,11,.25)';
-    accentColor = '#fde68a';
+    accentColor = '#92400e';
   } else if (status === 'recebido') {
     if (isVipOrder) {
       intro = 'Seu ciclo VIP foi confirmado e já está registrado em nossa fila.';
@@ -595,7 +595,7 @@ export function renderOrderStatusEmail(payload) {
     }
     accent = 'rgba(34,197,94,.12)';
     accentBorder = 'rgba(34,197,94,.25)';
-    accentColor = '#bbf7d0';
+    accentColor = '#166534';
   } else if (status === 'editavel') {
     intro = isVipOrder
       ? 'As escolhas do seu ciclo VIP estão liberadas.'
@@ -607,7 +607,7 @@ export function renderOrderStatusEmail(payload) {
     ctaText = isVipOrder ? 'Escolher miniaturas' : 'Ver meu pedido';
     accent = 'rgba(168,85,247,.12)';
     accentBorder = 'rgba(168,85,247,.25)';
-    accentColor = '#ddd6fe';
+    accentColor = '#6d28d9';
   } else if (status === 'em_producao') {
     intro = isVipOrder
       ? 'As miniaturas selecionadas já entraram em produção no estúdio.'
@@ -626,7 +626,7 @@ export function renderOrderStatusEmail(payload) {
     ctaText = isVipOrder ? 'Abrir Área VIP' : 'Ver meu pedido';
     accent = 'rgba(245,158,11,.12)';
     accentBorder = 'rgba(245,158,11,.25)';
-    accentColor = '#fde68a';
+    accentColor = '#92400e';
   } else if (status === 'enviado') {
     intro = isVipOrder
       ? 'Seu envio VIP foi despachado e está a caminho.'
@@ -638,7 +638,7 @@ export function renderOrderStatusEmail(payload) {
     ctaText = trackingUrl ? 'Acompanhar entrega' : (isVipOrder ? 'Abrir Área VIP' : 'Ver meu pedido');
     accent = 'rgba(168,85,247,.12)';
     accentBorder = 'rgba(168,85,247,.25)';
-    accentColor = '#ddd6fe';
+    accentColor = '#6d28d9';
   } else if (status === 'entregue') {
     intro = isVipOrder
       ? 'Seu envio VIP foi marcado como entregue. Esperamos que você aproveite muito as miniaturas.'
@@ -648,7 +648,7 @@ export function renderOrderStatusEmail(payload) {
     ctaText = resolvedReviewUrl ? (isVipOrder ? 'Avaliar envio VIP' : 'Avaliar pedido') : 'Ver meu pedido';
     accent = 'rgba(34,197,94,.12)';
     accentBorder = 'rgba(34,197,94,.25)';
-    accentColor = '#bbf7d0';
+    accentColor = '#166534';
   } else if (status === 'cancelado') {
     intro = cancelledBy === 'customer'
       ? 'Registramos sua solicitação de cancelamento.'
@@ -658,7 +658,7 @@ export function renderOrderStatusEmail(payload) {
     ctaText = isVipOrder ? 'Abrir Área VIP' : 'Consultar pedido';
     accent = 'rgba(239,68,68,.12)';
     accentBorder = 'rgba(239,68,68,.25)';
-    accentColor = '#fecaca';
+    accentColor = '#9f1239';
   } else if (status === 'reembolsado') {
     intro = 'O reembolso do seu pedido foi registrado.';
     highlight = 'O prazo para o valor aparecer depende da forma de pagamento, do banco ou da operadora.';
@@ -666,15 +666,15 @@ export function renderOrderStatusEmail(payload) {
     ctaText = isVipOrder ? 'Abrir Área VIP' : 'Consultar pedido';
     accent = 'rgba(245,158,11,.12)';
     accentBorder = 'rgba(245,158,11,.25)';
-    accentColor = '#fde68a';
+    accentColor = '#92400e';
   }
 
   const pills = `
     <div style="margin:0 0 6px;">
       <span style="display:inline-block;padding:7px 11px;border-radius:999px;background:${accent};border:1px solid ${accentBorder};color:${accentColor};font-weight:800;font-size:12px;margin:0 7px 8px 0;">${esc(statusLabelPt(status))}</span>
-      <span style="display:inline-block;padding:7px 11px;border-radius:999px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.10);color:#e2e8f0;font-weight:800;font-size:12px;margin:0 7px 8px 0;">${isVipOrder ? 'Clube VIP' : 'Loja'}</span>
-      ${paymentLabel ? `<span style="display:inline-block;padding:7px 11px;border-radius:999px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.10);color:#e2e8f0;font-weight:800;font-size:12px;margin:0 7px 8px 0;">${esc(paymentLabel)}</span>` : ''}
-      ${Number.isFinite(Number(total)) ? `<span style="display:inline-block;padding:7px 11px;border-radius:999px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.10);color:#e2e8f0;font-weight:800;font-size:12px;margin:0 7px 8px 0;">${esc(fmtBRL(total))}</span>` : ''}
+      <span style="display:inline-block;padding:7px 11px;border-radius:999px;background:rgba(11,52,64,.05);border:1px solid rgba(11,52,64,.10);color:#243e4a;font-weight:800;font-size:12px;margin:0 7px 8px 0;">${isVipOrder ? 'Clube VIP' : 'Loja'}</span>
+      ${paymentLabel ? `<span style="display:inline-block;padding:7px 11px;border-radius:999px;background:rgba(11,52,64,.05);border:1px solid rgba(11,52,64,.10);color:#243e4a;font-weight:800;font-size:12px;margin:0 7px 8px 0;">${esc(paymentLabel)}</span>` : ''}
+      ${Number.isFinite(Number(total)) ? `<span style="display:inline-block;padding:7px 11px;border-radius:999px;background:rgba(11,52,64,.05);border:1px solid rgba(11,52,64,.10);color:#243e4a;font-weight:800;font-size:12px;margin:0 7px 8px 0;">${esc(fmtBRL(total))}</span>` : ''}
     </div>`;
 
   const meta = renderKeyValueCard(isVipOrder ? 'Resumo do ciclo' : 'Resumo do pedido', [
@@ -725,8 +725,8 @@ export function renderOrderStatusEmail(payload) {
       description: `Pedido ${shortId}`,
     })}
     ${pills}
-    <div style="color:#cbd5e1;font-size:14px;line-height:1.7;">
-      Olá <b style="color:#f8fafc;">${esc(customerName || 'cliente')}</b>! ${esc(intro)}
+    <div style="color:#40596a;font-size:14px;line-height:1.7;">
+      Olá <b style="color:#122e3b;">${esc(customerName || 'cliente')}</b>! ${esc(intro)}
     </div>
     <div style="margin-top:14px;padding:13px 15px;border-radius:14px;background:${accent};border:1px solid ${accentBorder};color:${accentColor};font-size:12px;line-height:1.65;">${esc(highlight)}</div>
     ${meta}
@@ -782,10 +782,10 @@ export function renderPixReminderEmail(payload) {
       { label: 'Valor', value: fmtBRL(total) },
       { label: 'Status', value: 'Aguardando Pix' },
     ])}
-    <div style="margin-top:6px;color:#cbd5e1;font-size:14px;line-height:1.7;">
-      Olá <b style="color:#f8fafc;">${esc(customerName || 'cliente')}</b>! O pagamento Pix do seu pedido ainda aparece como pendente.
+    <div style="margin-top:6px;color:#40596a;font-size:14px;line-height:1.7;">
+      Olá <b style="color:#122e3b;">${esc(customerName || 'cliente')}</b>! O pagamento Pix do seu pedido ainda aparece como pendente.
     </div>
-    <div style="margin-top:14px;padding:13px 15px;border-radius:14px;background:rgba(245,158,11,.10);border:1px solid rgba(245,158,11,.24);color:#fde68a;font-size:12px;line-height:1.65;">
+    <div style="margin-top:14px;padding:13px 15px;border-radius:14px;background:rgba(245,158,11,.10);border:1px solid rgba(245,158,11,.24);color:#92400e;font-size:12px;line-height:1.65;">
       Se você já realizou o pagamento, pode ignorar esta mensagem. A confirmação pode levar alguns minutos.
     </div>
     ${renderKeyValueCard('Resumo do pagamento', [
@@ -839,8 +839,8 @@ export function renderManualOrderPaymentEmail(payload) {
       { label: 'Total', value: fmtBRL(total) },
       { label: 'Status', value: 'Aguardando pagamento' },
     ])}
-    <div style="margin-top:6px;color:#cbd5e1;font-size:14px;line-height:1.7;">
-      Olá <b style="color:#f8fafc;">${esc(customerName || 'cliente')}</b>! A equipe da Cubo Criativo preparou um pedido para você.
+    <div style="margin-top:6px;color:#40596a;font-size:14px;line-height:1.7;">
+      Olá <b style="color:#122e3b;">${esc(customerName || 'cliente')}</b>! A equipe da Cubo Criativo preparou um pedido para você.
       Confira os itens abaixo e use o botão para concluir o pagamento com segurança.
     </div>
     ${renderKeyValueCard('Resumo do pedido', [
@@ -849,10 +849,10 @@ export function renderManualOrderPaymentEmail(payload) {
       { label: 'Status', value: 'Aguardando pagamento' },
     ])}
     <div style="margin-top:16px;">
-      <div style="font-size:13px;font-weight:800;color:#f8fafc;margin-bottom:7px;">Itens</div>
+      <div style="font-size:13px;font-weight:800;color:#122e3b;margin-bottom:7px;">Itens</div>
       ${renderItemsTable(items)}
     </div>
-    <div style="margin-top:14px;padding:13px 15px;border-radius:14px;background:rgba(6,182,212,.09);border:1px solid rgba(103,232,249,.20);color:#cffafe;font-size:12px;line-height:1.65;">
+    <div style="margin-top:14px;padding:13px 15px;border-radius:14px;background:rgba(6,182,212,.09);border:1px solid rgba(103,232,249,.20);color:#075985;font-size:12px;line-height:1.65;">
       Sua conta de acompanhamento já está vinculada a este e-mail. Depois do pagamento, o pedido aparecerá em <b>Meus pedidos</b>.
     </div>
     ${paymentUrl || accountUrl ? `<div style="margin-top:18px;">${renderActionButton(paymentUrl || accountUrl, paymentUrl ? 'Pagar meu pedido' : 'Ver pedido')}${paymentUrl && accountUrl ? renderActionButton(accountUrl, 'Acessar minha conta', { secondary: true }) : ''}</div>` : ''}
@@ -918,9 +918,9 @@ export function renderOwnerVipWelcomeEmail(payload) {
   const contentHtml = `
     ${renderEmailSummaryBanner({ eyebrow: 'Controle interno', title: 'Nova assinatura VIP confirmada', description: `Plano assinado: ${planName}.` })}
     ${meta}
-    <div style="color:#cbd5e1;font-size:13px;line-height:1.6;">Uma nova assinatura VIP foi confirmada. Abaixo estão os dados do cliente e do plano para controle interno.</div>
+    <div style="color:#40596a;font-size:13px;line-height:1.6;">Uma nova assinatura VIP foi confirmada. Abaixo estão os dados do cliente e do plano para controle interno.</div>
     ${details}
-    ${planDescription ? `<div style="margin-top:14px;padding:12px 14px;border-radius:14px;background:rgba(168,85,247,.08);border:1px solid rgba(168,85,247,.18);color:#f5d0fe;font-size:12px;line-height:1.55;"><b>Descrição do plano:</b><br/>${esc(planDescription)}</div>` : ''}
+    ${planDescription ? `<div style="margin-top:14px;padding:12px 14px;border-radius:14px;background:rgba(168,85,247,.08);border:1px solid rgba(168,85,247,.18);color:#86198f;font-size:12px;line-height:1.55;"><b>Descrição do plano:</b><br/>${esc(planDescription)}</div>` : ''}
     ${customerCard}
   `;
 
@@ -983,7 +983,7 @@ export function renderOwnerVipUpgradeEmail(payload) {
   const contentHtml = `
     ${renderEmailSummaryBanner({ eyebrow: 'Controle interno', title: 'Upgrade VIP confirmado', description: `${fromPlanName} → ${toPlanName}` })}
     ${meta}
-    <div style="color:#cbd5e1;font-size:13px;line-height:1.6;">Um cliente realizou upgrade de assinatura VIP. Confira abaixo os detalhes para controle interno.</div>
+    <div style="color:#40596a;font-size:13px;line-height:1.6;">Um cliente realizou upgrade de assinatura VIP. Confira abaixo os detalhes para controle interno.</div>
     ${details}
     ${customerCard}
   `;
@@ -1043,17 +1043,17 @@ export function renderVipUpgradeEmail(payload) {
   ];
 
   const detailsTable = `
-    <table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;border-collapse:separate;border-spacing:0;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:14px;overflow:hidden;">
+    <table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;border-collapse:separate;border-spacing:0;background:rgba(11,52,64,.03);border:1px solid rgba(11,52,64,.08);border-radius:14px;overflow:hidden;">
       <tbody>
         ${detailRows.map((row, idx) => `
           <tr>
-            <td style="padding:10px 12px;border-bottom:${idx === detailRows.length - 1 ? '0' : '1px solid rgba(255,255,255,.08)'};color:#94a3b8;font-size:12px;font-weight:700;width:42%;">${esc(row.label)}</td>
-            <td style="padding:10px 12px;border-bottom:${idx === detailRows.length - 1 ? '0' : '1px solid rgba(255,255,255,.08)'};color:#f8fafc;font-size:13px;font-weight:700;">${esc(row.value)}</td>
+            <td style="padding:10px 12px;border-bottom:${idx === detailRows.length - 1 ? '0' : '1px solid rgba(11,52,64,.08)'};color:#64748b;font-size:12px;font-weight:700;width:42%;">${esc(row.label)}</td>
+            <td style="padding:10px 12px;border-bottom:${idx === detailRows.length - 1 ? '0' : '1px solid rgba(11,52,64,.08)'};color:#122e3b;font-size:13px;font-weight:700;">${esc(row.value)}</td>
           </tr>`).join('')}
       </tbody>
     </table>`;
 
-  const highlightList = `<ul style="margin:10px 0 0 18px;padding:0;color:#e2e8f0;font-size:13px;line-height:1.65;">${upgradeHighlights.map((b)=>`<li style="margin:0 0 4px 0;">${esc(String(b))}</li>`).join('')}</ul>`;
+  const highlightList = `<ul style="margin:10px 0 0 18px;padding:0;color:#243e4a;font-size:13px;line-height:1.65;">${upgradeHighlights.map((b)=>`<li style="margin:0 0 4px 0;">${esc(String(b))}</li>`).join('')}</ul>`;
   const meta = renderMetaPills([
     { label: 'Upgrade', value: 'Confirmado' },
     { label: 'Novo plano', value: toPlanName },
@@ -1061,46 +1061,46 @@ export function renderVipUpgradeEmail(payload) {
   ]);
 
   const supportBox = `
-    <div style="margin-top:14px;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);color:#cbd5e1;font-size:12px;line-height:1.55;">
-      ${whatsapp ? `WhatsApp: <b style="color:#e2e8f0;">${esc(whatsapp)}</b>` : ''}
+    <div style="margin-top:14px;padding:12px 14px;border-radius:14px;background:rgba(11,52,64,.03);border:1px solid rgba(11,52,64,.08);color:#40596a;font-size:12px;line-height:1.55;">
+      ${whatsapp ? `WhatsApp: <b style="color:#243e4a;">${esc(whatsapp)}</b>` : ''}
       ${whatsapp && supportEmail ? '<br/>' : ''}
-      ${supportEmail ? `Email: <b style="color:#e2e8f0;">${esc(supportEmail)}</b>` : ''}
+      ${supportEmail ? `Email: <b style="color:#243e4a;">${esc(supportEmail)}</b>` : ''}
       ${!whatsapp && !supportEmail ? 'Se precisar de ajuda, responda este email.' : ''}
     </div>`;
 
   const cta = vipAreaUrl ? `
     <div style="margin-top:16px;">
-      <a href="${esc(vipAreaUrl)}" style="display:inline-block;padding:11px 16px;border-radius:12px;background:linear-gradient(135deg,#a78bfa,#22d3ee);color:#09090b;text-decoration:none;font-weight:800;">Acessar Área VIP</a>
+      <a href="${esc(vipAreaUrl)}" style="display:inline-block;padding:11px 16px;border-radius:12px;background:linear-gradient(135deg,#6d28d9,#0c7183);color:#09090b;text-decoration:none;font-weight:800;">Acessar Área VIP</a>
     </div>` : '';
 
   const contentHtml = `
     ${renderEmailSummaryBanner({ eyebrow: 'Clube VIP', title: 'Upgrade confirmado', description: `Seu plano agora é ${toPlanName}.` })}
-    <div style="color:#cbd5e1;font-size:13px;line-height:1.65;">
-      Olá <b style="color:#e2e8f0;">${esc(customerName)}</b>!<br/>
-      Seu upgrade foi confirmado com sucesso ✅ Agora você está no plano <b style="color:#f8fafc;">${esc(toPlanName)}</b>.
+    <div style="color:#40596a;font-size:13px;line-height:1.65;">
+      Olá <b style="color:#243e4a;">${esc(customerName)}</b>!<br/>
+      Seu upgrade foi confirmado com sucesso ✅ Agora você está no plano <b style="color:#122e3b;">${esc(toPlanName)}</b>.
     </div>
-    <div style="margin-top:14px;padding:12px 14px;border-radius:14px;background:rgba(34,211,238,.08);border:1px solid rgba(34,211,238,.18);color:#cffafe;font-size:12px;line-height:1.55;">
+    <div style="margin-top:14px;padding:12px 14px;border-radius:14px;background:rgba(34,211,238,.08);border:1px solid rgba(34,211,238,.18);color:#075985;font-size:12px;line-height:1.55;">
       <b>Obrigado por evoluir seu plano com a Cubo Criativo.</b> As novas vantagens do clube já podem ser aproveitadas a partir de agora.
     </div>
     ${meta}
     <div style="margin-top:14px;">
-      <div style="color:#94a3b8;font-size:12px;font-weight:700;margin:0 0 6px 2px;">Detalhes do upgrade</div>
+      <div style="color:#64748b;font-size:12px;font-weight:700;margin:0 0 6px 2px;">Detalhes do upgrade</div>
       ${detailsTable}
     </div>
     <div style="margin-top:14px;display:grid;grid-template-columns:1fr;gap:10px;">
-      <div style="padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);color:#cbd5e1;font-size:13px;line-height:1.6;">
-        <div style="color:#94a3b8;font-size:12px;font-weight:700;margin-bottom:4px;">Plano anterior</div>
-        <div style="color:#f8fafc;font-weight:800;">${esc(fromPlanName)}</div>
+      <div style="padding:12px 14px;border-radius:14px;background:rgba(11,52,64,.03);border:1px solid rgba(11,52,64,.08);color:#40596a;font-size:13px;line-height:1.6;">
+        <div style="color:#64748b;font-size:12px;font-weight:700;margin-bottom:4px;">Plano anterior</div>
+        <div style="color:#122e3b;font-weight:800;">${esc(fromPlanName)}</div>
         ${fromPlanDescription ? `<div style="margin-top:6px;">${esc(fromPlanDescription)}</div>` : ''}
       </div>
-      <div style="padding:12px 14px;border-radius:14px;background:rgba(168,85,247,.10);border:1px solid rgba(168,85,247,.25);color:#f5d0fe;font-size:13px;line-height:1.6;">
-        <div style="color:#e9d5ff;font-size:12px;font-weight:700;margin-bottom:4px;">Novo plano ativo</div>
+      <div style="padding:12px 14px;border-radius:14px;background:rgba(168,85,247,.10);border:1px solid rgba(168,85,247,.25);color:#86198f;font-size:13px;line-height:1.6;">
+        <div style="color:#7e22ce;font-size:12px;font-weight:700;margin-bottom:4px;">Novo plano ativo</div>
         <div style="color:#fff7ed;font-weight:800;">${esc(toPlanName)}</div>
-        ${toPlanDescription ? `<div style="margin-top:6px;color:#f5d0fe;">${esc(toPlanDescription)}</div>` : ''}
+        ${toPlanDescription ? `<div style="margin-top:6px;color:#86198f;">${esc(toPlanDescription)}</div>` : ''}
       </div>
     </div>
-    <div style="margin-top:14px;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);">
-      <div style="color:#94a3b8;font-size:12px;font-weight:700;margin-bottom:4px;">O que mudou no seu plano</div>
+    <div style="margin-top:14px;padding:12px 14px;border-radius:14px;background:rgba(11,52,64,.03);border:1px solid rgba(11,52,64,.08);">
+      <div style="color:#64748b;font-size:12px;font-weight:700;margin-bottom:4px;">O que mudou no seu plano</div>
       ${highlightList}
     </div>
     ${cta}
@@ -1156,17 +1156,17 @@ export function renderVipWelcomeEmail(payload) {
   ];
 
   const detailsTable = `
-    <table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;border-collapse:separate;border-spacing:0;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:14px;overflow:hidden;">
+    <table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;border-collapse:separate;border-spacing:0;background:rgba(11,52,64,.03);border:1px solid rgba(11,52,64,.08);border-radius:14px;overflow:hidden;">
       <tbody>
         ${detailRows.map((row, idx) => `
           <tr>
-            <td style="padding:10px 12px;border-bottom:${idx === detailRows.length - 1 ? '0' : '1px solid rgba(255,255,255,.08)'};color:#94a3b8;font-size:12px;font-weight:700;width:42%;">${esc(row.label)}</td>
-            <td style="padding:10px 12px;border-bottom:${idx === detailRows.length - 1 ? '0' : '1px solid rgba(255,255,255,.08)'};color:#f8fafc;font-size:13px;font-weight:700;">${esc(row.value)}</td>
+            <td style="padding:10px 12px;border-bottom:${idx === detailRows.length - 1 ? '0' : '1px solid rgba(11,52,64,.08)'};color:#64748b;font-size:12px;font-weight:700;width:42%;">${esc(row.label)}</td>
+            <td style="padding:10px 12px;border-bottom:${idx === detailRows.length - 1 ? '0' : '1px solid rgba(11,52,64,.08)'};color:#122e3b;font-size:13px;font-weight:700;">${esc(row.value)}</td>
           </tr>`).join('')}
       </tbody>
     </table>`;
 
-  const benefitList = `<ul style="margin:10px 0 0 18px;padding:0;color:#e2e8f0;font-size:13px;line-height:1.65;">${benefits.map((b)=>`<li style="margin:0 0 4px 0;">${esc(String(b))}</li>`).join('')}</ul>`;
+  const benefitList = `<ul style="margin:10px 0 0 18px;padding:0;color:#243e4a;font-size:13px;line-height:1.65;">${benefits.map((b)=>`<li style="margin:0 0 4px 0;">${esc(String(b))}</li>`).join('')}</ul>`;
   const meta = renderMetaPills([
     { label: 'Assinatura', value: planName },
     ...(monthlyPrice != null ? [{ label: 'Plano', value: fmtBRL(monthlyPrice) }] : []),
@@ -1174,38 +1174,38 @@ export function renderVipWelcomeEmail(payload) {
   ]);
 
   const supportBox = `
-    <div style="margin-top:14px;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);color:#cbd5e1;font-size:12px;line-height:1.55;">
-      ${whatsapp ? `WhatsApp: <b style="color:#e2e8f0;">${esc(whatsapp)}</b>` : ''}
+    <div style="margin-top:14px;padding:12px 14px;border-radius:14px;background:rgba(11,52,64,.03);border:1px solid rgba(11,52,64,.08);color:#40596a;font-size:12px;line-height:1.55;">
+      ${whatsapp ? `WhatsApp: <b style="color:#243e4a;">${esc(whatsapp)}</b>` : ''}
       ${whatsapp && supportEmail ? '<br/>' : ''}
-      ${supportEmail ? `Email: <b style="color:#e2e8f0;">${esc(supportEmail)}</b>` : ''}
+      ${supportEmail ? `Email: <b style="color:#243e4a;">${esc(supportEmail)}</b>` : ''}
       ${!whatsapp && !supportEmail ? 'Se precisar de ajuda, responda este email.' : ''}
     </div>`;
 
   const cta = vipAreaUrl ? `
     <div style="margin-top:16px;">
-      <a href="${esc(vipAreaUrl)}" style="display:inline-block;padding:11px 16px;border-radius:12px;background:linear-gradient(135deg,#a78bfa,#22d3ee);color:#09090b;text-decoration:none;font-weight:800;">Acessar Área VIP</a>
+      <a href="${esc(vipAreaUrl)}" style="display:inline-block;padding:11px 16px;border-radius:12px;background:linear-gradient(135deg,#6d28d9,#0c7183);color:#09090b;text-decoration:none;font-weight:800;">Acessar Área VIP</a>
     </div>` : '';
 
   const contentHtml = `
     ${renderEmailSummaryBanner({ eyebrow: 'Clube VIP', title: 'Assinatura VIP ativada', description: `Plano confirmado: ${planName}.` })}
-    <div style="color:#cbd5e1;font-size:13px;line-height:1.65;">
-      Olá <b style="color:#e2e8f0;">${esc(customerName)}</b>!<br/>
-      Obrigado por assinar o <b style="color:#f8fafc;">${esc(planName)}</b>. Sua assinatura VIP foi ativada com sucesso ✅
+    <div style="color:#40596a;font-size:13px;line-height:1.65;">
+      Olá <b style="color:#243e4a;">${esc(customerName)}</b>!<br/>
+      Obrigado por assinar o <b style="color:#122e3b;">${esc(planName)}</b>. Sua assinatura VIP foi ativada com sucesso ✅
     </div>
-    <div style="margin-top:14px;padding:12px 14px;border-radius:14px;background:rgba(168,85,247,.10);border:1px solid rgba(168,85,247,.25);color:#f5d0fe;font-size:12px;line-height:1.55;">
+    <div style="margin-top:14px;padding:12px 14px;border-radius:14px;background:rgba(168,85,247,.10);border:1px solid rgba(168,85,247,.25);color:#86198f;font-size:12px;line-height:1.55;">
       <b>Obrigado pela assinatura!</b> Sua confiança ajuda a Cubo Criativo a continuar criando novas miniaturas, temas e experiências exclusivas para os assinantes.
     </div>
     ${meta}
     <div style="margin-top:14px;">
-      <div style="color:#94a3b8;font-size:12px;font-weight:700;margin:0 0 6px 2px;">Detalhes do plano</div>
+      <div style="color:#64748b;font-size:12px;font-weight:700;margin:0 0 6px 2px;">Detalhes do plano</div>
       ${detailsTable}
     </div>
-    ${planDescription ? `<div style="margin-top:14px;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);color:#cbd5e1;font-size:13px;line-height:1.6;">${esc(planDescription)}</div>` : ''}
-    <div style="margin-top:14px;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);">
-      <div style="color:#94a3b8;font-size:12px;font-weight:700;margin-bottom:4px;">O que já está liberado na sua assinatura</div>
+    ${planDescription ? `<div style="margin-top:14px;padding:12px 14px;border-radius:14px;background:rgba(11,52,64,.03);border:1px solid rgba(11,52,64,.08);color:#40596a;font-size:13px;line-height:1.6;">${esc(planDescription)}</div>` : ''}
+    <div style="margin-top:14px;padding:12px 14px;border-radius:14px;background:rgba(11,52,64,.03);border:1px solid rgba(11,52,64,.08);">
+      <div style="color:#64748b;font-size:12px;font-weight:700;margin-bottom:4px;">O que já está liberado na sua assinatura</div>
       ${benefitList}
     </div>
-    <div style="margin-top:14px;padding:12px 14px;border-radius:14px;background:rgba(34,211,238,.08);border:1px solid rgba(34,211,238,.18);color:#cffafe;font-size:12px;line-height:1.55;">
+    <div style="margin-top:14px;padding:12px 14px;border-radius:14px;background:rgba(34,211,238,.08);border:1px solid rgba(34,211,238,.18);color:#075985;font-size:12px;line-height:1.55;">
       <b>Próximo passo:</b> acesse a sua <b>Área VIP</b> para escolher as miniaturas do ciclo e acompanhar as próximas etapas da assinatura.
     </div>
     ${cta}
@@ -1220,6 +1220,57 @@ export function renderVipWelcomeEmail(payload) {
       brandName,
       contentHtml,
       footerNote: 'Mensagem automática de ativação da sua assinatura VIP.',
+    }),
+  };
+}
+
+
+/** E-mail interno sobre um novo saque: nenhum dado Pix sensível é enviado por e-mail. */
+export function renderOwnerAffiliateWithdrawalEmail({ amount, requestId, siteUrl } = {}) {
+  const base = getSiteUrl(siteUrl);
+  return {
+    subject: withBrandSubject('Cubo Criativo', `Nova solicitação de saque • ${fmtBRL(amount)}`),
+    html: renderLayout({
+      title: 'Nova solicitação de saque',
+      preheader: `Um vendedor solicitou ${fmtBRL(amount)} em comissões.`,
+      brandName: 'Cubo Criativo',
+      siteUrl: base,
+      contentHtml: `
+        ${renderEmailSummaryBanner({ eyebrow: 'Vendedores', title: 'Saque aguardando análise', description: 'Uma nova solicitação foi registrada e está pendente na administração.' })}
+        ${renderKeyValueCard('Resumo da solicitação', [
+          { label: 'Valor', value: fmtBRL(amount) },
+          { label: 'Protocolo', value: String(requestId || '').slice(0, 8).toUpperCase() },
+        ])}
+        <div style="margin-top:18px;">${renderActionButton(base ? `${base}/admin` : '', 'Abrir administração')}</div>
+        <p style="margin-top:12px;color:#40596a;font-size:12px;line-height:1.6;">Antes de concluir, confira o valor e os dados Pix na área administrativa.</p>`,
+      footerNote: 'Notificação financeira automática para a administração.',
+    }),
+  };
+}
+
+/** Aviso de saque concluído ou recusado; enviado uma única vez após a transição no banco. */
+export function renderSellerWithdrawalStatusEmail({ amount, status, siteUrl } = {}) {
+  const paid = status === 'paid';
+  const base = getSiteUrl(siteUrl);
+  const title = paid ? 'Seu saque foi concluído' : 'Atualização da solicitação de saque';
+  return {
+    subject: withBrandSubject('Cubo Criativo', `${title} • ${fmtBRL(amount)}`),
+    html: renderLayout({
+      title,
+      preheader: paid ? `Saque de ${fmtBRL(amount)} marcado como executado.` : `Saque de ${fmtBRL(amount)} não foi aprovado.`,
+      brandName: 'Cubo Criativo',
+      siteUrl: base,
+      contentHtml: `
+        ${renderEmailSummaryBanner({
+          eyebrow: 'Sua área de vendedor', title: paid ? 'Pagamento registrado' : 'Solicitação não aprovada',
+          description: paid ? 'Sua transferência foi registrada como concluída.' : 'O valor voltou para o saldo disponível, quando aplicável. Consulte sua área para mais informações.',
+        })}
+        ${renderKeyValueCard('Resumo', [
+          { label: 'Valor', value: fmtBRL(amount) },
+          { label: 'Status', value: paid ? 'Saque executado' : 'Saque recusado' },
+        ])}
+        <div style="margin-top:18px;">${renderActionButton(base ? `${base}/vendedor` : '', 'Acompanhar meus saques')}</div>`,
+      footerNote: 'Aviso automático sobre comissões e saques da Cubo Criativo.',
     }),
   };
 }
