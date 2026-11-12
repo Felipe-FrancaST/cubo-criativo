@@ -2410,8 +2410,9 @@ export default function App() {
               }
               onRequireLogin={requireLogin}
               onClose={() => setOrdersOpen(false)}
-              onPaymentFinalized={() => {
-                setCart([])
+              onPaymentFinalized={(_orderId, isCustomOrder) => {
+                // Encomendas personalizadas não utilizam o carrinho da loja.
+                if (!isCustomOrder) setCart([])
                 setOrdersOpen(false)
                 setCartOpen(false)
                 setToastMsg('Pedido finalizado. Obrigado!')

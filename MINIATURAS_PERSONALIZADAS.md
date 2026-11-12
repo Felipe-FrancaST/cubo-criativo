@@ -35,3 +35,16 @@
 
 - `node --test test/custom-miniatures.test.js`: testes das validações de imagens, preços, cupons e migração SQL.
 - `npm ci && npm run build && npm run check`: rode no seu computador ou pipeline com Node 24 e dependências instaladas. O pacote enviado não inclui `node_modules`.
+
+## Correções do fluxo de pagamentos e pedidos (12/11/2026)
+
+- **Pix:** enquanto o QR Code está aberto, a página consulta o servidor periodicamente. A API autentica o cliente e, no caso do Pix, consulta o pagamento real no Mercado Pago, verificando `external_reference` e identificador antes de marcar a compra como paga. Depois da confirmação o QR Code é removido automaticamente e aparece **“Compra efetuada com sucesso!”** com acesso a **Meus pedidos**.
+- **Cartão:** o retorno do Checkout Pro aguarda confirmação do banco/webhook para mostrar sucesso (não aceita apenas um parâmetro `payment=success` na URL).
+- **Meus pedidos:** os pedidos personalizados agora são associados à tabela geral `orders` pelo `order_id` usando uma API autenticada e com filtro por usuário; aparecem com o nome **Miniatura personalizada** ou **Busto personalizado**, descrição e galeria de referências, inclusive quando o registro em `order_items` não pôde ser criado.
+- **Administração > Pedidos:** ao abrir detalhes de um pedido personalizado, a tela consulta o registro de personalização no backend com permissão de operador e mostra o tipo, observações e imagens. Pedidos comuns seguem com o comportamento anterior.
+- **Administração > Personalizadas e Administração > Pedidos:** botão **Baixar imagens (.zip)** para baixar todas as referências de uma vez. O ZIP é produzido no navegador sem bibliotecas externas, a partir de URLs de download assinadas por 2 minutos e emitidas apenas para administradores autorizados. O bucket permanece privado.
+- A verificação manual do Pix em **Meus pedidos** sincroniza a tabela de solicitações personalizadas além da tabela de pedidos.
+
+**Instalação:** se a migração `supabase/migrations/20261112_custom_miniatures.sql` da primeira versão já foi aplicada, **não precisa rodar uma nova migração** para estas correções. Publique o código atualizado e mantenha o webhook `/api/mp-webhook` configurado. Se ainda não instalou a primeira versão, execute a migração original antes de publicar.
+
+**Teste final em produção/controlado:** pague um Pix de teste, confirme que o QR some e a confirmação aparece, abra **Meus pedidos**, verifique a galeria; depois abra esse mesmo pedido em **Administração > Pedidos**, baixe o ZIP e descompacte-o. Repita com cartão de teste. A aprovação real pelo Mercado Pago e as regras de RLS/autenticação do seu Supabase dependem da sua infraestrutura e não foram exercitadas localmente.

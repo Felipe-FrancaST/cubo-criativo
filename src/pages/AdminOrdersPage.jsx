@@ -2,6 +2,7 @@ const AdminBannersSection = lazyWithReload(
   () => import('./admin/banners/AdminBannersSection.jsx')
 )
 import React from 'react'
+import CustomReferenceGallery, { customPieceTitle } from '../components/CustomReferenceGallery.jsx'
 import { lazyWithReload } from '../lib/lazyWithReload.js'
 import useDialog from '../lib/useDialog.js'
 import './admin/admin.css'
@@ -114,6 +115,7 @@ function OrderDetailsModal({
   open,
   order,
   canManageBusiness = false,
+  accessToken = '',
   onClose,
   onUpdateStatus,
   onUpdateTracking,
@@ -132,6 +134,9 @@ function OrderDetailsModal({
   const [confirmDeleteOpen, setConfirmDeleteOpen] = React.useState(false)
   const [deleteKeyword, setDeleteKeyword] = React.useState('')
   const phone = order?.customer_phone || p?.phone || ''
+  const [customRequest, setCustomRequest] = React.useState(null)
+  const [customLoading, setCustomLoading] = React.useState(false)
+  const [customError, setCustomError] = React.useState('')
   const [noteDraft, setNoteDraft] = React.useState('')
   const [launchDateDraft, setLaunchDateDraft] = React.useState(() =>
     dateTimeLocalValue(order?.created_at)
@@ -160,6 +165,29 @@ function OrderDetailsModal({
     setDeleteKeyword('')
     setNoteDraft('')
   }, [order?.id, order?.created_at])
+  React.useEffect(() => {
+    if (!open || !order?.id || !accessToken) {
+      setCustomRequest(null)
+      setCustomLoading(false)
+      setCustomError('')
+      return undefined
+    }
+    const controller = new AbortController()
+    setCustomRequest(null)
+    setCustomError('')
+    setCustomLoading(true)
+    const params = new URLSearchParams({ api_action: 'custom-miniatures', op: 'admin-order-detail', order_id: order.id })
+    fetch(`/api/core?${params}`, { headers: { Authorization: `Bearer ${accessToken}` }, signal: controller.signal })
+      .then(async response => {
+        const data = await response.json().catch(() => ({}))
+        if (!response.ok) throw new Error(data.error || 'Não foi possível carregar as imagens do pedido.')
+        setCustomRequest(data.request || null)
+      })
+      .catch(error => { if (!controller.signal.aborted) setCustomError(error.message) })
+      .finally(() => { if (!controller.signal.aborted) setCustomLoading(false) })
+    return () => controller.abort()
+  }, [open, order?.id, accessToken])
+
   if (!open) return null
   const waPhone = onlyDigits(phone)
   const waMsg = encodeURIComponent(
@@ -418,6 +446,10 @@ function OrderDetailsModal({
               />
             </div>
 
+            {customLoading ? <p className="mt-4 text-sm text-slate-400">Carregando informações da personalização…</p> : null}
+            {customError ? <p className="mt-4 text-sm text-rose-200" role="alert">{customError}</p> : null}
+            {customRequest ? <div className="mt-4"><CustomReferenceGallery request={customRequest} admin accessToken={accessToken} orderId={order?.id} /></div> : null}
+
             <div className="mt-4 rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-3">
               <div className="text-sm font-semibold text-white">Itens</div>
               <div className="mt-2 space-y-2">
@@ -428,9 +460,9 @@ function OrderDetailsModal({
                       className="flex items-center gap-3 rounded-xl bg-black/20 ring-1 ring-white/10 p-2"
                     >
                       <div className="w-10 h-10 rounded-lg overflow-hidden bg-white/4 ring-1 ring-white/10 shrink-0">
-                        {it?.img ? (
+                        {(customRequest?.image_urls?.[0] || it?.img) ? (
                           <img
-                            src={it.img}
+                            src={customRequest?.image_urls?.[0] || it.img}
                             alt=""
                             className="w-full h-full object-contain"
                           />
@@ -438,7 +470,7 @@ function OrderDetailsModal({
                       </div>
                       <div className="min-w-0">
                         <div className="text-sm text-slate-100 truncate">
-                          {it.name}
+                          {customRequest ? customPieceTitle(customRequest.kind) : it.name}
                         </div>
                         <div className="text-xs text-slate-400">
                           {it.qty || 1}x{' '}
@@ -450,6 +482,11 @@ function OrderDetailsModal({
                       </div>
                     </div>
                   ))
+                ) : customRequest ? (
+                  <div className="flex items-center gap-2 rounded-xl bg-cyan-300/[0.05] p-3 text-sm text-slate-100">
+                    <span className="material-icons text-cyan-300">view_in_ar</span>
+                    {customPieceTitle(customRequest.kind)} · 1 peça sob encomenda
+                  </div>
                 ) : (
                   <div className="text-sm text-slate-400">Nenhum item.</div>
                 )}
@@ -4161,6 +4198,7 @@ export default function AdminOrdersPage({
         open={details.open}
         order={activeOrder}
         canManageBusiness={canManageBusiness}
+        accessToken={accessToken}
         onClose={() => setDetails({ open: false, orderId: null })}
         onUpdateStatus={(o) =>
           setActionModal({ open: true, mode: 'status', orderId: o?.id })

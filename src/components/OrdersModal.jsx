@@ -1,4 +1,5 @@
 import React from "react";
+import CustomReferenceGallery, { customPieceTitle } from "./CustomReferenceGallery.jsx";
 import Modal from "./Modal.jsx";
 import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../auth/AuthProvider.jsx";
@@ -82,7 +83,8 @@ function isRetryablePendingStatus(value) {
 function productionMessage(status, hasTracking) {
   const s = String(status || "recebido").toLowerCase();
   if (s === "em_producao") return "Sua peça já entrou em produção e está sendo preparada com cuidado.";
-  if (s === "pronto") return "Seu pedido foi finalizado e está em preparação para envio.";
+  if (s === "em_analise") return "Estamos analisando as referências e os detalhes da sua personalização.";
+  if (s === "finalizado" || s === "pronto") return "Seu pedido foi finalizado e está em preparação para envio.";
   if (s === "enviado") return hasTracking ? "Seu pedido foi enviado. Use o código de rastreio para acompanhar a entrega." : "Seu pedido foi enviado e logo o rastreio ficará disponível.";
   if (s === "entregue") return "Seu pedido foi entregue. Esperamos que você aproveite sua peça.";
   if (s === "cancelado") return "Este pedido foi cancelado.";
@@ -131,6 +133,7 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
   });
 
   const paidHandledRef = React.useRef(new Set());
+  const customOrderIdsRef = React.useRef(new Set());
 
   // Quando um Pix vira "paid", devemos:
   // - sumir QR code e mostrar finalizado
@@ -157,7 +160,7 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
       // Mostra confirmação por um curto período e então fecha + limpa carrinho
       setTimeout(() => {
         try {
-          if (typeof onPaymentFinalized === "function") onPaymentFinalized(orderId);
+          if (typeof onPaymentFinalized === "function") onPaymentFinalized(orderId, customOrderIdsRef.current.has(orderId));
         } catch {
           // ignore
         }
@@ -788,8 +791,42 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
       order_items: byOrder.get(o.id) || [],
     }));
 
+    // As imagens ficam em bucket privado e os dados do pedido personalizado
+    // estão em uma tabela separada. O endpoint só retorna dados do próprio dono.
+    if (accessToken && merged.length) {
+      try {
+        const requestByOrder = new Map();
+        for (let i = 0; i < ids.length; i += 100) {
+          const response = await fetch('/api/core?api_action=custom-miniatures&op=order-summaries', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+            body: JSON.stringify({ order_ids: ids.slice(i, i + 100) }),
+          });
+          if (!response.ok) throw new Error('Não foi possível carregar as referências personalizadas.');
+          const payload = await response.json();
+          for (const req of payload.requests || []) requestByOrder.set(req.order_id, req);
+        }
+        merged = merged.map(order => {
+          const custom = requestByOrder.get(order.id);
+          if (!custom) return order;
+          const firstImage = (custom.image_urls || [])[0] || null;
+          const existing = order.order_items || [];
+          return {
+            ...order,
+            custom,
+            order_items: existing.length
+              ? [{ ...existing[0], name: customPieceTitle(custom.kind), img: firstImage }, ...existing.slice(1)]
+              : [{ name: customPieceTitle(custom.kind), qty: 1, img: firstImage, order_id: order.id }],
+          };
+        });
+      } catch (err) {
+        // Uma falha na consulta das referências não deve ocultar os pedidos pagos.
+        console.error('custom miniature order summaries', err);
+      }
+    }
+
     const missingItemsOrderIds = merged
-      .filter((o) => String(o.status || '').toLowerCase() === 'paid' && (!Array.isArray(o.order_items) || o.order_items.length === 0))
+      .filter((o) => !o.custom && String(o.status || '').toLowerCase() === 'paid' && (!Array.isArray(o.order_items) || o.order_items.length === 0))
       .map((o) => o.id)
       .slice(0, 8);
 
@@ -839,7 +876,7 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
               slug: null,
             });
           });
-          merged = merged.map((o) => ({ ...o, order_items: retryByOrder.get(o.id) || o.order_items || [] }));
+          merged = merged.map((o) => ({ ...o, order_items: o.custom ? o.order_items : retryByOrder.get(o.id) || o.order_items || [] }));
         }
       } catch {}
     }
@@ -901,6 +938,7 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
       // ignore
     }
 
+    customOrderIdsRef.current = new Set(merged.filter(order => !!order.custom).map(order => order.id));
     setOrders(merged);
     setExpandedOrderId((current) => {
       const requested = String(initialOrderId || '').trim();
@@ -1056,7 +1094,7 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
 
             <div className="min-w-0">
               <p className="truncate text-base font-semibold text-white sm:text-lg">
-                {mainItem?.name || "Pedido da loja"}
+                {o.custom ? customPieceTitle(o.custom.kind) : mainItem?.name || "Pedido da loja"}
               </p>
               <p className="mt-1 text-sm text-slate-300">
                 {extraItems > 0 ? `+ ${extraItems} item(ns) neste pedido` : `${totalQty} item(ns) neste pedido`}
@@ -1093,6 +1131,12 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
             </div>
           ))}
         </div>
+
+          {o.custom ? (
+            <div className="mt-4">
+              <CustomReferenceGallery request={o.custom} />
+            </div>
+          ) : null}
 
         <div className="mt-4 rounded-3xl border border-white/10 bg-cyan-400/[0.06] p-4">
           <div className="flex items-start gap-3">
@@ -1131,38 +1175,24 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
             <div className="mb-3 flex items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold text-white">Itens do pedido</p>
-                <p className="text-xs text-slate-400">Clique no produto para abrir a página dele no site.</p>
+                <p className="text-xs text-slate-400">{o.custom ? 'As imagens de referência aparecem acima.' : 'Clique no produto para abrir a página dele no site.'}</p>
               </div>
             </div>
             <div className="space-y-3">
-              {items.map((it, idx) => (
-                <a
-                  key={idx}
-                  href={productOrderItemHref(it)}
-                  className="flex items-center gap-3 rounded-3xl border border-white/10 bg-white/[0.03] p-3 transition hover:border-cyan-400/30 hover:bg-cyan-400/[0.05]"
-                  title={it.name ? `Abrir ${it.name}` : "Abrir produto"}
-                >
-                  {it.img ? (
-                    <img
-                      src={it.img}
-                      alt={it.name || "Produto"}
-                      className="h-16 w-16 rounded-2xl object-cover ring-1 ring-white/10 bg-[#0c2430]"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="grid h-16 w-16 place-items-center rounded-2xl bg-[#0c2430] ring-1 ring-white/10 text-slate-400">
-                      <span className="material-icons">image</span>
-                    </div>
-                  )}
-
+              {items.map((it, idx) => o.custom ? (
+                <div key={idx} className="flex items-center gap-3 rounded-3xl border border-cyan-300/15 bg-cyan-300/[0.035] p-3">
+                  {it.img ? <img src={it.img} alt="Referência da personalização" className="h-16 w-16 rounded-2xl object-cover" loading="lazy" /> : <span className="material-icons text-cyan-300">view_in_ar</span>}
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-slate-100">{it.name || "Produto"}</p>
-                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-400">
-                      <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1">Quantidade: {Number(it.qty) || 1}</span>
-                      {it.scale ? <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1">Escala: {it.scale}</span> : null}
-                    </div>
+                    <p className="text-sm font-semibold text-slate-100">{customPieceTitle(o.custom.kind)}</p>
+                    <p className="text-xs text-slate-400">1 peça criada sob encomenda</p>
                   </div>
-
+                  <span className="material-icons text-cyan-300">verified</span>
+                </div>
+              ) : (
+                <a key={idx} href={productOrderItemHref(it)} title={it.name ? `Abrir ${it.name}` : 'Abrir produto'}
+                  className="flex items-center gap-3 rounded-3xl border border-white/10 bg-white/[0.03] p-3 transition hover:border-cyan-400/30 hover:bg-cyan-400/[0.05]">
+                  {it.img ? <img src={it.img} alt={it.name || 'Produto'} className="h-16 w-16 rounded-2xl object-cover" loading="lazy" /> : <span className="material-icons">inventory_2</span>}
+                  <span className="flex-1 text-sm font-semibold text-slate-100">{it.name || 'Produto'}</span>
                   <span className="material-icons text-slate-500">chevron_right</span>
                 </a>
               ))}
@@ -1171,9 +1201,9 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
         ) : null}
 
         <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-white/10 pt-4">
-          {isRetryablePendingStatus(o.status) && isMercadoPagoProvider(o.payment_provider) ? (
+          {isRetryablePendingStatus(o.status) && isMercadoPagoProvider(o.payment_provider) && (!o.custom || o.custom.payment_method === 'pix') ? (
             <button
-              onClick={() => (isLikelyPixPaymentId(o.provider_payment_id) ? openPay(o) : retryCardPayment(o))}
+              onClick={() => (o.custom || isLikelyPixPaymentId(o.provider_payment_id) ? openPay(o) : retryCardPayment(o))}
               className="rounded-2xl bg-emerald-400 px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-emerald-300"
               title={isLikelyPixPaymentId(o.provider_payment_id) ? "Abrir pagamento Pix" : "Reabrir pagamento com cartão"}
             >

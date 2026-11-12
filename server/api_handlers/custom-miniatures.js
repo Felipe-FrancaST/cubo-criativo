@@ -148,6 +148,37 @@ export default async function handleCustomMiniatures(req, res) {
       return res.status(200).json({ settings });
     }
 
+    // Detalhes e downloads somente para funcionários autenticados: o bucket é privado.
+    if (req.method === 'GET' && (op === 'admin-order-detail' || op === 'admin-downloads')) {
+      const admin = await requireAdmin(req, ADMIN_LEVEL.OPERATOR);
+      if (!admin.ok) return jsonError(res, admin.status, admin.error);
+      const orderId = String(req.query?.order_id || '');
+      const requestId = String(req.query?.request_id || '');
+      if (!isUuid(orderId) && !isUuid(requestId)) return jsonError(res, 400, 'Pedido inválido.');
+      const sb = supabaseAdmin();
+      let query = sb.from(REQUEST_TABLE).select('*');
+      query = isUuid(orderId) ? query.eq('order_id', orderId) : query.eq('id', requestId);
+      const { data: row, error } = await query.maybeSingle();
+      if (error) throw error;
+      if (op === 'admin-order-detail') {
+        res.setHeader('Cache-Control', 'private, no-store');
+        return res.status(200).json({ request: row ? (await signedPreview(sb, [row]))[0] : null });
+      }
+      if (!row) return jsonError(res, 404, 'Encomenda personalizada não encontrada.');
+      const paths = Array.isArray(row.image_paths) ? row.image_paths : [];
+      if (!paths.length) return jsonError(res, 404, 'Este pedido não tem imagens disponíveis.');
+      const { data: urls, error: signingError } = await sb.storage.from(CUSTOM_BUCKET)
+        .createSignedUrls(paths, 120, { download: true });
+      if (signingError) throw signingError;
+      res.setHeader('Cache-Control', 'private, no-store');
+      return res.status(200).json({
+        files: (urls || []).map((entry, index) => ({
+          url: entry.signedUrl,
+          name: `referencia-${String(index + 1).padStart(2, '0')}.${paths[index]?.split('.').pop()?.toLowerCase() || 'png'}`,
+        })),
+      });
+    }
+
     if (req.method === 'GET' && op === 'admin-list') {
       const admin = await requireAdmin(req, ADMIN_LEVEL.OPERATOR);
       if (!admin.ok) return jsonError(res, admin.status, admin.error);
@@ -181,6 +212,72 @@ export default async function handleCustomMiniatures(req, res) {
 
     if (req.method !== 'POST') return jsonError(res, 405, 'Método não permitido.');
     const body = bodyOf(req);
+
+    // Associa pedidos da loja às referências personalizadas, sem expor dados de outros usuários.
+    if (op === 'order-summaries') {
+      const ids = Array.isArray(body.order_ids) ? body.order_ids : [];
+      if (!ids.length || ids.length > 100 || ids.some(id => !isUuid(id))) {
+        return jsonError(res, 400, 'Informe de 1 a 100 pedidos válidos.');
+      }
+      const { data, error } = await sb.from(REQUEST_TABLE)
+        .select('id,user_id,order_id,kind,notes,image_paths,image_names,production_status,payment_status,payment_method,created_at')
+        .eq('user_id', user.id).in('order_id', [...new Set(ids)]);
+      if (error) throw error;
+      res.setHeader('Cache-Control', 'private, no-store');
+      return res.status(200).json({ requests: await signedPreview(sb, data || []) });
+    }
+
+    // Confirmação financeira baseada no servidor ou na API oficial do Mercado Pago.
+    // Nunca confiar apenas no retorno do navegador/Checkout Pro.
+    if (op === 'verify-payment') {
+      if (!isUuid(body.order_id)) return jsonError(res, 400, 'Pedido inválido.');
+      const { data: request, error: requestError } = await sb.from(REQUEST_TABLE)
+        .select('id,order_id,user_id,payment_method,payment_status,provider_payment_id')
+        .eq('order_id', body.order_id).eq('user_id', user.id).maybeSingle();
+      if (requestError) throw requestError;
+      if (!request) return jsonError(res, 404, 'Pedido personalizado não encontrado.');
+      const { data: order, error: orderError } = await sb.from('orders')
+        .select('id,user_id,status,provider_payment_id').eq('id', request.order_id).eq('user_id', user.id).maybeSingle();
+      if (orderError) throw orderError;
+      if (!order) return jsonError(res, 404, 'Pedido não encontrado.');
+
+      let paid = request.payment_status === 'paid' || order.status === 'paid';
+      // Para Pix, consulta a fonte primária mesmo antes de chegar o webhook.
+      if (!paid && request.payment_method === 'pix' && /^\d+$/.test(String(request.provider_payment_id || order.provider_payment_id || ''))) {
+        const token = String(process.env.MP_ACCESS_TOKEN || '').trim();
+        if (token) {
+          try {
+            const response = await fetch(`https://api.mercadopago.com/v1/payments/${encodeURIComponent(request.provider_payment_id || order.provider_payment_id)}`, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            if (response.ok) {
+              const mp = await response.json();
+              // Não aplicar estado de um pagamento que não pertença ao pedido.
+              if (String(mp.external_reference || '') === String(request.order_id) &&
+                  String(mp.id || '') === String(request.provider_payment_id || order.provider_payment_id)) {
+                paid = String(mp.status || '') === 'approved';
+              }
+            }
+          } catch (error) {
+            console.error('custom Pix verification unavailable', error);
+          }
+        }
+      }
+      if (paid) {
+        const now = new Date().toISOString();
+        const { error: syncOrderError } = await sb.from('orders').update({ status: 'paid' })
+          .eq('id', request.order_id).eq('user_id', user.id).neq('status', 'paid');
+        if (syncOrderError) throw syncOrderError;
+        const { error: syncRequestError } = await sb.from(REQUEST_TABLE).update({
+          payment_status: 'paid', production_status: 'recebido',
+          payment_payload: {}, updated_at: now,
+        }).eq('id', request.id).neq('payment_status', 'paid');
+        if (syncRequestError) throw syncRequestError;
+      }
+      res.setHeader('Cache-Control', 'private, no-store');
+      return res.status(200).json({ order_id: request.order_id, status: paid ? 'paid' : order.status,
+        payment_status: paid ? 'paid' : request.payment_status });
+    }
 
     if (op === 'reopen-pix') {
       if (!isUuid(body.request_id)) return jsonError(res, 400, 'Pedido inválido.');

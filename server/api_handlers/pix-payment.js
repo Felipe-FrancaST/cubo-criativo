@@ -322,6 +322,16 @@ async function handleGet(req, res) {
     if (mapped === "failed") await revokeVipFromOrder(sb, order, "payment_failed");
   } catch {}
 
+  // Solicitações personalizadas têm uma segunda tabela de acompanhamento.
+  // Mantém os dois históricos sincronizados mesmo quando a confirmação vem
+  // da verificação manual do Pix (antes do webhook).
+  if (mapped === 'paid') {
+    const { error: customSyncError } = await sb.from('custom_miniature_requests').update({
+      payment_status: 'paid', production_status: 'recebido', payment_payload: {}, updated_at: new Date().toISOString(),
+    }).eq('order_id', orderId).in('payment_status', ['processing', 'pending', 'failed']);
+    if (customSyncError) console.error('custom miniature pix get sync', customSyncError);
+  }
+
   const tx = mp.point_of_interaction?.transaction_data || {};
   return res.status(200).json({ ok: true, order_id: orderId, mp_status: mpStatus, status: mapped, qr_code: tx.qr_code || null, qr_code_base64: tx.qr_code_base64 || null, ticket_url: tx.ticket_url || null });
 }
@@ -343,6 +353,13 @@ async function handleVerify(req, res) {
     provider_payment_id: String(mp.id || paymentId),
     customer_email: mp?.payer?.email || order.customer_email || null,
   }).eq("id", orderId);
+
+  if (newStatus === 'paid') {
+    const { error: customSyncError } = await sb.from('custom_miniature_requests').update({
+      payment_status: 'paid', production_status: 'recebido', payment_payload: {}, updated_at: new Date().toISOString(),
+    }).eq('order_id', orderId).in('payment_status', ['processing', 'pending', 'failed']);
+    if (customSyncError) console.error('custom miniature pix verify sync', customSyncError);
+  }
 
   if (shouldCleanupOrder3dForStatus(newStatus)) await cleanupOrder3dModel(sb, order).catch((e) => console.error("order 3d cleanup on pix verify failed", e));
   if (newStatus === "paid") { await applyVipFromOrder(sb, order, mp); await applyStockDeductionIfNeeded(sb, order); }

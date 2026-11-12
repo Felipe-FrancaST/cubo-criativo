@@ -77,6 +77,7 @@ export default function CustomMiniaturesPage({ user, accessToken, onRequireLogin
   const [progress, setProgress] = React.useState('')
   const [error, setError] = React.useState('')
   const [pixData, setPixData] = React.useState(null)
+  const [confirmedOrder, setConfirmedOrder] = React.useState('')
   const [mine, setMine] = React.useState([])
   const [mineLoading, setMineLoading] = React.useState(false)
   const [expandedRequest, setExpandedRequest] = React.useState(null)
@@ -107,7 +108,10 @@ export default function CustomMiniaturesPage({ user, accessToken, onRequireLogin
     if (!silent) setMineLoading(true)
     try {
       const result = await apiCall('mine', { accessToken })
-      setMine(result.requests || [])
+      const current = result.requests || []
+      setMine(current)
+      // Estado de cobrança vem sempre do servidor. A confirmação visual ocorre
+      // no efeito abaixo, inclusive se a atualização chegou pelo webhook.
     } catch (err) {
       if (!silent) setError(err.message)
     } finally {
@@ -121,21 +125,69 @@ export default function CustomMiniaturesPage({ user, accessToken, onRequireLogin
   }, [user, accessToken, refreshMine])
 
   React.useEffect(() => {
-    if (!returnInfo || !user || !accessToken || !returnInfo.orderId) return undefined
-    let count = 0
-    let timer
-    const check = () => {
-      refreshMine({ silent: true })
-      count += 1
-      if (count >= 8) window.clearInterval(timer)
+    if (pixData?.orderId && mine.some(item => item.order_id === pixData.orderId && item.payment_status === 'paid')) {
+      setConfirmedOrder(pixData.orderId)
+      setPixData(null)
+    }
+  }, [mine, pixData])
+
+  const verifyPayment = React.useCallback(async orderId => {
+    if (!orderId || !user || !accessToken) return false
+    const result = await apiCall('verify-payment', {
+      method: 'POST', accessToken, body: { order_id: orderId },
+    })
+    if (result.payment_status === 'paid' || result.status === 'paid') {
+      setPixData(previous => previous?.orderId === orderId ? null : previous)
+      setConfirmedOrder(orderId)
+      await refreshMine({ silent: true })
+      return true
+    }
+    return false
+  }, [user, accessToken, refreshMine])
+
+  // Pix: verificação automática e contínua enquanto o QR está visível.
+  // Faz a confirmação somente com dados do servidor/Mercado Pago.
+  React.useEffect(() => {
+    if (!pixData?.orderId || !user || !accessToken) return undefined
+    const orderId = pixData.orderId
+    let cancelled = false
+    let checking = false
+    const check = async () => {
+      if (checking || cancelled) return
+      checking = true
+      try { await verifyPayment(orderId) } catch (err) { if (!cancelled) console.error('custom pix status', err) }
+      finally { checking = false }
     }
     check()
-    timer = window.setInterval(check, 2500)
+    const timer = window.setInterval(check, 4000)
+    const onVisible = () => { if (document.visibilityState === 'visible') check() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => { cancelled = true; window.clearInterval(timer); document.removeEventListener('visibilitychange', onVisible) }
+  }, [pixData?.orderId, user, accessToken, verifyPayment])
+
+  // Retorno do cartão: a URL de sucesso não basta como prova do pagamento.
+  React.useEffect(() => {
+    if (!returnInfo?.orderId || !user || !accessToken || confirmedOrder === returnInfo.orderId) return undefined
+    let count = 0
+    let checking = false
+    const check = async () => {
+      if (checking) return
+      checking = true
+      try {
+        await verifyPayment(returnInfo.orderId)
+        await refreshMine({ silent: true })
+      } catch (err) { console.error('custom card return status', err) }
+      finally { checking = false }
+      count += 1
+      if (count >= 30) window.clearInterval(timer)
+    }
+    check()
+    const timer = window.setInterval(check, 4000)
     return () => window.clearInterval(timer)
-  }, [returnInfo, user, accessToken, refreshMine])
+  }, [returnInfo?.orderId, user, accessToken, confirmedOrder, refreshMine, verifyPayment])
 
   const addFiles = React.useCallback((list) => {
-    if (busy || pixData) return
+    if (busy || pixData || confirmedOrder) return
     const incoming = Array.from(list || [])
     if (!incoming.length) return
     setError('')
@@ -152,7 +204,7 @@ export default function CustomMiniaturesPage({ user, accessToken, onRequireLogin
     }))
     filesRef.current = [...filesRef.current, ...next]
     setFiles(filesRef.current)
-  }, [busy, pixData])
+  }, [busy, pixData, confirmedOrder])
 
   function removeFile(id) {
     const match = files.find(item => item.id === id)
@@ -170,6 +222,11 @@ export default function CustomMiniaturesPage({ user, accessToken, onRequireLogin
     setCouponCode('')
     setDiscount(null)
     setPixData(null)
+    setConfirmedOrder('')
+    setReturnInfo(null)
+    const cleanUrl = new URL(window.location.href)
+    for (const key of ['payment', 'provider', 'order_id']) cleanUrl.searchParams.delete(key)
+    window.history.replaceState({}, '', `${cleanUrl.pathname}${cleanUrl.search}`)
     setError('')
     setProgress('')
     setPaymentMethod('pix')
@@ -179,7 +236,7 @@ export default function CustomMiniaturesPage({ user, accessToken, onRequireLogin
 
   const price = kind === 'busto' ? settings?.bust_price_cents : settings?.miniature_price_cents
   const totalCents = Math.max(0, Number(price || 0) - Number(discount?.discount_cents || 0))
-  const paymentReady = !!settings && files.length > 0 && !busy && !pixData
+  const paymentReady = !!settings && files.length > 0 && !busy && !pixData && !confirmedOrder
   const returnedOrder = mine.find(request => request.order_id && request.order_id === returnInfo?.orderId)
 
   async function applyCoupon() {
@@ -203,7 +260,7 @@ export default function CustomMiniaturesPage({ user, accessToken, onRequireLogin
   }
 
   async function startCheckout() {
-    if (busy || pixData) return
+    if (busy || pixData || confirmedOrder) return
     setError('')
     if (!files.length) { setError('Adicione ao menos uma imagem de referência antes de pagar.'); return }
     if (!user || !accessToken) { onRequireLogin?.('Entre ou crie sua conta para enviar o pedido personalizado.'); return }
@@ -273,6 +330,7 @@ export default function CustomMiniaturesPage({ user, accessToken, onRequireLogin
       const response = await apiCall('reopen-pix', {
         method: 'POST', accessToken, body: { request_id: request.id },
       })
+      setConfirmedOrder('')
       setPixData({ ...response.pix, orderId: response.order_id, amount: response.total_cents })
       window.setTimeout(() => document.getElementById('cm-pix-heading')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 30)
     } catch (err) { setError(err.message) }
@@ -314,12 +372,27 @@ export default function CustomMiniaturesPage({ user, accessToken, onRequireLogin
           </div>
         </header>
 
+        {confirmedOrder && !returnInfo ? (
+          <div className="cm-confirmation" role="status" aria-live="polite">
+            <div className="cm-confirmation-icon"><span className="material-icons">check_circle</span></div>
+            <div className="cm-confirmation-copy">
+              <h2>Compra efetuada com sucesso!</h2>
+              <p>Pagamento confirmado. Seu {kind === 'busto' ? 'busto personalizado' : 'pedido de miniatura personalizada'} foi recebido e já aparece em <strong>Meus pedidos</strong>.</p>
+              <span>Pedido #{String(confirmedOrder).slice(0, 8).toUpperCase()}</span>
+            </div>
+            {onOpenOrders ? <button type="button" onClick={onOpenOrders}>Ver meus pedidos <span className="material-icons">arrow_forward</span></button> : null}
+          </div>
+        ) : null}
+
         {returnInfo ? (
-          <div className={`cm-return ${returnedOrder?.payment_status === 'paid' ? 'is-confirmed' : ''}`} role="status">
-            <span className="material-icons" aria-hidden="true">{returnedOrder?.payment_status === 'paid' ? 'verified' : 'hourglass_top'}</span>
+          <div className={`cm-return ${returnedOrder?.payment_status === 'paid' || confirmedOrder === returnInfo.orderId ? 'is-confirmed' : ''}`} role="status">
+            <span className="material-icons" aria-hidden="true">{returnedOrder?.payment_status === 'paid' || confirmedOrder === returnInfo.orderId ? 'verified' : 'hourglass_top'}</span>
             <div>
-              <strong>{returnedOrder?.payment_status === 'paid' ? 'Pagamento confirmado!' : returnInfo.payment === 'cancel' ? 'Pagamento não concluído' : 'Aguardando confirmação do Mercado Pago'}</strong>
-              <p>{returnedOrder?.payment_status === 'paid' ? 'Seu pedido foi recebido e já está no acompanhamento.' : 'O retorno do checkout não confirma a cobrança. O status será atualizado após a confirmação do Mercado Pago.'}</p>
+              <strong>{returnedOrder?.payment_status === 'paid' || confirmedOrder === returnInfo.orderId ? 'Compra efetuada com sucesso!' : returnInfo.payment === 'cancel' ? 'Pagamento não concluído' : 'Aguardando confirmação do Mercado Pago'}</strong>
+              <p>{returnedOrder?.payment_status === 'paid' || confirmedOrder === returnInfo.orderId ? 'Pagamento confirmado! Seu pedido de personalização já está em Meus pedidos.' : 'O retorno do checkout não confirma a cobrança. O status será atualizado após a confirmação do Mercado Pago.'}</p>
+              {(returnedOrder?.payment_status === 'paid' || confirmedOrder === returnInfo.orderId) && onOpenOrders ? (
+                <button type="button" className="cm-return-orders" onClick={onOpenOrders}>Ver meus pedidos <span className="material-icons">arrow_forward</span></button>
+              ) : null}
             </div>
             <button type="button" onClick={() => {
               setReturnInfo(null)
@@ -340,7 +413,7 @@ export default function CustomMiniaturesPage({ user, accessToken, onRequireLogin
                 {types.map(type => (
                   <button type="button" role="radio" aria-checked={kind === type.id}
                     key={type.id} className={`cm-type ${kind === type.id ? 'is-selected' : ''}`}
-                    disabled={busy || !!pixData}
+                    disabled={busy || !!pixData || !!confirmedOrder}
                     onClick={() => { setKind(type.id); setDiscount(null); setError('') }}>
                     <span className="cm-type-icon"><span className="material-icons">{type.icon}</span></span>
                     <span className="cm-type-main"><strong>{type.name}</strong><small>{type.subtitle}</small></span>
@@ -363,7 +436,7 @@ export default function CustomMiniaturesPage({ user, accessToken, onRequireLogin
                 <h3>Arraste suas imagens para cá</h3>
                 <p>Ou escolha fotos, desenhos ou referências do seu dispositivo.</p>
                 <button type="button" className="cm-upload-button" onClick={() => fileRef.current?.click()}
-                  disabled={busy || files.length >= MAX_FILES}>
+                  disabled={busy || !!pixData || !!confirmedOrder || files.length >= MAX_FILES}>
                   <span className="material-icons">add_photo_alternate</span> Selecionar imagens
                 </button>
                 <small>JPG, PNG ou WEBP · Até 10 MB cada · Máximo 6 imagens</small>
@@ -378,7 +451,7 @@ export default function CustomMiniaturesPage({ user, accessToken, onRequireLogin
                     <div className="cm-file" key={item.id}>
                       <img src={item.preview} alt={`Referência ${idx + 1}: ${item.file.name}`} />
                       <button type="button" aria-label={`Remover ${item.file.name}`} title="Remover imagem"
-                        onClick={() => removeFile(item.id)} disabled={busy}>
+                        onClick={() => removeFile(item.id)} disabled={busy || !!pixData || !!confirmedOrder}>
                         <span className="material-icons">close</span>
                       </button>
                       <span className="cm-file-number">{idx + 1}</span>
@@ -418,7 +491,7 @@ export default function CustomMiniaturesPage({ user, accessToken, onRequireLogin
                 <div className="cm-coupon-control">
                   <input id="cm-coupon-code" value={couponCode} maxLength={50} placeholder="Código do cupom"
                     onChange={event => { setCouponCode(event.target.value.toUpperCase()); setDiscount(null) }} />
-                  <button type="button" onClick={applyCoupon} disabled={!couponCode.trim() || quoteBusy || busy}>
+                  <button type="button" onClick={applyCoupon} disabled={!couponCode.trim() || quoteBusy || busy || !!pixData || !!confirmedOrder}>
                     {quoteBusy ? 'Verificando…' : 'Aplicar'}
                   </button>
                 </div>
@@ -429,17 +502,17 @@ export default function CustomMiniaturesPage({ user, accessToken, onRequireLogin
               <div className="cm-payment-head">FORMA DE PAGAMENTO</div>
               <div className="cm-payments">
                 <button type="button" className={paymentMethod === 'pix' ? 'is-selected' : ''}
-                  aria-pressed={paymentMethod === 'pix'} disabled={busy || !!pixData} onClick={() => setPaymentMethod('pix')}>
+                  aria-pressed={paymentMethod === 'pix'} disabled={busy || !!pixData || !!confirmedOrder} onClick={() => setPaymentMethod('pix')}>
                   <span className="material-icons">qr_code_2</span><span><strong>Pix</strong><small>QR Code ou copia e cola</small></span><span className="material-icons cm-radio">{paymentMethod === 'pix' ? 'radio_button_checked' : 'radio_button_unchecked'}</span>
                 </button>
                 <button type="button" className={paymentMethod === 'card' ? 'is-selected' : ''}
-                  aria-pressed={paymentMethod === 'card'} disabled={busy || !!pixData} onClick={() => setPaymentMethod('card')}>
+                  aria-pressed={paymentMethod === 'card'} disabled={busy || !!pixData || !!confirmedOrder} onClick={() => setPaymentMethod('card')}>
                   <span className="material-icons">credit_card</span><span><strong>Cartão</strong><small>Checkout seguro Mercado Pago</small></span><span className="material-icons cm-radio">{paymentMethod === 'card' ? 'radio_button_checked' : 'radio_button_unchecked'}</span>
                 </button>
               </div>
               {error ? <div className="cm-error" role="alert"><span className="material-icons">error_outline</span><span>{error}</span></div> : null}
               {configError ? <div className="cm-error" role="alert">{configError}</div> : null}
-              {pixData ? (
+              {pixData || confirmedOrder ? (
                 <button type="button" className="cm-submit cm-submit-new" onClick={resetForm}>Criar outro pedido <span className="material-icons">add</span></button>
               ) : (
                 <button type="button" className="cm-submit" onClick={startCheckout}
@@ -471,7 +544,7 @@ export default function CustomMiniaturesPage({ user, accessToken, onRequireLogin
                 catch { setProgress('Não foi possível copiar. Selecione o código abaixo.') }
               }}><span className="material-icons">content_copy</span> Copiar Pix</button>
               <textarea value={pixData.qr_code} readOnly rows={2} aria-label="Código Pix copia e cola" onFocus={event => event.target.select()} />
-              <button className="cm-refresh" type="button" onClick={() => refreshMine()}>Atualizar status do pagamento</button>
+              <button className="cm-refresh" type="button" onClick={() => verifyPayment(pixData.orderId).catch(err => setError(err.message))}>Verificar pagamento agora</button>
             </div>
           </section>
         ) : null}

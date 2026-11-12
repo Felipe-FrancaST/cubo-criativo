@@ -1,4 +1,5 @@
 import React from 'react'
+import CustomReferenceGallery from '../../../components/CustomReferenceGallery.jsx'
 
 const ENDPOINT = '/api/core?api_action=custom-miniatures'
 const prices = value => (Number(value || 0) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -196,14 +197,7 @@ export default function AdminCustomMiniaturesSection({ accessToken, canManageBus
                     <p><strong className="text-white">Preço inicial:</strong> {prices(item.base_price_cents)}</p>
                     <p><strong className="text-white">Desconto:</strong> {prices(item.discount_cents)}{item.coupon_code ? ` (${item.coupon_code})` : ''}</p>
                   </div>
-                  <div><p className="mb-2 text-xs uppercase tracking-wider text-slate-400">Imagens de referência</p>
-                    <div className="flex flex-wrap gap-2">{(item.image_urls || []).map((url, index) => url ? (
-                      <a key={index} href={url} target="_blank" rel="noreferrer" title={`Abrir referência ${index+1}`}>
-                        <img src={url} alt={`Referência ${index+1}`} className="h-24 w-24 rounded-xl object-cover ring-1 ring-white/15 hover:ring-cyan-300/40" /></a>
-                    ) : null)}</div>
-                  </div>
-                  <div><p className="mb-1 text-xs uppercase tracking-wider text-slate-400">Descrição do cliente</p>
-                    <p className="whitespace-pre-wrap rounded-xl bg-black/20 p-3 text-sm text-slate-200">{item.notes || 'Sem observações adicionais.'}</p></div>
+                  <CustomReferenceGallery request={item} admin accessToken={accessToken} />
                   <div className="flex flex-wrap items-end gap-3">
                     <label className="block flex-1 min-w-[180px]"><span className="mb-2 block text-xs text-slate-400">Etapa de produção</span>
                       <select value={item.production_status} onChange={event => updateStatus(item, event.target.value)}

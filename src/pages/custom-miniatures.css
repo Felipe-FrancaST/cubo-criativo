@@ -146,3 +146,14 @@
 @media(prefers-reduced-motion:reduce){.cm-page *, .cm-page *::before,.cm-page *::after{animation:none!important;transition:none!important}}
 
 .cm-order-reopen{display:inline-flex;align-items:center;gap:7px;margin-top:9px;background:#70dfc721;border:1px solid #70dfc744;color:#a7eee2;padding:8px 12px;border-radius:10px;font-weight:700;font-size:12px}.cm-order-reopen .material-icons{font-size:17px}
+
+/* Confirmação visual exibida somente após aprovação financeira no backend. */
+.cm-confirmation{display:flex;align-items:center;gap:18px;margin-top:22px;padding:22px;border:1px solid #68eac07a;border-radius:20px;background:linear-gradient(110deg,#1452479a,#12343fb8);color:#e9fffa;box-shadow:0 16px 35px #0002}
+.cm-confirmation-icon{display:grid;place-items:center;flex-shrink:0;width:54px;height:54px;border-radius:16px;background:#b5fae321;color:#8af2cb}
+.cm-confirmation-icon .material-icons{font-size:33px}.cm-confirmation-copy{flex:1;min-width:0}.cm-confirmation h2{font-size:19px;font-weight:850;letter-spacing:-.025em}
+.cm-confirmation p{font-size:12px;line-height:1.6;color:#cbede2;margin:5px 0}.cm-confirmation-copy>span{font-size:10px;color:#a3d7cd;letter-spacing:.1em}
+.cm-confirmation button{display:flex;align-items:center;gap:7px;white-space:nowrap;background:#9df2df;color:#11363a;border-radius:11px;font-size:12px;font-weight:800;padding:12px 14px}
+.cm-confirmation button .material-icons{font-size:16px}
+@media(max-width:620px){.cm-confirmation{align-items:flex-start;flex-wrap:wrap;padding:18px;gap:12px}.cm-confirmation-icon{width:44px;height:44px}.cm-confirmation h2{font-size:17px}.cm-confirmation button{width:100%;justify-content:center}}
+
+.cm-return .cm-return-orders{display:inline-flex;align-items:center;gap:5px;background:#85e7ca20;border:1px solid #b6f9dd4e;border-radius:9px;padding:8px 12px;margin-top:10px;font-size:11px;font-weight:800}.cm-return .cm-return-orders .material-icons{font-size:16px}
