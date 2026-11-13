@@ -1,5 +1,5 @@
 import ProductCard from './ProductCard.jsx'
 
 export default function PromoProductCard(props) {
-  return <ProductCard {...props} promotion showFavorite={false} />
+  return <ProductCard {...props} promotion showFavorite={false} storefrontContext="offers" />
 }

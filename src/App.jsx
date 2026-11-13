@@ -1917,6 +1917,7 @@ export default function App() {
           buyNow={buyNow}
           openGallery={openGallery}
           onGoHome={() => navigate('/')}
+          onRequireLogin={(msg) => requireLogin(msg)}
         />
       )
     }

@@ -1,99 +1,44 @@
-import React from "react";
-import PromoProductCard from "../components/PromoProductCard.jsx";
+import PromoProductCard from '../components/PromoProductCard.jsx'
 
 export default function PromocoesPage({
   items,
   loading = false,
-  error = "",
+  error = '',
   addToCart,
   buyNow,
   openGallery,
   onGoHome,
+  onRequireLogin,
 }) {
-  const promos = Array.isArray(items) ? items : [];
-
+  const promos = Array.isArray(items) ? items : []
   return (
-    <main className="flex-1">
-      <section className="relative overflow-hidden">
-        <div className="absolute inset-0 -z-10 opacity-35 pointer-events-none bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-400/30 via-fuchsia-500/10 to-teal-500/15" />
-
-        <div
-          className="container-cc px-4 sm:px-6 lg:px-8 py-10 sm:py-14" >
-          <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4">
-            <div>
-              <p className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-extrabold bg-amber-400 text-black ring-4 ring-amber-400/25">
-                <span className="material-icons text-[16px]">local_offer</span>
-                Promoções
-              </p>
-              <h1 className="mt-3 text-3xl sm:text-4xl font-black tracking-tight">
-                Ofertas Imperdíveis 
-              </h1>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <button
-                onClick={onGoHome}
-                className="container-cc rounded-xl px-4 py-2 ring-1 ring-white/15 hover:bg-white/4 text-sm"
-              >
-                <span className="material-icons align-middle text-[18px]">chevron_left</span> Voltar
-              </button>
-              <div className="container-cc rounded-xl px-4 py-2 bg-white/4 ring-1 ring-white/10 text-sm">
-                <span className="text-slate-300">Total:</span>{" "}
-                <span className="font-extrabold text-cyan-300">{loading ? "…" : promos.length}</span>
-              </div>
-            </div>
+    <main className="storefront-page editorial-page editorial-offers flex-1">
+      <section className="container-cc editorial-container">
+        <header className="editorial-page-hero">
+          <div className="editorial-page-hero-copy">
+            <p className="editorial-kicker"><span className="editorial-dot" /> PREÇOS ESPECIAIS</p>
+            <h1>Promoções da loja</h1>
+            <p>Peças selecionadas com condições especiais para ampliar sua coleção.</p>
           </div>
-
-          <div className="mt-8">
-            {error && (
-              <div className="rounded-2xl p-4 ring-1 ring-rose-400/30 bg-rose-500/10 text-rose-100 text-sm">
-                Não foi possível carregar as promoções. {error}
-              </div>
-            )}
-
-            {loading && !error && (
-              <div className="product-grid grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                {Array.from({ length: 8 }).map((_, idx) => (
-                  <div
-                    key={idx}
-                    className="w-full max-w-[340px] rounded-3xl overflow-hidden ring-1 ring-white/10 bg-[#07161d]/60"
-                  >
-                    <div className="aspect-[4/5] bg-[#0c2430]/68 animate-pulse" />
-                    <div className="p-5">
-                      <div className="h-4 bg-[#0c2430]/68 rounded animate-pulse" />
-                      <div className="mt-3 h-8 bg-[#0c2430]/68 rounded animate-pulse" />
-                      <div className="mt-5 grid grid-cols-2 gap-2">
-                        <div className="h-10 bg-[#0c2430]/68 rounded animate-pulse" />
-                        <div className="h-10 bg-[#0c2430]/68 rounded animate-pulse" />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {!loading && !error && promos.length === 0 && (
-              <div className="rounded-2xl p-5 ring-1 ring-white/10 bg-white/4 text-slate-200 text-sm">
-                Nenhuma promoção ativa no momento.
-              </div>
-            )}
-
-            {!loading && !error && promos.length > 0 && (
-              <div className="product-grid grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                {promos.map((p) => (
-                  <PromoProductCard
-                    key={p.id}
-                    p={p}
-                    addToCart={addToCart}
-                    buyNow={buyNow}
-                    openGallery={openGallery}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
+          <span className="editorial-page-hero-icon material-icons" aria-hidden="true">local_offer</span>
+        </header>
+        <div className="editorial-results-row">
+          <span className="editorial-results-count"><span className="editorial-dot" /> {loading ? 'Buscando ofertas...' : `${promos.length} ${promos.length === 1 ? 'peça disponível' : 'peças disponíveis'}`}</span>
+          <button type="button" className="editorial-back" onClick={onGoHome}><span className="material-icons" aria-hidden="true">arrow_back</span> Voltar à loja</button>
         </div>
+        {error && <div className="editorial-empty editorial-error" role="alert">Não foi possível carregar as promoções. {error}</div>}
+        {loading && !error && (
+          <div className="storefront-product-grid editorial-offers-grid" aria-label="Carregando promoções">
+            {Array.from({ length: 8 }).map((_, index) => <div key={index} className="storefront-skeleton" aria-hidden="true"><div className="storefront-skeleton-image"/><div className="storefront-skeleton-body"><div className="storefront-skeleton-line short"/><div className="storefront-skeleton-line"/><div className="storefront-skeleton-line medium"/><div className="storefront-skeleton-action"/></div></div>)}
+          </div>
+        )}
+        {!loading && !error && promos.length === 0 && <div className="editorial-empty"><span className="material-icons" aria-hidden="true">sell</span><strong>Nenhuma promoção ativa agora.</strong><p>Você ainda pode encontrar peças incríveis no catálogo.</p></div>}
+        {!loading && !error && promos.length > 0 && (
+          <div className="storefront-product-grid editorial-offers-grid">
+            {promos.map((p) => <PromoProductCard key={p.id} p={p} addToCart={addToCart} buyNow={buyNow} openGallery={openGallery} onRequireLogin={onRequireLogin} />)}
+          </div>
+        )}
       </section>
     </main>
-  );
+  )
 }

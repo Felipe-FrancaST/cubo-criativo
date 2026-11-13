@@ -148,7 +148,7 @@ export default function CarrosselPromo({
       )}
 
       {/* altura responsiva */}
-      <div className="h-[280px] sm:h-[360px] lg:h-[420px] relative">
+      <div className="carousel-promo-viewport h-[280px] sm:h-[360px] lg:h-[420px] relative">
         {shouldHoldForRemote && (
           <div className="absolute inset-0 grid place-items-center p-3" aria-hidden="true">
             <div className="h-full w-full rounded-[1.25rem] bg-white/[0.04] ring-1 ring-white/10 animate-pulse" />

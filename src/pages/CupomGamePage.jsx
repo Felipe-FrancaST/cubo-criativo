@@ -233,14 +233,14 @@ export default function CupomGamePage({
   }
 
   return (
-    <main className="customer-page cubo-game">
-      <section className="container-cc customer-page-inner">
+    <main className="customer-page cubo-game editorial-game">
+      <section className="container-cc customer-page-inner editorial-game-inner">
         <header className="customer-page-heading">
           <div>
-            <p className="customer-eyebrow">Jogue. Combine. Ganhe.</p>
+            <p className="customer-eyebrow">SUA RECOMPENSA ESTÁ NO JOGO</p>
             <h1>Cubo Game</h1>
             <p className="customer-subtitle">
-              Encontre os seis pares e desbloqueie seu cupom.
+              Encontre seis pares, conclua o desafio e descubra seu cupom.
             </p>
           </div>
           <button
@@ -256,7 +256,7 @@ export default function CupomGamePage({
           </button>
         </header>
 
-        <div className="game-layout">
+        <div className="game-layout editorial-game-layout">
           <section
             className="customer-surface game-board-section"
             aria-labelledby="game-board-title"
@@ -344,7 +344,7 @@ export default function CupomGamePage({
             </div>
 
             <div
-              className="game-cards"
+              className="game-cards editorial-game-cards"
               role="group"
               aria-label="Cartas do jogo da memória"
             >

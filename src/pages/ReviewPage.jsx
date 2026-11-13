@@ -159,12 +159,12 @@ export default function ReviewPage({ orderId = '', onRequireLogin, onGoHome }) {
   }
 
   if (!orderId) {
-    return <main className="flex-1"><section className="container-cc px-4 py-12"><div className="mx-auto max-w-xl rounded-3xl bg-white/5 p-6 ring-1 ring-white/10"><h1 className="text-2xl font-black">Pedido não informado</h1><p className="mt-2 text-slate-300">Abra o link de avaliação recebido por e-mail ou acesse Meus pedidos.</p><a href="/meus-pedidos" className="mt-5 inline-flex rounded-xl bg-cyan-400 px-4 py-3 font-bold text-black">Abrir meus pedidos</a></div></section></main>;
+    return <main className="flex-1 editorial-page editorial-review-form"><section className="container-cc px-4 py-12"><div className="mx-auto max-w-xl rounded-3xl bg-white/5 p-6 ring-1 ring-white/10"><h1 className="text-2xl font-black">Pedido não informado</h1><p className="mt-2 text-slate-300">Abra o link de avaliação recebido por e-mail ou acesse Meus pedidos.</p><a href="/meus-pedidos" className="mt-5 inline-flex rounded-xl bg-cyan-400 px-4 py-3 font-bold text-black">Abrir meus pedidos</a></div></section></main>;
   }
 
   if (!user) {
     return (
-      <main className="flex-1"><section className="container-cc px-4 py-12"><div className="mx-auto max-w-xl rounded-3xl bg-white/5 p-6 ring-1 ring-white/10">
+      <main className="flex-1 editorial-page editorial-review-form"><section className="container-cc px-4 py-12"><div className="mx-auto max-w-xl rounded-3xl bg-white/5 p-6 ring-1 ring-white/10">
         <p className="text-xs font-bold uppercase tracking-[.2em] text-amber-300">Avaliação verificada</p>
         <h1 className="mt-2 text-2xl font-black">Entre na conta usada na compra</h1>
         <p className="mt-3 text-slate-300">Isso garante que somente o cliente responsável pelo pedido possa avaliá-lo.</p>
@@ -175,7 +175,7 @@ export default function ReviewPage({ orderId = '', onRequireLogin, onGoHome }) {
 
   const delivered = String(order?.production_status || '').toLowerCase() === 'entregue';
   return (
-    <main className="flex-1">
+    <main className="flex-1 editorial-page editorial-review-form">
       <section className="container-cc px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
         <div className="mx-auto max-w-4xl">
           <div className="flex flex-wrap items-center justify-between gap-3">
