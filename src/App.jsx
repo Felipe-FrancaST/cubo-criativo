@@ -8,6 +8,7 @@ import brand from './data/config'
 
 // Componentes
 import Modal from './components/Modal.jsx'
+import GalleryLightbox from './components/GalleryLightbox.jsx'
 import RouteErrorBoundary from './components/RouteErrorBoundary.jsx'
 import {
   clearDynamicImportReloadGuard,
@@ -983,51 +984,9 @@ export default function App() {
   const [paying, setPaying] = React.useState(false)
   const [checkoutSuccessOpen, setCheckoutSuccessOpen] = React.useState(false)
 
-  // ===== Galeria =====
+  // Galeria centralizada independente dos modais tipo bottom sheet.
   const [galleryOpen, setGalleryOpen] = React.useState(false)
-  const [galleryData, setGalleryData] = React.useState({ title: '', imgs: [] })
-  const [galleryIndex, setGalleryIndex] = React.useState(0)
-  // mantém o tamanho do card estável durante a troca de imagens
-  const [galleryLoadedSrc, setGalleryLoadedSrc] = React.useState('')
-  const [galleryIsLoading, setGalleryIsLoading] = React.useState(false)
-
-  // Pré-carrega a imagem alvo e mostra a anterior (com blur + loader) até terminar,
-  // evitando o "pulo" de layout quando a imagem ainda não carregou.
-  React.useEffect(() => {
-    if (!galleryOpen) return
-    const target = galleryData?.imgs?.[galleryIndex]
-    if (!target) return
-
-    // se já está mostrando essa imagem, não precisa "piscar" loader
-    if (target === galleryLoadedSrc) {
-      setGalleryIsLoading(false)
-      return
-    }
-
-    let cancelled = false
-    setGalleryIsLoading(true)
-
-    const img = new Image()
-    img.decoding = 'async'
-    img.onload = () => {
-      if (cancelled) return
-      setGalleryLoadedSrc(target)
-      setGalleryIsLoading(false)
-    }
-    img.onerror = () => {
-      if (cancelled) return
-      // mesmo em erro, tenta renderizar o src para mostrar fallback do navegador
-      setGalleryLoadedSrc(target)
-      setGalleryIsLoading(false)
-    }
-    img.src = target
-
-    return () => {
-      cancelled = true
-      img.onload = null
-      img.onerror = null
-    }
-  }, [galleryOpen, galleryIndex, galleryData?.imgs, galleryLoadedSrc])
+  const [galleryData, setGalleryData] = React.useState({ title: '', imgs: [], initialIndex: 0 })
 
   React.useEffect(() => {
     return () => {
@@ -1383,82 +1342,14 @@ export default function App() {
     }
   }
 
-  function openGallery(p) {
-    const imgs = Array.isArray(p.imgs) && p.imgs.length > 0 ? p.imgs : [p.img]
-    setGalleryData({ title: p.nome, imgs })
-    setGalleryIndex(0)
-    // mostra algo imediatamente (se já estiver em cache, melhor ainda)
-    setGalleryLoadedSrc(imgs?.[0] || '')
-    setGalleryIsLoading(false)
+  function openGallery(p, selectedIndex = 0) {
+    const imgs = [...new Set([p?.img, ...(Array.isArray(p?.imgs) ? p.imgs : [])].filter(Boolean))]
+    setGalleryData({
+      title: String(p?.nome || 'Produto'),
+      imgs,
+      initialIndex: Math.max(0, Math.min(selectedIndex, imgs.length - 1)),
+    })
     setGalleryOpen(true)
-  }
-
-  function prevImage() {
-    setGalleryIndex(
-      (i) => (i - 1 + galleryData.imgs.length) % galleryData.imgs.length
-    )
-  }
-  function nextImage() {
-    setGalleryIndex((i) => (i + 1) % galleryData.imgs.length)
-  }
-
-  // Swipe (toque/arrasto) na galeria, estilo carrossel (sem autoplay)
-  const swipeRef = React.useRef({ x: 0, y: 0, active: false, dx: 0, dy: 0 })
-  const SWIPE_MIN_PX = 48
-
-  function onGalleryTouchStart(e) {
-    const t = e.touches?.[0]
-    if (!t) return
-    swipeRef.current = {
-      x: t.clientX,
-      y: t.clientY,
-      active: true,
-      dx: 0,
-      dy: 0,
-    }
-  }
-
-  function onGalleryTouchMove(e) {
-    const t = e.touches?.[0]
-    if (!t || !swipeRef.current.active) return
-    swipeRef.current.dx = t.clientX - swipeRef.current.x
-    swipeRef.current.dy = t.clientY - swipeRef.current.y
-  }
-
-  function onGalleryTouchEnd() {
-    const { dx, dy } = swipeRef.current
-    swipeRef.current.active = false
-    // só considera swipe horizontal predominante
-    if (Math.abs(dx) < SWIPE_MIN_PX) return
-    if (Math.abs(dx) < Math.abs(dy)) return
-    if (dx < 0) nextImage()
-    else prevImage()
-  }
-
-  function onGalleryPointerDown(e) {
-    // suporte a arrasto no desktop
-    swipeRef.current = {
-      x: e.clientX,
-      y: e.clientY,
-      active: true,
-      dx: 0,
-      dy: 0,
-    }
-  }
-
-  function onGalleryPointerMove(e) {
-    if (!swipeRef.current.active) return
-    swipeRef.current.dx = e.clientX - swipeRef.current.x
-    swipeRef.current.dy = e.clientY - swipeRef.current.y
-  }
-
-  function onGalleryPointerUp() {
-    const { dx, dy } = swipeRef.current
-    swipeRef.current.active = false
-    if (Math.abs(dx) < SWIPE_MIN_PX) return
-    if (Math.abs(dx) < Math.abs(dy)) return
-    if (dx < 0) nextImage()
-    else prevImage()
   }
 
   // Bloqueia scroll do body quando overlays estão abertos
@@ -2632,120 +2523,14 @@ export default function App() {
           </Suspense>
         ) : null}
 
-        {/* MODAL GALERIA */}
-        {/*
-        Galeria: no desktop algumas telas/combinações de imagens podem causar scroll no body do modal.
-        Aqui a gente trava o body do modal (overflow-hidden) e limita a área da imagem para nunca estourar a viewport.
-      */}
-        <Modal
-          open={galleryOpen}
-          onClose={() => setGalleryOpen(false)}
-          title={`Fotos — ${galleryData.title}`}
-          bodyClassName="overflow-hidden"
-          // No desktop, a galeria não precisa ocupar 70vw.
-          // Mantemos responsivo, mas com teto menor para não abrir "gigante".
-          widthClass="w-[94vw] sm:w-[88vw]"
-          maxWidth="max-w-[860px]"
-        >
-          {galleryOpen && (
-            <div className="relative">
-              <div
-                className="relative w-full max-w-[820px] mx-auto grid place-items-center rounded-xl ring-1 ring-white/10 bg-[#07161d]/60 p-2 select-none"
-                onTouchStart={onGalleryTouchStart}
-                onTouchMove={onGalleryTouchMove}
-                onTouchEnd={onGalleryTouchEnd}
-                onPointerDown={onGalleryPointerDown}
-                onPointerMove={onGalleryPointerMove}
-                onPointerUp={onGalleryPointerUp}
-                onPointerCancel={onGalleryPointerUp}
-                style={{ touchAction: 'pan-y' }}
-                aria-label="Galeria de imagens. Deslize para o lado para trocar."
-              >
-                {/*
-                Mantém um tamanho consistente sem estourar a altura do modal.
-                - Usa um teto em px e também em vh (evita criar scrollbar no modal)
-                - Mantém a imagem sempre dentro do container com object-contain
-              */}
-                {/*
-                Mantém a imagem dentro do modal em desktops menores (ex.: 768–900px de altura)
-                e evita criar barra de rolagem.
-              */}
-                {/*
-                IMPORTANTE (desktop): não fixamos a altura do container.
-                Em vez disso, deixamos o painel "encolher" e limitamos a IMAGEM por max-height.
-                Assim a foto aparece inteira (sem precisar rolar), apenas reduzindo quando necessário.
-              */}
-                <div className="relative w-full grid place-items-center">
-                  {galleryLoadedSrc ? (
-                    <img
-                      src={galleryLoadedSrc}
-                      alt={galleryData.title}
-                      className={`block max-h-[70vh] sm:max-h-[72vh] w-auto max-w-full h-auto object-contain rounded-lg transition ${galleryIsLoading ? 'blur-sm opacity-80' : 'blur-0 opacity-100'}`}
-                      loading="eager"
-                      draggable={false}
-                    />
-                  ) : (
-                    <div className="h-[45vh] w-full rounded-lg bg-white/4 ring-1 ring-white/10 animate-pulse" />
-                  )}
-
-                  {galleryIsLoading && (
-                    <div className="absolute inset-0 grid place-items-center">
-                      <div className="container-cc flex items-center gap-3 rounded-full bg-black/45 ring-1 ring-white/10 px-4 py-2">
-                        <span
-                          className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin"
-                          aria-hidden
-                        />
-                        <span className="text-sm text-white/90">
-                          Carregando imagem…
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Setas laterais (sem autoplay) */}
-                {galleryData.imgs.length > 1 && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={prevImage}
-                      aria-label="Imagem anterior"
-                      className="absolute left-3 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full grid place-items-center bg-black/45 ring-1 ring-white/15 text-white hover:bg-[#020b10]/72 active:scale-[0.98]"
-                    >
-                      <span aria-hidden>‹</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={nextImage}
-                      aria-label="Próxima imagem"
-                      className="absolute right-3 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full grid place-items-center bg-black/45 ring-1 ring-white/15 text-white hover:bg-[#020b10]/72 active:scale-[0.98]"
-                    >
-                      <span aria-hidden>›</span>
-                    </button>
-                  </>
-                )}
-              </div>
-
-              {/* Pontinhos indicativos */}
-              {galleryData.imgs.length > 1 && (
-                <div className="mt-3 flex items-center justify-center">
-                  <div className="product-gallery-dots">
-                    {galleryData.imgs.map((_, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => setGalleryIndex(idx)}
-                        aria-label={`Ir para imagem ${idx + 1}`}
-                        aria-current={idx === galleryIndex ? 'true' : 'false'}
-                        className="product-gallery-dot"
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </Modal>
+        {galleryOpen && (
+          <GalleryLightbox
+            title={galleryData.title}
+            images={galleryData.imgs}
+            initialIndex={galleryData.initialIndex}
+            onClose={() => setGalleryOpen(false)}
+          />
+        )}
       </div>
     </RouteErrorBoundary>
   )

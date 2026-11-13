@@ -243,18 +243,12 @@ export default function HomePage({
           </div>
         </section>
 
-        <section className="editorial-shortcuts" aria-label="Explore a loja">
-          <button type="button" onClick={onGoCustomMiniatures}><span className="editorial-shortcut-icon"><span className="material-icons">view_in_ar</span></span><span><strong>Peça personalizada</strong><small>Transforme sua ideia em miniatura</small></span><span className="material-icons editorial-shortcut-arrow" aria-hidden="true">arrow_forward</span></button>
-          <button type="button" onClick={onGoCupom}><span className="editorial-shortcut-icon"><span className="material-icons">sports_esports</span></span><span><strong>Cubo Game</strong><small>Jogue e descubra seu cupom</small></span><span className="material-icons editorial-shortcut-arrow" aria-hidden="true">arrow_forward</span></button>
-          <button type="button" onClick={onGoSobEncomenda}><span className="editorial-shortcut-icon"><span className="material-icons">casino</span></span><span><strong>Miniaturas RPG</strong><small>Personagens para sua aventura</small></span><span className="material-icons editorial-shortcut-arrow" aria-hidden="true">arrow_forward</span></button>
-        </section>
-
-        <HomeShelf id="destaques" eyebrow="ESCOLHIDOS PARA VOCÊ" title="Destaques da loja" description="Uma seleção especial para sua coleção." products={featured} loading={loadingProducts} error={productsError} emptyMessage="Nenhum destaque no momento." actionLabel="Ver catálogo" onAction={onGoCatalogo} {...shelfProps}/>
+        <HomeShelf id="destaques" eyebrow="ESCOLHIDOS PARA VOCÊ" title="Destaques da loja" products={featured} loading={loadingProducts} error={productsError} emptyMessage="Nenhum destaque no momento." actionLabel="Ver catálogo" onAction={onGoCatalogo} {...shelfProps}/>
 
 
 
-        <HomeShelf eyebrow="PEÇAS DISPONÍVEIS" title="Pronta entrega" description="Descubra peças disponíveis em nosso estoque." products={prontaEntregaPreview} loading={loadingProducts} error={productsError} emptyMessage="Sem itens de pronta entrega por enquanto." actionLabel="Ver estoque" onAction={onGoEstoque} {...shelfProps}/>
-        <HomeShelf eyebrow="PARA SUA PRÓXIMA AVENTURA" title="Miniaturas RPG" description="Heróis, criaturas e personagens que ganham vida na mesa." products={rpgPreview} loading={loadingProducts} error={productsError} emptyMessage="Estamos preparando os destaques de RPG." actionLabel="Ver miniaturas" onAction={onGoSobEncomenda} {...shelfProps}/>
+        <HomeShelf eyebrow="PEÇAS DISPONÍVEIS" title="Pronta entrega" products={prontaEntregaPreview} loading={loadingProducts} error={productsError} emptyMessage="Sem itens de pronta entrega por enquanto." actionLabel="Ver estoque" onAction={onGoEstoque} {...shelfProps}/>
+        <HomeShelf eyebrow="PARA SUA PRÓXIMA AVENTURA" title="Miniaturas RPG" products={rpgPreview} loading={loadingProducts} error={productsError} emptyMessage="Estamos preparando os destaques de RPG." actionLabel="Ver miniaturas" onAction={onGoSobEncomenda} {...shelfProps}/>
 
         <section className="editorial-custom-banner">
           <span className="editorial-custom-icon material-icons" aria-hidden="true">auto_fix_high</span>

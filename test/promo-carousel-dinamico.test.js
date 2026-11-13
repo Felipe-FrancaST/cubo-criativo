@@ -43,7 +43,7 @@ test('fotos inteiras no desktop e celular, controles externos ao link de produto
   const carousel = read('src/components/CarrosselPromo.jsx')
   assert.match(css, /\.editorial-carousel \.carousel-promo-photo > img \{[^}]*object-fit: contain;/)
   assert.match(css, /\.carousel-promo-photo \{[^}]*aspect-ratio: 4 \/ 3/)
-  assert.match(css, /@media \(max-width: 639px\)[\s\S]*?\.carousel-promo-photo \{ aspect-ratio: 5 \/ 4/)
+  assert.match(css, /@media \(max-width: 639px\)[\s\S]*?\.carousel-promo-photo \{ aspect-ratio: auto/)
   assert.match(carousel, /<\/a>\s*<\/div>\s*\{slides\.length > 1 && \(/)
   assert.match(carousel, /aria-label="Produto anterior"/)
   assert.match(carousel, /aria-label="Próximo produto"/)

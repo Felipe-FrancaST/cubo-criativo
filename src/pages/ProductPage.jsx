@@ -159,11 +159,11 @@ export default function ProductPage({ slug, product, loading, onBack, addToCart,
                 role="button"
                 tabIndex={0}
                 className="product-gallery-stage"
-                onClick={() => openGallery?.(product)}
+                onClick={() => openGallery?.(product, activeImageIndex)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" || event.key === " ") {
                     event.preventDefault();
-                    openGallery?.(product);
+                    openGallery?.(product, activeImageIndex);
                   }
                 }}
                 aria-label={`Ver fotos de ${product.nome}`}
@@ -226,25 +226,6 @@ export default function ProductPage({ slug, product, loading, onBack, addToCart,
                   <strong className="product-price-current">{fmtBRL(currentPrice)}</strong>
                 )}
                 <p className="product-price-note">Preço referente à peça selecionada, com acabamento conforme o anúncio.</p>
-              </div>
-
-              <div className="product-quick-grid" aria-label="Resumo do produto">
-                <div className="product-quick-item">
-                  <span>Escala</span>
-                  <strong>{escala || "Padrão"}</strong>
-                </div>
-                <div className="product-quick-item">
-                  <span>Entrega</span>
-                  <strong>{outOfStock ? "Sem estoque" : "Consulte o frete no checkout"}</strong>
-                </div>
-                <div className="product-quick-item">
-                  <span>Material</span>
-                  <strong>Resina premium</strong>
-                </div>
-                <div className="product-quick-item">
-                  <span>Galeria</span>
-                  <strong>{galleryImages.length} {galleryImages.length === 1 ? "imagem" : "imagens"}</strong>
-                </div>
               </div>
 
               {product?.descricao ? (

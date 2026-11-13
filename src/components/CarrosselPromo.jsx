@@ -22,6 +22,12 @@ export default function CarrosselPromo({
 }) {
   const slides = React.useMemo(() => getPromotionSlides(products), [products])
   const [i, setI] = React.useState(0)
+  // Mantém os indicadores em uma única linha, mesmo com muitas ofertas.
+  const visibleDots = React.useMemo(() => {
+    const count = slides.length
+    const start = count <= 7 ? 0 : Math.min(Math.max(i - 3, 0), count - 7)
+    return Array.from({ length: Math.min(7, count) }, (_, offset) => start + offset)
+  }, [slides.length, i])
   const [failedImages, setFailedImages] = React.useState({})
   const [isHovering, setIsHovering] = React.useState(false)
   const [hasFocus, setHasFocus] = React.useState(false)
@@ -157,12 +163,6 @@ export default function CarrosselPromo({
                     </span>
                   )}
                 </div>
-                <span className="carousel-promo-cta" aria-hidden="true">
-                  <span className="carousel-promo-cta-text">Ver produto</span>
-                  <span className="carousel-promo-see-product">
-                    <span className="material-icons">arrow_forward</span>
-                  </span>
-                </span>
               </div>
             </a>
           </div>
@@ -172,12 +172,12 @@ export default function CarrosselPromo({
                 <span className="material-icons" aria-hidden="true">chevron_left</span>
               </button>
               <div className="carousel-promo-dots" aria-label="Selecionar produto">
-                {slides.map((product, idx) => (
+                {visibleDots.map((idx) => (
                   <button
                     type="button"
-                    key={product.id || product.slug || idx}
+                    key={slides[idx]?.id || slides[idx]?.slug || idx}
                     onClick={() => setI(idx)}
-                    aria-label={`Ver ${product.nome} — ${idx + 1} de ${slides.length}`}
+                    aria-label={`Ver ${slides[idx]?.nome} — ${idx + 1} de ${slides.length}`}
                     aria-current={idx === i ? 'true' : undefined}
                     className={`carousel-promo-dot ${idx === i ? 'is-active' : ''}`}
                   ><span aria-hidden="true" /></button>
