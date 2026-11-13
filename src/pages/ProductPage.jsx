@@ -1,16 +1,22 @@
 import React from "react";
 import { fmtBRL, centsToBRL, getVariantPricingCents, percentOffCents } from "../lib/pricing.js";
 import { supabase } from "../lib/supabaseClient.js";
+import ScaleSelectionModal from "../components/ScaleSelectionModal.jsx";
+import { requiresScaleChoice } from "../lib/scaleSelection.js";
 
 export default function ProductPage({ slug, product, loading, onBack, addToCart, buyNow, openGallery }) {
   const [imgError, setImgError] = React.useState(false);
   const defaultIndex = Math.max(0, product?.variants?.findIndex((v) => v.label === product.defaultVariant));
   const [selIndex, setSelIndex] = React.useState(defaultIndex);
+  const [selectedExplicitly, setSelectedExplicitly] = React.useState(false);
+  const [scaleAction, setScaleAction] = React.useState(null);
   const [productReviews, setProductReviews] = React.useState([]);
   const [reviewsLoading, setReviewsLoading] = React.useState(false);
 
   React.useEffect(() => {
     setSelIndex(defaultIndex);
+    setSelectedExplicitly(false);
+    setScaleAction(null);
   }, [defaultIndex, slug]);
 
   React.useEffect(() => {
@@ -94,6 +100,13 @@ export default function ProductPage({ slug, product, loading, onBack, addToCart,
   const hasVariants = Array.isArray(product.variants) && product.variants.length > 0;
   const pricing = getVariantPricingCents(product, selIndex, defaultIndex);
   const escala = pricing.sel?.label ?? product.escala ?? "";
+  const needsScale = requiresScaleChoice(product);
+  function startPurchase(action) {
+    if (needsScale) { setScaleAction(action); return; }
+    const choice = { escala, unitPrice: currentPrice };
+    if (action === "buy") buyNow?.(product, choice);
+    else addToCart?.(product, choice);
+  }
   const currentPrice = centsToBRL(pricing.currentCents);
   const originalPrice = centsToBRL(pricing.originalCents);
   const off = percentOffCents(pricing.originalCents, pricing.currentCents);
@@ -190,7 +203,7 @@ export default function ProductPage({ slug, product, loading, onBack, addToCart,
                 <select
                   aria-label="Escala da miniatura" className="mt-2 w-full rounded-lg bg-[#0c2430]/68 ring-1 ring-white/10 px-3 py-3 text-base"
                   value={selIndex}
-                  onChange={(e) => setSelIndex(Number(e.target.value))}
+                  onChange={(e) => { setSelIndex(Number(e.target.value)); setSelectedExplicitly(true); }}
                 >
                   {product.variants.map((v, i) => (
                     <option key={v.label} value={i}>
@@ -198,7 +211,7 @@ export default function ProductPage({ slug, product, loading, onBack, addToCart,
                     </option>
                   ))}
                 </select>
-                <p className="mt-2 text-xs text-slate-300">Resina Premium</p>
+                <p className="mt-2 text-xs text-slate-300">Resina Premium · Confirme a escala ao {""}comprar ou adicionar ao carrinho.</p>
               </div>
             ) : null}
 
@@ -206,7 +219,7 @@ export default function ProductPage({ slug, product, loading, onBack, addToCart,
               <button
                 type="button"
                 disabled={outOfStock}
-                onClick={() => addToCart?.(product, { escala, unitPrice: currentPrice })}
+                onClick={() => startPurchase("add")}
                 className={`rounded-lg px-4 py-3 font-semibold ring-4 ring-cyan-400/20 transition min-h-[44px] ${
                   outOfStock ? "bg-[#0c2430] text-slate-400 cursor-not-allowed ring-white/10" : "bg-cyan-400 text-black"
                 }`}
@@ -217,7 +230,7 @@ export default function ProductPage({ slug, product, loading, onBack, addToCart,
               <button
                 type="button"
                 disabled={outOfStock}
-                onClick={() => buyNow?.(product, { escala, unitPrice: currentPrice })}
+                onClick={() => startPurchase("buy")}
                 className={`rounded-lg px-4 py-3 ring-1 ring-white/15 min-h-[44px] ${
                   outOfStock ? "bg-[#0c2430] text-slate-400 cursor-not-allowed" : "hover:bg-white/4"
                 }`}
@@ -261,6 +274,13 @@ export default function ProductPage({ slug, product, loading, onBack, addToCart,
           })}</div> : null}
         </section>
       </section>
+      {scaleAction && <ScaleSelectionModal product={product} action={scaleAction}
+        initialScale={selectedExplicitly ? escala : ""}
+        onClose={() => setScaleAction(null)}
+        onConfirm={choice => {
+          if (scaleAction === "buy") buyNow?.(product, choice);
+          else addToCart?.(product, choice);
+        }} />}
     </main>
   );
 }

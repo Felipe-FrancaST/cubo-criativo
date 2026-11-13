@@ -74,6 +74,10 @@ export default function CustomMiniaturesPage({ user, accessToken, onRequireLogin
   const [notes, setNotes] = React.useState('')
   const [files, setFiles] = React.useState([])
   const fileRef = React.useRef(null)
+  const formatStepRef = React.useRef(null)
+  const imagesStepRef = React.useRef(null)
+  const notesStepRef = React.useRef(null)
+  const checkoutStepRef = React.useRef(null)
   const filesRef = React.useRef([])
   const [dragActive, setDragActive] = React.useState(false)
   const [couponCode, setCouponCode] = React.useState('')
@@ -365,6 +369,12 @@ export default function CustomMiniaturesPage({ user, accessToken, onRequireLogin
     } catch (err) { setError(err.message) }
   }
 
+  function scrollToStep(ref) {
+    const element = ref.current
+    if (!element) return
+    element.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
   const bullet = (icon, text) => (
     <div className="cm-benefit" key={text}>
       <span className="material-icons" aria-hidden="true">{icon}</span>
@@ -401,6 +411,22 @@ export default function CustomMiniaturesPage({ user, accessToken, onRequireLogin
           </div>
         </header>
 
+        <nav className="cm-mobile-steps" aria-label="Etapas da personalização">
+          {[
+            { number: '01', label: 'Formato', ref: formatStepRef, complete: true },
+            { number: '02', label: 'Imagens', ref: imagesStepRef, complete: files.length > 0 },
+            { number: '03', label: 'Detalhes', ref: notesStepRef, complete: notes.trim().length > 0 },
+            { number: '04', label: 'Pagamento', ref: checkoutStepRef, complete: false },
+          ].map(step => (
+            <button key={step.number} type="button" className={`cm-mobile-step ${step.complete ? 'is-complete' : ''}`}
+              onClick={() => scrollToStep(step.ref)} aria-label={`Ir para etapa ${step.number}: ${step.label}`}>
+              <span>{step.complete ? <span className="material-icons" aria-hidden="true">check</span> : step.number}</span>
+              <strong>{step.label}</strong>
+            </button>
+          ))}
+        </nav>
+        <p className="cm-mobile-guidance">Escolha o formato, envie pelo menos uma imagem e finalize seu pedido com segurança.</p>
+
         {confirmedOrder && !returnInfo ? (
           <div className="cm-confirmation" role="status" aria-live="polite">
             <div className="cm-confirmation-icon"><span className="material-icons">check_circle</span></div>
@@ -436,7 +462,7 @@ export default function CustomMiniaturesPage({ user, accessToken, onRequireLogin
 
         <div className="cm-content-grid">
           <div className="cm-editor">
-            <section className="cm-panel">
+            <section className="cm-panel" ref={formatStepRef} id="cm-step-format">
               <StepHeading number={1} title="Escolha o formato" sub="Que tipo de peça você deseja criar?" />
               <div className="cm-types" role="radiogroup" aria-label="Tipo de peça">
                 {types.map(type => (
@@ -452,7 +478,7 @@ export default function CustomMiniaturesPage({ user, accessToken, onRequireLogin
               </div>
             </section>
 
-            <section className="cm-panel">
+            <section className="cm-panel" ref={imagesStepRef} id="cm-step-images">
               <StepHeading number={2} title="Envie suas referências" sub="Imagens nos ajudam a entender seu personagem e os detalhes desejados." />
               <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" multiple
                 className="cm-sr-only" aria-label="Selecionar referências em imagens"
@@ -462,7 +488,7 @@ export default function CustomMiniaturesPage({ user, accessToken, onRequireLogin
                 onDragLeave={event => { event.preventDefault(); setDragActive(false) }}
                 onDrop={event => { event.preventDefault(); setDragActive(false); addFiles(event.dataTransfer.files) }}>
                 <div className="cm-upload-icon"><span className="material-icons">cloud_upload</span></div>
-                <h3>Arraste suas imagens para cá</h3>
+                <h3><span className="cm-upload-desktop">Arraste suas imagens para cá</span><span className="cm-upload-mobile">Adicione imagens da sua miniatura</span></h3>
                 <p>Ou escolha fotos, desenhos ou referências do seu dispositivo.</p>
                 <button type="button" className="cm-upload-button" onClick={() => fileRef.current?.click()}
                   disabled={busy || !!pixData || !!confirmedOrder || files.length >= MAX_FILES}>
@@ -492,24 +518,29 @@ export default function CustomMiniaturesPage({ user, accessToken, onRequireLogin
               )}
             </section>
 
-            <section className="cm-panel">
+            <section className="cm-panel" ref={notesStepRef} id="cm-step-notes">
               <StepHeading number={3} title="Conte sobre sua ideia" sub="Opcional, mas quanto mais detalhes você fornecer, melhor." />
               <label className="cm-form-label" htmlFor="custom-notes">Descrição e observações</label>
               <textarea id="custom-notes" rows={5} maxLength={2000} value={notes} onChange={event => setNotes(event.target.value)}
                 placeholder="Ex.: Guerreiro com espada longa, armadura escura, base rochosa, expressão determinada..." />
               <div className="cm-field-footer"><span>Inclua pose, roupas, acessórios ou qualquer detalhe importante.</span><span>{notes.length}/2000</span></div>
+              <button type="button" className="cm-mobile-next" onClick={() => scrollToStep(files.length ? checkoutStepRef : imagesStepRef)}>
+                <span className="material-icons" aria-hidden="true">{files.length ? 'receipt_long' : 'add_photo_alternate'}</span>
+                {files.length ? 'Revisar pedido e pagar' : 'Adicionar imagens para continuar'}
+                <span className="material-icons" aria-hidden="true">arrow_forward</span>
+              </button>
             </section>
           </div>
 
-          <aside className="cm-summary-wrap" aria-label="Resumo do pedido">
+          <aside className="cm-summary-wrap" aria-label="Resumo e pagamento do pedido" ref={checkoutStepRef} id="cm-step-payment">
             <div className="cm-summary">
               <div className="cm-summary-head">
-                <span className="material-icons">receipt_long</span>
-                <div><strong>Resumo do pedido</strong><small>Encomenda personalizada</small></div>
+                <span className="cm-step-number">04</span>
+                <div><strong>Revise e finalize</strong><small>Resumo e pagamento seguro</small></div>
               </div>
               <div className="cm-summary-product">
                 <div className="cm-summary-product-icon"><span className="material-icons">{kind === 'busto' ? 'face_6' : 'smart_toy'}</span></div>
-                <div><strong>{kind === 'busto' ? 'Busto personalizado' : 'Miniatura personalizada'}</strong><small>1 peça personalizada</small></div>
+                <div><strong>{kind === 'busto' ? 'Busto personalizado' : 'Miniatura personalizada'}</strong><small>1 peça personalizada · {files.length} {files.length === 1 ? 'imagem anexada' : 'imagens anexadas'}</small></div>
               </div>
               <div className="cm-prices">
                 <div><span>Valor da personalização</span><span>{settings ? money(price) : 'Carregando…'}</span></div>

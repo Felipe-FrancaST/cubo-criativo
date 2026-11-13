@@ -1,3 +1,4 @@
+import { isValidScaleChoice } from './lib/scaleSelection.js'
 import { restoreProductScroll } from './lib/restoreProductScroll.js'
 // src/App.jsx
 import React from 'react'
@@ -1043,6 +1044,13 @@ export default function App() {
   }, [])
 
   function addToCart(p, { escala, unitPrice } = {}) {
+    if (!isValidScaleChoice(p, escala)) {
+      clearTimeout(toastT.current)
+      setToastMsg('Escolha a escala desejada para continuar.')
+      setToastOpen(true)
+      toastT.current = setTimeout(() => setToastOpen(false), 2400)
+      return
+    }
     if (isOutOfStock(p)) {
       clearTimeout(toastT.current)
       setToastMsg('Esgotado')
@@ -1085,6 +1093,13 @@ export default function App() {
   }
 
   function buyNow(p, { escala, unitPrice } = {}) {
+    if (!isValidScaleChoice(p, escala)) {
+      clearTimeout(toastT.current)
+      setToastMsg('Escolha a escala desejada para continuar.')
+      setToastOpen(true)
+      toastT.current = setTimeout(() => setToastOpen(false), 2400)
+      return
+    }
     if (isOutOfStock(p)) {
       clearTimeout(toastT.current)
       setToastMsg('Esgotado')

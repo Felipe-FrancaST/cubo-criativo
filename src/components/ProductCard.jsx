@@ -9,6 +9,8 @@ import { useFavorites } from '../state/FavoritesProvider.jsx'
 import { useAuth } from '../auth/AuthProvider.jsx'
 import { navigateClient, saveProductReturnState } from '../lib/navigation.js'
 import Modal from './Modal.jsx'
+import ScaleSelectionModal from './ScaleSelectionModal.jsx'
+import { requiresScaleChoice } from '../lib/scaleSelection.js'
 
 export default function ProductCard({
   p,
@@ -28,11 +30,13 @@ export default function ProductCard({
   const [imgError, setImgError] = React.useState(false)
   const [addedFlash, setAddedFlash] = React.useState(false)
   const [detailsOpen, setDetailsOpen] = React.useState(false)
+  const [scaleAction, setScaleAction] = React.useState(null)
   const flashTimer = React.useRef(null)
   React.useEffect(() => () => window.clearTimeout(flashTimer.current), [])
   React.useEffect(() => setImgError(false), [p.img])
   React.useEffect(() => {
     setDetailsOpen(false)
+    setScaleAction(null)
     setAddedFlash(false)
     window.clearTimeout(flashTimer.current)
   }, [p.id])
@@ -42,16 +46,22 @@ export default function ProductCard({
   const originalPrice = centsToBRL(pricing.originalCents)
   const off = percentOffCents(pricing.originalCents, pricing.currentCents)
   const escala = pricing.sel?.label ?? p.escala ?? ''
+  const needsScale = requiresScaleChoice(p)
   const outOfStock =
     typeof p.stock === 'number' && Number.isFinite(p.stock) && p.stock <= 0
   const favorite = isFavorite(p.id)
 
-  function handleAdd() {
-    if (outOfStock) return
-    addToCart?.(p, { escala, unitPrice: currentPrice })
+  function confirmAdd(chosen) {
+    addToCart?.(p, chosen)
     setAddedFlash(true)
     window.clearTimeout(flashTimer.current)
     flashTimer.current = window.setTimeout(() => setAddedFlash(false), 1200)
+  }
+  function startPurchase(action) {
+    if (outOfStock) return
+    if (needsScale) { setScaleAction(action); return }
+    if (action === 'buy') buyNow?.(p, { escala, unitPrice: currentPrice })
+    else confirmAdd({ escala, unitPrice: currentPrice })
   }
   function openProduct(event) {
     if (
@@ -170,7 +180,7 @@ export default function ProductCard({
                 <button
                   type="button"
                   className={`product-card-add ${addedFlash ? 'is-added' : ''}`}
-                  onClick={handleAdd}
+                  onClick={() => startPurchase('add')}
                   aria-label={
                     addedFlash
                       ? `${p.nome} adicionado ao carrinho`
@@ -188,9 +198,7 @@ export default function ProductCard({
                 <button
                   type="button"
                   className="product-card-buy"
-                  onClick={() =>
-                    buyNow?.(p, { escala, unitPrice: currentPrice })
-                  }
+                  onClick={() => startPurchase('buy')}
                 >
                   Comprar
                 </button>
@@ -199,6 +207,13 @@ export default function ProductCard({
           </div>
         </div>
       </article>
+      {scaleAction && (
+        <ScaleSelectionModal product={p} action={scaleAction} onClose={() => setScaleAction(null)}
+          onConfirm={choice => {
+            if (scaleAction === 'buy') buyNow?.(p, choice)
+            else confirmAdd(choice)
+          }} />
+      )}
       {!p.slug && detailsOpen && (
         <Modal
           open

@@ -161,3 +161,87 @@
 /* O mesmo bloco de pagamento é reutilizado no carrinho e na assinatura. */
 .cm-payment-area{padding:0 24px 22px}
 .cm-action-wrap{padding:0 24px}
+
+/* Fluxo móvel da personalização: menos decoração, etapas evidentes e toque confortável. */
+.cm-mobile-steps,.cm-mobile-guidance,.cm-mobile-next,.cm-upload-mobile{display:none}
+.cm-panel,.cm-summary-wrap{scroll-margin-top:calc(var(--site-header-height,80px) + 16px)}
+.cm-summary-head .cm-step-number{width:42px;height:42px;font-size:13px}
+@media(max-width:700px){
+  .cm-shell{padding:12px max(12px,env(safe-area-inset-left,0px)) calc(52px + env(safe-area-inset-bottom,0px));min-width:0}
+  .cm-breadcrumb{margin-bottom:12px}
+  .cm-hero{min-height:0;border-radius:18px;grid-template-columns:1fr}
+  .cm-hero-copy{padding:23px 19px 20px}
+  .cm-hero h1{font-size:clamp(27px,8.2vw,36px);line-height:1.12;margin:11px 0 11px;letter-spacing:-.03em}
+  .cm-hero p{font-size:12px;line-height:1.6}
+  .cm-hero-art{display:none}
+  .cm-hero-points{margin-top:15px;gap:9px 13px}
+  .cm-benefit{font-size:10px;white-space:normal}
+  .cm-mobile-steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;margin-top:18px}
+  .cm-mobile-step{display:flex;align-items:center;flex-direction:column;gap:5px;padding:7px 1px;min-width:0;color:#9bb9c6;border-radius:10px}
+  .cm-mobile-step>span{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;border:1px solid #476874;background:#102632;font-size:11px;font-weight:800}
+  .cm-mobile-step>span .material-icons{font-size:16px}
+  .cm-mobile-step.is-complete>span{background:#1b4e4b;color:#9af5e8;border-color:#63c9bb}
+  .cm-mobile-step strong{font-size:10px;line-height:1.3;font-weight:700;text-align:center;overflow-wrap:anywhere}
+  .cm-mobile-step:focus-visible{outline:2px solid #8af5e0;outline-offset:2px}
+  .cm-mobile-guidance{display:block;font-size:11px;line-height:1.55;color:#acc5cf;margin:5px 2px 17px;text-align:center}
+  .cm-content-grid{display:flex;flex-direction:column;gap:16px;margin-top:0;min-width:0}
+  .cm-editor{width:100%;gap:14px}
+  .cm-panel,.cm-summary{border-radius:18px}
+  .cm-panel{padding:18px 16px}
+  .cm-step-title{gap:10px;margin-bottom:16px}
+  .cm-step-number{width:32px;height:32px;border-radius:10px;font-size:11px}
+  .cm-step-title h2{font-size:18px}
+  .cm-step-title p{font-size:12px;color:#b1c4cf}
+  .cm-types{grid-template-columns:1fr;gap:9px}
+  .cm-type{min-height:76px;padding:12px;flex-wrap:nowrap;gap:12px}
+  .cm-type-icon{width:43px;height:43px}
+  .cm-type-icon .material-icons{font-size:23px}
+  .cm-type-main strong{font-size:14px}.cm-type-main small{font-size:11px}
+  .cm-type-check{margin-left:auto;font-size:21px}
+  .cm-upload-desktop{display:none}.cm-upload-mobile{display:inline}
+  .cm-dropzone{padding:20px 14px 17px}
+  .cm-upload-icon{width:49px;height:49px;margin-bottom:10px;border-radius:14px}
+  .cm-upload-icon .material-icons{font-size:27px}
+  .cm-dropzone h3{font-size:15px;line-height:1.4}
+  .cm-dropzone p{margin-top:6px;font-size:12px}
+  .cm-upload-button{justify-content:center;width:100%;max-width:340px;min-height:48px;font-size:13px;margin:13px 0 12px}
+  .cm-dropzone small{font-size:11px;line-height:1.5;color:#a6bdc8}
+  .cm-file-empty{font-size:12px;line-height:1.5;align-items:start;color:#f0cfa8}
+  .cm-file-grid{gap:8px}
+  .cm-file button{width:36px;height:36px;border-radius:10px}
+  .cm-panel textarea{font-size:16px;min-height:110px;padding:13px}
+  .cm-field-footer{font-size:11px;line-height:1.4}
+  .cm-mobile-next{display:flex;width:100%;gap:9px;align-items:center;justify-content:center;min-height:49px;border-radius:12px;border:1px solid #67d7c67a;background:#1d4c4d;color:#e5fff9;font-weight:800;font-size:13px;margin-top:20px;padding:11px 10px}
+  .cm-mobile-next .material-icons{font-size:19px}
+  .cm-summary-wrap{position:static;width:100%}
+  .cm-summary-head{padding:17px 16px}.cm-summary-head strong{font-size:16px}
+  .cm-summary-product{padding:17px 16px 10px}
+  .cm-prices{padding:7px 16px 17px}
+  .cm-coupon{margin:0 16px;padding:17px 0}
+  .cm-coupon label{font-size:13px}
+  .cm-coupon input{min-height:48px;font-size:16px}
+  .cm-coupon-control button{min-width:80px;min-height:48px;font-size:12px}
+  .cm-total{padding:17px 16px}.cm-total strong{font-size:clamp(23px,7vw,27px)}
+  .cm-shipping{padding:13px 16px 0;font-size:11px}
+  .cm-payment-area{padding:0 16px 18px}
+  .cm-action-wrap{padding:0 16px}
+  .cm-error{margin:0 16px 16px;font-size:12px}
+  .cm-security{font-size:11px;margin:15px 16px 20px}
+  .cm-login-link{min-height:44px;padding:9px}
+  .cm-history{margin-top:30px}
+  .cm-history-head{align-items:start;gap:10px}
+  .cm-history-head>button{min-height:44px}
+  .cm-pix{margin-top:18px;border-radius:17px;padding:16px;gap:17px}
+  .cm-pix h2{font-size:23px}
+  .cm-pix-code{min-width:0}.cm-pix-code textarea{font-size:12px;min-height:64px;overflow-wrap:anywhere}
+  .cm-pix-code button{min-height:45px}
+}
+@media(max-width:360px){
+  .cm-hero-copy{padding:20px 15px}
+  .cm-hero-points{gap:8px 9px}
+  .cm-benefit{font-size:9px}
+  .cm-panel{padding:16px 13px}
+  .cm-file-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .cm-coupon-control{gap:6px}.cm-coupon-control button{min-width:75px;padding:0 9px}
+  .cm-mobile-step strong{font-size:9px}
+}
