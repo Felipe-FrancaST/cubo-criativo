@@ -75,6 +75,11 @@ const mockFetch = async (input, options = {}) => {
   const action = url.searchParams.get('action')
   requests.push({ url, options })
   if (url.pathname === '/api/vip-plans') return response({ plans: [] })
+  if (url.pathname === '/api/shipping' && url.searchParams.get('op') === 'config')
+    return response({ settings: {
+      origin_zip: '47803604', enabled: true, services: '1,2,3,17,31',
+      mini_fee_cents: 500, other_fee_cents: 1000, packages: {},
+    } })
   if (url.hostname === 'viacep.com.br')
     return response({
       logradouro: client.address_line1,
@@ -436,6 +441,24 @@ test('navegação por Tab ignora controles de etapas ocultas', () => {
   assert.equal(document.activeElement === confirm, true)
   fireEvent.keyDown(confirm, { key: 'Tab' })
   assert.equal(document.activeElement === close, true)
+})
+
+test('Frete SuperFrete abre suas três áreas sem voltar ao Dashboard', async () => {
+  const view = renderAdmin()
+  const shippingButton = view.getByRole('button', { name: 'Frete SuperFrete' })
+  fireEvent.click(shippingButton)
+  await waitFor(() => {
+    assert.ok(view.getByRole('heading', { name: 'Frete e embalagens' }))
+    assert.ok(view.getByRole('heading', { name: 'Escalas cadastradas' }))
+  })
+  assert.equal(shippingButton.getAttribute('aria-current'), 'page')
+  fireEvent.click(view.getByRole('button', { name: 'Caixas e pesos' }))
+  assert.ok(view.getByRole('heading', { name: 'Modelos de caixas' }))
+  fireEvent.click(view.getByRole('button', { name: 'Taxas e serviços' }))
+  assert.ok(view.getByRole('heading', { name: 'Acréscimos e origem' }))
+  assert.ok(requests.some(({ url }) => url.pathname === '/api/shipping' && url.searchParams.get('op') === 'config'))
+  // O usuário deve continuar em Frete mesmo depois de trocar de aba.
+  assert.equal(shippingButton.getAttribute('aria-current'), 'page')
 })
 
 test('gerente acessa banners, mantém imagens separadas e salva após confirmação', async () => {

@@ -2276,6 +2276,7 @@ export default function AdminOrdersPage({
   React.useEffect(() => {
     const businessSections = new Set([
       'finance',
+      'shipping',
       'clients',
       'products',
       'banners',
@@ -2290,6 +2291,7 @@ export default function AdminOrdersPage({
       'production',
       'custom',
       'finance',
+      'shipping',
       'clients',
       'products',
       'banners',

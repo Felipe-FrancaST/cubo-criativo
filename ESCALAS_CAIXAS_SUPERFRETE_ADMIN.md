@@ -55,3 +55,5 @@ Fontes oficiais: https://ajuda.superfrete.com/artigo/como-ativar-ou-desativar-tr
 ## Validação local
 
 Os testes específicos de escalas e frete passaram (15 testes); o JSX do novo painel passou na análise de sintaxe. A suíte de testes geral passou 123 de 132 testes, com 9 falhas já relacionadas a dependências/npm e arquivos da versão de origem indisponíveis; a compilação integral e as cotações de transportadoras reais não puderam ser executadas aqui. Nenhuma credencial SuperFrete foi acessada ou copiada.
+
+> **Correção de navegação (13/11/2026):** se a versão anterior retornava ao Dashboard ao clicar em **Frete SuperFrete**, esta revisão inclui a seção nas permissões de navegação. Veja `CORRECAO_ACESSO_FRETE_ADMIN.md`. Não é necessário SQL extra.
