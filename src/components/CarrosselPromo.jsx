@@ -157,8 +157,11 @@ export default function CarrosselPromo({
                     </span>
                   )}
                 </div>
-                <span className="carousel-promo-see-product" aria-hidden="true">
-                  <span className="material-icons">arrow_forward</span>
+                <span className="carousel-promo-cta" aria-hidden="true">
+                  <span className="carousel-promo-cta-text">Ver produto</span>
+                  <span className="carousel-promo-see-product">
+                    <span className="material-icons">arrow_forward</span>
+                  </span>
                 </span>
               </div>
             </a>
