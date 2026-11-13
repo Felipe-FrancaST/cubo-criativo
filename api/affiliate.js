@@ -2,6 +2,7 @@ import { supabaseAdmin, getUserFromAuthHeader, verifyAccountPassword } from '../
 import { rateLimit } from '../server/rateLimit.js';
 import { renderOwnerAffiliateWithdrawalEmail } from '../server/emailTemplates.js';
 import { normalizeAffiliateSlug, trackAffiliateVisit, claimAffiliateReferral } from '../server/affiliate.js';
+import { validatePixPayout } from '../shared/pixKey.js';
 
 function parseBody(req) {
   if (!req.body) return {};
@@ -11,6 +12,7 @@ function parseBody(req) {
 function problem(res, code, message) { return res.status(code).json({ error: message }); }
 function readableError(error, fallback) {
   const message = String(error?.message || '');
+  if (/pix_key_type/i.test(message)) return 'Atualização do banco pendente. Execute 20261113_affiliate_pix_key_types.sql.';
   if (/affiliate_(?:user_attributions|coupon_claims)/i.test(message)) return 'Atualização do banco pendente. Execute 20261112_affiliate_link_coupons_and_secure_withdrawal.sql.';
   if (/affiliate_(?:payout|withdrawal|dashboard)|withdrawal_id|deleted_at|column|function|relation/i.test(message)) {
     return 'Atualização do banco de vendedores pendente. Execute a migração SQL 20261112_affiliates_withdrawals.sql.';
@@ -31,11 +33,9 @@ async function alertOwnerAboutWithdrawal(withdrawal) {
 }
 
 function validatePayout(payload) {
-  const pix_key = String(payload.pix_key || '').trim();
-  const holder_name = String(payload.holder_name || '').trim().replace(/\s+/g, ' ');
-  if (pix_key.length < 3 || pix_key.length > 140 || /[\x00-\x1f]/.test(pix_key)) throw new Error('Informe uma chave Pix válida.');
-  if (holder_name.length < 3 || holder_name.length > 140 || /[\x00-\x1f]/.test(holder_name)) throw new Error('Informe o nome completo do titular.');
-  return { pix_key, holder_name };
+  const result = validatePixPayout(payload);
+  if (!result.ok) throw new Error(result.error);
+  return result.payout;
 }
 
 async function handleTrack(req, res) {
@@ -66,9 +66,9 @@ async function handleMe(req, res, context) {
       .eq('affiliate_id', affiliate.id).order('created_at', { ascending: false }).limit(200),
     sb.from('coupons').select('code,label,discount_type,discount_value,applies_to,active,max_uses,used_count,expires_at')
       .eq('affiliate_id', affiliate.id).order('created_at', { ascending: false }).limit(100),
-    sb.from('affiliate_withdrawal_requests').select('id,amount,status,requested_at,paid_at,rejected_at,notes,holder_name,pix_key')
+    sb.from('affiliate_withdrawal_requests').select('id,amount,status,requested_at,paid_at,rejected_at,notes,holder_name,pix_key,pix_key_type')
       .eq('affiliate_id', affiliate.id).order('requested_at', { ascending: false }).limit(100),
-    sb.from('affiliate_payout_profiles').select('pix_key,holder_name,updated_at').eq('affiliate_id', affiliate.id).maybeSingle(),
+    sb.from('affiliate_payout_profiles').select('pix_key,pix_key_type,holder_name,updated_at').eq('affiliate_id', affiliate.id).maybeSingle(),
   ]);
   for (const response of [statsResp, commissionsResp, couponsResp, requestsResp, payoutResp]) {
     if (response.error) throw response.error;
@@ -90,7 +90,7 @@ async function handleSavePix(req, res, context) {
   catch (error) { return problem(res, 400, error.message); }
   const { data, error } = await context.sb.from('affiliate_payout_profiles')
     .upsert({ affiliate_id: context.affiliate.id, ...payout, updated_at: new Date().toISOString() }, { onConflict: 'affiliate_id' })
-    .select('pix_key,holder_name,updated_at').single();
+    .select('pix_key,pix_key_type,holder_name,updated_at').single();
   if (error) throw error;
   return res.status(200).json({ ok: true, payout_profile: data });
 }

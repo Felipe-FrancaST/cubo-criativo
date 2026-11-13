@@ -5123,7 +5123,7 @@ async function handleAffiliates(req, res) {
     sb.from('coupons').select('code,affiliate_id,label,discount_type,discount_value,active,max_uses,used_count,applies_to,expires_at')
       .not('affiliate_id', 'is', null).order('code').limit(1000),
     sb.from('affiliate_withdrawal_requests')
-      .select('id,affiliate_id,amount,pix_key,holder_name,status,requested_at,paid_at,rejected_at,notes')
+      .select('id,affiliate_id,amount,pix_key,pix_key_type,holder_name,status,requested_at,paid_at,rejected_at,notes')
       .order('requested_at', { ascending: false }).limit(500),
   ])
   for (const response of [affResp, profilesResp, productsResp, vipResp, couponResp, withdrawalsResp]) {
