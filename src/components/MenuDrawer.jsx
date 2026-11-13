@@ -226,30 +226,6 @@ export default function MenuDrawer({
                   </p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => {
-                      onOpenSettings?.('profile')
-                      onClose?.()
-                    }}
-                    className="rounded-xl px-4 py-3 text-sm ring-1 ring-white/10 hover:bg-white/4 transition flex items-center gap-2 justify-center"
-                  >
-                    <span className="material-icons text-[18px]">person</span>
-                    Perfil
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      onOpenSettings?.('settings')
-                      onClose?.()
-                    }}
-                    className="rounded-xl px-4 py-3 text-sm ring-1 ring-white/10 hover:bg-white/4 transition flex items-center gap-2 justify-center"
-                  >
-                    <span className="material-icons text-[18px]">settings</span>
-                    Ajustes
-                  </button>
-                </div>
-
                 {isSeller ? (
                   <DrawerButton
                     icon="storefront"
@@ -280,6 +256,7 @@ export default function MenuDrawer({
                 <DrawerButton
                   icon="settings"
                   right="chevron_right"
+                  active={route === '/configuracoes' || route === '/perfil'}
                   onClick={() => {
                     onOpenSettings?.('settings')
                     onClose?.()
