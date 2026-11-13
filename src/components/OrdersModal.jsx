@@ -1,4 +1,5 @@
 import React from "react";
+import ShippingOrderDetails from './ShippingOrderDetails.jsx';
 import CustomReferenceGallery, { customPieceTitle } from "./CustomReferenceGallery.jsx";
 import Modal from "./Modal.jsx";
 import { supabase } from "../lib/supabaseClient";
@@ -1131,6 +1132,8 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
             </div>
           ))}
         </div>
+
+          <ShippingOrderDetails orderId={o.id} accessToken={accessToken} />
 
           {o.custom ? (
             <div className="mt-4">

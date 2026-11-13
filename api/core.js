@@ -13,6 +13,7 @@ import handleVipPlans from '../server/api_handlers/vip-plans.js';
 import handleVipPresent from '../server/api_handlers/vip-present.js';
 import handleVipCycle from '../server/api_handlers/vip-cycle.js';
 import handleCustomMiniatures from '../server/api_handlers/custom-miniatures.js';
+import handleShipping from '../server/api_handlers/shipping.js';
 
 export const config = { runtime: 'nodejs' };
 
@@ -32,6 +33,7 @@ const ACTIONS = {
   'vip-present': handleVipPresent,
   'vip-cycle': handleVipCycle,
   'custom-miniatures': handleCustomMiniatures,
+  'shipping': handleShipping,
 };
 
 export default async function handler(req, res) {

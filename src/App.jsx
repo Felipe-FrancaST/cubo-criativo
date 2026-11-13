@@ -1311,7 +1311,7 @@ export default function App() {
     }
   }
 
-  async function startCheckout(appliedCoupon = null) {
+  async function startCheckout(appliedCoupon = null, shippingSelection = null) {
     if (!user) {
       requireLogin('Faça login para pagar.')
       return
@@ -1338,6 +1338,8 @@ export default function App() {
         },
         body: JSON.stringify({
           coupon_code: appliedCoupon?.code || null,
+          shipping_service_id: shippingSelection?.service_id || null,
+          expected_shipping_cents: shippingSelection?.price_cents || 0,
           ...getAffiliateCheckoutContext(),
           items: cart.map((i) => ({
             id: i.id,

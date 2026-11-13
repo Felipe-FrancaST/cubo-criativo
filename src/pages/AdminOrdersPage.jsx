@@ -2,6 +2,7 @@ const AdminBannersSection = lazyWithReload(
   () => import('./admin/banners/AdminBannersSection.jsx')
 )
 import React from 'react'
+import ShippingOrderDetails from '../components/ShippingOrderDetails.jsx'
 import CustomReferenceGallery, { customPieceTitle } from '../components/CustomReferenceGallery.jsx'
 import { lazyWithReload } from '../lib/lazyWithReload.js'
 import useDialog from '../lib/useDialog.js'
@@ -40,6 +41,9 @@ const NewManualOrderModal = lazyWithReload(
 )
 const AdminProductsSection = lazyWithReload(
   () => import('./admin/products/AdminProductsSection.jsx')
+)
+const AdminShippingSection = lazyWithReload(
+  () => import('./admin/shipping/AdminShippingSection.jsx')
 )
 const AdminCustomMiniaturesSection = lazyWithReload(
   () => import('./admin/custom/AdminCustomMiniaturesSection.jsx')
@@ -226,6 +230,7 @@ function OrderDetailsModal({
           </div>
 
           <div className="min-h-0 flex-1 p-4 overflow-y-auto overscroll-contain">
+            <ShippingOrderDetails orderId={order?.id} accessToken={accessToken} />
             {toast ? (
               <div className="mb-3 rounded-2xl bg-white/[0.04] ring-1 ring-white/10 px-3 py-2 text-sm text-slate-200">
                 {toast}
@@ -3955,6 +3960,7 @@ export default function AdminOrdersPage({
       label: 'Gestão comercial',
       items: [
         ['finance', 'payments', 'Financeiro', canManageBusiness],
+        ['shipping', 'local_shipping', 'Frete SuperFrete', canManageBusiness],
         ['clients', 'groups', 'Clientes', canManageBusiness],
         ['products', 'inventory', 'Produtos', canManageBusiness],
         ['banners', 'image', 'Banners do site', canManageBusiness],
@@ -3986,7 +3992,7 @@ export default function AdminOrdersPage({
       fetchGameCoupon()
       fetchGameCouponMetrics()
     } else if (
-      ['products', 'reviews', 'affiliates', 'admins', 'banners', 'custom'].includes(
+      ['products', 'reviews', 'affiliates', 'admins', 'banners', 'custom', 'shipping'].includes(
         section
       )
     )
@@ -4171,6 +4177,9 @@ export default function AdminOrdersPage({
                   accessToken={accessToken}
                   canManageBusiness={canManageBusiness}
                 />
+              )}
+              {section === 'shipping' && canManageBusiness && (
+                <AdminShippingSection accessToken={accessToken} />
               )}
               {section === 'finance' && canManageBusiness && (
                 <AdminFinanceSection admin={adminContext} />

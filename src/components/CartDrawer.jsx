@@ -1,5 +1,6 @@
 import CheckoutPolicies from './CheckoutPolicies.jsx'
 import { PaymentChoice, PaymentActionButton } from './PaymentChoice.jsx'
+import ShippingSelector from './ShippingSelector.jsx'
 import React from 'react'
 import useDialog from '../lib/useDialog.js'
 import { supabase } from '../lib/supabaseClient'
@@ -48,6 +49,7 @@ export default function CartDrawer({
   const [pixOpen, setPixOpen] = React.useState(false)
   const [pixLoading, setPixLoading] = React.useState(false)
   const [paymentMethod, setPaymentMethod] = React.useState('pix')
+  const [shippingSelection, setShippingSelection] = React.useState(null)
   const [, setPixStatus] = React.useState('pending')
   const [checkingPix, setCheckingPix] = React.useState(false)
   const [pixCompletedOpen, setPixCompletedOpen] = React.useState(false)
@@ -87,6 +89,7 @@ export default function CartDrawer({
       setPix(null)
       setPixLoading(false)
       setPaymentMethod('pix')
+      setShippingSelection(null)
       setCopyToast(null)
       if (copyToastTimer.current) {
         window.clearTimeout(copyToastTimer.current)
@@ -348,6 +351,8 @@ export default function CartDrawer({
           })),
           description: 'Pagamento via Pix',
           coupon_code: couponInfo?.code || null,
+          shipping_service_id: shippingSelection?.service_id || null,
+          expected_shipping_cents: shippingSelection?.price_cents || 0,
           ...getAffiliateCheckoutContext(),
         }),
       })
@@ -699,9 +704,13 @@ export default function CartDrawer({
               </div>
             </div>
 
+            <ShippingSelector active={open && canCheckout} token={authToken}
+              request={{ type: 'shop', items: (cart || []).map(i => ({ id: i.id, qty: i.qty, scale: i.escala || '' })) }}
+              onSelect={setShippingSelection} onRequireProfile={onRequireProfile}
+              disabled={paying || pixLoading || pixOpen || pixCompletedOpen} />
             <div className="checkout-total-bar" aria-live="polite">
-              <span>Total</span>
-              <strong>{canCheckout ? fmtBRL(Number(couponInfo?.final_total ?? subtotal)) : '—'}</strong>
+              <span>Total com frete</span>
+              <strong>{canCheckout && shippingSelection ? fmtBRL(Number(couponInfo?.final_total ?? subtotal) + shippingSelection.price_cents / 100) : 'Selecione o frete'}</strong>
             </div>
             <CheckoutPolicies />
             <PaymentChoice value={paymentMethod} onChange={setPaymentMethod} disabled={paying || pixLoading || pixOpen || pixCompletedOpen} />
@@ -728,10 +737,10 @@ export default function CartDrawer({
             <PaymentActionButton
               method={paymentMethod}
               loading={paying || pixLoading}
-              disabled={!canCheckout || paying || pixLoading}
+              disabled={!canCheckout || !shippingSelection || paying || pixLoading}
               onClick={() => {
                 if (paymentMethod === 'pix') void handlePix()
-                else if (onPayWithCoupon) void onPayWithCoupon(couponInfo)
+                else if (onPayWithCoupon) void onPayWithCoupon(couponInfo, shippingSelection)
                 else void onPay?.()
               }}
               loadingLabel={paymentMethod === 'pix' ? 'Gerando Pix…' : 'Preparando pagamento…'}

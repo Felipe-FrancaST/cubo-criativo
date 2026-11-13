@@ -1,6 +1,7 @@
 import React from 'react'
 import Modal from './Modal.jsx'
 import { PaymentChoice, PaymentActionButton } from './PaymentChoice.jsx'
+import ShippingSelector from './ShippingSelector.jsx'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthProvider.jsx'
 import { lazyWithReload } from '../lib/lazyWithReload.js'
@@ -154,6 +155,7 @@ export default function VipAreaModal({
   const [renewBusy, setRenewBusy] = React.useState(false)
   const [renewPayOpen, setRenewPayOpen] = React.useState(false)
   const [renewPayMethod, setRenewPayMethod] = React.useState('pix')
+  const [renewShipping, setRenewShipping] = React.useState(null)
   const [renewPix, setRenewPix] = React.useState(null)
   const [renewPixStatus, setRenewPixStatus] = React.useState('')
   const [renewChecking, setRenewChecking] = React.useState(false)
@@ -1522,6 +1524,8 @@ export default function VipAreaModal({
         },
         body: JSON.stringify({
           vip_plan_id: selectedPlan.id,
+          shipping_service_id: renewShipping?.service_id || null,
+          expected_shipping_cents: renewShipping?.price_cents || 0,
           description: `Renovação ${selectedPlan.id}`,
         }),
       })
@@ -1556,7 +1560,7 @@ export default function VipAreaModal({
           'Content-Type': 'application/json',
           Authorization: `Bearer ${accessToken}`,
         },
-        body: JSON.stringify({ vip_plan_id: selectedPlan.id }),
+        body: JSON.stringify({ vip_plan_id: selectedPlan.id, shipping_service_id: renewShipping?.service_id || null, expected_shipping_cents: renewShipping?.price_cents || 0 }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok)
@@ -2165,11 +2169,14 @@ export default function VipAreaModal({
                     </div>
                   </div>
                 </div>
-                <div className="checkout-total-bar"><span>Valor da renovação</span><strong>{currentPriceCents > 0 ? fmtBRLFromCents(currentPriceCents) : 'Consulte o valor'}</strong></div>
+                <ShippingSelector token={accessToken} active={renewPayOpen && !!selectedPlan}
+                  request={selectedPlan ? { type: 'vip', vip_plan_id: selectedPlan.id } : null}
+                  onSelect={setRenewShipping} disabled={renewBusy} />
+                <div className="checkout-total-bar"><span>Renovação com frete</span><strong>{renewShipping ? fmtBRLFromCents(currentPriceCents + renewShipping.price_cents) : 'Selecione o frete'}</strong></div>
                 <div className="mt-4 grid gap-3">
                   <PaymentChoice value={renewPayMethod} onChange={setRenewPayMethod} disabled={renewBusy} />
                   <PaymentActionButton
-                    method={renewPayMethod} loading={renewBusy} disabled={renewBusy}
+                    method={renewPayMethod} loading={renewBusy} disabled={renewBusy || !renewShipping}
                     onClick={async () => {
                       try {
                         if (renewPayMethod === 'pix') await startRenewPix()

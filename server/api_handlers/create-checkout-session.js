@@ -19,6 +19,7 @@ import { calcCouponDiscount } from "../couponGame.js";
 import { getVipPlanById, listVipPlans, vipPlanDisplayName } from "../vipPlans.js";
 import { buildMercadoPagoItems, buildOrderItemsForInsert, buildVipOrderItems, buildVipUpgradeOrderItems, resolveStoreItems, serializeResolvedItems } from "../orderPricing.js";
 import { rateLimit } from '../rateLimit.js';
+import { requireSelectedShipping, storeOrderShipping, shippingMpItem } from '../shipping.js';
 import { resolveAffiliateForCheckout, maybeCreateAffiliateCommission, couponEligibleSubtotal } from '../affiliate.js';
 
 export const config = { runtime: "nodejs" };
@@ -259,7 +260,19 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: "Este pedido está sem itens para reenviar ao pagamento." });
       }
 
-      const cleanRetryItems = buildMercadoPagoItems(retryItems);
+      let cleanRetryItems = buildMercadoPagoItems(retryItems);
+      const { data: retryShipping, error: retryShipError } = await sb.from('order_shipping')
+        .select('service_name,carrier,total_cents').eq('order_id', retryOrderId).maybeSingle();
+      if (retryShipError) throw retryShipError;
+      const retryDiscount = Number(existingOrder.coupon_discount || 0);
+      if (retryDiscount > 0) {
+        // Mercado Pago não deve receber itens com preço negativo.
+        const merchandise = Math.round((Number(existingOrder.total) - (retryShipping?.total_cents || 0) / 100) * 100) / 100;
+        cleanRetryItems = merchandise > 0 ? [{ title: 'Produtos do pedido (desconto aplicado)',
+          quantity: 1, unit_price: merchandise, currency_id: 'BRL' }] : [];
+      }
+      if (retryShipping) cleanRetryItems.push({ title: `Frete — ${retryShipping.service_name} (${retryShipping.carrier})`,
+        quantity: 1, unit_price: retryShipping.total_cents / 100, currency_id: 'BRL' });
       if (!cleanRetryItems.length) {
         return res.status(400).json({ error: "Não foi possível montar os itens do pagamento." });
       }
@@ -404,6 +417,11 @@ export default async function handler(req, res) {
       couponApplied = { code: coupon.code, discount: calc.discount, label: coupon.label || coupon.code };
     }
 
+    const shipping = isVipUpgrade ? null : await requireSelectedShipping(sb, {
+      profile, serviceId: body.shipping_service_id, expectedShippingCents: body.expected_shipping_cents, type: vipPlanId ? 'vip' : 'shop',
+      items: resolvedOrderItems, plan: vipPlan,
+    });
+    if (shipping) finalTotal = Number((finalTotal + shipping.total_cents / 100).toFixed(2));
     finalTotal = Number(Number(finalTotal).toFixed(2));
     if (!Number.isFinite(finalTotal) || finalTotal <= 0) {
       return res.status(400).json({ error: "O desconto deixou o valor do pedido inválido para pagamento." });
@@ -439,6 +457,8 @@ export default async function handler(req, res) {
       console.error("supabase order insert error", orderInsert.error);
       return res.status(500).json({ error: "Não foi possível criar o pedido." });
     }
+
+    if (shipping) await storeOrderShipping(sb, { orderId, userId: user.id, shipping });
 
     let affiliateCommission = null;
     if (affiliateResolution?.affiliate?.id) {
@@ -484,7 +504,13 @@ export default async function handler(req, res) {
 
     // 2) Cria preferência no Mercado Pago
     const prefBody = {
-      items: couponApplied && couponApplied.discount > 0 ? [...cleanItems, { title: `Desconto (${couponApplied.code})`, quantity: 1, unit_price: Number((-couponApplied.discount).toFixed(2)), currency_id: "BRL" }] : cleanItems,
+      items: [
+        ...(couponApplied?.discount > 0
+          ? (total - couponApplied.discount > 0 ? [{ title: 'Produtos do pedido (desconto aplicado)',
+            quantity: 1, unit_price: Math.round((total - couponApplied.discount) * 100) / 100, currency_id: 'BRL' }] : [])
+          : cleanItems),
+        ...(shipping ? [shippingMpItem(shipping)] : []),
+      ],
       payer: { email: user.email || undefined },
       external_reference: orderId,
       notification_url: `${base}/api/mp-webhook`,
@@ -509,6 +535,8 @@ export default async function handler(req, res) {
         affiliate_source: affiliateResolution?.source || null,
         visitor_id: affiliateResolution?.visitorId || visitorId || null,
         items_json: serializeResolvedItems(resolvedOrderItems),
+        shipping_service_id: shipping?.selected.service_id || null,
+        shipping_cents: shipping?.total_cents || 0,
       },
     };
 

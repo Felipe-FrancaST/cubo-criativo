@@ -1,5 +1,6 @@
 import CheckoutPolicies from '../components/CheckoutPolicies.jsx'
 import { PaymentChoice, PaymentActionButton } from '../components/PaymentChoice.jsx'
+import ShippingSelector from '../components/ShippingSelector.jsx'
 import React from 'react'
 import Modal from '../components/Modal.jsx'
 import VipGalleryModal from '../components/vip-area/VipGalleryModal.jsx'
@@ -58,6 +59,7 @@ export default function VipRpgPage({
   const [busy, setBusy] = React.useState(false)
   const [method, setMethod] = React.useState('')
   const [paymentSelection, setPaymentSelection] = React.useState('pix')
+  const [shippingSelection, setShippingSelection] = React.useState(null)
   const [error, setError] = React.useState('')
   const [message, setMessage] = React.useState('')
   const [couponCode, setCouponCode] = React.useState('')
@@ -224,7 +226,7 @@ export default function VipRpgPage({
     pix?.planId === selectedPlan?.id &&
     pendingStatus(pixStatus) &&
     (pix.couponCode || '') === (activeCoupon?.code || '') &&
-    Math.round(Number(pix.total) * 100) === Math.round(Number(total) * 100)
+    Math.round(Number(pix.total) * 100) === Math.round(Number(total) * 100) + (shippingSelection?.price_cents || 0)
   )
   function choosePlan(id) {
     if (checkoutLock.current || id === selectedPlanId) return
@@ -354,6 +356,8 @@ export default function VipRpgPage({
                 }
               : {}),
             coupon_code: coupon,
+            shipping_service_id: shippingSelection?.service_id || null,
+            expected_shipping_cents: shippingSelection?.price_cents || 0,
             ...getAffiliateCheckoutContext(),
           }),
         }
@@ -374,9 +378,9 @@ export default function VipRpgPage({
           couponCode: coupon || '',
           planName: planName(plans.find((plan) => plan.id === planId)),
           total:
-            activeCoupon?.planId === planId
+            (activeCoupon?.planId === planId
               ? activeCoupon.final_total
-              : planPrice(plans.find((plan) => plan.id === planId)),
+              : planPrice(plans.find((plan) => plan.id === planId))) + (shippingSelection?.price_cents || 0) / 100,
         })
         setPixStatus(String(data.status || 'pending').toLowerCase())
         setCopyMessage('')
@@ -476,6 +480,7 @@ export default function VipRpgPage({
     return () => window.clearInterval(timer)
   }, [pix?.order_id, accessToken, pixStatus])
   const canPay = Boolean(
+    shippingSelection &&
     selectedPlan &&
     !busy &&
     !couponBusy &&
@@ -717,11 +722,15 @@ export default function VipRpgPage({
                     </button>
                   </div>
                 )}
+                <ShippingSelector token={accessToken} active={!!selectedPlan && !isVip}
+                  request={selectedPlan ? { type: 'vip', vip_plan_id: selectedPlan.id } : null}
+                  onSelect={setShippingSelection} onRequireProfile={() => onOpenSettings?.('profile', { autoClose: true })}
+                  disabled={busy} />
                 <div className="vip-checkout-total">
-                  <span>Total do ciclo</span>
+                  <span>Total com frete</span>
                   <div>
                     {activeCoupon && <del>{fmtBRL(price)}</del>}
-                    <strong>{fmtBRL(total)}</strong>
+                    <strong>{shippingSelection ? fmtBRL(total + shippingSelection.price_cents / 100) : 'Selecione o frete'}</strong>
                   </div>
                 </div>
                 {profileError && (

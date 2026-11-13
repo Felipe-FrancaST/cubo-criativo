@@ -18,6 +18,7 @@ import { calcCouponDiscount } from "../couponGame.js";
 import { getVipPlanById, listVipPlans, vipPlanDisplayName } from "../vipPlans.js";
 import { buildOrderItemsForInsert, buildVipOrderItems, buildVipUpgradeOrderItems, resolveStoreItems, serializeResolvedItems } from "../orderPricing.js";
 import { rateLimit } from '../rateLimit.js';
+import { requireSelectedShipping, storeOrderShipping } from '../shipping.js';
 import { resolveAffiliateForCheckout, maybeCreateAffiliateCommission, couponEligibleSubtotal } from '../affiliate.js';
 
 export const config = { runtime: "nodejs" };
@@ -346,6 +347,14 @@ export default async function handler(req, res) {
       couponApplied = { code: coupon.code, discount: calc.discount, label: coupon.label || coupon.code };
     }
 
+    const { data: shippingProfile, error: shippingProfileError } = await sb.from('profiles')
+      .select('zip').eq('id', user.id).maybeSingle();
+    if (shippingProfileError) throw shippingProfileError;
+    const shipping = await requireSelectedShipping(sb, {
+      profile: shippingProfile, serviceId: body.shipping_service_id, expectedShippingCents: body.expected_shipping_cents, type: vipPlanId ? 'vip' : 'shop',
+      items: resolvedOrderItems, plan: vipPlan,
+    });
+    finalAmount = Number((finalAmount + shipping.total_cents / 100).toFixed(2));
     finalAmount = Number(Number(finalAmount).toFixed(2));
     // O valor final do pedido é sempre recalculado no servidor com base no Supabase.
     // Não bloqueamos mais o Pix quando o frontend estiver com preço antigo no carrinho,
@@ -406,6 +415,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "Não foi possível criar o pedido." });
     }
 
+    await storeOrderShipping(sb, { orderId, userId: user.id, shipping });
     let affiliateCommission = null;
     if (affiliateResolution?.affiliate?.id) {
       let firstVip = true;
@@ -485,6 +495,8 @@ export default async function handler(req, res) {
           affiliate_source: affiliateResolution?.source || null,
           visitor_id: affiliateResolution?.visitorId || visitorId || null,
           items_json: serializeResolvedItems(resolvedOrderItems),
+          shipping_service_id: shipping.selected.service_id,
+          shipping_cents: shipping.total_cents,
         },
         notification_url: `${origin}/api/mp-webhook`,
       }),

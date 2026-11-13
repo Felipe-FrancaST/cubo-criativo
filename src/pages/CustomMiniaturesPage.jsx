@@ -2,6 +2,7 @@ import React from 'react'
 import { supabase } from '../lib/supabaseClient.js'
 import { getAffiliateCheckoutContext } from '../lib/affiliate.js'
 import { PaymentChoice, PaymentActionButton } from '../components/PaymentChoice.jsx'
+import ShippingSelector from '../components/ShippingSelector.jsx'
 import { needsProfileCompletion } from '../lib/profileCheckout.js'
 import './custom-miniatures.css'
 
@@ -85,6 +86,7 @@ export default function CustomMiniaturesPage({ user, accessToken, onRequireLogin
   const reapplyCouponAfterProfile = React.useRef(false)
   const [quoteBusy, setQuoteBusy] = React.useState(false)
   const [paymentMethod, setPaymentMethod] = React.useState('pix')
+  const [shippingSelection, setShippingSelection] = React.useState(null)
   const [busy, setBusy] = React.useState(false)
   const [progress, setProgress] = React.useState('')
   const [error, setError] = React.useState('')
@@ -242,13 +244,14 @@ export default function CustomMiniaturesPage({ user, accessToken, onRequireLogin
     setError('')
     setProgress('')
     setPaymentMethod('pix')
+    setShippingSelection(null)
     refreshMine({ silent: true })
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const price = kind === 'busto' ? settings?.bust_price_cents : settings?.miniature_price_cents
   const totalCents = Math.max(0, Number(price || 0) - Number(discount?.discount_cents || 0))
-  const paymentReady = !!settings && files.length > 0 && !busy && !pixData && !confirmedOrder
+  const paymentReady = !!settings && files.length > 0 && !!shippingSelection && !busy && !pixData && !confirmedOrder
   const returnedOrder = mine.find(request => request.order_id && request.order_id === returnInfo?.orderId)
 
   async function applyCoupon({ promptForProfile = true } = {}) {
@@ -329,6 +332,8 @@ export default function CustomMiniaturesPage({ user, accessToken, onRequireLogin
           coupon_code: discount?.code || '',
           ...getAffiliateCheckoutContext(),
           expected_total_cents: totalCents,
+          shipping_service_id: shippingSelection?.service_id,
+          expected_shipping_cents: shippingSelection?.price_cents,
         },
       })
       if (paymentMethod === 'card') {
@@ -557,8 +562,10 @@ export default function CustomMiniaturesPage({ user, accessToken, onRequireLogin
                 </div>
                 {discount ? <p className="cm-coupon-success"><span className="material-icons">check_circle</span> Cupom aplicado: {discount.coupon_label || discount.code}</p> : null}
               </div>
-              <div className="cm-total"><span>Total</span><strong>{settings ? money(totalCents) : '—'}</strong></div>
-              <p className="cm-shipping">O valor apresentado é da personalização. Eventual frete não está incluído.</p>
+              <ShippingSelector token={accessToken} active={!!settings && !pixData && !confirmedOrder}
+                request={{ type: 'custom', kind }} onSelect={setShippingSelection} onRequireProfile={onRequireProfile}
+                disabled={busy || !!pixData || !!confirmedOrder} />
+              <div className="cm-total"><span>Total com frete</span><strong>{settings && shippingSelection ? money(totalCents + shippingSelection.price_cents) : 'Selecione o frete'}</strong></div>
               <div className="cm-payment-area">
                 <PaymentChoice value={paymentMethod} onChange={setPaymentMethod} disabled={busy || !!pixData || !!confirmedOrder} />
               </div>
@@ -570,7 +577,7 @@ export default function CustomMiniaturesPage({ user, accessToken, onRequireLogin
                 <div className="cm-action-wrap">
                   <PaymentActionButton method={paymentMethod} onClick={startCheckout}
                     loading={busy} loadingLabel={progress || 'Preparando pedido…'} disabled={!paymentReady}
-                    label={!files.length ? 'Adicione imagens para continuar' : !user ? 'Entrar e continuar' : paymentMethod === 'pix' ? 'Gerar Pix e finalizar' : 'Pagar com cartão'} />
+                    label={!files.length ? 'Adicione imagens para continuar' : !user ? 'Entrar e continuar' : !shippingSelection ? 'Selecione o frete' : paymentMethod === 'pix' ? 'Gerar Pix e finalizar' : 'Pagar com cartão'} />
                 </div>
               )}
               {!user ? <button className="cm-login-link" type="button" onClick={() => onRequireLogin?.('Entre ou crie sua conta para solicitar uma miniatura personalizada.')}>Já tem conta? Entre aqui</button> : null}

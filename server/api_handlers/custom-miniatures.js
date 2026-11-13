@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { getUserFromAuthHeader, supabaseAdmin } from '../supabase.js';
 import { requireAdmin, ADMIN_LEVEL } from '../admin/adminAuth.js';
 import { rateLimit } from '../rateLimit.js';
+import { requireSelectedShipping, storeOrderShipping } from '../shipping.js';
 import { resolveAffiliateForCheckout, maybeCreateAffiliateCommission, finalizeAffiliateCommission } from '../affiliate.js';
 import {
   CUSTOM_BUCKET, CUSTOM_FORMATS, CUSTOM_MIMES, CUSTOM_PRODUCTION_STATES,
@@ -72,7 +73,7 @@ async function verifyUploadedFiles(sb, row) {
       Object.hasOwn(CUSTOM_MIMES, mimetype);
   });
 }
-async function createMercadoPagoPayment({ req, orderId, user, kind, method, totalCents, coupon, visitorId }) {
+async function createMercadoPagoPayment({ req, orderId, user, kind, method, totalCents, productCents, shipping, coupon, visitorId }) {
   const token = String(process.env.MP_ACCESS_TOKEN || '').trim();
   if (!token) throw new Error('Mercado Pago não está configurado.');
   const origin = baseUrl(req);
@@ -88,7 +89,11 @@ async function createMercadoPagoPayment({ req, orderId, user, kind, method, tota
   if (method === 'card') {
     url = 'https://api.mercadopago.com/checkout/preferences';
     payload = {
-      items: [{ id: 'custom-miniature', title, quantity: 1, unit_price: totalCents / 100, currency_id: 'BRL' }],
+      items: [
+        { id: 'custom-miniature', title, quantity: 1, unit_price: productCents / 100, currency_id: 'BRL' },
+        { id: 'frete', title: `Frete — ${shipping.selected.service_name}`, quantity: 1,
+          unit_price: shipping.total_cents / 100, currency_id: 'BRL' },
+      ],
       payer: { email: user.email }, external_reference: orderId,
       notification_url: `${origin}/api/mp-webhook`,
       back_urls: {
@@ -396,11 +401,18 @@ export default async function handleCustomMiniatures(req, res) {
       try {
         coupon = await evaluateCustomCoupon(sb, { code: body.coupon_code, user, baseCents });
       } catch (error) { return jsonError(res, 400, safeCustomError(error), error?.code); }
-      const totalCents = baseCents - coupon.discountCents;
+      const { data: customShippingProfile, error: customShipProfileError } = await sb.from('profiles')
+        .select('zip').eq('id', user.id).maybeSingle();
+      if (customShipProfileError) throw customShipProfileError;
+      const shipping = await requireSelectedShipping(sb, {
+        profile: customShippingProfile, serviceId: body.shipping_service_id, expectedShippingCents: body.expected_shipping_cents, type: 'custom', kind,
+      });
+      const productCents = baseCents - coupon.discountCents;
+      const totalCents = productCents + shipping.total_cents;
       if (totalCents < 1) return jsonError(res, 400, 'Valor final inválido.');
       // Preço sempre calculado no servidor, mas nunca cobramos um total
       // diferente do que foi confirmado pelo cliente na interface.
-      if (Number(body.expected_total_cents) !== totalCents) {
+      if (Number(body.expected_total_cents) !== productCents) {
         return res.status(409).json({
           error: 'O preço do pedido foi atualizado. Revise o valor e tente novamente.',
           code: 'price_changed',
@@ -435,6 +447,7 @@ export default async function handleCustomMiniatures(req, res) {
           affiliate_visitor_id: affiliateResolution.source === 'link' ? affiliateResolution.visitorId : null,
         });
         if (orderError) throw orderError;
+        await storeOrderShipping(sb, { orderId, userId: user.id, shipping });
         if (affiliateResolution.affiliate?.id) {
           const commission = await maybeCreateAffiliateCommission(sb, {
             order: { id: orderId, order_type: 'shop' },
@@ -451,12 +464,12 @@ export default async function handleCustomMiniatures(req, res) {
         // Best effort: permite também exibir a compra no histórico já existente.
         const { error: itemError } = await sb.from('order_items').insert({
           order_id: orderId, product_id: null, product_name: CUSTOM_FORMATS[kind],
-          scale: '', qty: 1, unit_price_cents: totalCents, product_image_url: null,
+          scale: '', qty: 1, unit_price_cents: productCents, product_image_url: null,
         });
         if (itemError) {
           const { error: legacyItemError } = await sb.from('order_items').insert({
             order_id: orderId, product_id: null, name: CUSTOM_FORMATS[kind],
-            scale: '', qty: 1, unit_price: totalCents / 100, img: null,
+            scale: '', qty: 1, unit_price: productCents / 100, img: null,
           });
           if (legacyItemError) console.error('custom order_items insert', itemError, legacyItemError);
         }
@@ -472,7 +485,7 @@ export default async function handleCustomMiniatures(req, res) {
         if (linkError) throw linkError;
         gatewayInvoked = true;
         const result = await createMercadoPagoPayment({
-          req, orderId, user, kind, method, totalCents, coupon, visitorId: body.visitor_id,
+          req, orderId, user, kind, method, totalCents, productCents, shipping, coupon, visitorId: body.visitor_id,
         });
         const paymentDetails = method === 'pix' ? (result.pix || {}) : {};
         const { error: customUpdateError } = await sb.from(REQUEST_TABLE).update({

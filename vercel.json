@@ -357,6 +357,10 @@
       "destination": "/api/core?api_action=coupons"
     },
     {
+      "source": "/api/shipping",
+      "destination": "/api/core?api_action=shipping"
+    },
+    {
       "source": "/api/create-checkout-session",
       "destination": "/api/core?api_action=create-checkout-session"
     },

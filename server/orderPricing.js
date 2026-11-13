@@ -131,7 +131,7 @@ export async function resolveStoreItems(sb, rawItems = []) {
   const productIds = [...new Set(normalizedItems.map((item) => item.product_id))];
   const { data: rows, error } = await sb
     .from('products')
-    .select('id,name,price_cents,original_price_cents,promo,stock,active,image_url,images,variants,default_variant')
+    .select('id,name,category,price_cents,original_price_cents,promo,stock,active,image_url,images,variants,default_variant')
     .in('id', productIds);
 
   if (error) {
@@ -184,6 +184,7 @@ export async function resolveStoreItems(sb, rawItems = []) {
     resolvedItems.push({
       product_id: String(row.id),
       name: String(row.name || 'Item').trim(),
+      category: String(row.category || '').trim(),
       qty: item.qty,
       scale: variant.scale || '',
       unit_price: unitPrice,
