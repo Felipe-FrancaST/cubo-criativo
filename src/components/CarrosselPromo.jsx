@@ -9,7 +9,7 @@ export default function CarrosselPromo({
    */
   images,
   interval = 3500,
-  fit = "cover", // "cover" | "contain"
+  fit = "contain", // "cover" | "contain"
   className = "",
   onActivate,
 }) {
@@ -72,8 +72,13 @@ export default function CarrosselPromo({
 
   // evita manipular DOM fora do React (onError) e permite fallback por slide
   const [failedMap, setFailedMap] = React.useState(() => ({}));
+  // Cada imagem pode ter uma proporção diferente. Ajustar o quadro ao slide
+  // evita cortar a arte e também evita barras vazias exageradas.
+  const [slideRatios, setSlideRatios] = React.useState(() => ({}));
 
   const [i, setI] = React.useState(0);
+  const activeSlide = slides[i] || slides[0];
+  const activeRatio = slideRatios[String(activeSlide?.id ?? i)] || 16 / 9;
   const [isHovering, setIsHovering] = React.useState(false);
   const timerRef = React.useRef(null);
 
@@ -147,8 +152,8 @@ export default function CarrosselPromo({
         </div>
       )}
 
-      {/* altura responsiva */}
-      <div className="carousel-promo-viewport h-[280px] sm:h-[360px] lg:h-[420px] relative">
+      {/* Proporção responsiva: sem altura fixa nem corte da imagem. */}
+      <div className="carousel-promo-viewport relative" style={{ aspectRatio: activeRatio }}>
         {shouldHoldForRemote && (
           <div className="absolute inset-0 grid place-items-center p-3" aria-hidden="true">
             <div className="h-full w-full rounded-[1.25rem] bg-white/[0.04] ring-1 ring-white/10 animate-pulse" />
@@ -162,7 +167,7 @@ export default function CarrosselPromo({
           return (
             <div
               key={slideKey}
-              className={`absolute inset-0 grid place-items-center p-3 transition-opacity ${
+              className={`absolute inset-0 grid place-items-center transition-opacity ${
                 prefersReducedMotion ? "" : "duration-500"
               } ${active ? "opacity-100" : "opacity-0"} ${active ? "" : "pointer-events-none"}`}
               aria-hidden={!active}
@@ -183,10 +188,20 @@ export default function CarrosselPromo({
                     style={{
                       maxHeight: "100%",
                       maxWidth: "100%",
-                      width: fit === "contain" ? "auto" : "100%",
-                      height: fit === "contain" ? "100%" : "100%",
+                      width: "100%",
+                      height: "100%",
                       objectFit: fit,
                       display: "block",
+                    }}
+                    onLoad={(event) => {
+                      const { naturalWidth, naturalHeight } = event.currentTarget;
+                      if (!naturalWidth || !naturalHeight) return;
+                      // Limites mantêm um carrossel confortável em telas estreitas;
+                      // object-fit: contain garante a imagem toda mesmo fora deles.
+                      const ratio = Math.min(3.5, Math.max(1, naturalWidth / naturalHeight));
+                      setSlideRatios((current) => current[slideKey] === ratio
+                        ? current
+                        : { ...current, [slideKey]: ratio });
                     }}
                     onError={() =>
                       setFailedMap((m) => ({
@@ -204,59 +219,40 @@ export default function CarrosselPromo({
             </div>
           );
         })}
-        {/* vinheta sutil nas bordas (deixa mais elegante/clean) */}
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_60%,rgba(0,0,0,0.35))]" />
       </div>
 
-      {/* setas (aparecem mais no hover) */}
       {slides.length > 1 && (
-        <>
+        <div className="carousel-promo-controls" aria-label="Navegação do carrossel">
           <button
             type="button"
-            aria-label="Anterior"
-            onClick={(e) => {
-              e.stopPropagation();
-              prev();
-            }}
-            className="group absolute left-2 top-1/2 -translate-y-1/2 rounded-full h-11 w-11 grid place-items-center bg-black/35 hover:bg-black/55 ring-1 ring-white/20 opacity-80 hover:opacity-100 transition"
+            aria-label="Imagem anterior"
+            onClick={(event) => { event.stopPropagation(); prev(); }}
+            className="carousel-promo-control"
           >
-            <span className="material-icons text-white/90">chevron_left</span>
+            <span className="material-icons" aria-hidden="true">chevron_left</span>
           </button>
+          <div className="carousel-promo-dots" aria-label="Selecionar imagem">
+            {slides.map((_, idx) => (
+              <button
+                type="button"
+                key={idx}
+                onClick={(event) => { event.stopPropagation(); setI(idx); }}
+                aria-label={`Ir para imagem ${idx + 1} de ${slides.length}`}
+                aria-current={idx === i ? "true" : undefined}
+                className={`carousel-promo-dot ${idx === i ? "is-active" : ""}`}
+              >
+                <span aria-hidden="true" />
+              </button>
+            ))}
+          </div>
           <button
             type="button"
-            aria-label="Próximo"
-            onClick={(e) => {
-              e.stopPropagation();
-              next();
-            }}
-            className="group absolute right-2 top-1/2 -translate-y-1/2 rounded-full h-11 w-11 grid place-items-center bg-black/35 hover:bg-black/55 ring-1 ring-white/20 opacity-80 hover:opacity-100 transition"
+            aria-label="Próxima imagem"
+            onClick={(event) => { event.stopPropagation(); next(); }}
+            className="carousel-promo-control"
           >
-            <span className="material-icons text-white/90">chevron_right</span>
+            <span className="material-icons" aria-hidden="true">chevron_right</span>
           </button>
-        </>
-      )}
-
-      {/* bolinhas (glass + menor) */}
-      {slides.length > 1 && (
-        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-6 px-2 py-1 rounded-full bg-black/30 backdrop-blur-sm ring-1 ring-white/10">
-          {slides.map((_, idx) => (
-            <button
-              type="button"
-              key={idx}
-              onClick={(e) => {
-                e.stopPropagation();
-                setI(idx);
-              }}
-              className="relative h-11 w-11 -mx-3 grid place-items-center"
-              aria-label={`Ir para slide ${idx + 1}`}
-            >
-              <span
-                className={`h-2.5 w-2.5 rounded-full transition-all ${
-                  idx === i ? "bg-white scale-100" : "bg-white/40 scale-75"
-                }`}
-              />
-            </button>
-          ))}
         </div>
       )}
     </div>

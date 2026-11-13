@@ -40,10 +40,15 @@ export default function HomePage({
   const [banner, setBanner] = React.useState(FALLBACK_BANNER)
   const [bannerLoading, setBannerLoading] = React.useState(true)
   const [bannerImageLoaded, setBannerImageLoaded] = React.useState(false)
-  const [displayBannerImage, setDisplayBannerImage] = React.useState(
-    FALLBACK_BANNER.image_url
-  )
-  const [bannerOverlayVisible, setBannerOverlayVisible] = React.useState(false)
+  const [displayBannerImage, setDisplayBannerImage] = React.useState(() => {
+    if (
+      typeof window !== 'undefined' &&
+      window.matchMedia('(max-width: 640px)').matches
+    ) {
+      return FALLBACK_BANNER.mobile_image_url
+    }
+    return FALLBACK_BANNER.image_url
+  })
   const [isMobileBanner, setIsMobileBanner] = React.useState(() => {
     if (typeof window === 'undefined') return false
     return window.matchMedia('(max-width: 640px)').matches
@@ -173,7 +178,6 @@ export default function HomePage({
 
     if (!bannerImage || bannerImage === fallbackBannerImage) {
       setDisplayBannerImage(fallbackBannerImage)
-      setBannerOverlayVisible(false)
       setBannerImageLoaded(true)
       return () => {
         alive = false
@@ -181,7 +185,6 @@ export default function HomePage({
     }
 
     setBannerImageLoaded(false)
-    setBannerOverlayVisible(false)
 
     const img = new window.Image()
     img.src = bannerImage
@@ -189,21 +192,10 @@ export default function HomePage({
       if (!alive) return
       setDisplayBannerImage(bannerImage)
       setBannerImageLoaded(true)
-      if (
-        typeof window !== 'undefined' &&
-        typeof window.requestAnimationFrame === 'function'
-      ) {
-        window.requestAnimationFrame(() => {
-          if (alive) setBannerOverlayVisible(true)
-        })
-      } else {
-        setBannerOverlayVisible(true)
-      }
     }
     img.onerror = () => {
       if (!alive) return
       setDisplayBannerImage(fallbackBannerImage)
-      setBannerOverlayVisible(false)
       setBannerImageLoaded(true)
     }
 
@@ -217,6 +209,22 @@ export default function HomePage({
   return (
     <main className="storefront-page editorial-page editorial-home flex-1">
       <div className="container-cc editorial-container">
+        <section className="editorial-vip-banner" aria-label="Banner dos planos VIP">
+          <a href="/planos-vip" onClick={(event) => { event.preventDefault(); if (typeof onGoVipPlans === 'function') onGoVipPlans(); else window.location.href = '/planos-vip' }} aria-label="Conheça os planos VIP da Cubo Criativo">
+            <div className="editorial-vip-media">
+              <img
+                src={displayBannerImage || fallbackBannerImage}
+                alt="Conheça os planos VIP da Cubo Criativo"
+                loading="eager"
+                decoding="async"
+                fetchPriority="high"
+              />
+              {bannerLoading || !bannerImageLoaded ? <span className="editorial-vip-loading" aria-hidden="true"/> : null}
+            </div>
+            <span className="editorial-vip-link">Conheça os planos VIP <span className="material-icons" aria-hidden="true">arrow_forward</span></span>
+          </a>
+        </section>
+
         <section className="editorial-hero-grid" aria-label="Boas-vindas à Cubo Criativo">
           <div className="editorial-hero-copy">
             <p className="editorial-kicker"><span className="editorial-dot" /> MINIATURAS E ACTION FIGURES</p>
@@ -230,7 +238,7 @@ export default function HomePage({
           </div>
           <div className="editorial-hero-promo" id="promocoes">
             <div className="editorial-promo-heading"><div><span className="editorial-kicker"><span className="editorial-dot"/> OFERTAS ESPECIAIS</span><h2>Escolhas da semana</h2></div><button type="button" onClick={onGoPromocoes} aria-label="Ver todas as promoções" className="editorial-arrow-button"><span className="material-icons" aria-hidden="true">arrow_forward</span></button></div>
-            <CarrosselPromo className="editorial-carousel" onActivate={onGoPromocoes} />
+            <CarrosselPromo className="editorial-carousel" fit="contain" onActivate={onGoPromocoes} />
           </div>
         </section>
 
@@ -242,16 +250,7 @@ export default function HomePage({
 
         <HomeShelf id="destaques" eyebrow="ESCOLHIDOS PARA VOCÊ" title="Destaques da loja" description="Uma seleção especial para sua coleção." products={featured} loading={loadingProducts} error={productsError} emptyMessage="Nenhum destaque no momento." actionLabel="Ver catálogo" onAction={onGoCatalogo} {...shelfProps}/>
 
-        <section className="editorial-vip-banner" aria-label="Planos VIP">
-          <a href="/planos-vip" onClick={(event) => { event.preventDefault(); if (typeof onGoVipPlans === 'function') onGoVipPlans(); else window.location.href = '/planos-vip' }} aria-label="Conheça os planos VIP da Cubo Criativo">
-            <div className="editorial-vip-media">
-              <img src={fallbackBannerImage} alt="" loading="lazy" decoding="async" />
-              {displayBannerImage && displayBannerImage !== fallbackBannerImage && <img className={`editorial-vip-custom ${bannerOverlayVisible ? 'is-visible' : ''}`} src={displayBannerImage} alt="" loading="lazy" decoding="async"/>}
-              {bannerLoading || !bannerImageLoaded ? <span className="editorial-vip-loading" aria-hidden="true"/> : null}
-            </div>
-            <span className="editorial-vip-link">Conheça os planos VIP <span className="material-icons" aria-hidden="true">arrow_forward</span></span>
-          </a>
-        </section>
+
 
         <HomeShelf eyebrow="PEÇAS DISPONÍVEIS" title="Pronta entrega" description="Descubra peças disponíveis em nosso estoque." products={prontaEntregaPreview} loading={loadingProducts} error={productsError} emptyMessage="Sem itens de pronta entrega por enquanto." actionLabel="Ver estoque" onAction={onGoEstoque} {...shelfProps}/>
         <HomeShelf eyebrow="PARA SUA PRÓXIMA AVENTURA" title="Miniaturas RPG" description="Heróis, criaturas e personagens que ganham vida na mesa." products={rpgPreview} loading={loadingProducts} error={productsError} emptyMessage="Estamos preparando os destaques de RPG." actionLabel="Ver miniaturas" onAction={onGoSobEncomenda} {...shelfProps}/>
