@@ -17,6 +17,7 @@ function resolveBannerImage(banner, isMobile) {
 export default function HomePage({
   featured,
   prontaEntregaPreview = [],
+  promocoes = [],
   rpgPreview = [],
   loadingProducts = false,
   productsError = '',
@@ -237,8 +238,8 @@ export default function HomePage({
             <div className="editorial-hero-footnote"><span className="material-icons" aria-hidden="true">auto_awesome</span> Modelos exclusivos e detalhes que fazem a diferença</div>
           </div>
           <div className="editorial-hero-promo" id="promocoes">
-            <div className="editorial-promo-heading"><div><span className="editorial-kicker"><span className="editorial-dot"/> OFERTAS ESPECIAIS</span><h2>Escolhas da semana</h2></div><button type="button" onClick={onGoPromocoes} aria-label="Ver todas as promoções" className="editorial-arrow-button"><span className="material-icons" aria-hidden="true">arrow_forward</span></button></div>
-            <CarrosselPromo className="editorial-carousel" fit="contain" onActivate={onGoPromocoes} />
+            <div className="editorial-promo-heading"><div><span className="editorial-kicker"><span className="editorial-dot"/> OFERTAS ESPECIAIS</span><h2>Em promoção agora</h2></div><button type="button" onClick={onGoPromocoes} aria-label="Ver todas as promoções" className="editorial-arrow-button"><span className="material-icons" aria-hidden="true">arrow_forward</span></button></div>
+            <CarrosselPromo className="editorial-carousel" products={promocoes} loading={loadingProducts} error={productsError} onActivate={onGoPromocoes} />
           </div>
         </section>
 

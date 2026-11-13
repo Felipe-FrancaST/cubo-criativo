@@ -2122,6 +2122,7 @@ export default function App() {
     return (
       <HomePage
         featured={featured}
+        promocoes={promocoes}
         prontaEntregaPreview={prontaEntrega.slice(0, 8)}
         rpgPreview={rpgSobEncomenda.slice(0, 8)}
         loadingProducts={productsLoading}

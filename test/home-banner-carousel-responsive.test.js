@@ -24,20 +24,21 @@ test('banner respeita a largura da tela e preserva a proporção natural', () =>
   assert.match(home, /FALLBACK_BANNER\.mobile_image_url/)
 })
 
-test('carrossel mantém todo o slide visível e navegação sem tapar a arte', () => {
-  assert.match(home, /<CarrosselPromo[^>]*fit="contain"/)
-  assert.match(carousel, /className="carousel-promo-viewport relative" style=\{\{ aspectRatio: activeRatio \}\}/)
-  assert.match(carousel, /naturalWidth\s*,\s*naturalHeight/)
-  assert.match(carousel, /objectFit: fit/)
+test('carrossel mostra fotos de produtos sem corte e mantém os controles abaixo', () => {
+  assert.match(home, /<CarrosselPromo[^>]*products=\{promocoes\}/)
+  assert.match(carousel, /className="carousel-promo-viewport"/)
+  assert.match(carousel, /src=\{activeSlide\.carouselImage\}/)
+  assert.match(css, /\.editorial-carousel \.carousel-promo-photo > img \{[^}]*object-fit: contain;/)
   assert.match(carousel, /className="carousel-promo-controls"/)
   assert.doesNotMatch(carousel, /h-\[280px\]/)
-  assert.doesNotMatch(css, /\.editorial-carousel \.carousel-promo-viewport \{[^}]*height:\s*\d+px/)
+  assert.doesNotMatch(carousel, /site_carousel_images/)
 })
 
-test('banner continua clicável e controles do carrossel não navegam ao tocar', () => {
+test('banner e carrossel conservam navegação acessível sem cliques acidentais', () => {
   assert.match(home, /onGoVipPlans/)
-  assert.match(carousel, /event\.stopPropagation\(\); prev\(\);/)
-  assert.match(carousel, /event\.stopPropagation\(\); next\(\);/)
-  assert.match(carousel, /event\.stopPropagation\(\); setI\(idx\);/)
+  assert.match(carousel, /onClick=\{prev\}/)
+  assert.match(carousel, /onClick=\{next\}/)
+  assert.match(carousel, /onClick=\{\(\) => setI\(idx\)\}/)
+  assert.match(carousel, /onClick=\{\(event\) => openProduct\(event, activeSlide\)\}/)
   assert.match(css, /\.carousel-promo-control:focus-visible/)
 })

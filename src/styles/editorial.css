@@ -64,6 +64,33 @@
 .carousel-promo-dot > span { display: block; width: 7px; height: 7px; border-radius: 99px; background: #577b84; transition: width 150ms, background 150ms; }
 .carousel-promo-dot.is-active > span { width: 17px; background: #a4eee5; }
 .carousel-promo-control:focus-visible, .carousel-promo-dot:focus-visible { outline: 2px solid #a4eee5; outline-offset: 2px; }
+
+/* Vitrine dinâmica: fotos dos produtos realmente em promoção (sem banners antigos). */
+.carousel-promo-products { overflow: hidden; background: #081b27; border: 1px solid rgba(140,200,212,.14); border-radius: inherit; }
+.carousel-promo-product-link { display: block; color: inherit; text-decoration: none; }
+.carousel-promo-product-link:focus-visible { outline: 2px solid #a4eee5; outline-offset: -3px; border-radius: 12px; }
+.carousel-promo-photo { position: relative; display: grid; place-items: center; width: 100%; aspect-ratio: 4 / 3; min-width: 0; overflow: hidden; padding: 12px; background: radial-gradient(ellipse at 50% 40%, rgba(64,129,138,.15), transparent 75%), #071c27; }
+.editorial-carousel .carousel-promo-photo > img { width: 100%; height: 100%; max-width: 100%; max-height: 100%; display: block; object-fit: contain; }
+.carousel-promo-photo-missing { color: #91b4c2; font-size: 12px; }
+.carousel-promo-offer-label { position: absolute; top: 12px; left: 12px; max-width: calc(100% - 24px); padding: 7px 10px; border: 1px solid rgba(150,240,224,.24); border-radius: 9px; background: rgba(5,35,45,.9); color: #a7f4e9; font-size: 10px; font-weight: 800; letter-spacing: .08em; }
+.carousel-promo-info { display: flex; min-width: 0; gap: 12px; justify-content: space-between; align-items: center; padding: 14px 16px 16px; background: #0b2530; border-top: 1px solid rgba(155,199,214,.10); }
+.carousel-promo-info-copy { min-width: 0; display: grid; gap: 5px; }
+.carousel-promo-info-eyebrow { color: #85b5bd; font-size: 9px; font-weight: 750; letter-spacing: .12em; }
+.carousel-promo-product-name { min-width: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; color: #f3fafb; font-size: 15px; font-weight: 800; line-height: 1.35; }
+.carousel-promo-prices { display: flex; flex-wrap: wrap; align-items: baseline; gap: 5px 10px; }
+.carousel-promo-prices strong { color: #a5f3eb; font-size: 18px; line-height: 1.25; }
+.carousel-promo-prices del { color: #8aa5b0; font-size: 12px; }
+.carousel-promo-see-product { display: grid; place-items: center; flex: 0 0 auto; width: 38px; height: 38px; border: 1px solid rgba(140,221,213,.28); border-radius: 12px; color: #baf8f0; background: rgba(117,224,210,.09); }
+.carousel-promo-product-link:hover .carousel-promo-see-product { border-color: #79dcd2; background: rgba(117,224,210,.17); }
+.carousel-promo-empty { display: grid; place-items: center; gap: 15px; text-align: center; padding: 40px 18px; min-height: 230px; color: #b0c9d3; font-size: 13px; line-height: 1.6; }
+.carousel-promo-empty button { min-height: 42px; padding: 9px 16px; border: 1px solid rgba(132,229,218,.4); border-radius: 12px; color: #adf0e8; background: #123540; font-weight: 700; }
+.carousel-promo-empty button:hover { background: #1b4c57; }
+.carousel-promo-loading { display: grid; gap: 0; width: 100%; }
+.carousel-promo-loading-image { aspect-ratio: 4 / 3; background: rgba(141,204,207,.07); animation: editorial-promo-pulse 1.5s ease-in-out infinite alternate; }
+.carousel-promo-loading-text { height: 90px; border-top: 1px solid rgba(155,199,214,.12); background: rgba(141,204,207,.04); }
+@keyframes editorial-promo-pulse { to { opacity: .42; } }
+@media (prefers-reduced-motion: reduce) { .carousel-promo-loading-image { animation: none; } }
+
 .editorial-shortcuts { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; margin-top: 23px; }
 .editorial-shortcuts > button { display: flex; align-items: center; gap: 12px; min-width: 0; min-height: 88px; padding: 16px; border: 1px solid var(--editorial-border); border-radius: 18px; background: #0b222e; text-align: left; transition: border-color 150ms, background 150ms; }
 .editorial-shortcuts > button:hover { border-color: rgba(137,232,222,.56); background: #10303b; }
@@ -266,6 +293,12 @@
   .editorial-vip-link { min-height: 42px; padding: 9px 12px; font-size: 11px; }
   .carousel-promo-controls { min-height: 45px; }
   .carousel-promo-control { width: 38px; height: 38px; }
+  .carousel-promo-photo { aspect-ratio: 5 / 4; padding: 10px; }
+  .carousel-promo-offer-label { top: 10px; left: 10px; }
+  .carousel-promo-info { padding: 12px; }
+  .carousel-promo-product-name { font-size: 13px; }
+  .carousel-promo-prices strong { font-size: 16px; }
+  .carousel-promo-see-product { width: 34px; height: 34px; }
   .editorial-custom-banner { gap: 12px; margin-top: 33px; padding: 18px; border-radius: 17px; }
   .editorial-custom-icon { width: 46px; height: 46px; border-radius: 12px; font-size: 25px; }
   .editorial-custom-banner h2 { font-size: 23px; }
