@@ -1,4 +1,5 @@
 /** Cotações SuperFrete: somente no servidor, sempre sobre caixas reais. */
+import { DEFAULT_SCALE_RULES, normalizedScale, validateScaleRules } from './shippingScaleRules.js';
 const SMALL = { length: 13, width: 11, height: 10, weight: 0.3 };
 const BIG_MINI = { length: 20, width: 20, height: 20, weight: 1 };
 const FIGURES = {
@@ -9,8 +10,8 @@ const FIGURES = {
 };
 const BUST = { length: 20, width: 20, height: 20, weight: 1 };
 export const DEFAULT_SHIPPING = Object.freeze({
-  origin_zip: '47803604', services: '1,2,17', mini_fee_cents: 500, other_fee_cents: 1000,
-  enabled: true,
+  origin_zip: '47803604', services: '1,2,3,17,31', mini_fee_cents: 500, other_fee_cents: 1000,
+  enabled: true, scale_rules: DEFAULT_SCALE_RULES,
 });
 
 export const SHIPPING_PACKAGES = Object.freeze({
@@ -32,37 +33,56 @@ export function vipLevel(plan) {
   if ([0, 1, 2].includes(sorted) && text.includes('cubo')) return sorted + 1;
   throw new Error('O nível da assinatura não está identificado. Configure o nível do plano.');
 }
+function selectRuleForItem(item, rules) {
+  const name = String(item.name || '');
+  const category = String(item.category || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const rawScale = String(item.scale || '').trim();
+  const itemScale = normalizedScale(rawScale) || (/^\d+(?:[.,]\d+)?$/.test(rawScale) ? normalizedScale(`${rawScale} cm`) : '');
+  const nameScale = normalizedScale(name.match(/\b\d+(?:[.,]\d+)?\s*(?:cm|mm)\b/i)?.[0]);
+  const isMiniCategory = /\brpg\b|miniatura/.test(category) || /\bminiaturas?\s*(?:rpg|avulsa)/i.test(name);
+  const hintMini = itemScale.endsWith('mm') || (!itemScale && nameScale.endsWith('mm')) || (isMiniCategory && !itemScale);
+  const kind = hintMini ? 'miniature' : 'action';
+  // Quando o produto não possui escala, miniaturas RPG antigas usam a regra padrão de 32 mm.
+  const scale = itemScale || nameScale || (kind === 'miniature' ? '32 mm' : '');
+  const rule = rules.find(r => r.kind === kind && normalizedScale(r.scale) === scale);
+  if (!rule) throw new Error(`Não há embalagem cadastrada para ${scale || `a escala de ${name || 'produto'}`}. Cadastre esta escala no frete administrativo.`);
+  return rule;
+}
+
 export function packShipment({ type, items = [], kind = '', plan = null, settings = DEFAULT_SHIPPING }) {
   const boxes = { ...SHIPPING_PACKAGES, ...(settings.packages || {}) };
   if (type === 'custom') {
     if (!['busto', 'miniatura'].includes(kind)) throw new Error('Personalização inválida.');
-    return { parcels: [{ ...(kind === 'busto' ? boxes.bust : boxes.miniature_small), category: kind === 'busto' ? 'busto' : 'miniatura' }], feeCategory: kind === 'busto' ? 'other' : 'other' };
+    return { parcels: [{ ...(kind === 'busto' ? boxes.bust : boxes.miniature_small), category: kind === 'busto' ? 'busto' : 'miniatura' }], feeCategory: 'other' };
   }
   if (type === 'vip') {
     const level = vipLevel(plan);
     return { parcels: [{ ...(level === 1 ? boxes.vip_1 : boxes.vip_2_3), category: `assinatura-${level}` }], feeCategory: 'other' };
   }
   if (type !== 'shop' || !Array.isArray(items) || !items.length) throw new Error('Produtos inválidos para o frete.');
-  let miniCount = 0;
+  const rules = validateScaleRules(settings.scale_rules ?? DEFAULT_SCALE_RULES, boxes);
+  const groups = new Map();
   const parcels = [];
   for (const item of items) {
     const qty = Number(item.qty);
     if (!Number.isSafeInteger(qty) || qty < 1 || qty > 100) throw new Error('Quantidade inválida para cotação.');
-    const rawScale = String(item.scale || '').toLowerCase().replace(/\s+/g, '');
-    const rawName = String(item.name || '').toLowerCase();
-    const category = String(item.category || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-    const isMini = /32\s*mm/.test(`${item.scale || ''} ${rawName}`) || rawScale === '32mm' || /miniatura\s*(rpg|avulsa)/i.test(rawName)
-      || ['rpg', 'miniatura rpg', 'miniaturas rpg', 'miniaturas'].includes(category);
-    if (isMini) { miniCount += qty; continue; }
-    const scaleMatch = rawScale.match(/^(10|12|15|20)(?:cm)?$/) || String(item.scale || '').match(/\b(10|12|15|20)\s*cm\b/i)
-      || rawName.match(/\b(10|12|15|20)\s*cm\b/i);
-    if (!scaleMatch) throw new Error(`Não foi possível identificar a escala de "${item.name || 'produto'}" para cotar o frete.`);
-    const box = boxes[`action_${scaleMatch[1]}`];
-    for (let i = 0; i < qty; i++) parcels.push({ ...box, category: `action-${scaleMatch[1]}` });
+    const rule = selectRuleForItem(item, rules);
+    if (rule.kind === 'action') {
+      for (let i = 0; i < qty; i++) parcels.push({ ...boxes[rule.package_key], category: `action-${rule.scale}`, scale: rule.scale });
+    } else {
+      const old = groups.get(rule.id);
+      groups.set(rule.id, { rule, qty: (old?.qty ?? 0) + qty });
+    }
   }
-  while (miniCount >= 10) { parcels.push({ ...boxes.miniature_large, category: 'miniaturas-3-10', quantity: 10 }); miniCount -= 10; }
-  if (miniCount >= 3) parcels.push({ ...boxes.miniature_large, category: 'miniaturas-3-10', quantity: miniCount });
-  else if (miniCount) parcels.push({ ...boxes.miniature_small, category: 'miniaturas-1-2', quantity: miniCount });
+  for (const { rule, qty } of groups.values()) {
+    let remaining = qty;
+    while (remaining >= rule.large_limit) {
+      parcels.push({ ...boxes[rule.large_package_key], category: `miniaturas-${rule.scale}`, scale: rule.scale, quantity: rule.large_limit });
+      remaining -= rule.large_limit;
+    }
+    if (remaining > rule.small_limit) parcels.push({ ...boxes[rule.large_package_key], category: `miniaturas-${rule.scale}`, scale: rule.scale, quantity: remaining });
+    else if (remaining) parcels.push({ ...boxes[rule.small_package_key], category: `miniaturas-${rule.scale}`, scale: rule.scale, quantity: remaining });
+  }
   if (parcels.length > 40) throw new Error('O pedido possui caixas demais para cotação automática. Entre em contato com a loja.');
   return { parcels, feeCategory: parcels.some(p => p.category.startsWith('action-')) ? 'other' : 'mini' };
 }
@@ -100,7 +120,7 @@ async function quoteOneParcel({ settings, destination, parcel }) {
       },
       body: JSON.stringify({
         from: { postal_code: normalizeZip(settings.origin_zip) },
-        to: { postal_code: destination }, services: String(settings.services || '1,2,17'),
+        to: { postal_code: destination }, services: String(settings.services || '1,2,3,17,31'),
         options: { own_hand: false, receipt: false, use_insurance_value: false },
         package: { height: parcel.height, width: parcel.width, length: parcel.length, weight: parcel.weight },
       }),

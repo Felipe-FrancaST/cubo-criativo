@@ -2,6 +2,7 @@ import { getUserFromAuthHeader, supabaseAdmin } from '../supabase.js';
 import { requireAdmin, ADMIN_LEVEL } from '../admin/adminAuth.js';
 import { rateLimit } from '../rateLimit.js';
 import { getShippingQuote, loadShippingSettings, normalizeZip, SHIPPING_PACKAGES } from '../shipping.js';
+import { validateScaleRules } from '../shippingScaleRules.js';
 import { resolveStoreItems } from '../orderPricing.js';
 import { getVipPlanById } from '../vipPlans.js';
 
@@ -46,11 +47,13 @@ export default async function handleShipping(req, res) {
         payload.origin_zip = normalizeZip(body.origin_zip);
       }
       if (body.enabled !== undefined) payload.enabled = body.enabled === true;
-      if (body.packages !== undefined) {
-        if (!body.packages || typeof body.packages !== 'object' || Array.isArray(body.packages)) throw new Error('Caixas inválidas.');
+      if (body.packages !== undefined || body.scale_rules !== undefined || body.package_labels !== undefined) {
+        const existing = await loadShippingSettings(sb);
+        const provided = body.packages ?? existing.packages ?? {};
+        if (!provided || typeof provided !== 'object' || Array.isArray(provided) || Object.keys(provided).length > 80) throw new Error('Caixas inválidas (máximo de 80).');
         const savedPackages = {};
-        for (const [key, value] of Object.entries(body.packages)) {
-          if (!(key in SHIPPING_PACKAGES)) throw new Error('Categoria de caixa desconhecida.');
+        for (const [key, value] of Object.entries(provided)) {
+          if (!Object.hasOwn(SHIPPING_PACKAGES, key) && !/^box_[a-z0-9_]{5,55}$/.test(key)) throw new Error('Identificador de caixa inválido.');
           const box = {};
           for (const prop of ['length', 'width', 'height', 'weight']) {
             const n = Number(value?.[prop]);
@@ -59,7 +62,21 @@ export default async function handleShipping(req, res) {
           }
           savedPackages[key] = box;
         }
+        // As caixas padrão continuam disponíveis mesmo se ainda não tiverem sido gravadas no JSON.
+        const allBoxes = { ...SHIPPING_PACKAGES, ...savedPackages };
+        const rules = validateScaleRules(body.scale_rules ?? existing.scale_rules, allBoxes);
+        const rawLabels = body.package_labels ?? existing.package_labels ?? {};
+        if (!rawLabels || typeof rawLabels !== 'object' || Array.isArray(rawLabels)) throw new Error('Nomes das caixas inválidos.');
+        const labels = {};
+        for (const [key, value] of Object.entries(rawLabels)) {
+          if (!(key in allBoxes)) throw new Error('Há um nome associado a uma caixa inexistente.');
+          const label = String(value || '').trim();
+          if (label.length > 80) throw new Error('O nome da caixa deve ter no máximo 80 caracteres.');
+          if (label) labels[key] = label;
+        }
         payload.packages = savedPackages;
+        payload.scale_rules = rules;
+        payload.package_labels = labels;
       }
       if (body.services !== undefined) {
         if (!/^\d+(,\d+)*$/.test(String(body.services))) throw new Error('Lista de serviços inválida.');
