@@ -1,186 +1,103 @@
 import React from 'react'
-import ProductCard from '../components/ProductCard.jsx'
+import StorefrontSearch from '../components/StorefrontSearch.jsx'
+import StorefrontProductGrid from '../components/StorefrontProductGrid.jsx'
+
+function normalizeText(value) {
+  return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+}
 
 export default function StockPage({
-  items,
-  loading = false,
-  error = '',
-  addToCart,
-  buyNow,
-  openGallery,
-  onRequireLogin,
+  items, loading = false, error = '', addToCart, buyNow, openGallery, onRequireLogin,
 }) {
-  const [q, setQ] = React.useState(() => {
+  const [query, setQuery] = React.useState(() => {
     if (typeof window === 'undefined') return ''
-    try {
-      return String(
-        new URLSearchParams(window.location.search || '').get('q') || ''
-      )
-    } catch {
-      return ''
-    }
+    try { return String(new URLSearchParams(window.location.search || '').get('q') || '') } catch { return '' }
   })
+  const products = Array.isArray(items) ? items : []
 
   React.useEffect(() => {
-    const url = new URL(window.location.href)
-    if (q.trim()) url.searchParams.set('q', q.trim())
-    else url.searchParams.delete('q')
-    window.history.replaceState(
-      window.history.state,
-      '',
-      url.pathname + url.search + url.hash
-    )
-  }, [q])
+    const onPop = () => {
+      setQuery(new URLSearchParams(window.location.search || '').get('q') || '')
+    }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
 
-  const filtered = React.useMemo(() => {
-    const query = String(q || '')
-      .trim()
-      .toLowerCase()
-    if (!query) return items
-    return (items || []).filter((p) => {
-      const name = String(p?.nome || '').toLowerCase()
-      const desc = String(p?.descricao || '').toLowerCase()
-      const tags = Array.isArray(p?.tags)
-        ? p.tags.map((t) => String(t).toLowerCase()).join(' ')
-        : ''
-      return (
-        name.includes(query) || desc.includes(query) || tags.includes(query)
-      )
-    })
-  }, [items, q])
-
-  // Deep link: /estoque?product=<id>&open=1
   React.useEffect(() => {
     if (typeof window === 'undefined') return
-    const sp = new URLSearchParams(window.location.search || '')
-    const pid = sp.get('product')
-    if (!pid) return
-    if (loading) return
+    try {
+      const url = new URL(window.location.href)
+      if (query.trim()) url.searchParams.set('q', query.trim())
+      else url.searchParams.delete('q')
+      window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash)
+    } catch { /* restricted preview */ }
+  }, [query])
 
-    const prod = items.find((p) => String(p.id) === String(pid))
-    if (!prod) return
+  const filtered = React.useMemo(() => {
+    const q = normalizeText(query).trim()
+    if (!q) return products
+    return products.filter((p) => normalizeText([p.nome, p.descricao, ...(Array.isArray(p.tags) ? p.tags : [])].join(' ')).includes(q))
+  }, [items, query])
 
-    // Scroll até o card
-    const el = document.getElementById(`product-${pid}`)
+  // Deep links in order notifications: /estoque?product=<id>&open=1.
+  React.useEffect(() => {
+    if (typeof window === 'undefined' || loading) return undefined
+    const params = new URLSearchParams(window.location.search || '')
+    const productId = params.get('product')
+    if (!productId) return undefined
+    const product = products.find((p) => String(p.id) === productId)
+    if (!product) return undefined
+    const el = document.getElementById(`product-${productId}`)
     if (el) {
       const top = el.getBoundingClientRect().top + window.scrollY - 92
       window.scrollTo({ top, behavior: 'smooth' })
     }
-
-    // Abre o produto (galeria) se solicitado
-    if (sp.get('open') === '1') {
-      // pequeno atraso para garantir render
-      setTimeout(() => openGallery?.(prod), 250)
-    }
-
-    // limpa os params de deep-link para não reabrir ao voltar/atualizar
-    try {
-      const keptQ = sp.get('q')
-      window.history.replaceState(
-        {},
-        '',
-        keptQ ? `/estoque?q=${encodeURIComponent(keptQ)}` : '/estoque'
-      )
-    } catch {
-      // ignore
-    }
+    const timer = params.get('open') === '1' ? window.setTimeout(() => openGallery?.(product), 250) : null
+    params.delete('product')
+    params.delete('open')
+    window.history.replaceState(window.history.state, '', `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}`)
+    return () => { if (timer != null) window.clearTimeout(timer) }
   }, [loading, items, openGallery])
 
   return (
-    <main className="flex-1">
-      <section className="container-cc px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
-        <div className="flex items-end justify-between gap-4 flex-wrap">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold">
-              Pronta entrega
-            </h1>
-            <p className="mt-1 text-sm text-slate-400">
-              Action figures e miniaturas colecionáveis prontas para envio.
-            </p>
+    <main className="storefront-page storefront-stock flex-1">
+      <section className="container-cc storefront-content">
+        <header className="storefront-hero">
+          <div className="storefront-hero-copy">
+            <span className="storefront-eyebrow"><span className="storefront-eyebrow-dot" /> PEÇAS DISPONÍVEIS</span>
+            <h1>Pronta entrega</h1>
+            <p>Miniaturas e colecionáveis já disponíveis, sem aguardar a produção.</p>
           </div>
-          <span className="text-xs sm:text-sm text-slate-400">
-            {loading
-              ? 'carregando…'
-              : q
-                ? `${filtered.length} de ${items.length}`
-                : `${items.length} item(ns)`}
-          </span>
-        </div>
-
-        <div className="mt-5">
-          <label
-            className="block text-xs font-semibold text-slate-300"
-            htmlFor="stock-search"
-          >
-            Pesquisar
-          </label>
-          <div className="mt-2 flex gap-2">
-            <input
-              id="stock-search"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Ex: miniatura rpg, action figure, dragão…"
-              className="container-cc w-full rounded-xl px-4 py-3 bg-slate-950/60 ring-1 ring-white/10 focus:outline-none focus:ring-2 focus:ring-teal-400 text-slate-100 placeholder:text-slate-500"
-              inputMode="search"
-              autoComplete="off"
-            />
-            {q && (
-              <button
-                type="button"
-                onClick={() => setQ('')}
-                className="container-cc shrink-0 rounded-xl px-4 py-3 ring-1 ring-white/15 hover:bg-white/4"
-              >
-                Limpar
-              </button>
-            )}
+          <div className="storefront-hero-mark" aria-hidden="true">
+            <svg viewBox="0 0 80 80" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path d="M14 23 40 9l26 14v33L40 71 14 56V23Z" />
+              <path d="m14 23 26 15 26-15M40 38v33M27 16l26 15M25 50l7 4" />
+            </svg>
           </div>
-        </div>
+        </header>
 
-        {error ? (
-          <div className="mt-6 rounded-2xl p-4 ring-1 ring-rose-400/30 bg-rose-500/10 text-rose-100 text-sm">
-            Não foi possível carregar os produtos. {error}
-          </div>
-        ) : (
-          <div className="product-grid mt-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {loading &&
-              Array.from({ length: 8 }).map((_, idx) => (
-                <div
-                  key={idx}
-                  className="w-full max-w-[320px] rounded-2xl overflow-hidden ring-1 ring-white/10 bg-[#07161d]/60"
-                >
-                  <div className="aspect-[4/5] bg-[#0c2430]/68 animate-pulse" />
-                  <div className="p-4">
-                    <div className="h-4 bg-[#0c2430]/68 rounded animate-pulse" />
-                    <div className="mt-3 h-9 bg-[#0c2430]/68 rounded animate-pulse" />
-                    <div className="mt-4 grid grid-cols-2 gap-2">
-                      <div className="h-10 bg-[#0c2430]/68 rounded animate-pulse" />
-                      <div className="h-10 bg-[#0c2430]/68 rounded animate-pulse" />
-                    </div>
-                  </div>
-                </div>
-              ))}
-
-            {!loading &&
-              filtered.map((p) => (
-                <ProductCard
-                  key={p.id}
-                  p={p}
-                  addToCart={addToCart}
-                  buyNow={buyNow}
-                  openGallery={openGallery}
-                  onRequireLogin={onRequireLogin}
-                />
-              ))}
-
-            {!loading && filtered.length === 0 && (
-              <div className="col-span-full text-center text-slate-400 text-sm">
-                {q
-                  ? 'Nenhum resultado para a sua busca.'
-                  : 'Nenhum item em estoque no momento.'}
+        {!error ? (
+          <>
+            <div className="storefront-toolbar storefront-stock-toolbar">
+              <div className="storefront-search-row">
+                <StorefrontSearch id="stock-search" value={query} onChange={setQuery} placeholder="Busque pelas peças disponíveis..." />
               </div>
-            )}
-          </div>
-        )}
+            </div>
+            <div className="storefront-results-bar">
+              <div className="storefront-results-text" aria-live="polite">
+                <span className="storefront-results-dot" />
+                {loading ? 'Carregando peças...' : `${filtered.length} ${filtered.length === 1 ? 'peça disponível' : 'peças disponíveis'}`}
+              </div>
+              {query ? <button type="button" className="storefront-clear-all" onClick={() => setQuery('')}>Limpar busca</button> : null}
+            </div>
+            <StorefrontProductGrid
+              products={filtered} loading={loading}
+              emptyMessage={query ? 'Experimente outro nome ou limpe a busca.' : 'Em breve teremos mais peças disponíveis para envio.'}
+              addToCart={addToCart} buyNow={buyNow} openGallery={openGallery} onRequireLogin={onRequireLogin}
+              context="stock"
+            />
+          </>
+        ) : <div className="storefront-error" role="alert">Não foi possível carregar as peças disponíveis. {error}</div>}
       </section>
     </main>
   )

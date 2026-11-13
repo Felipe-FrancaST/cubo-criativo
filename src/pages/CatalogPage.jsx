@@ -1,92 +1,69 @@
 import React from 'react'
 import useDialog from '../lib/useDialog.js'
-import ProductCard from '../components/ProductCard.jsx'
+import StorefrontSearch from '../components/StorefrontSearch.jsx'
+import StorefrontProductGrid from '../components/StorefrontProductGrid.jsx'
 
 function readParam(name, fallback = '') {
   if (typeof window === 'undefined') return fallback
   try {
-    return String(
-      new URLSearchParams(window.location.search || '').get(name) || fallback
-    )
+    return String(new URLSearchParams(window.location.search || '').get(name) || fallback)
   } catch {
     return fallback
   }
 }
 
-function FilterChip({ active, children, onClick, tone = 'default' }) {
-  const activeClass =
-    tone === 'accent'
-      ? 'bg-amber-400 text-black ring-amber-300/40'
-      : 'bg-white/6 text-white ring-white/15'
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`rounded-full px-3 py-2 text-sm font-medium ring-1 transition ${active ? activeClass : 'bg-[#07161d]/60 text-slate-200 ring-white/10 hover:bg-white/4'}`}
-    >
-      {children}
-    </button>
-  )
-}
-
 function normalizeText(value) {
-  return String(value || '')
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .trim()
-    .toLowerCase()
+  return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase()
 }
 
 function resolveCatalogType(product) {
   const category = normalizeText(product?.category)
   const typeLabel = normalizeText(product?._typeLabel)
   if (category === 'rpg' || typeLabel.includes('rpg')) return 'rpg'
-  if (
-    category === 'action figures' ||
-    category === 'action figure' ||
-    category === 'action' ||
-    typeLabel.includes('action')
-  )
-    return 'action'
+  if (['action figures', 'action figure', 'action'].includes(category) || typeLabel.includes('action')) return 'action'
   return 'outros'
 }
 
 function isInternalTag(tag) {
   const s = normalizeText(tag)
-  if (!s) return true
-  if (s === 'rpg') return true
-  if (
-    s === 'action' ||
-    s === 'action figure' ||
-    s === 'action figures' ||
-    s === 'figure action'
+  return !s || ['rpg', 'action', 'action figure', 'action figures', 'figure action'].includes(s) ||
+    ['tipo:', 'classe:', 'raca:', 'prazo:'].some((prefix) => s.startsWith(prefix))
+}
+
+const types = [
+  { id: 'todos', label: 'Todas as peças' },
+  { id: 'action', label: 'Action figures' },
+  { id: 'rpg', label: 'Miniaturas RPG' },
+]
+
+function TypeFilters({ value, onChange, className = '' }) {
+  return (
+    <div className={`storefront-type-filters ${className}`} role="group" aria-label="Filtrar por tipo">
+      {types.map((item) => (
+        <button
+          key={item.id}
+          type="button"
+          className="storefront-type-chip"
+          aria-pressed={value === item.id}
+          onClick={() => onChange(item.id)}
+        >
+          {item.label}
+        </button>
+      ))}
+    </div>
   )
-    return true
-  if (s.startsWith('tipo:')) return true
-  if (s.startsWith('classe:')) return true
-  if (s.startsWith('raca:') || s.startsWith('raca:')) return true
-  if (s.startsWith('raça:')) return true
-  if (s.startsWith('prazo:')) return true
-  return false
 }
 
 export default function CatalogPage({
-  items,
-  loading = false,
-  error = '',
-  addToCart,
-  buyNow,
-  openGallery,
-  onRequireLogin,
+  items, loading = false, error = '', addToCart, buyNow, openGallery, onRequireLogin,
 }) {
   const [type, setType] = React.useState(() => readParam('tipo', 'todos'))
-  const [selectedTag, setSelectedTag] = React.useState(() =>
-    readParam('tag', 'Todos')
-  )
+  const [selectedTag, setSelectedTag] = React.useState(() => readParam('tag', 'Todos'))
   const [query, setQuery] = React.useState(() => readParam('q', ''))
   const [filtersOpen, setFiltersOpen] = React.useState(false)
   const filterPanelRef = useDialog(filtersOpen, () => setFiltersOpen(false))
   const [helpOpen, setHelpOpen] = React.useState(false)
+  const products = Array.isArray(items) ? items : []
 
   React.useEffect(() => {
     const onPop = () => {
@@ -102,399 +79,144 @@ export default function CatalogPage({
     if (typeof window === 'undefined') return
     try {
       const params = new URLSearchParams(window.location.search || '')
-      if (type && type !== 'todos') params.set('tipo', type)
+      if (type !== 'todos') params.set('tipo', type)
       else params.delete('tipo')
       if (query.trim()) params.set('q', query.trim())
       else params.delete('q')
-      if (selectedTag && selectedTag !== 'Todos') params.set('tag', selectedTag)
+      if (selectedTag !== 'Todos') params.set('tag', selectedTag)
       else params.delete('tag')
-      const next = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}`
-      window.history.replaceState(window.history.state, '', next)
-    } catch {}
+      const search = params.toString()
+      window.history.replaceState(window.history.state, '', `${window.location.pathname}${search ? `?${search}` : ''}${window.location.hash || ''}`)
+    } catch { /* history may be restricted in embedded previews */ }
   }, [type, query, selectedTag])
 
   const tagOptions = React.useMemo(() => {
-    const set = new Set()
-    ;(items || []).forEach((p) => {
-      const itemType = resolveCatalogType(p)
-      const matchesSelectedType = type === 'todos' || itemType === type
-      if (!matchesSelectedType) return
-      ;(p.tags || []).forEach((t) => {
-        if (!isInternalTag(t)) set.add(String(t))
+    const tags = new Set()
+    products.forEach((p) => {
+      if (type !== 'todos' && resolveCatalogType(p) !== type) return
+      ;(p.tags || []).forEach((tag) => {
+        if (!isInternalTag(tag)) tags.add(String(tag))
       })
     })
-    return [
-      'Todos',
-      ...Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR')),
-    ]
+    return ['Todos', ...Array.from(tags).sort((a, b) => a.localeCompare(b, 'pt-BR'))]
   }, [items, type])
 
   React.useEffect(() => {
-    if (selectedTag === 'Todos') return
-    if (!tagOptions.includes(selectedTag)) setSelectedTag('Todos')
+    if (selectedTag !== 'Todos' && !tagOptions.includes(selectedTag)) setSelectedTag('Todos')
   }, [selectedTag, tagOptions])
 
   const filtered = React.useMemo(() => {
-    const q = query.trim().toLowerCase()
-    return (items || []).filter((p) => {
-      const itemType = resolveCatalogType(p)
-      const matchType = type === 'todos' || itemType === type
-      const matchTag =
-        selectedTag === 'Todos' || (p.tags || []).includes(selectedTag)
-      const name = String(p?.nome || '').toLowerCase()
-      const desc = String(p?.descricao || '').toLowerCase()
-      const tags = Array.isArray(p?.tags)
-        ? p.tags.map((t) => String(t).toLowerCase()).join(' ')
-        : ''
-      const matchQuery =
-        !q || name.includes(q) || desc.includes(q) || tags.includes(q)
-      return matchType && matchTag && matchQuery
+    const q = normalizeText(query)
+    return products.filter((p) => {
+      if (type !== 'todos' && resolveCatalogType(p) !== type) return false
+      if (selectedTag !== 'Todos' && !(p.tags || []).includes(selectedTag)) return false
+      if (!q) return true
+      return normalizeText([p.nome, p.descricao, ...(Array.isArray(p.tags) ? p.tags : [])].join(' ')).includes(q)
     })
   }, [items, type, selectedTag, query])
 
-  const activeFilterCount =
-    (type !== 'todos' ? 1 : 0) + (selectedTag !== 'Todos' ? 1 : 0)
+  const activeFilters = Number(type !== 'todos') + Number(selectedTag !== 'Todos')
   function clearFilters() {
     setType('todos')
     setSelectedTag('Todos')
   }
 
   const helpContent = [
-    'Você escolhe a peça pelo catálogo e pode finalizar no site ou tirar dúvidas no WhatsApp.',
-    'As peças do catálogo entram em produção no estúdio após a confirmação do pedido.',
-    'O prazo médio é de 15–30 dias úteis, variando conforme acabamento, pintura e fila de produção.',
+    'Escolha suas peças e finalize sua compra diretamente pelo site.',
+    'Os produtos do catálogo entram em produção após a confirmação do pedido.',
+    'Prazo médio de 15 a 30 dias úteis, conforme acabamento, pintura e fila de produção.',
   ]
 
   return (
-    <main className="flex-1">
-      <section className="container-cc px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
-        <div className="flex items-end justify-between gap-4 flex-wrap">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold">Catálogo</h1>
+    <main className="storefront-page storefront-catalog flex-1">
+      <section className="container-cc storefront-content">
+        <header className="storefront-hero">
+          <div className="storefront-hero-copy">
+            <span className="storefront-eyebrow"><span className="storefront-eyebrow-dot" /> PEÇAS FEITAS PARA VOCÊ</span>
+            <h1>Explore o catálogo</h1>
+            <p>Action figures e miniaturas de RPG com os detalhes que fazem a diferença.</p>
           </div>
-          <span className="text-xs sm:text-sm text-slate-400">
-            {loading ? 'carregando…' : `${filtered.length} item(ns)`}
-          </span>
-        </div>
+          <div className="storefront-hero-mark" aria-hidden="true">
+            <svg viewBox="0 0 80 80" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path d="m40 9 28 16v30L40 71 12 55V25L40 9Z" />
+              <path d="M12 25 40 41l28-16M40 41v30M26 17l28 16M26 33v16" />
+            </svg>
+          </div>
+        </header>
 
-        {error ? (
-          <div className="mt-6 rounded-2xl p-4 ring-1 ring-rose-400/30 bg-rose-500/10 text-rose-100 text-sm">
-            Não foi possível carregar os produtos. {error}
-          </div>
-        ) : (
+        {!error ? (
           <>
-            <div className="mt-6 rounded-[24px] border border-white/10 bg-white/[0.045] px-4 py-3 shadow-lg shadow-black/10 backdrop-blur-xl">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold text-slate-100">
-                    Como funciona, prazos e dúvidas?
-                  </p>
-                  <p className="text-xs text-slate-400">
-                    Toque na lâmpada para ver as orientações do catálogo.
-                  </p>
-                </div>
+            <div className="storefront-toolbar">
+              <div className="storefront-search-row">
+                <StorefrontSearch id="catalog-search" value={query} onChange={setQuery} placeholder="Busque sua próxima peça..." />
                 <button
                   type="button"
-                  onClick={() => setHelpOpen((v) => !v)}
-                  className={`inline-flex h-11 w-11 items-center justify-center rounded-2xl ring-1 transition ${helpOpen ? 'bg-cyan-400/15 text-cyan-200 ring-cyan-300/35' : 'bg-white/4 text-slate-100 ring-white/10 hover:bg-white/6'}`}
-                  aria-expanded={helpOpen}
-                  aria-label="Mostrar ajuda do catálogo"
+                  className="storefront-filter-button"
+                  onClick={() => setFiltersOpen(true)}
+                  aria-haspopup="dialog"
+                  aria-label={`Abrir filtros${activeFilters ? `, ${activeFilters} ativos` : ''}`}
                 >
-                  <svg
-                    viewBox="0 0 24 24"
-                    className="h-5 w-5 fill-none stroke-current"
-                    strokeWidth="1.8"
-                  >
-                    <path d="M9 18h6" strokeLinecap="round" />
-                    <path d="M10 22h4" strokeLinecap="round" />
-                    <path
-                      d="M12 2a7 7 0 0 0-4 12.75c.63.44 1 1.15 1 1.92V17h6v-.33c0-.77.37-1.48 1-1.92A7 7 0 0 0 12 2Z"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
+                  <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+                    <path d="M4 7h16M7 12h10M10 17h4" strokeLinecap="round" />
                   </svg>
+                  <span>Filtros</span>
+                  {activeFilters > 0 ? <span className="storefront-filter-count">{activeFilters}</span> : null}
                 </button>
               </div>
-
-              {helpOpen ? (
-                <div className="mt-3 rounded-2xl bg-[#041018]/72 px-4 py-4 ring-1 ring-white/10">
-                  <ul className="space-y-2 text-sm text-slate-300">
-                    {helpContent.map((item) => (
-                      <li key={item} className="flex gap-2">
-                        <span className="mt-[6px] h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-400" />
-                        <span>{item}</span>
-                      </li>
+              <TypeFilters value={type} onChange={setType} className="storefront-type-desktop" />
+              {tagOptions.length > 1 ? (
+                <div className="storefront-tag-desktop" aria-label="Filtrar por tema">
+                  <span>Temas</span>
+                  <div>
+                    {tagOptions.map((tag) => (
+                      <button key={tag} type="button" className="storefront-tag-chip" aria-pressed={selectedTag === tag} onClick={() => setSelectedTag(tag)}>{tag}</button>
                     ))}
-                  </ul>
+                  </div>
                 </div>
               ) : null}
             </div>
 
-            <div className="mt-4 rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,.9),rgba(2,6,23,.86))] p-3 sm:p-4 shadow-xl shadow-black/20 backdrop-blur-xl">
-              <div className="flex items-center gap-2 sm:gap-3">
-                <label className="relative flex-1">
-                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">
-                    <svg
-                      viewBox="0 0 24 24"
-                      className="h-5 w-5 fill-none stroke-current"
-                      strokeWidth="1.8"
-                    >
-                      <circle cx="11" cy="11" r="7" />
-                      <path d="m20 20-3.5-3.5" strokeLinecap="round" />
-                    </svg>
-                  </span>
-                  <input
-                    type="search"
-                    placeholder="Buscar por nome, tag ou descrição…"
-                    className="w-full rounded-2xl bg-[#041018]/72 pl-11 pr-11 py-3 text-sm text-slate-100 placeholder:text-slate-500 ring-1 ring-white/10 outline-none focus:ring-cyan-400/60"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                  />
-                  {query ? (
-                    <button
-                      type="button"
-                      onClick={() => setQuery('')}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl p-2 text-slate-300 hover:bg-white/4"
-                      aria-label="Limpar busca"
-                    >
-                      <svg
-                        viewBox="0 0 24 24"
-                        className="h-4 w-4 fill-none stroke-current"
-                        strokeWidth="2"
-                      >
-                        <path d="M6 6l12 12M18 6 6 18" strokeLinecap="round" />
-                      </svg>
-                    </button>
-                  ) : null}
-                </label>
+            <TypeFilters value={type} onChange={setType} className="storefront-type-mobile" />
 
-                <button
-                  type="button"
-                  onClick={() => setFiltersOpen(true)}
-                  className="inline-flex lg:hidden items-center justify-center gap-2 rounded-2xl bg-white/4 px-4 py-3 text-sm font-semibold text-slate-100 ring-1 ring-white/10 hover:bg-white/8"
-                >
-                  <svg
-                    viewBox="0 0 24 24"
-                    className="h-4 w-4 fill-none stroke-current"
-                    strokeWidth="1.8"
-                  >
-                    <path d="M4 7h16M7 12h10M10 17h4" strokeLinecap="round" />
-                  </svg>
-                  <span>
-                    Filtros{activeFilterCount ? ` (${activeFilterCount})` : ''}
-                  </span>
-                </button>
+            <div className="storefront-results-bar">
+              <div className="storefront-results-text" aria-live="polite">
+                <span className="storefront-results-dot" />
+                {loading ? 'Carregando peças...' : `${filtered.length} ${filtered.length === 1 ? 'peça encontrada' : 'peças encontradas'}`}
               </div>
+              {(activeFilters > 0 || query) ? (
+                <button type="button" className="storefront-clear-all" onClick={() => { clearFilters(); setQuery('') }}>Limpar busca e filtros</button>
+              ) : null}
+            </div>
 
-              <div className="mt-4 hidden lg:block space-y-4">
-                <div>
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-                    Tipo
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    <FilterChip
-                      active={type === 'todos'}
-                      onClick={() => setType('todos')}
-                    >
-                      Todos os tipos
-                    </FilterChip>
-                    <FilterChip
-                      active={type === 'action'}
-                      onClick={() => setType('action')}
-                    >
-                      Action Figures
-                    </FilterChip>
-                    <FilterChip
-                      active={type === 'rpg'}
-                      onClick={() => setType('rpg')}
-                    >
-                      Miniaturas RPG
-                    </FilterChip>
-                  </div>
-                </div>
+            <StorefrontProductGrid
+              products={filtered} loading={loading}
+              emptyMessage="Tente outro termo ou limpe os filtros para ver mais peças."
+              addToCart={addToCart} buyNow={buyNow} openGallery={openGallery} onRequireLogin={onRequireLogin}
+            />
 
-                {tagOptions.length > 1 ? (
-                  <div>
-                    <div className="mb-2 flex items-center justify-between gap-3">
-                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-                        Tags
-                      </p>
-                      {activeFilterCount ? (
-                        <button
-                          type="button"
-                          onClick={clearFilters}
-                          className="text-xs font-semibold text-slate-300 hover:text-white"
-                        >
-                          Limpar filtros
-                        </button>
-                      ) : null}
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {tagOptions.map((tag) => (
-                        <FilterChip
-                          key={tag}
-                          tone="accent"
-                          active={selectedTag === tag}
-                          onClick={() => setSelectedTag(tag)}
-                        >
-                          {tag}
-                        </FilterChip>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-              </div>
+            <div className="storefront-help">
+              <button type="button" onClick={() => setHelpOpen((open) => !open)} aria-expanded={helpOpen} aria-controls="catalog-help-content">
+                <span className="storefront-help-icon" aria-hidden="true">?</span>
+                <span><strong>Como funciona o catálogo?</strong><small>Produção, prazos e dúvidas</small></span>
+                <span className="storefront-help-chevron" aria-hidden="true">{helpOpen ? '−' : '+'}</span>
+              </button>
+              {helpOpen ? <ul id="catalog-help-content">{helpContent.map((line) => <li key={line}>{line}</li>)}</ul> : null}
             </div>
 
             {filtersOpen ? (
-              <div className="lg:hidden fixed inset-0 z-[120]">
-                <button
-                  type="button"
-                  className="absolute inset-0 bg-black/70 backdrop-blur-[2px]"
-                  onClick={() => setFiltersOpen(false)}
-                  aria-label="Fechar filtros"
-                />
-                <div
-                  ref={filterPanelRef}
-                  role="dialog"
-                  aria-modal="true"
-                  aria-label="Filtros do catálogo"
-                  tabIndex={-1}
-                  className="catalog-filter-panel absolute inset-x-0 bottom-0 max-h-[85dvh] overflow-y-auto rounded-t-[30px] border border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,.98),rgba(2,6,23,.98))] p-4 pb-[calc(env(safe-area-inset-bottom,0px)+16px)] shadow-2xl shadow-black/40"
-                >
-                  <div className="mx-auto mb-4 h-1.5 w-14 rounded-full bg-white/8" />
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-base font-bold text-slate-100">
-                        Filtros do catálogo
-                      </p>
-                      <p className="text-xs text-slate-400">
-                        Refine a vitrine sem ocupar espaço da tela.
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setFiltersOpen(false)}
-                      className="rounded-xl p-2 ring-1 ring-white/10 hover:bg-white/4"
-                      aria-label="Fechar"
-                    >
-                      <svg
-                        viewBox="0 0 24 24"
-                        className="h-4 w-4 fill-none stroke-current"
-                        strokeWidth="2"
-                      >
-                        <path d="M6 6l12 12M18 6 6 18" strokeLinecap="round" />
-                      </svg>
-                    </button>
-                  </div>
-
-                  <div className="mt-5 space-y-5 pb-2">
-                    <div>
-                      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-                        Tipo
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        <FilterChip
-                          active={type === 'todos'}
-                          onClick={() => setType('todos')}
-                        >
-                          Todos os tipos
-                        </FilterChip>
-                        <FilterChip
-                          active={type === 'action'}
-                          onClick={() => setType('action')}
-                        >
-                          Action Figures
-                        </FilterChip>
-                        <FilterChip
-                          active={type === 'rpg'}
-                          onClick={() => setType('rpg')}
-                        >
-                          Miniaturas RPG
-                        </FilterChip>
-                      </div>
-                    </div>
-
-                    {tagOptions.length > 1 ? (
-                      <div>
-                        <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-                          Tag
-                        </p>
-                        <div className="flex flex-wrap gap-2 max-h-52 overflow-y-auto pr-1">
-                          {tagOptions.map((tag) => (
-                            <FilterChip
-                              key={tag}
-                              tone="accent"
-                              active={selectedTag === tag}
-                              onClick={() => setSelectedTag(tag)}
-                            >
-                              {tag}
-                            </FilterChip>
-                          ))}
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-
-                  <div className="mt-6 grid grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      onClick={clearFilters}
-                      className="rounded-2xl px-4 py-3 font-semibold ring-1 ring-white/10 hover:bg-white/4"
-                    >
-                      Limpar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setFiltersOpen(false)}
-                      className="rounded-2xl bg-cyan-500 px-4 py-3 font-semibold text-black ring-1 ring-cyan-300/40 hover:bg-cyan-400"
-                    >
-                      Ver resultados
-                    </button>
-                  </div>
-                </div>
+              <div className="storefront-filter-overlay" role="presentation">
+                <button type="button" className="storefront-filter-backdrop" onClick={() => setFiltersOpen(false)} aria-label="Fechar filtros" />
+                <section ref={filterPanelRef} role="dialog" aria-modal="true" aria-label="Filtros do catálogo" tabIndex={-1} className="storefront-filter-panel catalog-filter-panel">
+                  <div className="storefront-filter-handle" aria-hidden="true" />
+                  <div className="storefront-filter-heading"><div><h2>Filtrar produtos</h2><p>Encontre as peças do seu jeito.</p></div><button type="button" onClick={() => setFiltersOpen(false)} aria-label="Fechar filtros" className="storefront-filter-close">×</button></div>
+                  <div className="storefront-filter-section"><h3>Tipo de peça</h3><TypeFilters value={type} onChange={setType} /></div>
+                  {tagOptions.length > 1 ? <div className="storefront-filter-section"><h3>Temas e categorias</h3><div className="storefront-filter-tags">{tagOptions.map((tag) => <button key={tag} type="button" className="storefront-tag-chip" aria-pressed={selectedTag === tag} onClick={() => setSelectedTag(tag)}>{tag}</button>)}</div></div> : null}
+                  <div className="storefront-filter-footer"><button type="button" className="storefront-filter-reset" onClick={clearFilters}>Limpar</button><button type="button" className="storefront-filter-apply" onClick={() => setFiltersOpen(false)}>Ver {filtered.length} {filtered.length === 1 ? 'produto' : 'produtos'}</button></div>
+                </section>
               </div>
             ) : null}
-
-            <div className="product-grid mt-8 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
-              {loading &&
-                Array.from({ length: 12 }).map((_, idx) => (
-                  <div
-                    key={idx}
-                    className="w-full max-w-[320px] rounded-2xl overflow-hidden ring-1 ring-white/10 bg-[#07161d]/60"
-                  >
-                    <div className="aspect-[4/5] bg-[#0c2430]/68 animate-pulse" />
-                    <div className="p-4">
-                      <div className="h-4 bg-[#0c2430]/68 rounded animate-pulse" />
-                      <div className="mt-3 h-9 bg-[#0c2430]/68 rounded animate-pulse" />
-                      <div className="mt-4 grid grid-cols-2 gap-2">
-                        <div className="h-10 bg-[#0c2430]/68 rounded animate-pulse" />
-                        <div className="h-10 bg-[#0c2430]/68 rounded animate-pulse" />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-
-              {!loading &&
-                filtered.map((p) => (
-                  <ProductCard
-                    key={p.id}
-                    p={p}
-                    addToCart={addToCart}
-                    buyNow={buyNow}
-                    openGallery={openGallery}
-                    onRequireLogin={onRequireLogin}
-                  />
-                ))}
-
-              {!loading && filtered.length === 0 && (
-                <div className="col-span-full text-center text-slate-400 text-sm">
-                  Nenhum item encontrado.
-                </div>
-              )}
-            </div>
           </>
-        )}
+        ) : <div className="storefront-error" role="alert">Não foi possível carregar os produtos. {error}</div>}
       </section>
     </main>
   )

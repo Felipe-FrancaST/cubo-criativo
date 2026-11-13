@@ -20,6 +20,7 @@ export default function ProductCard({
   onRequireLogin,
   promotion = false,
   showFavorite = true,
+  storefrontContext = '',
 }) {
   const { user } = useAuth()
   const { isFavorite, toggleFavorite } = useFavorites()
@@ -85,7 +86,7 @@ export default function ProductCard({
       <article
         data-product-id={p.id}
         id={p.id ? `product-${p.id}` : undefined}
-        className={`product-card compact-product-card ${promotion ? 'promo-product-card' : ''}`}
+        className={`product-card compact-product-card ${promotion ? 'promo-product-card' : ''} ${storefrontContext ? `storefront-card storefront-card-${storefrontContext}` : ''}`}
       >
         <div className="product-card-media">
           <button
@@ -157,6 +158,11 @@ export default function ProductCard({
           )}
         </div>
         <div className="product-card-main">
+          {storefrontContext ? (
+            <p className="storefront-card-kicker">
+              {storefrontContext === 'stock' ? 'Pronta entrega' : (p._typeLabel || 'Colecionáveis')}
+            </p>
+          ) : null}
           <h3 title={p.nome} className="product-card-title">
             {p.nome}
           </h3>
