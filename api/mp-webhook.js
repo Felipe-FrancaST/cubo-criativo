@@ -162,11 +162,11 @@ async function loadOrderSnapshot(sb, orderId) {
   if (order?.id && !items.length) {
     try {
       const { data: custom } = await sb.from('custom_miniature_requests')
-        .select('kind,total_cents')
+        .select('kind,finish,total_cents')
         .eq('order_id', order.id).maybeSingle();
       if (custom) {
         items = [{
-          name: custom.kind === 'busto' ? 'Busto personalizado' : 'Miniatura personalizada',
+          name: `${custom.kind === 'busto' ? 'Busto personalizado' : 'Miniatura personalizada'} — ${custom.finish === 'unpainted' ? 'Sem pintura' : 'Com pintura'}`, 
           qty: 1, scale: null, unit_price_brl: Number(custom.total_cents || 0) / 100,
           img: null,
         }];

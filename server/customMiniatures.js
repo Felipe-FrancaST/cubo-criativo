@@ -7,6 +7,15 @@ export const CUSTOM_FORMATS = Object.freeze({
   busto: 'Busto personalizado',
   miniatura: 'Miniatura personalizada',
 });
+// Cada acabamento tem seu próprio preço, gerenciado pela loja.
+export const CUSTOM_FINISHES = Object.freeze({
+  painted: 'Com pintura',
+  unpainted: 'Sem pintura',
+});
+export const customFinishLabel = finish => CUSTOM_FINISHES[finish] || CUSTOM_FINISHES.painted;
+export const customPieceLabel = (kind, finish = 'painted') =>
+  `${CUSTOM_FORMATS[kind] || CUSTOM_FORMATS.miniatura} — ${customFinishLabel(finish)}`;
+
 export const CUSTOM_MIMES = Object.freeze({
   'image/jpeg': 'jpg',
   'image/png': 'png',
@@ -30,10 +39,13 @@ export function validateCustomFiles(files) {
   return '';
 }
 
-export function resolveCustomPrice(settings, kind) {
-  if (!Object.hasOwn(CUSTOM_FORMATS, kind)) return 0;
-  const cents = kind === 'busto' ? settings?.bust_price_cents : settings?.miniature_price_cents;
-  return Number.isSafeInteger(cents) && cents >= 100 ? cents : 0;
+export function resolveCustomPrice(settings, kind, finish = 'painted') {
+  if (!Object.hasOwn(CUSTOM_FORMATS, kind) || !Object.hasOwn(CUSTOM_FINISHES, finish)) return 0;
+  const column = kind === 'busto'
+    ? (finish === 'painted' ? 'bust_price_cents' : 'bust_unpainted_price_cents')
+    : (finish === 'painted' ? 'miniature_price_cents' : 'miniature_unpainted_price_cents');
+  const cents = settings?.[column];
+  return Number.isSafeInteger(cents) && cents >= 1 && cents <= 100000000 ? cents : 0;
 }
 
 export async function evaluateCustomCoupon(sb, { code, user, baseCents }) {

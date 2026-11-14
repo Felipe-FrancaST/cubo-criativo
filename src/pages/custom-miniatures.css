@@ -245,3 +245,28 @@
   .cm-coupon-control{gap:6px}.cm-coupon-control button{min-width:75px;padding:0 9px}
   .cm-mobile-step strong{font-size:9px}
 }
+
+/* Acabamento escolhido antes do upload; mantém a seleção clara em telas pequenas. */
+.cm-finish-section { margin-top: 22px; padding-top: 22px; border-top: 1px solid rgba(159, 209, 224, .13); }
+.cm-finish-title { display: grid; gap: 5px; margin-bottom: 13px; }
+.cm-finish-title strong { font-size: 15px; color: #f1fbfd; font-weight: 800; }
+.cm-finish-title span { color: #9ab6c2; font-size: 12px; line-height: 1.5; }
+.cm-finishes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.cm-finish { display: flex; align-items: flex-start; gap: 10px; min-width: 0; min-height: 117px; padding: 14px; border: 1px solid rgba(157, 201, 218, .17); border-radius: 15px; background: #081d29; text-align: left; transition: border-color 150ms, background 150ms; }
+.cm-finish:hover { border-color: #79cfc6; }
+.cm-finish.is-selected { border-color: #8ceadd; background: linear-gradient(140deg, #143c43, #0e2938); box-shadow: inset 0 0 0 1px #86e5d71a; }
+.cm-finish:focus-visible { outline: 2px solid #94ece3; outline-offset: 3px; }
+.cm-finish:disabled { cursor: default; opacity: .65; }
+.cm-finish-icon.material-icons { color: #91e2d9; font-size: 22px; flex-shrink: 0; }
+.cm-finish-copy { display: flex; flex: 1; flex-direction: column; gap: 5px; min-width: 0; }
+.cm-finish-copy strong { color: #f4fafc; font-size: 13px; font-weight: 800; }
+.cm-finish-copy small { color: #a4bdc7; font-size: 11px; line-height: 1.45; }
+.cm-finish-price { margin-top: auto; padding-top: 5px; color: #a0f3e9; font-size: 14px; font-weight: 800; }
+.cm-finish-check.material-icons { color: #9cf0e5; font-size: 19px; flex-shrink: 0; }
+@media (max-width: 600px) {
+  .cm-finish-section { margin-top: 17px; padding-top: 17px; }
+  .cm-finishes { grid-template-columns: minmax(0, 1fr); gap: 9px; }
+  .cm-finish { align-items: center; min-height: 84px; padding: 12px 14px; }
+  .cm-finish-copy { gap: 3px; }
+  .cm-finish-price { padding-top: 1px; }
+}

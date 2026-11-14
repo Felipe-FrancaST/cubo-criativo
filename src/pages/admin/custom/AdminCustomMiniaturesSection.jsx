@@ -20,7 +20,7 @@ function inputToCents(value) {
   const normalized = String(value || '').trim().replace(/\s/g, '').replace('R$', '')
   if (!/^\d{1,7}(?:[,.]\d{1,2})?$/.test(normalized)) return null
   const cents = Math.round(Number(normalized.replace(',', '.')) * 100)
-  return cents >= 100 && cents <= 100000000 ? cents : null
+  return cents >= 1 && cents <= 100000000 ? cents : null
 }
 
 async function api(op, token, { method = 'GET', body } = {}) {
@@ -39,6 +39,8 @@ export default function AdminCustomMiniaturesSection({ accessToken, canManageBus
   const [settings, setSettings] = React.useState(null)
   const [bustInput, setBustInput] = React.useState('200,00')
   const [miniInput, setMiniInput] = React.useState('200,00')
+  const [bustUnpaintedInput, setBustUnpaintedInput] = React.useState('150,00')
+  const [miniUnpaintedInput, setMiniUnpaintedInput] = React.useState('150,00')
   const [orders, setOrders] = React.useState([])
   const [busy, setBusy] = React.useState(false)
   const [saving, setSaving] = React.useState(false)
@@ -62,6 +64,8 @@ export default function AdminCustomMiniaturesSection({ accessToken, canManageBus
       setSettings(config.settings)
       setBustInput(numberToBrlInput(config.settings?.bust_price_cents))
       setMiniInput(numberToBrlInput(config.settings?.miniature_price_cents))
+      setBustUnpaintedInput(numberToBrlInput(config.settings?.bust_unpainted_price_cents))
+      setMiniUnpaintedInput(numberToBrlInput(config.settings?.miniature_unpainted_price_cents))
       setOrders(list.requests || [])
       setPagination(list.pagination || { page, total: (list.requests || []).length, totalPages: 1 })
     } catch (err) { setError(err.message) }
@@ -75,17 +79,33 @@ export default function AdminCustomMiniaturesSection({ accessToken, canManageBus
     if (!canManageBusiness) return
     const bust = inputToCents(bustInput)
     const miniature = inputToCents(miniInput)
-    if (!bust || !miniature) { setError('Informe preços válidos, com mínimo de R$ 1,00.'); return }
+    const bustUnpainted = inputToCents(bustUnpaintedInput)
+    const miniatureUnpainted = inputToCents(miniUnpaintedInput)
+    if (!bust || !miniature || !bustUnpainted || !miniatureUnpainted) {
+      setError('Informe os quatro preços válidos, com mínimo de R$ 0,01.'); return
+    }
+    if (bust < 100 || miniature < 100) {
+      setError('O valor com pintura deve ser de pelo menos R$ 1,00.'); return
+    }
+    if (bustUnpainted >= bust || miniatureUnpainted >= miniature) {
+      setError('Para cada peça, o valor sem pintura precisa ser menor que o valor com pintura.'); return
+    }
     setError('')
     setMessage('')
     setSaving(true)
     try {
       const data = await api('save-settings', accessToken, {
-        method: 'POST', body: { bust_price_cents: bust, miniature_price_cents: miniature },
+        method: 'POST', body: {
+          bust_price_cents: bust, miniature_price_cents: miniature,
+          bust_unpainted_price_cents: bustUnpainted,
+          miniature_unpainted_price_cents: miniatureUnpainted,
+        },
       })
       setSettings(data.settings)
       setBustInput(numberToBrlInput(data.settings.bust_price_cents))
       setMiniInput(numberToBrlInput(data.settings.miniature_price_cents))
+      setBustUnpaintedInput(numberToBrlInput(data.settings.bust_unpainted_price_cents))
+      setMiniUnpaintedInput(numberToBrlInput(data.settings.miniature_unpainted_price_cents))
       setMessage('Preços atualizados! Novos pedidos usarão os valores configurados.')
     } catch (err) { setError(err.message) }
     finally { setSaving(false) }
@@ -110,7 +130,7 @@ export default function AdminCustomMiniaturesSection({ accessToken, canManageBus
   const visible = orders.filter(item => {
     if (filter !== 'all' && item.payment_status !== filter) return false
     const needle = search.trim().toLowerCase()
-    return !needle || [item.id, item.order_id, item.customer_email, item.kind, item.notes]
+    return !needle || [item.id, item.order_id, item.customer_email, item.kind, item.finish, item.notes]
       .some(value => String(value || '').toLowerCase().includes(needle))
   })
   const paidOrders = orders.filter(item => item.payment_status === 'paid')
@@ -139,13 +159,30 @@ export default function AdminCustomMiniaturesSection({ accessToken, canManageBus
         <div className="flex items-center gap-3"><span className="rounded-2xl bg-cyan-300/10 p-3 text-cyan-200 material-icons">tune</span><div>
           <h3 className="text-lg font-bold text-white">Preços de personalização</h3>
           <p className="text-sm text-slate-400">Os valores são lidos do servidor no momento do pagamento.</p></div></div>
-        <div className="mt-5 grid gap-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
-          <label className="block"><span className="mb-2 block text-sm font-medium text-slate-200">Busto · R$</span>
-            <input className="w-full rounded-xl bg-[#09151e] p-3 text-white ring-1 ring-white/15 focus:outline-none focus:ring-cyan-300/50"
-              value={bustInput} onChange={event => setBustInput(event.target.value)} inputMode="decimal" placeholder="200,00" disabled={!canManageBusiness || saving} /></label>
-          <label className="block"><span className="mb-2 block text-sm font-medium text-slate-200">Miniatura · R$</span>
-            <input className="w-full rounded-xl bg-[#09151e] p-3 text-white ring-1 ring-white/15 focus:outline-none focus:ring-cyan-300/50"
-              value={miniInput} onChange={event => setMiniInput(event.target.value)} inputMode="decimal" placeholder="200,00" disabled={!canManageBusiness || saving} /></label>
+        <div className="mt-5 grid gap-4 md:grid-cols-2">
+          {[
+            { title: 'Miniatura personalizada', painted: miniInput, unpainted: miniUnpaintedInput,
+              paintedChange: setMiniInput, unpaintedChange: setMiniUnpaintedInput },
+            { title: 'Busto personalizado', painted: bustInput, unpainted: bustUnpaintedInput,
+              paintedChange: setBustInput, unpaintedChange: setBustUnpaintedInput },
+          ].map(piece => (
+            <fieldset key={piece.title} className="min-w-0 rounded-2xl bg-[#091b25] p-4 ring-1 ring-white/10">
+              <legend className="px-2 text-sm font-bold text-white">{piece.title}</legend>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="block min-w-0"><span className="mb-2 block text-xs font-semibold text-slate-200">Com pintura · R$</span>
+                  <input className="w-full rounded-xl bg-[#09151e] p-3 text-white ring-1 ring-white/15 focus:outline-none focus:ring-cyan-300/50"
+                    value={piece.painted} onChange={event => piece.paintedChange(event.target.value)} inputMode="decimal"
+                    placeholder="200,00" disabled={!canManageBusiness || saving} /></label>
+                <label className="block min-w-0"><span className="mb-2 block text-xs font-semibold text-slate-200">Sem pintura · R$</span>
+                  <input className="w-full rounded-xl bg-[#09151e] p-3 text-white ring-1 ring-white/15 focus:outline-none focus:ring-cyan-300/50"
+                    value={piece.unpainted} onChange={event => piece.unpaintedChange(event.target.value)} inputMode="decimal"
+                    placeholder="150,00" disabled={!canManageBusiness || saving} /></label>
+              </div>
+            </fieldset>
+          ))}
+        </div>
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-xs text-slate-400">A peça sem pintura deve custar menos. O frete continua o mesmo.</p>
           <button className="rounded-xl bg-cyan-300 px-5 py-3 font-bold text-slate-950 disabled:opacity-50" type="submit"
             disabled={!canManageBusiness || saving || !settings}>{saving ? 'Salvando…' : 'Salvar preços'}</button>
         </div>
@@ -176,6 +213,7 @@ export default function AdminCustomMiniaturesSection({ accessToken, canManageBus
                     {item.image_urls?.[0] ? <img className="h-full w-full object-cover" src={item.image_urls[0]} alt="Referência do cliente" /> : <span className="material-icons p-4 text-slate-400">image</span>}
                   </div>
                   <div className="min-w-0"><strong className="text-white">{item.kind === 'busto' ? 'Busto personalizado' : 'Miniatura personalizada'}</strong>
+                    <p className="text-xs font-medium text-cyan-200">{item.finish === 'unpainted' ? 'Sem pintura' : 'Com pintura'}</p>
                     <p className="truncate text-xs text-slate-300">{item.customer_email}</p>
                     <p className="mt-1 text-xs text-slate-500">{date(item.created_at)} · {String(item.id).slice(0, 8).toUpperCase()}</p>
                   </div>
@@ -194,6 +232,7 @@ export default function AdminCustomMiniaturesSection({ accessToken, canManageBus
                   <div className="grid gap-2 sm:grid-cols-2 text-sm text-slate-300">
                     <p><strong className="text-white">Pedido:</strong> {item.order_id || '—'}</p>
                     <p><strong className="text-white">Pagamento:</strong> {item.payment_method === 'pix' ? 'Pix' : 'Cartão'}</p>
+                    <p><strong className="text-white">Acabamento:</strong> {item.finish === 'unpainted' ? 'Sem pintura' : 'Com pintura'}</p>
                     <p><strong className="text-white">Preço inicial:</strong> {prices(item.base_price_cents)}</p>
                     <p><strong className="text-white">Desconto:</strong> {prices(item.discount_cents)}{item.coupon_code ? ` (${item.coupon_code})` : ''}</p>
                   </div>

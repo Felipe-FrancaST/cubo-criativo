@@ -13,6 +13,17 @@ const MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 const money = (cents) => (Number(cents || 0) / 100).toLocaleString('pt-BR', {
   style: 'currency', currency: 'BRL',
 })
+const FINISHES = [
+  { id: 'painted', icon: 'palette', title: 'Com pintura', detail: 'Peça pintada manualmente' },
+  { id: 'unpainted', icon: 'brush', title: 'Sem pintura', detail: 'Peça em resina, pronta para você pintar' },
+]
+function customPrice(settings, kind, finish) {
+  const key = kind === 'busto'
+    ? (finish === 'painted' ? 'bust_price_cents' : 'bust_unpainted_price_cents')
+    : (finish === 'painted' ? 'miniature_price_cents' : 'miniature_unpainted_price_cents')
+  return Number(settings?.[key] || 0)
+}
+const finishLabel = finish => finish === 'unpainted' ? 'Sem pintura' : 'Com pintura'
 const types = [
   { id: 'miniatura', icon: 'smart_toy', name: 'Miniatura', subtitle: 'O personagem completo, da cabeça aos pés' },
   { id: 'busto', icon: 'face_6', name: 'Busto', subtitle: 'Retrato tridimensional, com foco nos detalhes' },
@@ -72,6 +83,7 @@ export default function CustomMiniaturesPage({ user, accessToken, onRequireLogin
   const [settings, setSettings] = React.useState(null)
   const [configError, setConfigError] = React.useState('')
   const [kind, setKind] = React.useState('miniatura')
+  const [finish, setFinish] = React.useState('painted')
   const [notes, setNotes] = React.useState('')
   const [files, setFiles] = React.useState([])
   const fileRef = React.useRef(null)
@@ -233,6 +245,7 @@ export default function CustomMiniaturesPage({ user, accessToken, onRequireLogin
     filesRef.current = []
     setFiles([])
     setNotes('')
+    setFinish('painted')
     setCouponCode('')
     setDiscount(null)
     setPixData(null)
@@ -249,8 +262,10 @@ export default function CustomMiniaturesPage({ user, accessToken, onRequireLogin
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  const price = kind === 'busto' ? settings?.bust_price_cents : settings?.miniature_price_cents
-  const totalCents = Math.max(0, Number(price || 0) - Number(discount?.discount_cents || 0))
+  const price = customPrice(settings, kind, finish)
+  // Um cupom cotado em outro acabamento ou formato nunca altera este pagamento.
+  const appliedDiscount = discount?.kind === kind && discount?.finish === finish ? discount : null
+  const totalCents = Math.max(0, price - Number(appliedDiscount?.discount_cents || 0))
   const paymentReady = !!settings && files.length > 0 && !!shippingSelection && !busy && !pixData && !confirmedOrder
   const returnedOrder = mine.find(request => request.order_id && request.order_id === returnInfo?.orderId)
 
@@ -263,8 +278,9 @@ export default function CustomMiniaturesPage({ user, accessToken, onRequireLogin
     try {
       const quote = await apiCall('quote', {
         method: 'POST', accessToken,
-        body: { kind, coupon_code: code },
+        body: { kind, finish, coupon_code: code },
       })
+      // A resposta assíncrona identifica a opção para a qual o desconto foi cotado.
       setDiscount({ ...quote, code })
     } catch (err) {
       setDiscount(null)
@@ -299,7 +315,7 @@ export default function CustomMiniaturesPage({ user, accessToken, onRequireLogin
     if (!files.length) { setError('Adicione ao menos uma imagem de referência antes de pagar.'); return }
     if (!user || !accessToken) { onRequireLogin?.('Entre ou crie sua conta para enviar o pedido personalizado.'); return }
     if (!settings) { setError('O preço ainda não foi carregado.'); return }
-    if (couponCode.trim() && discount?.code !== couponCode.trim().toUpperCase()) {
+    if (couponCode.trim() && appliedDiscount?.code !== couponCode.trim().toUpperCase()) {
       setError('Aplique o cupom ou remova o código antes de continuar.')
       return
     }
@@ -310,7 +326,7 @@ export default function CustomMiniaturesPage({ user, accessToken, onRequireLogin
       const prepared = await apiCall('prepare', {
         method: 'POST', accessToken,
         body: {
-          kind, notes,
+          kind, finish, notes,
           files: files.map(({ file }) => ({ name: file.name, type: file.type, size: file.size })),
         },
       })
@@ -328,8 +344,8 @@ export default function CustomMiniaturesPage({ user, accessToken, onRequireLogin
         method: 'POST', accessToken,
         body: {
           request_id: prepared.request_id,
-          kind, payment_method: paymentMethod,
-          coupon_code: discount?.code || '',
+          kind, finish, payment_method: paymentMethod,
+          coupon_code: appliedDiscount?.code || '',
           ...getAffiliateCheckoutContext(),
           expected_total_cents: totalCents,
           shipping_service_id: shippingSelection?.service_id,
@@ -481,6 +497,26 @@ export default function CustomMiniaturesPage({ user, accessToken, onRequireLogin
                   </button>
                 ))}
               </div>
+              <div className="cm-finish-section">
+                <div className="cm-finish-title">
+                  <strong>Acabamento da peça</strong>
+                  <span>Escolha como deseja receber sua {kind === 'busto' ? 'peça' : 'miniatura'}.</span>
+                </div>
+                <div className="cm-finishes" role="radiogroup" aria-label="Acabamento da personalização">
+                  {FINISHES.map(option => (
+                    <button key={option.id} type="button" role="radio" aria-checked={finish === option.id}
+                      className={`cm-finish ${finish === option.id ? 'is-selected' : ''}`}
+                      disabled={busy || !!pixData || !!confirmedOrder}
+                      onClick={() => { setFinish(option.id); setDiscount(null); setError('') }}>
+                      <span className="material-icons cm-finish-icon" aria-hidden="true">{option.icon}</span>
+                      <span className="cm-finish-copy"><strong>{option.title}</strong><small>{option.detail}</small>
+                        <span className="cm-finish-price">{settings ? money(customPrice(settings, kind, option.id)) : 'Carregando…'}</span>
+                      </span>
+                      <span className="material-icons cm-finish-check" aria-hidden="true">{finish === option.id ? 'check_circle' : 'radio_button_unchecked'}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
             </section>
 
             <section className="cm-panel" ref={imagesStepRef} id="cm-step-images">
@@ -545,11 +581,11 @@ export default function CustomMiniaturesPage({ user, accessToken, onRequireLogin
               </div>
               <div className="cm-summary-product">
                 <div className="cm-summary-product-icon"><span className="material-icons">{kind === 'busto' ? 'face_6' : 'smart_toy'}</span></div>
-                <div><strong>{kind === 'busto' ? 'Busto personalizado' : 'Miniatura personalizada'}</strong><small>1 peça personalizada · {files.length} {files.length === 1 ? 'imagem anexada' : 'imagens anexadas'}</small></div>
+                <div><strong>{kind === 'busto' ? 'Busto personalizado' : 'Miniatura personalizada'}</strong><small>{finishLabel(finish)} · 1 peça personalizada · {files.length} {files.length === 1 ? 'imagem anexada' : 'imagens anexadas'}</small></div>
               </div>
               <div className="cm-prices">
                 <div><span>Valor da personalização</span><span>{settings ? money(price) : 'Carregando…'}</span></div>
-                {discount?.discount_cents ? <div className="cm-discount"><span>Cupom {discount.code}</span><span>− {money(discount.discount_cents)}</span></div> : null}
+                {appliedDiscount?.discount_cents ? <div className="cm-discount"><span>Cupom {appliedDiscount.code}</span><span>− {money(appliedDiscount.discount_cents)}</span></div> : null}
               </div>
               <div className="cm-coupon">
                 <label htmlFor="cm-coupon-code"><span className="material-icons">sell</span> Tem um cupom?</label>
@@ -560,7 +596,7 @@ export default function CustomMiniaturesPage({ user, accessToken, onRequireLogin
                     {quoteBusy ? 'Verificando…' : 'Aplicar'}
                   </button>
                 </div>
-                {discount ? <p className="cm-coupon-success"><span className="material-icons">check_circle</span> Cupom aplicado: {discount.coupon_label || discount.code}</p> : null}
+                {appliedDiscount ? <p className="cm-coupon-success"><span className="material-icons">check_circle</span> Cupom aplicado: {appliedDiscount.coupon_label || appliedDiscount.code}</p> : null}
               </div>
               <ShippingSelector token={accessToken} active={!!settings && !pixData && !confirmedOrder}
                 request={{ type: 'custom', kind }} onSelect={setShippingSelection} onRequireProfile={onRequireProfile}
@@ -624,7 +660,7 @@ export default function CustomMiniaturesPage({ user, accessToken, onRequireLogin
                       {request.image_urls?.[0] ? <img src={request.image_urls[0]} alt="Referência do pedido" /> : <span className="material-icons">view_in_ar</span>}
                     </span>
                     <div className="cm-order-title"><strong>{request.kind === 'busto' ? 'Busto' : 'Miniatura'} personalizada</strong>
-                      <small>{new Date(request.created_at).toLocaleDateString('pt-BR')} · #{String(request.id).slice(0, 8).toUpperCase()}</small>
+                      <small>{finishLabel(request.finish)} · {new Date(request.created_at).toLocaleDateString('pt-BR')} · #{String(request.id).slice(0, 8).toUpperCase()}</small>
                       <StatusPill request={request} /></div>
                     <div className="cm-order-actions"><strong>{money(request.total_cents)}</strong>
                       <button type="button" onClick={() => setExpandedRequest(expandedRequest === request.id ? null : request.id)}>
@@ -636,6 +672,7 @@ export default function CustomMiniaturesPage({ user, accessToken, onRequireLogin
                     <div className="cm-order-detail">
                       <div><strong>Pagamento:</strong> {statusNames[request.payment_status] || request.payment_status}</div>
                       <div><strong>Produção:</strong> {productionNames[request.production_status] || request.production_status}</div>
+                      <div><strong>Acabamento:</strong> {finishLabel(request.finish)}</div>
                       <div><strong>Forma:</strong> {request.payment_method === 'pix' ? 'Pix' : 'Cartão'}</div>
                       {request.payment_method === 'pix' && request.payment_status === 'pending' ? (
                         <button className="cm-order-reopen" type="button" onClick={() => reopenPix(request)}>

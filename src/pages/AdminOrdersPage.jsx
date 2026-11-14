@@ -475,7 +475,7 @@ function OrderDetailsModal({
                       </div>
                       <div className="min-w-0">
                         <div className="text-sm text-slate-100 truncate">
-                          {customRequest ? customPieceTitle(customRequest.kind) : it.name}
+                          {customRequest ? `${customPieceTitle(customRequest.kind)} — ${customRequest.finish === 'unpainted' ? 'Sem pintura' : 'Com pintura'}` : it.name}
                         </div>
                         <div className="text-xs text-slate-400">
                           {it.qty || 1}x{' '}

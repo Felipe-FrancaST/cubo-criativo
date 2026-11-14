@@ -816,7 +816,7 @@ export default function OrdersModal({ open, onClose, onPaymentFinalized, onRequi
             ...order,
             custom,
             order_items: existing.length
-              ? [{ ...existing[0], name: customPieceTitle(custom.kind), img: firstImage }, ...existing.slice(1)]
+              ? [{ ...existing[0], name: `${customPieceTitle(custom.kind)} — ${custom.finish === 'unpainted' ? 'Sem pintura' : 'Com pintura'}`, img: firstImage }, ...existing.slice(1)]
               : [{ name: customPieceTitle(custom.kind), qty: 1, img: firstImage, order_id: order.id }],
           };
         });

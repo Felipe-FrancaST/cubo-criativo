@@ -27,6 +27,7 @@ export default function CustomReferenceGallery({ request, admin = false, accessT
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2 font-semibold text-white"><span className="material-icons text-cyan-300">view_in_ar</span> {customPieceTitle(request.kind)}</div>
+          <p className="mt-1 text-xs font-semibold text-cyan-100">Acabamento: {request.finish === 'unpainted' ? 'Sem pintura' : 'Com pintura'}</p>
           <p className="mt-1 text-xs text-slate-400">Projeto sob encomenda · {request.image_paths?.length || images.length} imagem(ns) de referência</p>
         </div>
         {admin ? (

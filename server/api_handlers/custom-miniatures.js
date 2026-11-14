@@ -5,7 +5,7 @@ import { rateLimit } from '../rateLimit.js';
 import { requireSelectedShipping, storeOrderShipping } from '../shipping.js';
 import { resolveAffiliateForCheckout, maybeCreateAffiliateCommission, finalizeAffiliateCommission } from '../affiliate.js';
 import {
-  CUSTOM_BUCKET, CUSTOM_FORMATS, CUSTOM_MIMES, CUSTOM_PRODUCTION_STATES,
+  CUSTOM_BUCKET, CUSTOM_FORMATS, CUSTOM_FINISHES, customPieceLabel, CUSTOM_MIMES, CUSTOM_PRODUCTION_STATES,
   evaluateCustomCoupon, resolveCustomPrice, safeCustomError, validateCustomFiles,
 } from '../customMiniatures.js';
 
@@ -37,7 +37,7 @@ function isUuid(value) {
 }
 async function getSettings(sb) {
   const { data, error } = await sb.from(SETTINGS_TABLE)
-    .select('bust_price_cents,miniature_price_cents,updated_at')
+    .select('bust_price_cents,miniature_price_cents,bust_unpainted_price_cents,miniature_unpainted_price_cents,updated_at')
     .eq('id', 'default').single();
   if (error) throw new Error('Execute a migração SQL de miniaturas personalizadas no Supabase.');
   return data;
@@ -73,18 +73,19 @@ async function verifyUploadedFiles(sb, row) {
       Object.hasOwn(CUSTOM_MIMES, mimetype);
   });
 }
-async function createMercadoPagoPayment({ req, orderId, user, kind, method, totalCents, productCents, shipping, coupon, visitorId }) {
+async function createMercadoPagoPayment({ req, orderId, user, kind, finish, method, totalCents, productCents, shipping, coupon, visitorId }) {
   const token = String(process.env.MP_ACCESS_TOKEN || '').trim();
   if (!token) throw new Error('Mercado Pago não está configurado.');
   const origin = baseUrl(req);
   const metadata = {
     order_id: orderId, order_type: 'custom_miniature', user_id: user.id,
     coupon_code: coupon.code || null,
+    finish,
     coupon_discount: coupon.discountCents / 100,
     visitor_id: String(visitorId || '').slice(0, 120) || null,
   };
   const common = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
-  const title = CUSTOM_FORMATS[kind];
+  const title = customPieceLabel(kind, finish);
   let url, payload;
   if (method === 'card') {
     url = 'https://api.mercadopago.com/checkout/preferences';
@@ -227,7 +228,7 @@ export default async function handleCustomMiniatures(req, res) {
         return jsonError(res, 400, 'Informe de 1 a 100 pedidos válidos.');
       }
       const { data, error } = await sb.from(REQUEST_TABLE)
-        .select('id,user_id,order_id,kind,notes,image_paths,image_names,production_status,payment_status,payment_method,created_at')
+        .select('id,user_id,order_id,kind,finish,notes,image_paths,image_names,production_status,payment_status,payment_method,created_at')
         .eq('user_id', user.id).in('order_id', [...new Set(ids)]);
       if (error) throw error;
       res.setHeader('Cache-Control', 'private, no-store');
@@ -307,11 +308,20 @@ export default async function handleCustomMiniatures(req, res) {
       if (!admin.ok) return jsonError(res, admin.status, admin.error);
       const bust = Number(body.bust_price_cents);
       const miniature = Number(body.miniature_price_cents);
-      if (![bust, miniature].every(value => Number.isSafeInteger(value) && value >= 100 && value <= 100000000)) {
-        return jsonError(res, 400, 'Informe valores válidos em centavos (mínimo R$ 1,00).');
+      const bustUnpainted = Number(body.bust_unpainted_price_cents);
+      const miniatureUnpainted = Number(body.miniature_unpainted_price_cents);
+      if (![bust, miniature].every(value => Number.isSafeInteger(value) && value >= 100 && value <= 100000000) ||
+          ![bustUnpainted, miniatureUnpainted].every(value => Number.isSafeInteger(value) && value >= 1 && value <= 100000000)) {
+        return jsonError(res, 400, 'Informe quatro preços válidos em centavos.');
+      }
+      if (bustUnpainted >= bust || miniatureUnpainted >= miniature) {
+        return jsonError(res, 400, 'O valor sem pintura deve ser menor que o valor com pintura em cada categoria.');
       }
       const { data, error } = await sb.from(SETTINGS_TABLE).update({
-        bust_price_cents: bust, miniature_price_cents: miniature, updated_at: new Date().toISOString(),
+        bust_price_cents: bust, miniature_price_cents: miniature,
+        bust_unpainted_price_cents: bustUnpainted,
+        miniature_unpainted_price_cents: miniatureUnpainted,
+        updated_at: new Date().toISOString(),
       }).eq('id', 'default').select('*').single();
       if (error) throw error;
       return res.status(200).json({ settings: data });
@@ -341,8 +351,11 @@ export default async function handleCustomMiniatures(req, res) {
 
     const settings = await getSettings(sb);
     const kind = String(body.kind || '');
-    const baseCents = resolveCustomPrice(settings, kind);
-    if (!baseCents) return jsonError(res, 400, 'Selecione busto ou miniatura.');
+    const finish = String(body.finish || '');
+    if (!Object.hasOwn(CUSTOM_FORMATS, kind)) return jsonError(res, 400, 'Selecione busto ou miniatura.');
+    if (!Object.hasOwn(CUSTOM_FINISHES, finish)) return jsonError(res, 400, 'Selecione com pintura ou sem pintura.');
+    const baseCents = resolveCustomPrice(settings, kind, finish);
+    if (!baseCents) return jsonError(res, 409, 'O preço deste acabamento não está disponível.');
 
     if (op === 'quote') {
       try {
@@ -350,7 +363,7 @@ export default async function handleCustomMiniatures(req, res) {
           code: body.coupon_code, user, baseCents,
         });
         return res.status(200).json({
-          base_cents: baseCents, discount_cents: coupon.discountCents,
+          kind, finish, base_cents: baseCents, discount_cents: coupon.discountCents,
           total_cents: baseCents - coupon.discountCents, coupon_label: coupon.label,
         });
       } catch (error) { return jsonError(res, 400, safeCustomError(error), error?.code); }
@@ -367,7 +380,7 @@ export default async function handleCustomMiniatures(req, res) {
       const names = files.map(file => String(file.name || 'referencia').replace(/[\u0000-\u001f]/g, '').slice(0, 120));
       const { error: insertError } = await sb.from(REQUEST_TABLE).insert({
         id, user_id: user.id, customer_email: user.email || '',
-        kind, notes, image_paths: paths, image_names: names,
+        kind, finish, notes, image_paths: paths, image_names: names,
         payment_status: 'draft',
       });
       if (insertError) throw insertError;
@@ -393,7 +406,9 @@ export default async function handleCustomMiniatures(req, res) {
         .eq('id', body.request_id).eq('user_id', user.id).single();
       if (findError || !row) return jsonError(res, 404, 'Pedido não encontrado.');
       if (row.payment_status !== 'draft') return jsonError(res, 409, 'Este pedido já foi enviado para pagamento. Consulte seus pedidos.');
-      if (row.kind !== kind) return jsonError(res, 400, 'Formato diferente do pedido preparado.');
+      if (row.kind !== kind || row.finish !== finish) {
+        return jsonError(res, 400, 'Formato ou acabamento diferente do pedido preparado.');
+      }
       if (!(await verifyUploadedFiles(sb, row))) {
         return jsonError(res, 400, 'As imagens precisam ser enviadas e confirmadas antes do pagamento.', 'images_required');
       }
@@ -463,12 +478,12 @@ export default async function handleCustomMiniatures(req, res) {
 
         // Best effort: permite também exibir a compra no histórico já existente.
         const { error: itemError } = await sb.from('order_items').insert({
-          order_id: orderId, product_id: null, product_name: CUSTOM_FORMATS[kind],
+          order_id: orderId, product_id: null, product_name: customPieceLabel(kind, finish),
           scale: '', qty: 1, unit_price_cents: productCents, product_image_url: null,
         });
         if (itemError) {
           const { error: legacyItemError } = await sb.from('order_items').insert({
-            order_id: orderId, product_id: null, name: CUSTOM_FORMATS[kind],
+            order_id: orderId, product_id: null, name: customPieceLabel(kind, finish),
             scale: '', qty: 1, unit_price: productCents / 100, img: null,
           });
           if (legacyItemError) console.error('custom order_items insert', itemError, legacyItemError);
@@ -485,7 +500,7 @@ export default async function handleCustomMiniatures(req, res) {
         if (linkError) throw linkError;
         gatewayInvoked = true;
         const result = await createMercadoPagoPayment({
-          req, orderId, user, kind, method, totalCents, productCents, shipping, coupon, visitorId: body.visitor_id,
+          req, orderId, user, kind, finish, method, totalCents, productCents, shipping, coupon, visitorId: body.visitor_id,
         });
         const paymentDetails = method === 'pix' ? (result.pix || {}) : {};
         const { error: customUpdateError } = await sb.from(REQUEST_TABLE).update({
