@@ -213,9 +213,10 @@ export async function getShippingQuote(sb, { destinationZip, type, items, kind, 
   return { destination_zip: zip, origin_zip: normalizeZip(settings.origin_zip), parcels: packing.parcels, options };
 }
 
-export async function requireSelectedShipping(sb, { profile, serviceId, expectedShippingCents, type, items, kind, plan }) {
+export async function requireSelectedShipping(sb, { profile, serviceId, expectedShippingCents, quotedDestinationZip, type, items, kind, plan }) {
   const zip = normalizeZip(profile?.zip);
   if (!/^\d{8}$/.test(zip)) throw new Error('Complete o CEP no seu cadastro antes de pagar.');
+  if (quotedDestinationZip && normalizeZip(quotedDestinationZip) !== zip) throw new Error('O CEP consultado é diferente do CEP do cadastro. Atualize seu cadastro ou recalcule o frete para o CEP correto antes de pagar.');
   if (!String(serviceId || '').trim()) throw new Error('Calcule o frete e selecione uma modalidade antes de pagar.');
   const quote = await getShippingQuote(sb, { destinationZip: zip, type, items, kind, plan });
   const selected = quote.options.find(o => o.service_id === String(serviceId));

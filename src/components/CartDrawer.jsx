@@ -5,11 +5,69 @@ import React from 'react'
 import useDialog from '../lib/useDialog.js'
 import { supabase } from '../lib/supabaseClient'
 import { getAffiliateCheckoutContext } from '../lib/affiliate.js'
+import { CART_MAX_QUANTITY, normalizeCartQuantity } from '../lib/cartQuantity.js'
 
 const fmtBRL = (n) =>
   typeof n === 'number' && isFinite(n)
     ? n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
     : '—'
+
+/** Edita o número diretamente, sem disparar mudanças para cada tecla. */
+function CartQuantityInput({ item, disabled, onStep, onSet }) {
+  const [draft, setDraft] = React.useState(String(item.qty))
+  const skipBlurRef = React.useRef(false)
+  React.useEffect(() => { setDraft(String(item.qty)) }, [item.qty])
+
+  function commit() {
+    if (skipBlurRef.current) {
+      skipBlurRef.current = false
+      return
+    }
+    const next = normalizeCartQuantity(draft, item.qty)
+    setDraft(String(next))
+    if (next !== item.qty) onSet?.(item.id, next, item.escala, item.unitPrice)
+  }
+
+  return (
+    <div className="cart-item-quantity mt-2 flex items-center gap-2">
+      <button
+        type="button"
+        disabled={disabled || item.qty <= 1}
+        aria-label={`Diminuir quantidade de ${item.nome}`}
+        onClick={() => { setDraft(String(Math.max(1, item.qty - 1))); onStep(item.id, -1, item.escala, item.unitPrice) }}
+        className="rounded px-2 ring-1 ring-white/15"
+      >−</button>
+      <input
+        type="text"
+        inputMode="numeric"
+        pattern="[0-9]*"
+        aria-label={`Quantidade de ${item.nome}`}
+        title={`Digite de 1 a ${CART_MAX_QUANTITY} unidades e pressione Enter`}
+        value={draft}
+        maxLength={3}
+        disabled={disabled}
+        className="cart-qty-direct-input"
+        onChange={event => setDraft(event.target.value.replace(/\D/g, '').slice(0, 3))}
+        onBlur={commit}
+        onKeyDown={event => {
+          if (event.key === 'Enter') event.currentTarget.blur()
+          if (event.key === 'Escape') {
+            skipBlurRef.current = true
+            setDraft(String(item.qty))
+            event.currentTarget.blur()
+          }
+        }}
+      />
+      <button
+        type="button"
+        disabled={disabled || item.qty >= CART_MAX_QUANTITY}
+        aria-label={`Aumentar quantidade de ${item.nome}`}
+        onClick={() => { setDraft(String(Math.min(CART_MAX_QUANTITY, item.qty + 1))); onStep(item.id, 1, item.escala, item.unitPrice) }}
+        className="rounded px-2 ring-1 ring-white/15"
+      >+</button>
+    </div>
+  )
+}
 
 /**
  * Props:
@@ -27,6 +85,7 @@ export default function CartDrawer({
   onClose,
   cart,
   updateQty,
+  setItemQty,
   removeItem,
   subtotal,
   brand,
@@ -70,6 +129,14 @@ export default function CartDrawer({
     Number.isFinite(Number(subtotal)) && Number(subtotal) > 0
   const hasCartItems = Array.isArray(cart) && cart.length > 0
   const canCheckout = hasCartItems && hasValidSubtotal
+  const shippingRequest = React.useMemo(() => ({
+    type: 'shop',
+    items: (cart || []).map(item => ({ id: item.id, qty: item.qty, scale: item.escala || '' })),
+  }), [cart])
+  const shippingSignature = JSON.stringify(shippingRequest)
+  // Uma cotação pertence à composição exata do carrinho; nunca usa frete antigo.
+  const validShippingSelection = shippingSelection?.request_signature === shippingSignature
+    ? shippingSelection : null
 
   const panelRef = useDialog(open, onClose, { busy: paying || pixLoading })
   const pixPanelRef = useDialog(
@@ -119,8 +186,13 @@ export default function CartDrawer({
   }, [pixCompletedOpen, pixOpen, pix?.order_id])
 
   React.useEffect(() => {
-    if (!couponInfo) return
-    applyCoupon(couponInfo.code, { silent: true })
+    if (!couponInfo) return undefined
+    // Aguarda o cliente terminar de editar as quantidades para não validar o
+    // mesmo cupom dezenas de vezes em sequência.
+    const timer = window.setTimeout(() => {
+      void applyCoupon(couponInfo.code, { silent: true })
+    }, 600)
+    return () => window.clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subtotal])
 
@@ -351,8 +423,9 @@ export default function CartDrawer({
           })),
           description: 'Pagamento via Pix',
           coupon_code: couponInfo?.code || null,
-          shipping_service_id: shippingSelection?.service_id || null,
-          expected_shipping_cents: shippingSelection?.price_cents || 0,
+          shipping_service_id: validShippingSelection?.service_id || null,
+          expected_shipping_cents: validShippingSelection?.price_cents || 0,
+          quoted_destination_zip: validShippingSelection?.destination_zip || null,
           ...getAffiliateCheckoutContext(),
         }),
       })
@@ -544,12 +617,12 @@ export default function CartDrawer({
             {cart.map((item) => (
               <div
                 key={`${item.id}-${item.escala}-${item.unitPrice}`}
-                className="flex gap-3 items-center rounded-lg p-3 ring-1 ring-white/10 bg-[#0c2430]/52"
+                className="cart-item-row flex gap-3 items-center rounded-lg p-3 ring-1 ring-white/10 bg-[#0c2430]/52"
               >
                 <img
                   src={item.img}
                   alt={item.nome}
-                  className="h-16 w-16 shrink-0 object-contain rounded-md"
+                  className="cart-item-image h-16 w-16 shrink-0 object-contain rounded-md"
                 />
                 <div className="cart-item-info flex-1">
                   <p className="font-semibold text-sm leading-tight">
@@ -559,31 +632,12 @@ export default function CartDrawer({
                     {item.escala ? `Escala: ${item.escala}` : ''}{' '}
                     {item.unitPrice ? `• ${fmtBRL(item.unitPrice)}` : ''}
                   </p>
-                  <div className="cart-item-quantity mt-2 flex items-center gap-2">
-                    <button
-                      type="button"
-                      disabled={paying || pixLoading}
-                      aria-label={`Diminuir quantidade de ${item.nome}`}
-                      onClick={() =>
-                        updateQty(item.id, -1, item.escala, item.unitPrice)
-                      }
-                      className="rounded px-2 ring-1 ring-white/15"
-                    >
-                      -
-                    </button>
-                    <span className="min-w-[2ch] text-center">{item.qty}</span>
-                    <button
-                      type="button"
-                      disabled={paying || pixLoading}
-                      aria-label={`Aumentar quantidade de ${item.nome}`}
-                      onClick={() =>
-                        updateQty(item.id, 1, item.escala, item.unitPrice)
-                      }
-                      className="rounded px-2 ring-1 ring-white/15"
-                    >
-                      +
-                    </button>
-                  </div>
+                  <CartQuantityInput
+                    item={item}
+                    disabled={paying || pixLoading || pixOpen || pixCompletedOpen}
+                    onStep={updateQty}
+                    onSet={setItemQty}
+                  />
                 </div>
                 <button
                   type="button"
@@ -704,13 +758,14 @@ export default function CartDrawer({
               </div>
             </div>
 
-            <ShippingSelector active={open && canCheckout} token={authToken}
-              request={{ type: 'shop', items: (cart || []).map(i => ({ id: i.id, qty: i.qty, scale: i.escala || '' })) }}
+            <ShippingSelector active={open && canCheckout} token={authToken} userId={userId}
+              manual
+              request={shippingRequest}
               onSelect={setShippingSelection} onRequireProfile={onRequireProfile}
               disabled={paying || pixLoading || pixOpen || pixCompletedOpen} />
             <div className="checkout-total-bar" aria-live="polite">
               <span>Total com frete</span>
-              <strong>{canCheckout && shippingSelection ? fmtBRL(Number(couponInfo?.final_total ?? subtotal) + shippingSelection.price_cents / 100) : 'Selecione o frete'}</strong>
+              <strong>{canCheckout && validShippingSelection ? fmtBRL(Number(couponInfo?.final_total ?? subtotal) + validShippingSelection.price_cents / 100) : 'Selecione o frete'}</strong>
             </div>
             <CheckoutPolicies />
             <PaymentChoice value={paymentMethod} onChange={setPaymentMethod} disabled={paying || pixLoading || pixOpen || pixCompletedOpen} />
@@ -737,10 +792,10 @@ export default function CartDrawer({
             <PaymentActionButton
               method={paymentMethod}
               loading={paying || pixLoading}
-              disabled={!canCheckout || !shippingSelection || paying || pixLoading}
+              disabled={!canCheckout || !validShippingSelection || paying || pixLoading}
               onClick={() => {
                 if (paymentMethod === 'pix') void handlePix()
-                else if (onPayWithCoupon) void onPayWithCoupon(couponInfo, shippingSelection)
+                else if (onPayWithCoupon) void onPayWithCoupon(couponInfo, validShippingSelection)
                 else void onPay?.()
               }}
               loadingLabel={paymentMethod === 'pix' ? 'Gerando Pix…' : 'Preparando pagamento…'}

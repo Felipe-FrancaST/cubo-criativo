@@ -5,17 +5,20 @@ import { getShippingQuote, loadShippingSettings, normalizeZip, SHIPPING_PACKAGES
 import { validateScaleRules } from '../shippingScaleRules.js';
 import { resolveStoreItems } from '../orderPricing.js';
 import { getVipPlanById } from '../vipPlans.js';
+import { validateShippingQuoteRequest } from '../shippingQuoteRequest.js';
 
 function requestBody(req) { if (typeof req.body === 'object' && req.body) return req.body; try { return JSON.parse(req.body || '{}'); } catch { return {}; } }
 export default async function handleShipping(req, res) {
-  if (!rateLimit(req, res, { key: 'shipping:quote', limit: 20, windowMs: 60000 })) return;
   res.setHeader('Cache-Control', 'private, no-store');
   if (!['GET','POST'].includes(req.method)) return res.status(405).json({ error: 'Método não permitido.' });
   try {
-    const user = await getUserFromAuthHeader(req);
-    if (!user) return res.status(401).json({ error: 'Entre na sua conta para calcular o frete.' });
-    const sb = supabaseAdmin();
     const operation = String(req.query?.op || '').toLowerCase();
+    const hasAuthHeader = /^Bearer\s+\S+/i.test(String(req.headers?.authorization || req.headers?.Authorization || ''));
+    // Consultar frete é público, mas consultar pedidos e alterar configurações exige login.
+    const user = hasAuthHeader ? await getUserFromAuthHeader(req) : null;
+    if (hasAuthHeader && !user) return res.status(401).json({ error: 'Sessão inválida. Entre na sua conta novamente.' });
+    if (operation !== 'quote' && !user) return res.status(401).json({ error: 'Entre na sua conta para continuar.' });
+    const sb = supabaseAdmin();
     if (operation === 'order' && req.method === 'GET') {
       const orderId = String(req.query?.order_id || '');
       if (!/^[0-9a-f-]{36}$/i.test(orderId)) return res.status(400).json({ error: 'Pedido inválido.' });
@@ -87,14 +90,28 @@ export default async function handleShipping(req, res) {
       return res.json({ settings: await loadShippingSettings(sb) });
     }
     if (req.method !== 'POST' || operation !== 'quote') return res.status(404).json({ error: 'Operação inválida.' });
+    // Evita abuso de credenciais SuperFrete pela rota pública. Não consome o limite
+    // em renderizações ou edições do carrinho: o frontend só chama após o clique.
+    if (!rateLimit(req, res, { key: user ? 'shipping:quote:logged' : 'shipping:quote:guest', limit: user ? 20 : 10, windowMs: 60000 })) return;
     const body = requestBody(req);
-    const { data: profile, error: profileError } = await sb.from('profiles').select('zip').eq('id', user.id).maybeSingle();
-    if (profileError) throw profileError;
-    const zip = normalizeZip(profile?.zip);
-    if (!/^\d{8}$/.test(zip)) return res.status(400).json({ code: 'profile_incomplete', error: 'Complete seu CEP no cadastro para calcular o frete.' });
-    let type = String(body.type || 'shop'); let items = []; let kind = ''; let plan = null;
+    const type = String(body.type || 'shop');
+    const checked = validateShippingQuoteRequest({
+      type, authenticated: Boolean(user), destinationZip: body.destination_zip, items: body.items,
+    });
+    if (!checked.ok) return res.status(checked.status).json({ error: checked.error });
+    const providedZip = checked.destinationZip;
+    let zip = providedZip;
+    if (!zip && user) {
+      const { data: profile, error: profileError } = await sb.from('profiles').select('zip').eq('id', user.id).maybeSingle();
+      if (profileError) throw profileError;
+      zip = normalizeZip(profile?.zip);
+    }
+    if (!/^\d{8}$/.test(zip)) return res.status(400).json({ code: user ? 'profile_incomplete' : 'zip_required', error: 'Informe o CEP de entrega para calcular o frete.' });
+    let items = []; let kind = ''; let plan = null;
     if (type === 'shop') {
-      const resolved = await resolveStoreItems(sb, body.items || []);
+      // Consulta os produtos do banco: preço, categoria e escala enviados pelo
+      // navegador nunca definem o tamanho da embalagem nem autorizam a compra.
+      const resolved = await resolveStoreItems(sb, body.items);
       if (!resolved.ok) return res.status(resolved.status || 400).json({ error: resolved.error });
       items = resolved.items;
     } else if (type === 'vip') {

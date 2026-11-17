@@ -419,7 +419,7 @@ export default async function handler(req, res) {
     }
 
     const shipping = isVipUpgrade ? null : await requireSelectedShipping(sb, {
-      profile, serviceId: body.shipping_service_id, expectedShippingCents: body.expected_shipping_cents, type: vipPlanId ? 'vip' : 'shop',
+      profile, serviceId: body.shipping_service_id, expectedShippingCents: body.expected_shipping_cents, quotedDestinationZip: body.quoted_destination_zip, type: vipPlanId ? 'vip' : 'shop',
       items: resolvedOrderItems, plan: vipPlan,
     });
     if (shipping) finalTotal = Number((finalTotal + shipping.total_cents / 100).toFixed(2));

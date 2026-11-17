@@ -1,4 +1,5 @@
 import { isValidScaleChoice } from './lib/scaleSelection.js'
+import { normalizeCartQuantity, changeCartQuantity } from './lib/cartQuantity.js'
 import { restoreProductScroll } from './lib/restoreProductScroll.js'
 // src/App.jsx
 import React from 'react'
@@ -1083,11 +1084,19 @@ export default function App() {
       prev
         .map((i) =>
           i.id === id && i.escala === escala && i.unitPrice === unitPrice
-            ? { ...i, qty: Math.max(1, i.qty + delta) }
+            ? { ...i, qty: changeCartQuantity(i.qty, delta) }
             : i
         )
         .filter((i) => i.qty > 0)
     )
+  }
+
+  function setItemQty(id, desiredQty, escala, unitPrice) {
+    setCart((prev) => prev.map((item) =>
+      item.id === id && item.escala === escala && item.unitPrice === unitPrice
+        ? { ...item, qty: normalizeCartQuantity(desiredQty, item.qty) }
+        : item
+    ))
   }
 
   function removeItem(id, escala, unitPrice) {
@@ -1299,6 +1308,7 @@ export default function App() {
           coupon_code: appliedCoupon?.code || null,
           shipping_service_id: shippingSelection?.service_id || null,
           expected_shipping_cents: shippingSelection?.price_cents || 0,
+          quoted_destination_zip: shippingSelection?.destination_zip || null,
           ...getAffiliateCheckoutContext(),
           items: cart.map((i) => ({
             id: i.id,
@@ -2383,6 +2393,7 @@ export default function App() {
               onClose={() => setCartOpen(false)}
               cart={cart}
               updateQty={updateQty}
+              setItemQty={setItemQty}
               removeItem={removeItem}
               subtotal={subtotal}
               brand={brand}

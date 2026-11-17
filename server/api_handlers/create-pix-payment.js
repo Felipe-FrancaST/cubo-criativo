@@ -352,7 +352,7 @@ export default async function handler(req, res) {
       .select('zip').eq('id', user.id).maybeSingle();
     if (shippingProfileError) throw shippingProfileError;
     const shipping = await requireSelectedShipping(sb, {
-      profile: shippingProfile, serviceId: body.shipping_service_id, expectedShippingCents: body.expected_shipping_cents, type: vipPlanId ? 'vip' : 'shop',
+      profile: shippingProfile, serviceId: body.shipping_service_id, expectedShippingCents: body.expected_shipping_cents, quotedDestinationZip: body.quoted_destination_zip, type: vipPlanId ? 'vip' : 'shop',
       items: resolvedOrderItems, plan: vipPlan,
     });
     finalAmount = Number((finalAmount + shipping.total_cents / 100).toFixed(2));
