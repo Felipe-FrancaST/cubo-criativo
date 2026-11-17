@@ -1345,6 +1345,7 @@ export default function AdminProductsSection({ onNotify }) {
                 >
                   <option value="action figures">Action figures</option>
                   <option value="rpg">RPG</option>
+                  <option value="chaveiros">Chaveiros</option>
                   <option value="outros">Outros</option>
                 </select>
               </label>

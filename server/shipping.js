@@ -9,6 +9,11 @@ const FIGURES = {
   20: { length: 30, width: 20, height: 20, weight: 2 },
 };
 const BUST = { length: 20, width: 20, height: 20, weight: 1 };
+// A embalagem e o peso são os limites do PAC Mini / Mini Envios da SuperFrete.
+// Verifique o pacote real: ele deve permanecer com até 300g mesmo com 20 chaveiros.
+const KEYCHAIN = { length: 24, width: 16, height: 4, weight: 0.3 };
+export const KEYCHAINS_PER_PARCEL = 20;
+export const MINI_ENVIOS_SERVICE_ID = '17';
 export const DEFAULT_SHIPPING = Object.freeze({
   origin_zip: '47803604', services: '1,2,3,17,31', mini_fee_cents: 500, other_fee_cents: 1000,
   enabled: true, scale_rules: DEFAULT_SCALE_RULES,
@@ -17,12 +22,21 @@ export const DEFAULT_SHIPPING = Object.freeze({
 export const SHIPPING_PACKAGES = Object.freeze({
   miniature_small: SMALL, miniature_large: BIG_MINI,
   action_10: FIGURES[10], action_12: FIGURES[12], action_15: FIGURES[15], action_20: FIGURES[20],
-  bust: BUST,
+  bust: BUST, keychain_mini: KEYCHAIN,
   vip_1: { length: 20, width: 20, height: 20, weight: 0.3 },
   vip_2_3: { length: 30, width: 20, height: 20, weight: 1 },
 });
 
 const roundMoney = value => Math.round((Number(value) + Number.EPSILON) * 100);
+const keychainCategory = value => /^(?:chaveiro|chaveiros)$/.test(String(value || '').trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase());
+function validateKeychainMiniBox(parcel) {
+  const { length, width, height, weight } = parcel;
+  if (![length, width, height, weight].every(v => Number.isFinite(Number(v)) && Number(v) > 0)
+    || length < 13 || length > 24 || width < 8 || width > 16 || height < 1 || height > 4 || weight > 0.3) {
+    throw new Error('A embalagem dos chaveiros não atende ao Mini Envios (13–24 cm comprimento, 8–16 cm largura, 1–4 cm altura, até 300 g). Corrija em Administração → Frete SuperFrete.');
+  }
+}
+
 export const normalizeZip = value => String(value || '').replace(/\D/g, '');
 export function vipLevel(plan) {
   const text = [plan?.name, plan?.short_name, plan?.slug, plan?.id].filter(Boolean).join(' ').toLowerCase();
@@ -63,9 +77,16 @@ export function packShipment({ type, items = [], kind = '', plan = null, setting
   const rules = validateScaleRules(settings.scale_rules ?? DEFAULT_SCALE_RULES, boxes);
   const groups = new Map();
   const parcels = [];
+  let keychains = 0;
   for (const item of items) {
     const qty = Number(item.qty);
     if (!Number.isSafeInteger(qty) || qty < 1 || qty > 100) throw new Error('Quantidade inválida para cotação.');
+    // A categoria vem exclusivamente do cadastro no Supabase, nunca de um campo
+    // de tipo enviado pelo navegador. Agrupe todos os chaveiros do pedido.
+    if (keychainCategory(item.category)) {
+      keychains += qty;
+      continue;
+    }
     const rule = selectRuleForItem(item, rules);
     if (rule.kind === 'action') {
       for (let i = 0; i < qty; i++) parcels.push({ ...boxes[rule.package_key], category: `action-${rule.scale}`, scale: rule.scale });
@@ -83,8 +104,19 @@ export function packShipment({ type, items = [], kind = '', plan = null, setting
     if (remaining > rule.small_limit) parcels.push({ ...boxes[rule.large_package_key], category: `miniaturas-${rule.scale}`, scale: rule.scale, quantity: remaining });
     else if (remaining) parcels.push({ ...boxes[rule.small_package_key], category: `miniaturas-${rule.scale}`, scale: rule.scale, quantity: remaining });
   }
+  if (keychains > 0) {
+    const keychainBox = boxes.keychain_mini;
+    validateKeychainMiniBox(keychainBox);
+    let remaining = keychains;
+    while (remaining > 0) {
+      const quantity = Math.min(KEYCHAINS_PER_PARCEL, remaining);
+      parcels.push({ ...keychainBox, category: 'chaveiros', quantity });
+      remaining -= quantity;
+    }
+  }
   if (parcels.length > 40) throw new Error('O pedido possui caixas demais para cotação automática. Entre em contato com a loja.');
-  return { parcels, feeCategory: parcels.some(p => p.category.startsWith('action-')) ? 'other' : 'mini' };
+  const keychainsOnly = parcels.every(p => p.category === 'chaveiros');
+  return { parcels, keychainsOnly, feeCategory: parcels.some(p => p.category.startsWith('action-')) ? 'other' : 'mini' };
 }
 
 export async function loadShippingSettings(sb) {
@@ -102,7 +134,7 @@ function extractPriceCents(raw) {
   return roundMoney(normalized);
 }
 
-async function quoteOneParcel({ settings, destination, parcel }) {
+async function quoteOneParcel({ settings, destination, parcel, serviceIds }) {
   const token = String(process.env.SUPERFRETE_TOKEN || '').trim();
   if (!token) throw new Error('O frete está indisponível: configure SUPERFRETE_TOKEN no servidor.');
   const userAgent = String(process.env.SUPERFRETE_USER_AGENT || '').trim();
@@ -120,7 +152,7 @@ async function quoteOneParcel({ settings, destination, parcel }) {
       },
       body: JSON.stringify({
         from: { postal_code: normalizeZip(settings.origin_zip) },
-        to: { postal_code: destination }, services: String(settings.services || '1,2,3,17,31'),
+        to: { postal_code: destination }, services: serviceIds || String(settings.services || '1,2,3,17,31'),
         options: { own_hand: false, receipt: false, use_insurance_value: false },
         package: { height: parcel.height, width: parcel.width, length: parcel.length, weight: parcel.weight },
       }),
@@ -151,6 +183,12 @@ export async function getShippingQuote(sb, { destinationZip, type, items, kind, 
   if (settings.enabled === false) throw new Error('O frete está temporariamente indisponível.');
   if (!/^\d{8}$/.test(normalizeZip(settings.origin_zip))) throw new Error('CEP de origem do frete inválido.');
   const packing = packShipment({ type, items, kind, plan, settings });
+  // Para pedidos compostos só por chaveiros, ofertar exclusivamente Mini Envios.
+  // Pedidos mistos mantêm a interseção de modalidades compatíveis com TODAS as caixas.
+  const serviceIds = packing.keychainsOnly ? MINI_ENVIOS_SERVICE_ID : String(settings.services || '1,2,3,17,31');
+  if (packing.keychainsOnly && !String(settings.services || '').split(',').includes(MINI_ENVIOS_SERVICE_ID)) {
+    throw new Error('Mini Envios está desativado na Administração → Frete SuperFrete. Ative a modalidade para vender chaveiros.');
+  }
   const unique = new Map();
   for (const p of packing.parcels) {
     const key = [p.length, p.width, p.height, p.weight].join('-');
@@ -158,13 +196,14 @@ export async function getShippingQuote(sb, { destinationZip, type, items, kind, 
     unique.get(key).count++;
   }
   const quotations = await Promise.all([...unique.values()].map(async entry => ({
-    ...entry, byService: await quoteOneParcel({ settings, destination: zip, parcel: entry.parcel }),
+    ...entry, byService: await quoteOneParcel({ settings, destination: zip, parcel: entry.parcel, serviceIds }),
   })));
   const first = quotations[0]?.byService || new Map();
   const feeCents = packing.feeCategory === 'mini' ? Number(settings.mini_fee_cents) : Number(settings.other_fee_cents);
   const options = [];
   for (const [id, data] of first) {
     if (!quotations.every(q => q.byService.has(id))) continue;
+    if (packing.keychainsOnly && id !== MINI_ENVIOS_SERVICE_ID) continue;
     const baseCents = quotations.reduce((sum, q) => sum + q.byService.get(id).price_cents * q.count, 0);
     const deliveryDays = Math.max(...quotations.map(q => q.byService.get(id).delivery_days ?? 0));
     options.push({ ...data, base_cents: baseCents, fee_cents: feeCents,

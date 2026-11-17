@@ -1496,7 +1496,9 @@ export default function App() {
       cat.includes('action') ||
       tagBlob.includes('figure')
 
-    const typeLabel = isRpg
+    const typeLabel = cat === 'chaveiros' || cat === 'chaveiro'
+      ? 'Chaveiro'
+      : isRpg
       ? 'Miniatura RPG'
       : isActionFigure
         ? 'Action Figure'
