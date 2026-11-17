@@ -205,18 +205,12 @@ export default function ShippingSelector({
               {busy ? 'Calculando…' : needsRecalculation ? 'Recalcular frete' : 'Calcular frete'}
             </button>
           </div>
-          <p className="shipping-manual-hint">
-            Consulte valores e prazos sem login. Para pagar, o CEP do cadastro deve ser o mesmo informado na cotação.
-          </p>
         </form>
       ) : null}
       {busy && !manual ? <div className="shipping-selector-hint" role="status"><span className="shipping-spinner" /> Consultando modalidades na SuperFrete…</div> : null}
       {!token && !manual ? <p className="shipping-selector-hint">Entre na sua conta para consultar as opções pelo CEP cadastrado.</p> : null}
       {manual && needsRecalculation && !busy && !quote && !error ? (
         <p className="shipping-selector-hint" role="status">O carrinho ou CEP mudou. Clique em <strong>Calcular frete</strong> para atualizar o valor.</p>
-      ) : null}
-      {manual && !quote && !busy && !needsRecalculation && !error ? (
-        <p className="shipping-selector-hint">Informe seu CEP e clique em <strong>Calcular frete</strong> depois de definir as quantidades.</p>
       ) : null}
       {!!error && <div className="shipping-selector-error" role="alert">{error}</div>}
       {!busy && options.map(option => (
