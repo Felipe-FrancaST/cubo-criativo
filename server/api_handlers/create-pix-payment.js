@@ -1,3 +1,4 @@
+import { couponAllowsCategory } from '../../shared/sellerCouponScope.js';
 /**
  * Vercel Serverless Function
  * Route: /api/create-pix-payment
@@ -335,7 +336,7 @@ export default async function handler(req, res) {
       if (!cpfGate.ok) return res.status(cpfGate.status).json({ error: cpfGate.error });
       const appliesTo = String(coupon.applies_to || 'products').toLowerCase();
       const isVipPurchase = Boolean(vipPlanId);
-      const allowed = isVipPurchase ? ['vip','both'].includes(appliesTo) : ['products','both'].includes(appliesTo);
+      const allowed = couponAllowsCategory(appliesTo, isVipPurchase ? 'vip' : 'shop');
       const allowedPlans = Array.isArray(coupon.vip_plan_ids) ? coupon.vip_plan_ids.map(String) : [];
       if (!allowed || (isVipPurchase && allowedPlans.length && !allowedPlans.includes(String(vipPlanId)))) return res.status(400).json({ error: 'Este cupom não é válido para esta compra.' });
       const eligibleSubtotal = couponEligibleSubtotal({ coupon, total: subtotal, items, vipPlanId });

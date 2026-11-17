@@ -1,3 +1,4 @@
+import { couponAllowsCategory } from '../shared/sellerCouponScope.js';
 import { calcCouponDiscount } from './couponGame.js';
 
 export const CUSTOM_BUCKET = 'custom-miniature-references';
@@ -58,7 +59,7 @@ export async function evaluateCustomCoupon(sb, { code, user, baseCents }) {
   // Cupons de produto abrangentes podem valer para encomendas; cupons de
   // produtos específicos, planos VIP e frete não são aplicáveis.
   const appliesTo = String(coupon.applies_to || 'products').toLowerCase();
-  if (!['products', 'both'].includes(appliesTo) ||
+  if (!couponAllowsCategory(appliesTo, 'custom') ||
       (Array.isArray(coupon.product_ids) && coupon.product_ids.length) ||
       coupon.discount_type === 'shipping_reduced') {
     throw new Error('Este cupom não é válido para miniaturas personalizadas.');

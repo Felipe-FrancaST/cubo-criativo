@@ -1,6 +1,7 @@
 import React from 'react'
 import ConfirmationDialog from '../../../components/ConfirmationDialog.jsx'
 import { pixKeyTypeLabel } from '../../../../shared/pixKey.js'
+import { SELLER_COUPON_SCOPES, sellerCouponScopeLabel, couponAllowsCategory } from '../../../../shared/sellerCouponScope.js'
 const fmt = (n) =>
   Number(n || 0).toLocaleString('pt-BR', {
     style: 'currency',
@@ -15,7 +16,7 @@ const emptyForm = {
   attribution_days: 30,
   active: true,
   create_coupon: false,
-  initial_coupon: { code: '', label: '', discount_type: 'percent', discount_value: 10, applies_to: 'products', max_uses: 100 },
+  initial_coupon: { code: '', label: '', discount_type: 'percent', discount_value: 10, applies_to: 'both', max_uses: 100 },
 }
 const emptyCoupon = {
   affiliate_id: '',
@@ -26,7 +27,8 @@ const emptyCoupon = {
   min_order_value: 0,
   expires_at: '',
   max_uses: 100,
-  applies_to: 'products',
+  applies_to: 'both',
+  active: true,
   product_ids: [],
   vip_plan_ids: [],
 }
@@ -46,6 +48,8 @@ export default function AdminAffiliatesSection({ accessToken }) {
   const [saving, setSaving] = React.useState(false)
   const [showForm, setShowForm] = React.useState(false)
   const [coupon, setCoupon] = React.useState(emptyCoupon)
+  const [editingCouponCode, setEditingCouponCode] = React.useState('')
+  const couponFormRef = React.useRef(null)
   const [couponBusy, setCouponBusy] = React.useState(false)
   const [showCoupon, setShowCoupon] = React.useState(false)
   const [settlement, setSettlement] = React.useState(null)
@@ -114,6 +118,7 @@ export default function AdminAffiliatesSection({ accessToken }) {
   }
   async function save() {
     if (!form.user_id) return setError('Selecione um cliente.')
+    if (!editing && form.create_coupon && !form.initial_coupon.code.trim()) return setError('Informe o código do cupom que será criado com o vendedor.')
     setSaving(true)
     setError('')
     try {
@@ -140,6 +145,39 @@ export default function AdminAffiliatesSection({ accessToken }) {
       setSaving(false)
     }
   }
+  function startCouponCreate(affiliateId = '') {
+    setCoupon({ ...emptyCoupon, affiliate_id: affiliateId })
+    setEditingCouponCode('')
+    setShowCoupon(true)
+    setError('')
+  }
+  function startCouponEdit(existing) {
+    setCoupon({
+      ...emptyCoupon, ...existing,
+      expires_at: existing.expires_at ? String(existing.expires_at).slice(0, 10) : '',
+      product_ids: existing.product_ids || [],
+      vip_plan_ids: existing.vip_plan_ids || [],
+    })
+    setEditingCouponCode(existing.code)
+    setShowCoupon(true)
+    setError('')
+  }
+  function closeCouponForm() {
+    setShowCoupon(false)
+    setEditingCouponCode('')
+    setCoupon(emptyCoupon)
+  }
+  function changeCouponScope(scope) {
+    setCoupon((current) => ({
+      ...current,
+      applies_to: scope,
+      product_ids: scope === 'both' || !couponAllowsCategory(scope, 'shop') ? [] : current.product_ids,
+      vip_plan_ids: scope === 'both' || !couponAllowsCategory(scope, 'vip') ? [] : current.vip_plan_ids,
+    }))
+  }
+  React.useEffect(() => {
+    if (showCoupon && couponFormRef.current) couponFormRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }, [showCoupon, editingCouponCode])
   async function saveCoupon() {
     if (!coupon.affiliate_id || !coupon.code)
       return setError('Informe o vendedor e o código do cupom.')
@@ -152,12 +190,11 @@ export default function AdminAffiliatesSection({ accessToken }) {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${accessToken}`,
         },
-        body: JSON.stringify(coupon),
+        body: JSON.stringify({ ...coupon, original_code: editingCouponCode || null }),
       })
       const json = await response.json().catch(() => ({}))
       if (!response.ok) throw new Error(json.error || 'Erro ao salvar cupom.')
-      setCoupon(emptyCoupon)
-      setShowCoupon(false)
+      closeCouponForm()
       await load()
     } catch (err) {
       setError(err.message || String(err))
@@ -442,7 +479,7 @@ export default function AdminAffiliatesSection({ accessToken }) {
               <label className="text-xs font-semibold text-slate-300">Descrição<input value={form.initial_coupon.label} onChange={e=>setForm({...form,initial_coupon:{...form.initial_coupon,label:e.target.value}})} placeholder="Cupom da vendedora" className="mt-1 w-full rounded-xl bg-black/30 px-3 py-3 text-sm text-white ring-1 ring-white/10"/></label>
               <label className="text-xs font-semibold text-slate-300">Tipo de desconto<select value={form.initial_coupon.discount_type} onChange={e=>setForm({...form,initial_coupon:{...form.initial_coupon,discount_type:e.target.value}})} className="mt-1 w-full rounded-xl bg-black/30 px-3 py-3 text-sm text-white ring-1 ring-white/10"><option value="percent">Porcentagem (%)</option><option value="fixed_min">Valor fixo (R$)</option></select></label>
               <label className="text-xs font-semibold text-slate-300">Valor do desconto<input type="number" min="0.01" max={form.initial_coupon.discount_type === 'percent' ? 100 : undefined} step=".01" value={form.initial_coupon.discount_value} onChange={e=>setForm({...form,initial_coupon:{...form.initial_coupon,discount_value:e.target.value}})} className="mt-1 w-full rounded-xl bg-black/30 px-3 py-3 text-sm text-white ring-1 ring-white/10"/></label>
-              <label className="text-xs font-semibold text-slate-300">Onde funciona<select value={form.initial_coupon.applies_to} onChange={e=>setForm({...form,initial_coupon:{...form.initial_coupon,applies_to:e.target.value}})} className="mt-1 w-full rounded-xl bg-black/30 px-3 py-3 text-sm text-white ring-1 ring-white/10"><option value="products">Produtos e personalizadas</option><option value="vip">VIP</option><option value="both">Produtos + VIP</option></select></label>
+              <label className="text-xs font-semibold text-slate-300">Onde funciona<select value={form.initial_coupon.applies_to} onChange={e=>setForm({...form,initial_coupon:{...form.initial_coupon,applies_to:e.target.value}})} className="mt-1 w-full rounded-xl bg-black/30 px-3 py-3 text-sm text-white ring-1 ring-white/10">{Object.entries(SELLER_COUPON_SCOPES).map(([value, details]) => <option key={value} value={value}>{details.label}</option>)}</select></label>
               <label className="text-xs font-semibold text-slate-300">Limite de usos<input type="number" min="1" value={form.initial_coupon.max_uses} onChange={e=>setForm({...form,initial_coupon:{...form.initial_coupon,max_uses:e.target.value}})} className="mt-1 w-full rounded-xl bg-black/30 px-3 py-3 text-sm text-white ring-1 ring-white/10"/></label>
               <div className="col-span-full text-xs text-slate-400">Se este cupom for utilizado em uma compra elegível, a comissão será atribuída automaticamente a este vendedor, mesmo que o visitante tenha acessado o link de outro vendedor.</div>
             </div>}
@@ -529,7 +566,7 @@ export default function AdminAffiliatesSection({ accessToken }) {
                     >
                       Copiar link
                     </button>
-                    <button onClick={() => { setCoupon({...emptyCoupon, affiliate_id: a.id}); setShowCoupon(true); }} className="rounded-xl border border-cyan-300/20 px-3 py-2 text-xs font-bold text-cyan-200">Criar cupom</button>
+                    <button onClick={() => startCouponCreate(a.id)} className="rounded-xl border border-cyan-300/20 px-3 py-2 text-xs font-bold text-cyan-200">Criar cupom</button>
                     <button
                       onClick={() => edit(a)}
                       className="rounded-xl bg-white/5 px-3 py-2 text-xs font-bold text-white ring-1 ring-white/10"
@@ -539,6 +576,16 @@ export default function AdminAffiliatesSection({ accessToken }) {
                     <button onClick={() => { setDeleteError(''); setDeleteTarget(a) }} className="rounded-xl border border-rose-300/20 px-3 py-2 text-xs font-bold text-rose-200 hover:bg-rose-400/10">Excluir</button>
                   </div>
                 </div>
+                {data.coupons.some((c) => c.affiliate_id === a.id) && (
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-semibold text-slate-400">Cupons vinculados</span>
+                    {data.coupons.filter((c) => c.affiliate_id === a.id).map((c) => (
+                      <button key={c.code} type="button" onClick={() => startCouponEdit(c)} className="rounded-lg border border-cyan-300/25 bg-cyan-300/[.06] px-3 py-2 text-xs font-bold text-cyan-100 hover:bg-cyan-300/10" title={`Editar ${c.code}`}>
+                        {c.code} · Editar
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-7">
                   {[
                     ['Acessos', a.stats?.visits || 0],
@@ -593,19 +640,21 @@ export default function AdminAffiliatesSection({ accessToken }) {
             </p>
           </div>
           <button
-            onClick={() => setShowCoupon((v) => !v)}
+            onClick={() => showCoupon ? closeCouponForm() : startCouponCreate()}
             className="rounded-xl bg-cyan-300 px-4 py-2 font-black text-black"
           >
             {showCoupon ? 'Fechar' : '+ Novo cupom'}
           </button>
         </div>
         {showCoupon && (
-          <div className="mt-4 rounded-xl bg-black/20 p-4">
+          <div ref={couponFormRef} className="mt-4 rounded-xl border border-cyan-300/20 bg-[#0b2230] p-4">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div><h4 className="font-bold text-white">{editingCouponCode ? `Editar cupom ${editingCouponCode}` : 'Novo cupom de vendedor'}</h4><p className="mt-1 text-xs text-slate-400">{editingCouponCode ? 'Altere descrição, desconto, aplicação e validade. O histórico de usos será preservado.' : 'Escolha Tudo para oferecer descontos em produtos, personalizadas e assinaturas.'}</p></div><button type="button" onClick={closeCouponForm} className="rounded-xl px-3 py-2 text-xs text-slate-300 ring-1 ring-white/10">Cancelar</button></div>
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
               <label className="text-sm text-slate-300">
                 Vendedor
                 <select
                   value={coupon.affiliate_id}
+                  disabled={Boolean(editingCouponCode)}
                   onChange={(e) =>
                     setCoupon({
                       ...coupon,
@@ -683,17 +732,12 @@ export default function AdminAffiliatesSection({ accessToken }) {
                 Aplicação
                 <select
                   value={coupon.applies_to}
-                  onChange={(e) =>
-                    setCoupon({
-                      ...coupon,
-                      applies_to: e.target.value,
-                    })
-                  }
+                  onChange={(e) => changeCouponScope(e.target.value)}
                   className="mt-1 w-full rounded-xl bg-black/30 px-3 py-2 text-white ring-1 ring-white/10"
                 >
-                  <option value="products">Produtos</option>
-                  <option value="vip">Assinatura VIP</option>
-                  <option value="both">Produtos + VIP</option>
+                  {Object.entries(SELLER_COUPON_SCOPES).map(([value, details]) => (
+                    <option key={value} value={value}>{details.label}</option>
+                  ))}
                 </select>
               </label>
               <label className="text-sm text-slate-300">
@@ -742,7 +786,7 @@ export default function AdminAffiliatesSection({ accessToken }) {
                 />
               </label>
             </div>
-            {coupon.applies_to !== 'vip' && (
+            {coupon.applies_to !== 'both' && couponAllowsCategory(coupon.applies_to, 'shop') && (
               <label className="mt-3 block text-sm text-slate-300">
                 Produtos específicos (opcional)
                 <select
@@ -766,7 +810,7 @@ export default function AdminAffiliatesSection({ accessToken }) {
                 </select>
               </label>
             )}
-            {coupon.applies_to !== 'products' && (
+            {coupon.applies_to !== 'both' && couponAllowsCategory(coupon.applies_to, 'vip') && (
               <label className="mt-3 block text-sm text-slate-300">
                 Planos VIP específicos (opcional)
                 <select
@@ -790,12 +834,23 @@ export default function AdminAffiliatesSection({ accessToken }) {
                 </select>
               </label>
             )}
+            {coupon.applies_to === 'both' && (
+              <p className="mt-3 rounded-xl border border-emerald-300/20 bg-emerald-300/[.06] p-3 text-xs leading-relaxed text-emerald-100">
+                Tudo: este cupom vale para produtos da loja, miniaturas e bustos personalizados e assinaturas. Não há restrições por produtos ou planos específicos.
+              </p>
+            )}
+            {error && <p role="alert" className="mt-3 rounded-xl border border-rose-300/25 bg-rose-400/10 p-3 text-sm text-rose-100">{error}</p>}
+            <label className="mt-4 flex items-center gap-3 text-sm text-slate-200">
+              <input type="checkbox" checked={coupon.active !== false} onChange={(e) => setCoupon({ ...coupon, active: e.target.checked })}/>
+              Cupom ativo
+            </label>
+            {editingCouponCode && <p className="mt-3 text-xs text-slate-400">Você pode alterar o código enquanto ele não tiver pedidos, resgates ou usos registrados. Depois disso, a identificação fica protegida para preservar o histórico.</p>}
             <button
               disabled={couponBusy || !coupon.affiliate_id || !coupon.code}
               onClick={saveCoupon}
-              className="mt-4 rounded-xl bg-emerald-400 px-5 py-2 font-black text-black disabled:opacity-50"
+              className="mt-4 rounded-xl bg-emerald-400 px-5 py-3 font-black text-black disabled:opacity-50"
             >
-              {couponBusy ? 'Salvando…' : 'Criar cupom'}
+              {couponBusy ? 'Salvando…' : editingCouponCode ? 'Salvar alterações do cupom' : 'Criar cupom'}
             </button>
           </div>
         )}
@@ -814,15 +869,15 @@ export default function AdminAffiliatesSection({ accessToken }) {
                     {c.discount_type === 'percent'
                       ? `${c.discount_value}%`
                       : fmt(c.discount_value)}{' '}
-                    · {c.applies_to}
+                    · {sellerCouponScopeLabel(c.applies_to)}
                   </div>
                 </div>
-                <span
-                  className={c.active ? 'text-emerald-300' : 'text-slate-500'}
-                >
-                  {c.active ? 'Ativo' : 'Inativo'} · {c.used_count || 0}/
-                  {c.max_uses || '∞'}
-                </span>
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className={c.active ? 'text-emerald-300' : 'text-slate-500'}>
+                    {c.active ? 'Ativo' : 'Inativo'} · {c.used_count || 0}/{c.max_uses || '∞'}
+                  </span>
+                  <button type="button" onClick={() => startCouponEdit(c)} className="rounded-xl border border-cyan-300/25 px-3 py-2 text-xs font-bold text-cyan-100 hover:bg-cyan-300/10">Editar cupom</button>
+                </div>
               </div>
             ))}
           </div>

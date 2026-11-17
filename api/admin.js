@@ -53,6 +53,7 @@ import {
   buildVipAreaUrl,
 } from '../server/orderLinks.js'
 import { getVipPlanById, listVipPlans } from '../server/vipPlans.js'
+import { normalizeSellerCoupon } from '../server/sellerCoupons.js'
 
 export const config = { runtime: 'nodejs' }
 
@@ -5120,7 +5121,7 @@ async function handleAffiliates(req, res) {
     sb.from('profiles').select('id,full_name,phone').order('full_name').limit(5000),
     sb.from('products').select('id,name').eq('active', true).order('name').limit(1000),
     sb.from('vip_plans').select('id,name,short_name,price_brl').order('sort_order').limit(100),
-    sb.from('coupons').select('code,affiliate_id,label,discount_type,discount_value,active,max_uses,used_count,applies_to,expires_at')
+    sb.from('coupons').select('code,affiliate_id,label,discount_type,discount_value,min_order_value,product_ids,vip_plan_ids,active,max_uses,used_count,applies_to,expires_at')
       .not('affiliate_id', 'is', null).order('code').limit(1000),
     sb.from('affiliate_withdrawal_requests')
       .select('id,affiliate_id,amount,pix_key,pix_key_type,holder_name,status,requested_at,paid_at,rejected_at,notes')
@@ -5167,29 +5168,6 @@ async function handleAffiliates(req, res) {
   })
 }
 
-function normalizeSellerCoupon(body, affiliateId) {
-  const code = String(body?.code || '').trim().toUpperCase().replace(/\s+/g, '-')
-  if (!/^[A-Z0-9_-]{3,50}$/.test(code)) throw new Error('O cupom precisa ter de 3 a 50 caracteres (letras, números, - ou _).')
-  const discountType = String(body.discount_type || 'percent')
-  if (!['percent', 'fixed_min'].includes(discountType)) throw new Error('Tipo de desconto inválido.')
-  const value = Number(body.discount_value)
-  if (!Number.isFinite(value) || value <= 0 || (discountType === 'percent' && value > 100)) {
-    throw new Error('Informe um desconto válido (percentual de até 100%).')
-  }
-  const limit = Number(body.max_uses || 100)
-  if (!Number.isInteger(limit) || limit < 1 || limit > 100000) throw new Error('Limite de usos inválido.')
-  return {
-    code, affiliate_id: affiliateId,
-    label: String(body.label || code).trim().slice(0, 160),
-    discount_type: discountType, discount_value: value,
-    min_order_value: Math.max(0, Number(body.min_order_value || 0)),
-    expires_at: body.expires_at || null, active: body.active !== false,
-    max_uses: limit, used_count: 0, source: 'affiliate',
-    applies_to: ['products','vip','both'].includes(String(body.applies_to)) ? body.applies_to : 'products',
-    product_ids: Array.isArray(body.product_ids) ? body.product_ids.map(String) : [],
-    vip_plan_ids: Array.isArray(body.vip_plan_ids) ? body.vip_plan_ids.map(String) : [],
-  }
-}
 
 async function handleSaveAffiliate(req, res) {
   const auth = await requireAdmin(req, ADMIN_LEVEL.MANAGER)
@@ -5322,10 +5300,49 @@ async function handleSaveAffiliateCoupon(req, res) {
   let payload
   try { payload = normalizeSellerCoupon(body, affiliateId) }
   catch (error) { return res.status(400).json({ error: error.message }) }
-  // Nunca reescreve um cupom existente nem zera seu histórico de usos.
+
+  const originalCode = String(body.original_code || '').trim().toUpperCase()
+  if (originalCode) {
+    // A edição mantém usados, código do vendedor, origem e histórico financeiro.
+    const existingResp = await sb.from('coupons')
+      .select('code,affiliate_id,source,used_count,max_uses').eq('code', originalCode).maybeSingle()
+    if (existingResp.error) return res.status(400).json({ error: existingResp.error.message })
+    const existing = existingResp.data
+    if (!existing || String(existing.affiliate_id) !== affiliateId || (existing.source && existing.source !== 'affiliate')) {
+      return res.status(404).json({ error: 'Cupom não encontrado para este vendedor.' })
+    }
+    if (payload.max_uses < Number(existing.used_count || 0)) {
+      return res.status(400).json({ error: 'O limite não pode ser inferior à quantidade já utilizada.' })
+    }
+    // Alterar o código após pedidos, usos ou resgates por link quebraria vínculos
+    // de compradores e históricos. Esses cupons seguem editáveis nos demais campos.
+    if (payload.code !== originalCode) {
+      if (Number(existing.used_count || 0) > 0) {
+        return res.status(409).json({ error: 'O código já foi usado. Edite a descrição e as regras ou crie outro cupom com um código novo.' })
+      }
+      const [orders, redemptions, claims] = await Promise.all([
+        sb.from('orders').select('id', { count: 'exact', head: true }).eq('coupon_code', originalCode),
+        sb.from('coupon_redemptions').select('user_id', { count: 'exact', head: true }).eq('coupon_code', originalCode),
+        sb.from('affiliate_coupon_claims').select('user_id', { count: 'exact', head: true }).eq('coupon_code', originalCode),
+      ])
+      const errors = [orders, redemptions, claims].filter(q => q.error)
+      if (errors.length) return res.status(400).json({ error: 'Não foi possível conferir o histórico do cupom antes de trocar o código.' })
+      if (Number(orders.count || 0) || Number(redemptions.count || 0) || Number(claims.count || 0)) {
+        return res.status(409).json({ error: 'Este código já aparece em pedidos ou cupons resgatados. Edite as demais configurações ou crie um novo código.' })
+      }
+    }
+    const { used_count: _used, source: _source, affiliate_id: _affiliateId, ...editable } = payload
+    const { data, error } = await sb.from('coupons').update(editable)
+      .eq('code', originalCode).eq('affiliate_id', affiliateId).select('*').maybeSingle()
+    if (error) return res.status(400).json({ error: error.message })
+    if (!data) return res.status(409).json({ error: 'Cupom alterado por outro administrador. Atualize e tente novamente.' })
+    return res.status(200).json({ coupon: data, edited: true })
+  }
+
+  // Ao criar, não sobrescreve cupons existentes e começa com contador zerado.
   const { data, error } = await sb.from('coupons').insert(payload).select('*').single()
   if (error) return res.status(400).json({ error: error.message })
-  return res.status(200).json({ coupon: data })
+  return res.status(200).json({ coupon: data, edited: false })
 }
 
 export default async function handler(req, res) {

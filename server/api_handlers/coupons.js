@@ -1,3 +1,4 @@
+import { couponAllowsCategory } from '../../shared/sellerCouponScope.js';
 import { getUserFromAuthHeader, supabaseAdmin } from '../supabase.js';
 import { getGamePeriodInfo, makeCouponCode, calcCouponDiscount } from '../couponGame.js';
 import { couponEligibleSubtotal } from '../affiliate.js';
@@ -205,7 +206,7 @@ async function handleValidate(req, res) {
     const cpfGate = await ensureCouponCpfAllowed(sb, { coupon, currentUser: user });
   const appliesTo = String(coupon.applies_to || 'products').toLowerCase();
   const isVip = orderType === 'vip';
-  const allowed = isVip ? ['vip','both'].includes(appliesTo) : ['products','both'].includes(appliesTo);
+  const allowed = couponAllowsCategory(appliesTo, isVip ? 'vip' : orderType === 'custom' ? 'custom' : 'shop');
   const allowedPlans = Array.isArray(coupon.vip_plan_ids) ? coupon.vip_plan_ids.map(String) : [];
   const allowedProducts = Array.isArray(coupon.product_ids) ? coupon.product_ids.map(String) : [];
   if (!allowed || (isVip && allowedPlans.length && !allowedPlans.includes(vipPlanId))) return res.status(400).json({ error: 'Este cupom não é válido para esta compra.' });
