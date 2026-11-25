@@ -50,3 +50,21 @@
  .cc-gallery-thumbs { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { .cc-gallery-lightbox * { animation: none !important; transition: none !important; } }
+/* Ampliação sem molduras internas: maximiza o espaço disponível para a peça. */
+.cc-gallery-backdrop { background: rgba(3, 10, 15, .94); backdrop-filter: blur(5px); }
+.cc-gallery-panel { width: min(1120px, 100%); height: min(960px, calc(100dvh - 24px)); border: 0; border-radius: 6px; background: #081820; box-shadow: none; }
+.cc-gallery-header { border: 0; min-height: 50px; padding: 6px 12px; }
+.cc-gallery-eyebrow { display: none; }
+.cc-gallery-stage { margin: 0; padding: 0; border: 0; border-radius: 0; background: #060f15; }
+.cc-gallery-close,.cc-gallery-action,.cc-gallery-zoom-value { border: 0; border-radius: 5px; background: transparent; }
+.cc-gallery-footer { padding: 6px 12px; }
+.cc-gallery-thumb { border-radius: 3px; padding: 0; background: transparent; border-color: transparent; opacity: .65; }
+.cc-gallery-thumb.is-active { opacity: 1; background: transparent; }
+@media (max-width: 639px) {
+  .cc-gallery-lightbox { padding: 0; }
+  .cc-gallery-panel { width: 100%; height: 100dvh; border-radius: 0; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .cc-gallery-action,.cc-gallery-close { width: 44px; height: 44px; }
+  .cc-gallery-zoom-value { height: 44px; }
+  .cc-gallery-footer { padding: 4px 6px; }
+  .cc-gallery-navigation,.cc-gallery-zoom { gap: 1px; }
+}

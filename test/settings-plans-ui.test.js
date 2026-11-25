@@ -11,6 +11,7 @@ let AuthProvider,
   Settings,
   Plans,
   ProductCard,
+  ProductPage,
   PromoCard,
   authClient
 const originalFetch = globalThis.fetch
@@ -156,6 +157,7 @@ async function mockFetch(input, options = {}) {
   if (
     url.pathname.endsWith('/orders') ||
     url.pathname.endsWith('/customer_reviews') ||
+    url.pathname.endsWith('/customer_reviews_public') ||
     url.pathname.endsWith('/products')
   )
     return response([])
@@ -227,6 +229,7 @@ before(async () => {
   Plans = (await import('../src/pages/VipRpgPage.jsx')).default
   ProductCard = (await import('../src/components/ProductCard.jsx')).default
   PromoCard = (await import('../src/components/PromoProductCard.jsx')).default
+  ProductPage = (await import('../src/pages/ProductPage.jsx')).default
 })
 afterEach(() => {
   cleanup()
@@ -419,62 +422,54 @@ test('exclusão abre acima das configurações, exige confirmação e Escape fec
   assert.equal(document.body.style.overflow, 'hidden')
 })
 
-test('card sem seletor separa favorito da galeria e compra a opção padrão pelo preço exibido', async () => {
+test('card abre página da peça e mantém compra com escala, sem favoritos ou informações', async () => {
   let galleryCalls = 0
   let purchase
   let view
   await act(async () => {
-    view = render(
-      withProviders(
-        h(ProductCard, {
-          p: { ...product, defaultVariant: '75mm' },
-          openGallery: () => {
-            galleryCalls += 1
-          },
-          buyNow: (_product, options) => {
-            purchase = options
-          },
-          addToCart() {},
-        })
-      )
-    )
+    view = render(withProviders(h(ProductCard, {
+      p: { ...product, defaultVariant: '75mm' },
+      openGallery: () => { galleryCalls += 1 },
+      buyNow: (_product, options) => { purchase = options },
+      addToCart() {},
+    })))
   })
-  fireEvent.click(view.getByRole('button', { name: 'Favoritar' }))
-  await waitFor(() =>
-    assert.ok(view.getByRole('button', { name: 'Remover dos favoritos' }))
-  )
-  assert.equal(
-    requests.some(
-      (request) =>
-        request.method === 'POST' &&
-        request.url.pathname.endsWith('/favorite_products')
-    ),
-    true
-  )
-  assert.equal(galleryCalls, 0)
-  fireEvent.click(
-    view.getByRole('button', { name: `Ver fotos de ${product.nome}` })
-  )
-  assert.equal(galleryCalls, 1)
-  assert.equal(Boolean(view.queryByRole('combobox')), false)
-  assert.equal(
-    view.container
-      .querySelector('.product-card-prices strong')
-      .textContent.replace(/\s+/g, ' ')
-      .trim(),
-    'R$ 180,00'
-  )
+  assert.equal(view.queryByRole('button', { name: 'Favoritar' }), null)
+  assert.equal(view.container.querySelector('.product-card-details'), null)
+  assert.equal(view.queryByRole('combobox'), null)
+  assert.equal(view.container.querySelector('.product-card-prices strong').textContent.replace(/\s+/g, ' ').trim(), 'R$ 180,00')
   fireEvent.click(view.getByRole('button', { name: 'Comprar' }))
+  fireEvent.click(view.getByRole('radio', { name: /75mm/ }))
+  fireEvent.click(view.getByRole('button', { name: /Comprar agora/ }))
   assert.deepEqual(purchase, { escala: '75mm', unitPrice: 180 })
-  assert.equal(
-    view
-      .getByRole('link', { name: `Ver descrição de ${product.nome}` })
-      .getAttribute('href'),
-    `/p/${product.slug}`
-  )
+  const link = view.getByRole('link', { name: `Ver produto ${product.nome}` })
+  assert.equal(link.getAttribute('href'), `/p/${product.slug}`)
+  fireEvent.click(link)
+  assert.equal(window.location.pathname, `/p/${product.slug}`)
+  assert.equal(galleryCalls, 0)
 })
 
-test('card promocional adiciona a opção padrão com desconto e sem seletor no card', async () => {
+test('página individual permite favoritar e ampliar a foto selecionada', async () => {
+  let view
+  let selected = -1
+  await act(async () => {
+    view = render(withProviders(h(ProductPage, {
+      product: { ...product, imgs: ['/dragon.webp', '/dragon-side.webp'] },
+      slug: product.slug,
+      loading: false,
+      openGallery: (_product, index) => { selected = index },
+    })))
+  })
+  fireEvent.click(view.getByRole('button', { name: 'Favoritar' }))
+  await waitFor(() => assert.ok(view.getByRole('button', { name: 'Remover dos favoritos' })))
+  await waitFor(() => assert.equal(requests.some(request => request.method === 'POST' && request.url.pathname.endsWith('/favorite_products')), true))
+  fireEvent.click(view.getByRole('button', { name: 'Próxima foto' }))
+  assert.equal(view.getByRole('button', { name: 'Ver imagem 2 de 2' }).getAttribute('aria-pressed'), 'true')
+  fireEvent.click(view.getByRole('button', { name: /Ampliar imagem 2 de 2/ }))
+  assert.equal(selected, 1)
+})
+
+test('card promocional adiciona a escala escolhida com desconto e sem seletor no card', async () => {
   let cartItem
   let view
   await act(async () => {
@@ -494,6 +489,8 @@ test('card promocional adiciona a opção padrão com desconto e sem seletor no 
   fireEvent.click(
     view.getByRole('button', { name: `Adicionar ${product.nome} ao carrinho` })
   )
+  fireEvent.click(view.getByRole('radio', { name: /32mm/ }))
+  fireEvent.click(view.getByRole('button', { name: /Adicionar ao carrinho/ }))
   assert.deepEqual(cartItem, { escala: '32mm', unitPrice: 90 })
   assert.equal(
     Boolean(view.queryByRole('button', { name: 'Favoritar' })),
@@ -501,14 +498,14 @@ test('card promocional adiciona a opção padrão com desconto e sem seletor no 
   )
 })
 
-test('Detalhes abre a página da peça e preserva a posição de retorno ao catálogo', async () => {
+test('Nome do produto abre a página da peça e preserva a posição de retorno ao catálogo', async () => {
   window.history.replaceState(null, '', '/catalogo?tipo=rpg')
   let view
   await act(async () => {
     view = render(withProviders(h(ProductCard, { p: product })))
   })
   fireEvent.click(
-    view.getByRole('link', { name: `Ver descrição de ${product.nome}` })
+    view.getByRole('link', { name: product.nome })
   )
   assert.equal(window.location.pathname, `/p/${product.slug}`)
   const saved = readProductReturnState()
@@ -534,7 +531,7 @@ test('peça sem link próprio abre descrição sem disparar galeria e fecha com 
   })
   assert.equal(view.getByRole('button', { name: 'Esgotado' }).disabled, true)
   fireEvent.click(
-    view.getByRole('button', { name: `Ver descrição de ${product.nome}` })
+    view.getByRole('button', { name: `Ver produto ${product.nome}` })
   )
   assert.ok(view.getByRole('dialog', { name: product.nome }))
   assert.ok(view.getByText(description))

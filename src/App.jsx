@@ -1783,6 +1783,7 @@ export default function App() {
           addToCart={addToCart}
           buyNow={buyNow}
           openGallery={openGallery}
+          onRequireLogin={requireLogin}
         />
       )
     }

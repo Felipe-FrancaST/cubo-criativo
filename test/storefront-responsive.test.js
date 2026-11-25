@@ -8,6 +8,8 @@ const stock = read('../src/pages/StockPage.jsx')
 const grid = read('../src/components/StorefrontProductGrid.jsx')
 const card = read('../src/components/ProductCard.jsx')
 const css = read('../src/styles/storefront.css')
+const detail = read('../src/pages/ProductPage.jsx')
+const cleanCSS = read('../src/styles/product-catalog-clean.css')
 const entry = read('../src/main.jsx')
 
 test('catálogo e pronta entrega compartilham grade responsiva isolada', () => {
@@ -24,12 +26,16 @@ test('catálogo e pronta entrega compartilham grade responsiva isolada', () => {
   assert.match(css, /grid-template-columns: minmax\(0, 1fr\)/)
 })
 
-test('cards mantêm compra, favoritos e escolha de escala', () => {
+test('cards mantêm compra e escolha de escala; favoritos ficam no detalhe', () => {
   assert.match(grid, /<ProductCard/)
   assert.match(grid, /storefrontContext=\{context\}/)
   assert.match(card, /<ScaleSelectionModal/)
   assert.match(card, /needsScale/)
-  assert.match(card, /toggleFavorite/)
+  assert.doesNotMatch(card, /toggleFavorite|product-card-favorite|product-card-details/)
+  assert.match(detail, /toggleFavorite/)
+  assert.match(detail, /product-page-favorite/)
+  assert.match(card, /className="product-card-image" href=/)
+  assert.match(cleanCSS, /aspect-ratio: 4 \/ 5/)
   assert.match(card, /buyNow\?\.\(p, choice\)/)
   assert.match(card, /addToCart\?\.\(p, chosen\)/)
 })

@@ -36,7 +36,7 @@ test('página de promoções usa grid de cartões consistente e não altera as c
   assert.match(offers, /<PromoProductCard/)
   assert.match(offers, /onRequireLogin={onRequireLogin}/)
   assert.match(promoCard, /storefrontContext="offers"/)
-  assert.match(promoCard, /promotion showFavorite={false}/)
+  assert.match(promoCard, /promotion storefrontContext="offers"/)
   assert.match(app, /<PromocoesPage[\s\S]*?onRequireLogin=\{/)
 })
 

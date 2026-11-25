@@ -5,8 +5,6 @@ import {
   getVariantPricingCents,
   percentOffCents,
 } from '../lib/pricing.js'
-import { useFavorites } from '../state/FavoritesProvider.jsx'
-import { useAuth } from '../auth/AuthProvider.jsx'
 import { navigateClient, saveProductReturnState } from '../lib/navigation.js'
 import Modal from './Modal.jsx'
 import ScaleSelectionModal from './ScaleSelectionModal.jsx'
@@ -16,14 +14,9 @@ export default function ProductCard({
   p,
   addToCart,
   buyNow,
-  openGallery,
-  onRequireLogin,
   promotion = false,
-  showFavorite = true,
   storefrontContext = '',
 }) {
-  const { user } = useAuth()
-  const { isFavorite, toggleFavorite } = useFavorites()
   const defaultIndex = Math.max(
     0,
     p.variants?.findIndex((variant) => variant.label === p.defaultVariant) ?? 0
@@ -50,7 +43,6 @@ export default function ProductCard({
   const needsScale = requiresScaleChoice(p)
   const outOfStock =
     typeof p.stock === 'number' && Number.isFinite(p.stock) && p.stock <= 0
-  const favorite = isFavorite(p.id)
 
   function confirmAdd(chosen) {
     addToCart?.(p, chosen)
@@ -81,6 +73,14 @@ export default function ProductCard({
     navigateClient(`/p/${encodeURIComponent(p.slug)}`)
   }
 
+  function renderImage() {
+    return imgError || !p.img ? (
+      <span className="product-card-image-fallback">Imagem indisponível</span>
+    ) : (
+      <img src={p.img} alt={p.nome} loading="lazy" decoding="async" onError={() => setImgError(true)} />
+    )
+  }
+
   return (
     <>
       <article
@@ -89,82 +89,26 @@ export default function ProductCard({
         className={`product-card compact-product-card ${promotion ? 'promo-product-card' : ''} ${storefrontContext ? `storefront-card storefront-card-${storefrontContext}` : ''}`}
       >
         <div className="product-card-media">
-          <button
-            type="button"
-            className="product-card-image"
-            onClick={() => openGallery?.(p)}
-            aria-label={`Ver fotos de ${p.nome || 'produto'}`}
-          >
-            {imgError ? (
-              <span className="product-card-image-fallback">
-                Imagem indisponível
-              </span>
-            ) : (
-              <img
-                src={p.img}
-                alt={p.nome}
-                loading="lazy"
-                decoding="async"
-                onError={() => setImgError(true)}
-              />
-            )}
-          </button>
-          {showFavorite && (
-            <button
-              type="button"
-              className={`product-card-favorite ${favorite ? 'is-favorite' : ''}`}
-              aria-pressed={favorite}
-              aria-label={favorite ? 'Remover dos favoritos' : 'Favoritar'}
-              onClick={async () => {
-                const result = await toggleFavorite(p.id)
-                if (!result.ok && !user)
-                  onRequireLogin?.('Faça login para favoritar.')
-              }}
-            >
-              <span aria-hidden="true">{favorite ? '♥' : '♡'}</span>
+          {p.slug ? (
+            <a className="product-card-image" href={`/p/${encodeURIComponent(p.slug)}`} onClick={openProduct} aria-label={`Ver produto ${p.nome}`}>
+              {renderImage()}
+            </a>
+          ) : (
+            <button type="button" className="product-card-image" onClick={() => setDetailsOpen(true)} aria-label={`Ver produto ${p.nome}`}>
+              {renderImage()}
             </button>
           )}
           {(off > 0 || promotion) && (
-            <span className="product-card-offer">
-              {off > 0 ? `−${off}%` : 'Promoção'}
-            </span>
-          )}
-          {p.slug ? (
-            <a
-              className="product-card-details"
-              href={`/p/${encodeURIComponent(p.slug)}`}
-              onClick={openProduct}
-              aria-label={`Ver descrição de ${p.nome}`}
-              title="Descrição e opções da peça"
-            >
-              <span className="material-icons" aria-hidden="true">
-                info_outline
-              </span>
-              <span className="product-card-details-label">Detalhes</span>
-            </a>
-          ) : (
-            <button
-              type="button"
-              className="product-card-details"
-              onClick={() => setDetailsOpen(true)}
-              aria-label={`Ver descrição de ${p.nome}`}
-              title="Descrição da peça"
-            >
-              <span className="material-icons" aria-hidden="true">
-                info_outline
-              </span>
-              <span className="product-card-details-label">Detalhes</span>
-            </button>
+            <span className="product-card-offer">{off > 0 ? `−${off}%` : 'Promoção'}</span>
           )}
         </div>
         <div className="product-card-main">
-          {storefrontContext ? (
-            <p className="storefront-card-kicker">
-              {storefrontContext === 'stock' ? 'Pronta entrega' : (p._typeLabel || 'Colecionáveis')}
-            </p>
-          ) : null}
           <h3 title={p.nome} className="product-card-title">
-            {p.nome}
+            {p.slug ? (
+              <a href={`/p/${encodeURIComponent(p.slug)}`} onClick={openProduct}>{p.nome}</a>
+            ) : (
+              <button type="button" onClick={() => setDetailsOpen(true)}>{p.nome}</button>
+            )}
           </h3>
           <div className="product-card-prices">
             <strong className={pricing.showStrike ? 'is-discounted' : ''}>

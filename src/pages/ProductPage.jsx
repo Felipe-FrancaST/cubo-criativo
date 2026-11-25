@@ -4,6 +4,8 @@ import { fmtBRL, centsToBRL, getVariantPricingCents, percentOffCents } from "../
 import { supabase } from "../lib/supabaseClient.js";
 import ScaleSelectionModal from "../components/ScaleSelectionModal.jsx";
 import { requiresScaleChoice } from "../lib/scaleSelection.js";
+import { useFavorites } from "../state/FavoritesProvider.jsx";
+import { useAuth } from "../auth/AuthProvider.jsx";
 
 function uniqueImages(product) {
   return Array.from(
@@ -15,8 +17,15 @@ function uniqueImages(product) {
   );
 }
 
-export default function ProductPage({ slug, product, loading, onBack, addToCart, buyNow, openGallery }) {
-  const defaultIndex = Math.max(0, product?.variants?.findIndex((v) => v.label === product.defaultVariant));
+export default function ProductPage({ slug, product, loading, onBack, addToCart, buyNow, openGallery, onRequireLogin }) {
+  const { user } = useAuth();
+  const { isFavorite, toggleFavorite } = useFavorites();
+  const [favoriteBusy, setFavoriteBusy] = React.useState(false);
+  const [favoriteError, setFavoriteError] = React.useState("");
+  const touchStart = React.useRef(null);
+  const swipeHandled = React.useRef(false);
+  const activeThumb = React.useRef(null);
+  const defaultIndex = Math.max(0, product?.variants?.findIndex((v) => v.label === product.defaultVariant) ?? 0);
   const [selIndex, setSelIndex] = React.useState(defaultIndex);
   const [selectedExplicitly, setSelectedExplicitly] = React.useState(false);
   const [scaleAction, setScaleAction] = React.useState(null);
@@ -32,6 +41,9 @@ export default function ProductPage({ slug, product, loading, onBack, addToCart,
     setScaleAction(null);
     setActiveImageIndex(0);
     setImgErrorMap({});
+    setFavoriteError("");
+    touchStart.current = null;
+    swipeHandled.current = false;
   }, [defaultIndex, slug]);
 
   React.useEffect(() => {
@@ -89,6 +101,16 @@ export default function ProductPage({ slug, product, loading, onBack, addToCart,
     };
   }, [product?.id, product?.slug, product?.nome, slug]);
 
+  React.useEffect(() => {
+    const thumb = activeThumb.current;
+    const strip = thumb?.parentElement;
+    if (!thumb || !strip) return;
+    const left = thumb.offsetLeft;
+    if (left < strip.scrollLeft) strip.scrollLeft = left;
+    else if (left + thumb.offsetWidth > strip.scrollLeft + strip.clientWidth)
+      strip.scrollLeft = left + thumb.offsetWidth - strip.clientWidth;
+  }, [activeImageIndex]);
+
   if (loading) {
     return (
       <main className="product-page-shell product-page-shell--state">
@@ -129,6 +151,21 @@ export default function ProductPage({ slug, product, loading, onBack, addToCart,
   const visibleTags = Array.isArray(product?.tags) ? product.tags.slice(0, 12) : [];
   const statusLabel = outOfStock ? "Esgotado" : "Disponível";
 
+  const favorite = isFavorite(product.id);
+  async function handleFavorite() {
+    if (!user) { onRequireLogin?.("Faça login para favoritar."); return; }
+    if (favoriteBusy) return;
+    setFavoriteBusy(true);
+    setFavoriteError("");
+    try {
+      const result = await toggleFavorite(product.id);
+      if (!result.ok) setFavoriteError("Não foi possível atualizar os favoritos. Tente novamente.");
+    } finally { setFavoriteBusy(false); }
+  }
+  function changeImage(delta) {
+    if (galleryImages.length > 1)
+      setActiveImageIndex((index) => (index + delta + galleryImages.length) % galleryImages.length);
+  }
   function startPurchase(action) {
     if (needsScale) {
       setScaleAction(action);
@@ -155,35 +192,51 @@ export default function ProductPage({ slug, product, loading, onBack, addToCart,
         <div className="product-page-panel">
           <div className="product-page-grid">
             <section className="product-gallery-card">
-              <div
-                role="button"
-                tabIndex={0}
-                className="product-gallery-stage"
-                onClick={() => openGallery?.(product, activeImageIndex)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    openGallery?.(product, activeImageIndex);
-                  }
-                }}
-                aria-label={`Ver fotos de ${product.nome}`}
-              >
-                {!imgErrorMap[activeImage] ? (
-                  <img
-                    src={activeImage}
-                    alt={product.nome}
-                    loading="eager"
-                    decoding="async"
-                    className="product-gallery-image"
-                    onError={() => setImgErrorMap((current) => ({ ...current, [activeImage]: true }))}
-                  />
-                ) : (
-                  <div className="product-gallery-missing">Imagem indisponível.</div>
-                )}
-                <div className="product-gallery-badges">
-                  {off > 0 ? <span className="product-badge product-badge--promo">-{off}%</span> : null}
-                  <span className="product-badge product-badge--neutral">Toque para ampliar</span>
-                </div>
+              <div className="product-gallery-stage">
+                <button
+                  type="button"
+                  className="product-gallery-open"
+                  onClick={() => {
+                    if (!swipeHandled.current && galleryImages.length) openGallery?.(product, activeImageIndex);
+                    swipeHandled.current = false;
+                  }}
+                  onTouchStart={(event) => {
+                    swipeHandled.current = false;
+                    touchStart.current = event.touches.length === 1 ? { x: event.touches[0].clientX, y: event.touches[0].clientY } : null;
+                  }}
+                  onTouchEnd={(event) => {
+                    const start = touchStart.current;
+                    touchStart.current = null;
+                    if (!start || !event.changedTouches.length || galleryImages.length < 2) return;
+                    const dx = event.changedTouches[0].clientX - start.x;
+                    const dy = event.changedTouches[0].clientY - start.y;
+                    if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.4) {
+                      swipeHandled.current = true;
+                      changeImage(dx < 0 ? 1 : -1);
+                    }
+                  }}
+                  onTouchCancel={() => { touchStart.current = null; swipeHandled.current = false; }}
+                  onKeyDown={(event) => {
+                    if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+                      event.preventDefault();
+                      changeImage(event.key === "ArrowRight" ? 1 : -1);
+                    }
+                  }}
+                  aria-label={`Ampliar imagem ${activeImageIndex + 1} de ${galleryImages.length} de ${product.nome}`}
+                  disabled={!galleryImages.length}
+                >
+                  {activeImage && !imgErrorMap[activeImage] ? (
+                    <img src={activeImage} alt={product.nome} loading="eager" decoding="async" className="product-gallery-image"
+                      onError={() => setImgErrorMap((current) => ({ ...current, [activeImage]: true }))} />
+                  ) : <span className="product-gallery-missing">Imagem indisponível.</span>}
+                  {galleryImages.length > 0 && <span className="product-gallery-expand material-icons" aria-hidden="true">zoom_in</span>}
+                </button>
+                {off > 0 && <span className="product-badge product-badge--promo product-gallery-discount">-{off}%</span>}
+                {galleryImages.length > 1 && <>
+                  <button type="button" className="product-gallery-arrow is-prev" aria-label="Foto anterior" onClick={() => changeImage(-1)}><span className="material-icons" aria-hidden="true">chevron_left</span></button>
+                  <button type="button" className="product-gallery-arrow is-next" aria-label="Próxima foto" onClick={() => changeImage(1)}><span className="material-icons" aria-hidden="true">chevron_right</span></button>
+                  <span className="product-gallery-count" aria-live="polite">{activeImageIndex + 1} / {galleryImages.length}</span>
+                </>}
               </div>
 
               {galleryImages.length > 1 ? (
@@ -192,6 +245,7 @@ export default function ProductPage({ slug, product, loading, onBack, addToCart,
                     <button
                       type="button"
                       key={`${image}-${index}`}
+                      ref={index === activeImageIndex ? activeThumb : null}
                       className={`product-gallery-thumb ${index === activeImageIndex ? "is-active" : ""}`}
                       onClick={() => setActiveImageIndex(index)}
                       aria-label={`Ver imagem ${index + 1} de ${galleryImages.length}`}
@@ -207,12 +261,14 @@ export default function ProductPage({ slug, product, loading, onBack, addToCart,
             <aside className="product-summary-card">
               <div className="product-summary-head">
                 <div className="product-summary-text">
-                  <p className="product-summary-kicker">Produto Cubo Criativo</p>
                   <h1>{product.nome}</h1>
                 </div>
-                <span className={`product-status-chip ${outOfStock ? "is-out" : ""}`}>{statusLabel}</span>
+                <button type="button" className={`product-page-favorite ${favorite ? "is-favorite" : ""}`} aria-pressed={favorite} aria-label={favorite ? "Remover dos favoritos" : "Favoritar"} title={favorite ? "Remover dos favoritos" : "Favoritar"} onClick={handleFavorite} disabled={favoriteBusy}>
+                  <span className="material-icons" aria-hidden="true">{favorite ? "favorite" : "favorite_border"}</span>
+                </button>
               </div>
 
+              {favoriteError && <p className="product-favorite-error" role="status">{favoriteError}</p>}
               <div className="product-price-block">
                 {pricing.showStrike && originalPrice > currentPrice ? (
                   <>
@@ -225,20 +281,8 @@ export default function ProductPage({ slug, product, loading, onBack, addToCart,
                 ) : (
                   <strong className="product-price-current">{fmtBRL(currentPrice)}</strong>
                 )}
-                <p className="product-price-note">Preço referente à peça selecionada, com acabamento conforme o anúncio.</p>
+                <span className={`product-status-chip ${outOfStock ? "is-out" : ""}`}>{statusLabel}</span>
               </div>
-
-              {product?.descricao ? (
-                <div className="product-copy-card">
-                  <h2>Descrição</h2>
-                  <p>{product.descricao}</p>
-                </div>
-              ) : (
-                <div className="product-copy-card">
-                  <h2>Descrição</h2>
-                  <p>Miniatura em resina com pintura artística. Peça colecionável preparada para envio em todo o Brasil.</p>
-                </div>
-              )}
 
               {hasVariants ? (
                 <div className="product-option-card">
@@ -284,6 +328,18 @@ export default function ProductPage({ slug, product, loading, onBack, addToCart,
                   {outOfStock ? "Esgotado" : "Comprar agora"}
                 </button>
               </div>
+
+              {product?.descricao ? (
+                <div className="product-copy-card">
+                  <h2>Descrição</h2>
+                  <p>{product.descricao}</p>
+                </div>
+              ) : (
+                <div className="product-copy-card">
+                  <h2>Descrição</h2>
+                  <p>A descrição desta peça ainda não foi disponibilizada.</p>
+                </div>
+              )}
 
               {visibleTags.length ? (
                 <div className="product-tags-wrap">

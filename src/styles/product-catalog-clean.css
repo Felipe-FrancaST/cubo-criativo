@@ -1,0 +1,119 @@
+/* Vitrine editorial: a fotografia é o elemento principal, sem moldura de cartão. */
+.site-shell .product-card.compact-product-card {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+  transform: none;
+  transition: none;
+}
+.site-shell .product-card.compact-product-card .product-card-media {
+  aspect-ratio: 4 / 5;
+  border: 0;
+  border-radius: 3px;
+  overflow: hidden;
+  background: #0a1b25;
+}
+.site-shell .product-card.compact-product-card .product-card-image {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.site-shell .product-card.compact-product-card .product-card-image img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+  transition: transform .25s ease;
+}
+.site-shell .product-card.compact-product-card .product-card-offer {
+  pointer-events: none;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.site-shell .product-card.compact-product-card .product-card-main {
+  padding: 12px 2px 0;
+  gap: 0;
+}
+.site-shell .product-card.compact-product-card .product-card-title {
+  display: block;
+  overflow: visible;
+  min-height: 2.8em;
+  font-size: clamp(15px, 1.4vw, 18px);
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0;
+  color: #eff8fa;
+  overflow-wrap: anywhere;
+}
+.site-shell .product-card.compact-product-card .product-card-title :is(a, button) {
+  display: inline;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  min-height: 0;
+  text-decoration: none;
+}
+.site-shell .product-card.compact-product-card .product-card-prices {
+  min-height: 0;
+  margin-top: 8px;
+  gap: 3px 8px;
+}
+.site-shell .product-card.compact-product-card .product-card-prices strong {
+  font-size: clamp(16px, 1.6vw, 21px);
+  font-weight: 750;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.site-shell .product-card.compact-product-card .product-card-main .product-card-actions {
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 8px;
+  padding-top: 8px;
+  margin-top: auto;
+  align-items: center;
+}
+.site-shell .product-card.compact-product-card .product-card-main .product-card-actions.is-unavailable {
+  grid-template-columns: 1fr;
+}
+.site-shell .product-card.compact-product-card .product-card-actions button {
+  min-height: 44px;
+  border-radius: 5px;
+  padding: 5px 3px;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  color: #a6eee7;
+  font-size: 13px;
+  font-weight: 600;
+}
+.site-shell .product-card.compact-product-card .product-card-add {
+  border: 1px solid rgba(166, 207, 220, .19);
+  color: #d3e7ec;
+}
+.site-shell .product-card.compact-product-card .product-card-add.is-added { color: #9af3e9; }
+.site-shell .product-card.compact-product-card .product-card-buy { text-align: left; }
+.site-shell .product-card.compact-product-card .product-card-buy:disabled { color: #b3c5cb; opacity: .8; }
+.site-shell .storefront-product-grid { column-gap: clamp(14px, 2vw, 28px); row-gap: clamp(24px, 3vw, 44px); }
+.site-shell .storefront-skeleton { border: 0; border-radius: 3px; background: transparent; box-shadow: none; }
+.site-shell .storefront-skeleton-image { aspect-ratio: 4 / 5; }
+@media (hover: hover) {
+  .site-shell .product-card.compact-product-card .product-card-image:hover img { transform: scale(1.025); }
+  .site-shell .product-card.compact-product-card .product-card-title :is(a, button):hover { color: #a6eee7; }
+  .site-shell .product-card.compact-product-card .product-card-buy:not(:disabled):hover { text-decoration: underline; }
+}
+@media (max-width: 639px) {
+  .site-shell .storefront-product-grid { column-gap: 12px; row-gap: 26px; }
+  .site-shell .product-card.compact-product-card .product-card-main { padding: 10px 1px 0; }
+  .site-shell .product-card.compact-product-card .product-card-title { font-size: 14px; }
+  .site-shell .product-card.compact-product-card .product-card-prices strong { font-size: 17px; }
+  .site-shell .product-card.compact-product-card .product-card-prices del { font-size: 11px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .site-shell .product-card.compact-product-card .product-card-image img { transition: none; }
+  .site-shell .product-card.compact-product-card .product-card-image:hover img { transform: none; }
+}
