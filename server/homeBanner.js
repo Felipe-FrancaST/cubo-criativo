@@ -2,15 +2,10 @@ import { randomUUID } from 'node:crypto'
 import { supabaseAdmin } from './supabase.js'
 import { requireAdmin, ADMIN_LEVEL } from './admin/adminAuth.js'
 
-const BUCKET = 'site-assets'
-const CONFIG_PATH = 'home-banners/config.json'
+import { BUCKET, CONFIG_PATH, DEFAULT_BANNER, missingStorageObject, resolvePublicBanner, readAdminBanner } from './homeBannerRead.js'
+export { DEFAULT_BANNER } from './homeBannerRead.js'
 const TYPES = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }
 export const MAX_BANNER_BYTES = 8 * 1024 * 1024
-export const DEFAULT_BANNER = {
-  image_url: '/images/banner_base_pc.jpg',
-  mobile_image_url: '/images/banner_base.jpg',
-}
-
 export function validBannerUrl(value, origin = process.env.SUPABASE_URL) {
   if (Object.values(DEFAULT_BANNER).includes(value)) return true
   try {
@@ -29,29 +24,6 @@ export function validBannerUrl(value, origin = process.env.SUPABASE_URL) {
     return false
   }
 }
-function missing(error) {
-  return (
-    [400, 404].includes(Number(error?.statusCode || error?.status)) ||
-    /not found|does not exist/i.test(String(error?.message || ''))
-  )
-}
-async function readBanner(sb) {
-  const { data, error } = await sb.storage.from(BUCKET).download(CONFIG_PATH)
-  if (error) {
-    if (missing(error)) return null
-    throw error
-  }
-  const config = JSON.parse(await data.text())
-  if (
-    ![config.image_url, config.mobile_image_url].every(
-      (value) =>
-        Object.values(DEFAULT_BANNER).includes(value) ||
-        /^https:\/\//i.test(String(value))
-    )
-  )
-    throw new Error('Configuração de banner inválida.')
-  return config
-}
 async function ensureBucket(sb) {
   const { data, error } = await sb.storage.getBucket(BUCKET)
   if (data) {
@@ -61,7 +33,7 @@ async function ensureBucket(sb) {
       )
     return
   }
-  if (error && !missing(error)) throw error
+  if (error && !missingStorageObject(error)) throw error
   const created = await sb.storage.createBucket(BUCKET, {
     public: true,
     fileSizeLimit: MAX_BANNER_BYTES,
@@ -77,17 +49,12 @@ async function body(req) {
   if (typeof req.body === 'string') return JSON.parse(req.body)
   return req.body || {}
 }
-export async function handlePublicHomeBanner(req, res) {
+export async function handlePublicHomeBanner(req, res, { getClient = supabaseAdmin } = {}) {
   if (req.method !== 'GET')
     return res.status(405).json({ error: 'Method not allowed' })
   res.setHeader('Cache-Control', 'no-store')
-  try {
-    return res.status(200).json({ banner: await readBanner(supabaseAdmin()) })
-  } catch {
-    return res
-      .status(503)
-      .json({ error: 'Não foi possível carregar o banner.' })
-  }
+  // A home é capaz de exibir o banner alternativo mesmo quando o storage falha.
+  return res.status(200).json(await resolvePublicBanner(getClient))
 }
 export async function handleAdminHomeBanner(
   req,
@@ -102,23 +69,7 @@ export async function handleAdminHomeBanner(
   res.setHeader('Cache-Control', 'no-store')
   const sb = getClient()
   if (req.method === 'GET') {
-    let config = await readBanner(sb)
-    if (!config) {
-      // Start from the same legacy image the home currently displays.
-      const now = new Date().toISOString()
-      const legacy = await sb
-        .from('home_banners')
-        .select('image_url,mobile_image_url')
-        .eq('is_active', true)
-        .or(`starts_at.is.null,starts_at.lte.${now}`)
-        .or(`ends_at.is.null,ends_at.gte.${now}`)
-        .order('sort_order', { ascending: true })
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-      config = { ...DEFAULT_BANNER, ...(legacy.data || {}) }
-    }
-    return res.status(200).json({ banner: config })
+    return res.status(200).json({ banner: await readAdminBanner(sb) })
   }
   const payload = await body(req)
   if (payload.operation === 'upload') {
@@ -148,21 +99,7 @@ export async function handleAdminHomeBanner(
   if (payload.operation !== 'save')
     return res.status(400).json({ error: 'Operação inválida.' })
   // Permit existing legacy values only if unchanged; new values must be our uploaded images.
-  let previous = await readBanner(sb)
-  if (!previous) {
-    const now = new Date().toISOString()
-    const legacy = await sb
-      .from('home_banners')
-      .select('image_url,mobile_image_url')
-      .eq('is_active', true)
-      .or(`starts_at.is.null,starts_at.lte.${now}`)
-      .or(`ends_at.is.null,ends_at.gte.${now}`)
-      .order('sort_order', { ascending: true })
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-    previous = { ...DEFAULT_BANNER, ...(legacy.data || {}) }
-  }
+  const previous = await readAdminBanner(sb)
   const config = {}
   for (const key of ['image_url', 'mobile_image_url']) {
     const value = String(payload[key] || DEFAULT_BANNER[key]).trim()

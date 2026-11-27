@@ -43,9 +43,30 @@ export function getAffiliateCheckoutContext() {
   return { affiliate_slug: valid ? String(a.slug || '').trim() : '', visitor_id: getAffiliateVisitorId() };
 }
 
-export function getPendingAffiliateReferral() {
+// O marcador é somente uma otimização local; o servidor continua validando a comissão.
+export function getPendingAffiliateReferral(userId) {
   const a = read() || {};
   const valid = Date.parse(a.expires_at || '') > Date.now();
-  if (!valid || !a.slug) return null;
-  return { affiliate_slug: String(a.slug), visitor_id: getAffiliateVisitorId() };
+  if (!valid || !a.slug || (userId && Array.isArray(a.resolved_users) && a.resolved_users.includes(userId))) return null;
+  return { affiliate_slug: String(a.slug), visitor_id: a.visitor_id || getAffiliateVisitorId(), expires_at: a.expires_at };
+}
+
+export function resolvePendingAffiliateReferral(referral, userId, result) {
+  const a = read();
+  if (!a || !referral || a.slug !== referral.affiliate_slug ||
+      a.expires_at !== referral.expires_at ||
+      (a.visitor_id || getAffiliateVisitorId()) !== referral.visitor_id) return false;
+  if (result.ok === true || result.reason === 'self_referral') {
+    // Não apagar a atribuição usada pelo checkout nem impedir outra conta de resgatar.
+    const users = Array.isArray(a.resolved_users) ? a.resolved_users : [];
+    saveAffiliateAttribution({ ...a, resolved_users: [...new Set([...users, userId])] });
+    return true;
+  }
+  if (result.ok === false && ['unavailable', 'invalid_visitor', 'expired_or_missing'].includes(result.reason)) {
+    memoryAttribution = null;
+    try { localStorage.removeItem(STORAGE_KEY); } catch {}
+    setCookie(STORAGE_KEY, '', 0);
+    return true;
+  }
+  return false;
 }

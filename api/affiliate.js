@@ -101,7 +101,11 @@ async function handleClaimReferral(req, res, context) {
     userId: context.user.id, visitorId: body.visitor_id,
     slug: normalizeAffiliateSlug(body.affiliate_slug),
   });
-  return result.ok ? res.status(200).json(result) : problem(res, result.status || 400, result.error);
+  // Uma tentativa de resgate processada pode ser recusada por regra de negócio.
+  // Não confundir isso com uma rota inexistente ou uma falha do banco.
+  res.setHeader('Cache-Control', 'private, no-store');
+  if (result.ok || result.reason) return res.status(200).json(result);
+  return problem(res, result.status || 400, result.error);
 }
 
 async function handleWithdrawal(req, res, context) {

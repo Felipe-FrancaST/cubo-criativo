@@ -33,7 +33,8 @@ export async function getAffiliateById(sb, id) {
 
 export async function getAffiliateAttribution(sb, { visitorId, affiliateId, now = new Date() }) {
   if (!visitorId || !affiliateId) return null;
-  const { data } = await sb.from('affiliate_attributions').select('id,affiliate_id,visitor_id,first_visit_at,last_visit_at,expires_at').eq('visitor_id', visitorId).eq('affiliate_id', affiliateId).maybeSingle();
+  const { data, error } = await sb.from('affiliate_attributions').select('id,affiliate_id,visitor_id,first_visit_at,last_visit_at,expires_at').eq('visitor_id', visitorId).eq('affiliate_id', affiliateId).maybeSingle();
+  if (error) throw error; // Uma falha temporária não invalida uma indicação real.
   if (!data) return null;
   const expires = data.expires_at ? new Date(data.expires_at).getTime() : 0;
   if (expires && expires <= now.getTime()) return null;
@@ -59,12 +60,12 @@ export async function getAffiliateWelcomeCoupon(sb, affiliateId) {
 // de navegador/dispositivo depois que o cliente entrou na sua conta.
 export async function claimAffiliateReferral(sb, { userId, visitorId, slug }) {
   const affiliate = await getActiveAffiliateBySlug(sb, slug);
-  if (!affiliate) return { ok: false, status: 404, error: 'Link de vendedor indisponível.' };
-  if (affiliate.user_id === userId) return { ok: false, status: 403, error: 'Você não pode resgatar seu próprio link.' };
+  if (!affiliate) return { ok: false, status: 404, reason: 'unavailable', error: 'Link de vendedor indisponível.' };
+  if (affiliate.user_id === userId) return { ok: false, status: 403, reason: 'self_referral', error: 'Você não pode resgatar seu próprio link.' };
   const visitor = String(visitorId || '').trim();
-  if (!/^[a-zA-Z0-9_-]{8,120}$/.test(visitor)) return { ok: false, status: 400, error: 'Identificador de visita inválido.' };
+  if (!/^[a-zA-Z0-9_-]{8,120}$/.test(visitor)) return { ok: false, status: 400, reason: 'invalid_visitor', error: 'Identificador de visita inválido.' };
   const attribution = await getAffiliateAttribution(sb, { visitorId: visitor, affiliateId: affiliate.id });
-  if (!attribution) return { ok: false, status: 409, error: 'A indicação expirou ou não foi registrada. Abra novamente o link do vendedor.' };
+  if (!attribution) return { ok: false, status: 409, reason: 'expired_or_missing', error: 'A indicação expirou ou não foi registrada. Abra novamente o link do vendedor.' };
   const { data: current, error: readError } = await sb.from('affiliate_user_attributions')
     .select('last_visit_at').eq('user_id', userId).maybeSingle();
   if (readError) throw readError;

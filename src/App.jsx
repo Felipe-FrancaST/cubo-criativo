@@ -70,6 +70,7 @@ import {
   getAffiliateCheckoutContext,
   getAffiliateVisitorId,
   getPendingAffiliateReferral,
+  resolvePendingAffiliateReferral,
   saveAffiliateAttribution,
 } from './lib/affiliate.js'
 import {
@@ -1641,7 +1642,7 @@ export default function App() {
             visitor_id: data.visitor_id,
             expires_at: data.expires_at,
           })
-          setReferralOffer({ slug: data.affiliate.slug, coupon: data.coupon || null, claimed: false, error: '' })
+          setReferralOffer({ slug: data.affiliate.slug, expiresAt: data.expires_at, coupon: data.coupon || null, claimed: false, error: '' })
         }
         if (alive && !resp.ok) setReferralOffer({ error: 'Não foi possível registrar a indicação. Reabra o link do vendedor.', failed: true })
         if (alive) navigate('/', { replace: true })
@@ -1661,9 +1662,9 @@ export default function App() {
   // compartilhado entre os cupons do cliente (idempotente no servidor).
   React.useEffect(() => {
     if (!user?.id || !accessToken) { referralClaimRef.current = ''; return }
-    const referral = getPendingAffiliateReferral()
+    const referral = getPendingAffiliateReferral(user.id)
     if (!referral) return
-    const key = `${user.id}:${referral.affiliate_slug}:${referral.visitor_id}`
+    const key = `${user.id}:${referral.affiliate_slug}:${referral.visitor_id}:${referral.expires_at}`
     if (referralClaimRef.current === key) return
     referralClaimRef.current = key
     let active = true
@@ -1676,9 +1677,18 @@ export default function App() {
         })
         const result = await response.json().catch(() => ({}))
         if (!response.ok) throw new Error(result.error || 'Não foi possível salvar seu cupom.')
-        if (active) setReferralOffer(previous => {
+        if (result.ok === false && resolvePendingAffiliateReferral(referral, user.id, result)) {
+          if (active) setReferralOffer(previous => {
+            if (!previous || previous.slug !== referral.affiliate_slug) return previous
+            return { ...previous, claimed: false, failed: true, error: result.error }
+          })
+          return
+        }
+        if (result.ok !== true) throw new Error(result.error || 'Não foi possível salvar seu cupom.')
+        const resolved = resolvePendingAffiliateReferral(referral, user.id, result)
+        if (active && resolved) setReferralOffer(previous => {
           if (!previous || previous.slug !== referral.affiliate_slug) return previous
-          return { ...previous, coupon: result.coupon || previous.coupon, claimed: true, error: '' }
+          return { ...previous, coupon: result.coupon || null, claimed: true, error: '' }
         })
       } catch (error) {
         if (active) setReferralOffer(previous => {
@@ -1688,7 +1698,7 @@ export default function App() {
       }
     })()
     return () => { active = false }
-  }, [accessToken, user?.id, referralOffer?.slug, referralClaimRetry])
+  }, [accessToken, user?.id, referralOffer?.slug, referralOffer?.expiresAt, referralClaimRetry])
 
   // ===== SEO + Schema para página de produto (/p/:slug) =====
   React.useEffect(() => {
