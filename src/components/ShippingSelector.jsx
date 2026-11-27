@@ -10,8 +10,8 @@ const formatZip = value => {
 }
 
 /**
- * Nas páginas de assinatura/personalização, preserva a cotação automática autenticada.
- * No carrinho (manual=true), aceita CEP explícito sem login e só consulta ao clicar.
+ * Na personalização e renovação, preserva a cotação automática autenticada.
+ * No carrinho e assinatura (manual=true), aceita CEP explícito sem login e só consulta ao clicar.
  * Uma alteração no pedido ou no CEP descarta imediatamente a cotação anterior.
  */
 export default function ShippingSelector({
@@ -210,7 +210,7 @@ export default function ShippingSelector({
       {busy && !manual ? <div className="shipping-selector-hint" role="status"><span className="shipping-spinner" /> Consultando modalidades na SuperFrete…</div> : null}
       {!token && !manual ? <p className="shipping-selector-hint">Entre na sua conta para consultar as opções pelo CEP cadastrado.</p> : null}
       {manual && needsRecalculation && !busy && !quote && !error ? (
-        <p className="shipping-selector-hint" role="status">O carrinho ou CEP mudou. Clique em <strong>Calcular frete</strong> para atualizar o valor.</p>
+        <p className="shipping-selector-hint" role="status">{request?.type === 'vip' ? 'O plano ou CEP mudou. Clique em' : 'O carrinho ou CEP mudou. Clique em'} <strong>Calcular frete</strong> para atualizar o valor.</p>
       ) : null}
       {!!error && <div className="shipping-selector-error" role="alert">{error}</div>}
       {!busy && options.map(option => (

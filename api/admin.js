@@ -1,3 +1,4 @@
+import { vipItemStorage } from '../shared/vipItemCategory.js'
 import { handleAdminHomeBanner } from '../server/homeBanner.js'
 /**
  * Admin multiplexer (Hobby plan friendly)
@@ -329,7 +330,7 @@ async function resolveManualVipItem(sb, item) {
     String(item?.cycle_key || '').trim() || (await getActiveVipCycleKey(sb))
   const { data: availableOptions, error: optionsError } = await sb
     .from('vip_mini_options')
-    .select('id,title,image_url,item_type,active,cycle_key,sort_order')
+    .select('id,title,image_url,item_type,display_type,active,cycle_key,sort_order')
     .order('sort_order', { ascending: true })
   if (optionsError)
     throw new Error(
@@ -391,7 +392,7 @@ async function resolveManualVipItem(sb, item) {
     counts.total !== limits.total
   ) {
     throw new Error(
-      `Escolha exatamente ${limits.total} item(ns): ${limits.miniatures} miniatura(s)${limits.bosses ? ` e ${limits.bosses} boss(es)` : ''}.`
+      `Escolha exatamente ${limits.total} item(ns): ${limits.miniatures} miniatura(s)${limits.bosses ? ` e ${limits.bosses} boss(es) ou construção(ões)` : ''}.`
     )
   }
   if (!selectedOptions.length)
@@ -930,7 +931,7 @@ async function handleManualOrderCreate(req, res) {
             scale: vipContext.plan?.scale || '',
             recurrenceLabel: 'Mensal',
             benefits: [
-              `${vipContext.limits.miniatures} miniatura(s)${vipContext.limits.bosses ? ` + ${vipContext.limits.bosses} boss(es)` : ''}`,
+              `${vipContext.limits.miniatures} miniatura(s)${vipContext.limits.bosses ? ` + ${vipContext.limits.bosses} boss(es) ou construção(ões)` : ''}`,
               'Miniaturas do ciclo já selecionadas pela equipe',
               'Acesso imediato à Área VIP e aos benefícios do clube',
             ],
@@ -3025,7 +3026,7 @@ async function fetchVipMiniLibrary(sb) {
   let resp = await sb
     .from('vip_mini_options')
     .select(
-      'id,title,description,image_url,sort_order,active,created_at,item_type,cycle_key'
+      'id,title,description,image_url,sort_order,active,created_at,item_type,display_type,cycle_key'
     )
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true })
@@ -3036,7 +3037,7 @@ async function fetchVipMiniLibrary(sb) {
       resp = await sb
         .from('vip_mini_options')
         .select(
-          'id,title,description,image_url,sort_order,active,created_at,item_type'
+          'id,title,description,image_url,sort_order,active,created_at,item_type,display_type'
         )
         .order('sort_order', { ascending: true })
         .order('created_at', { ascending: true })
@@ -3115,10 +3116,10 @@ async function handleVipCreateOption(req, res) {
     return res
       .status(400)
       .json({ error: 'Ciclo inválido. Use o formato YYYY-MM.' })
-  if (!['miniature', 'boss'].includes(itemType))
+  if (!['miniature', 'boss', 'construction'].includes(itemType))
     return res
       .status(400)
-      .json({ error: 'Tipo inválido. Use miniatura ou boss.' })
+      .json({ error: 'Tipo inválido. Use miniatura, boss ou construção.' })
   if (!imageUrl)
     return res
       .status(400)
@@ -3137,7 +3138,7 @@ async function handleVipCreateOption(req, res) {
     gallery_images: galleryImages.length ? galleryImages : [imageUrl],
     sort_order: sortOrder,
     active: body?.active !== false,
-    item_type: itemType,
+    ...vipItemStorage(itemType),
     cycle_key: cycleKey,
   }
 
@@ -3145,7 +3146,7 @@ async function handleVipCreateOption(req, res) {
     .from('vip_mini_options')
     .insert(payload)
     .select(
-      'id,title,description,image_url,sort_order,active,created_at,item_type,cycle_key'
+      'id,title,description,image_url,sort_order,active,created_at,item_type,display_type,cycle_key'
     )
     .single()
   if (
@@ -3160,7 +3161,7 @@ async function handleVipCreateOption(req, res) {
       .from('vip_mini_options')
       .insert(fallbackPayload)
       .select(
-        'id,title,description,image_url,sort_order,active,created_at,item_type,cycle_key'
+        'id,title,description,image_url,sort_order,active,created_at,item_type,display_type,cycle_key'
       )
       .single()
   }
@@ -3356,6 +3357,7 @@ async function handleVipSaveCycle(req, res) {
         ? { gallery_images: item.gallery_images }
         : {}),
       item_type: item.item_type || 'miniature',
+      display_type: item.display_type || null,
       sort_order: Number(item.sort_order || 0),
       active: item.active !== false,
       cycle_key,

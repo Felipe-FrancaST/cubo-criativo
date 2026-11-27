@@ -2,11 +2,11 @@ import { normalizeZip } from './shipping.js'
 
 /** Validação de entrada pública antes de consultar dados e SuperFrete. */
 export function validateShippingQuoteRequest({ type = 'shop', authenticated = false, destinationZip, items }) {
-  if (!authenticated && type !== 'shop') {
+  if (!authenticated && !['shop', 'vip'].includes(type)) {
     return { ok: false, status: 401, error: 'Entre na sua conta para calcular esse tipo de envio.' }
   }
   const normalizedZip = normalizeZip(destinationZip)
-  if (destinationZip !== undefined && !/^\d{8}$/.test(normalizedZip)) {
+  if ((!authenticated || destinationZip !== undefined) && !/^\d{8}$/.test(normalizedZip)) {
     return { ok: false, status: 400, error: 'Informe um CEP de entrega válido com 8 números.' }
   }
   if (type === 'shop') {

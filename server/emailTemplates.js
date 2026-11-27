@@ -901,7 +901,7 @@ export function renderOwnerVipWelcomeEmail(payload) {
     { label: 'Recorrência', value: recurrenceLabel },
     ...(total != null ? [{ label: 'Valor', value: fmtBRL(total) }] : []),
     ...(miniaturesCount ? [{ label: 'Miniaturas incluídas', value: String(miniaturesCount) }] : []),
-    ...(bossCount ? [{ label: 'Boss inclusos', value: String(bossCount) }] : []),
+    ...(bossCount ? [{ label: 'Boss/construção', value: String(bossCount) }] : []),
     ...(scale ? [{ label: 'Escala', value: scale }] : []),
     { label: 'Pagamento', value: paymentMethod },
     { label: 'Data', value: date },
@@ -966,7 +966,7 @@ export function renderOwnerVipUpgradeEmail(payload) {
     { label: 'Recorrência', value: recurrenceLabel },
     ...(amountCharged != null ? [{ label: 'Valor cobrado', value: fmtBRL(amountCharged) }] : []),
     ...(miniaturesCount ? [{ label: 'Miniaturas incluídas', value: String(miniaturesCount) }] : []),
-    ...(bossCount ? [{ label: 'Boss inclusos', value: String(bossCount) }] : []),
+    ...(bossCount ? [{ label: 'Boss/construção', value: String(bossCount) }] : []),
     ...(scale ? [{ label: 'Escala', value: scale }] : []),
     { label: 'Pagamento', value: paymentMethod },
     { label: 'Data', value: date },
@@ -1024,7 +1024,7 @@ export function renderVipUpgradeEmail(payload) {
   const upgradeHighlights = Array.isArray(p.upgradeHighlights) && p.upgradeHighlights.length ? p.upgradeHighlights : [
     `Seu plano agora é o ${toPlanName}`,
     miniaturesCount ? `Limite atualizado para ${miniaturesCount} miniatura${miniaturesCount > 1 ? 's' : ''}${scale ? ` em ${scale}` : ''}` : null,
-    bossCount ? `Boss inclusos no plano: ${bossCount}` : null,
+    bossCount ? `Vagas de boss/construção no plano: ${bossCount}` : null,
     'As novas vantagens já estão liberadas na sua Área VIP',
   ].filter(Boolean);
 
@@ -1035,7 +1035,7 @@ export function renderVipUpgradeEmail(payload) {
     ...(previousPrice != null ? [{ label: 'Plano anterior', value: fmtBRL(previousPrice) }] : []),
     ...(newPrice != null ? [{ label: 'Novo valor mensal', value: fmtBRL(newPrice) }] : []),
     ...(miniaturesCount ? [{ label: 'Miniaturas incluídas', value: `${miniaturesCount}` }] : []),
-    ...(bossCount ? [{ label: 'Boss inclusos', value: `${bossCount}` }] : []),
+    ...(bossCount ? [{ label: 'Boss/construção', value: `${bossCount}` }] : []),
     ...(scale ? [{ label: 'Escala', value: scale }] : []),
     { label: 'Pagamento', value: paymentMethod },
     { label: 'Pedido', value: shortId },
@@ -1139,7 +1139,7 @@ export function renderVipWelcomeEmail(payload) {
   const cycleLabel = p.cycleLabel || 'Ciclo atual';
   const benefits = Array.isArray(p.benefits) && p.benefits.length ? p.benefits : [
     miniaturesCount ? `${miniaturesCount} miniatura${miniaturesCount > 1 ? 's' : ''} por ciclo${scale ? ` em ${scale}` : ''}` : 'Miniaturas mensais em resina premium',
-    bossCount ? `${bossCount} boss incluso${bossCount > 1 ? 's' : ''} no plano` : 'Escolha mensal das miniaturas disponíveis na Área VIP',
+    bossCount ? `${bossCount} boss/construção no plano` : 'Escolha mensal das miniaturas disponíveis na Área VIP',
     'Acompanhamento e suporte prioritário para sua assinatura',
   ];
 
@@ -1148,7 +1148,7 @@ export function renderVipWelcomeEmail(payload) {
     { label: 'Recorrência', value: recurrenceLabel },
     ...(monthlyPrice != null ? [{ label: 'Valor do plano', value: fmtBRL(monthlyPrice) }] : []),
     ...(miniaturesCount ? [{ label: 'Miniaturas incluídas', value: `${miniaturesCount}` }] : []),
-    ...(bossCount ? [{ label: 'Boss inclusos', value: `${bossCount}` }] : []),
+    ...(bossCount ? [{ label: 'Boss/construção', value: `${bossCount}` }] : []),
     ...(scale ? [{ label: 'Escala', value: scale }] : []),
     { label: 'Pagamento', value: paymentMethod },
     { label: 'Pedido', value: shortId },

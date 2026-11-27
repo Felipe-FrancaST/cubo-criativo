@@ -29,8 +29,8 @@ test('CEP inválido e quantidades acima do limite são recusados antes de usar a
   assert.equal(validateShippingQuoteRequest({ type: 'shop', destinationZip: '47803604', items: [] }).status, 400)
 })
 
-test('cotação pública não libera assinatura nem personalização', () => {
-  assert.equal(validateShippingQuoteRequest({ type: 'vip', authenticated: false, destinationZip: '47803604' }).status, 401)
+test('cotação pública libera frete de assinatura, mas não personalização', () => {
+  assert.equal(validateShippingQuoteRequest({ type: 'vip', authenticated: false, destinationZip: '47803604' }).ok, true)
   assert.equal(validateShippingQuoteRequest({ type: 'custom', authenticated: false, destinationZip: '47803604' }).status, 401)
   assert.equal(validateShippingQuoteRequest({ type: 'vip', authenticated: true, destinationZip: '47803604' }).ok, true)
 })

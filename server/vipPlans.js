@@ -29,6 +29,6 @@ export async function getVipPlanById(sb, id) {
 export function vipPlanDisplayName(plan) {
   const minis = Number(plan?.miniatures_count) || 0;
   const boss = Number(plan?.boss_count) || 0;
-  const extras = [minis ? `${minis} miniatura${minis>1?'s':''}` : '', boss ? `${boss} boss` : ''].filter(Boolean).join(' + ');
+  const extras = [minis ? `${minis} miniatura${minis>1?'s':''}` : '', boss ? `${boss} boss/construção` : ''].filter(Boolean).join(' + ');
   return `${plan?.name || plan?.id}${extras ? ` (${extras})` : ''}`;
 }

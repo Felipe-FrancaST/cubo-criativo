@@ -1,3 +1,4 @@
+import { vipItemLabel } from '../../shared/vipItemCategory.js'
 import CheckoutPolicies from '../components/CheckoutPolicies.jsx'
 import { PaymentChoice, PaymentActionButton } from '../components/PaymentChoice.jsx'
 import ShippingSelector from '../components/ShippingSelector.jsx'
@@ -189,6 +190,7 @@ export default function VipRpgPage({
   }, [profileChecked, isVip, onOpenVipArea])
   React.useEffect(() => {
     setCouponInfo(null)
+    setShippingSelection(null)
     setCouponCode('')
     setPix(null)
     setPixOpen(false)
@@ -226,11 +228,14 @@ export default function VipRpgPage({
     pix?.planId === selectedPlan?.id &&
     pendingStatus(pixStatus) &&
     (pix.couponCode || '') === (activeCoupon?.code || '') &&
+    pix.shippingService === shippingSelection?.service_id &&
+    pix.shippingZip === shippingSelection?.destination_zip &&
     Math.round(Number(pix.total) * 100) === Math.round(Number(total) * 100) + (shippingSelection?.price_cents || 0)
   )
   function choosePlan(id) {
     if (checkoutLock.current || id === selectedPlanId) return
     setSelectedPlanId(id)
+    setShippingSelection(null)
     setCouponInfo(null)
     setCouponCode('')
     setError('')
@@ -300,6 +305,10 @@ export default function VipRpgPage({
       return
     }
     if (!profileChecked || profileError || isVip) return
+    if (!shippingSelection || shippingSelection.request_signature !== JSON.stringify({ type: 'vip', vip_plan_id: planId })) {
+      setError('Calcule o frete e selecione uma modalidade antes de pagar.')
+      return
+    }
     const operation = { accountKey, paymentMethod }
     checkoutLock.current = operation
     setBusy(true)
@@ -358,6 +367,7 @@ export default function VipRpgPage({
             coupon_code: coupon,
             shipping_service_id: shippingSelection?.service_id || null,
             expected_shipping_cents: shippingSelection?.price_cents || 0,
+            quoted_destination_zip: shippingSelection?.destination_zip || null,
             ...getAffiliateCheckoutContext(),
           }),
         }
@@ -376,6 +386,8 @@ export default function VipRpgPage({
           ...data,
           planId,
           couponCode: coupon || '',
+          shippingService: shippingSelection?.service_id,
+          shippingZip: shippingSelection?.destination_zip,
           planName: planName(plans.find((plan) => plan.id === planId)),
           total:
             (activeCoupon?.planId === planId
@@ -482,6 +494,7 @@ export default function VipRpgPage({
   const canPay = Boolean(
     shippingSelection &&
     selectedPlan &&
+    shippingSelection.request_signature === JSON.stringify({ type: 'vip', vip_plan_id: selectedPlan.id }) &&
     !busy &&
     !couponBusy &&
     profileChecked &&
@@ -555,7 +568,7 @@ export default function VipRpgPage({
                     {item.image_url ? <img src={item.image_url} alt={item.title} loading={index < 4 ? 'eager' : 'lazy'} decoding="async" /> : <span className="vip-collection-no-photo">Sem foto</span>}
                   </div>
                   <div className="vip-collection-info">
-                    <small>{item.item_type === 'boss' ? 'Boss' : 'Miniatura'}</small>
+                    <small>{vipItemLabel(item)}</small>
                     <span>{item.title}</span>
                   </div>
                 </button>
@@ -669,8 +682,8 @@ export default function VipRpgPage({
                           {count(plan.boss_count) ? 'check' : 'remove'}
                         </span>
                         {count(plan.boss_count)
-                          ? plural(plan.boss_count, 'boss', 'bosses')
-                          : 'Sem boss neste plano'}
+                          ? plural(plan.boss_count, 'boss ou construção', 'bosses ou construções')
+                          : 'Sem boss ou construção neste plano'}
                       </li>
                     </ul>
                     <p className="vip-plan-pieces">
@@ -706,7 +719,7 @@ export default function VipRpgPage({
                 <p className="vip-checkout-description">
                   {plural(selectedPlan.miniatures_count, 'miniatura')}
                   {count(selectedPlan.boss_count)
-                    ? ` + ${plural(selectedPlan.boss_count, 'boss', 'bosses')}`
+                    ? ` + ${plural(selectedPlan.boss_count, 'boss ou construção', 'bosses ou construções')}`
                     : ''}
                 </p>
                 <form
@@ -760,7 +773,7 @@ export default function VipRpgPage({
                     </button>
                   </div>
                 )}
-                <ShippingSelector token={accessToken} active={!!selectedPlan && !isVip}
+                <ShippingSelector manual token={accessToken} userId={user?.id} active={!!selectedPlan && !isVip}
                   request={selectedPlan ? { type: 'vip', vip_plan_id: selectedPlan.id } : null}
                   onSelect={setShippingSelection} onRequireProfile={() => onOpenSettings?.('profile', { autoClose: true })}
                   disabled={busy} />

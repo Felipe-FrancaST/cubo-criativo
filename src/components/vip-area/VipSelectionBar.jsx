@@ -27,7 +27,7 @@ export default function VipSelectionBar({
           </p>
           <span>
             {counts.mini}/{miniLimit} miniaturas
-            {bossLimit > 0 ? ` · ${counts.boss}/${bossLimit} bosses` : ''}
+            {bossLimit > 0 ? ` · ${counts.boss}/${bossLimit} boss/construção` : ''}
           </span>
           {message && (
             <p className="vip-save-feedback" role="status">

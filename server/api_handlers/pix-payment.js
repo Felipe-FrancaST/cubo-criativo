@@ -222,7 +222,7 @@ async function applyVipFromOrder(sb, order, payment) {
             upgradeHighlights: [
               fromPlan?.name && vipPlan?.name ? `Mudança de ${fromPlan.name} para ${vipPlan.name}` : null,
               Number(vipPlan?.miniatures_count || 0) ? `${Number(vipPlan.miniatures_count)} miniatura${Number(vipPlan.miniatures_count) > 1 ? 's' : ''}${vipPlan?.scale ? ` em ${vipPlan.scale}` : ''} por ciclo` : null,
-              Number(vipPlan?.boss_count || 0) ? `${Number(vipPlan.boss_count)} boss incluso${Number(vipPlan.boss_count) > 1 ? 's' : ''}` : 'Escolhas liberadas pela Área VIP',
+              Number(vipPlan?.boss_count || 0) ? `${Number(vipPlan.boss_count)} boss/construção` : 'Escolhas liberadas pela Área VIP',
               chargedNow ? `Cobrança atual do upgrade: ${chargedNow.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}` : null,
             ].filter(Boolean),
           });
@@ -244,7 +244,7 @@ async function applyVipFromOrder(sb, order, payment) {
             recurrenceLabel: 'Mensal',
             benefits: [
               Number(vipPlan?.miniatures_count || 0) ? `${Number(vipPlan.miniatures_count)} miniatura${Number(vipPlan.miniatures_count) > 1 ? 's' : ''}${vipPlan?.scale ? ` em ${vipPlan.scale}` : ''}` : null,
-              Number(vipPlan?.boss_count || 0) ? `${Number(vipPlan.boss_count)} boss incluso${Number(vipPlan.boss_count) > 1 ? 's' : ''}` : 'Escolha mensal de miniaturas pela Área VIP',
+              Number(vipPlan?.boss_count || 0) ? `${Number(vipPlan.boss_count)} boss/construção` : 'Escolha mensal de miniaturas pela Área VIP',
               'Acesso ao Cubo Game e benefícios exclusivos do clube',
             ].filter(Boolean),
             total: Number(emailMeta?.total || order.total) || undefined,

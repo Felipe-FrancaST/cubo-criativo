@@ -1,3 +1,4 @@
+import { vipItemCategory, vipItemLabel } from '../../../../shared/vipItemCategory.js'
 import React from 'react'
 import { SectionTitle } from '../orders/AdminOrdersComponents.jsx'
 export default function AdminVipSection({ admin }) {
@@ -43,11 +44,11 @@ export default function AdminVipSection({ admin }) {
   const [vipTab, setVipTab] = React.useState('cycles')
   const [libraryCycle, setLibraryCycle] = React.useState('all')
   const libraryItems = (vipControl.library || []).filter((item) => {
-    const type = item.item_type === 'boss' ? 'boss' : 'mini'
+    const type = vipItemCategory(item) === 'miniature' ? 'mini' : vipItemCategory(item)
     if (libraryCycle !== 'all' && String(item.cycle_key || '') !== libraryCycle)
       return false
     if (
-      ['mini', 'boss'].includes(vipLibraryFilter) &&
+      ['mini', 'boss', 'construction'].includes(vipLibraryFilter) &&
       type !== vipLibraryFilter
     )
       return false
@@ -186,7 +187,7 @@ export default function AdminVipSection({ admin }) {
               {vipControl.library.length}
             </div>
             <div className="mt-2 text-sm text-slate-300">
-              Miniaturas e bosses disponíveis para montar os próximos ciclos.
+              Miniaturas, bosses e construções disponíveis para montar os próximos ciclos.
             </div>
           </div>
         </div>
@@ -260,6 +261,7 @@ export default function AdminVipSection({ admin }) {
                 >
                   <option value="miniature">Miniatura</option>
                   <option value="boss">Boss</option>
+                  <option value="construction">Construção</option>
                 </select>
               </label>
               <label className="md:col-span-2">
@@ -359,7 +361,7 @@ export default function AdminVipSection({ admin }) {
                 Tipo
                 <select
                   value={
-                    ['mini', 'boss'].includes(vipLibraryFilter)
+                    ['mini', 'boss', 'construction'].includes(vipLibraryFilter)
                       ? vipLibraryFilter
                       : 'all'
                   }
@@ -369,6 +371,7 @@ export default function AdminVipSection({ admin }) {
                   <option value="all">Todos os tipos</option>
                   <option value="mini">Miniaturas</option>
                   <option value="boss">Bosses</option>
+                  <option value="construction">Construções</option>
                 </select>
               </label>
               <label className="text-xs text-slate-400">
@@ -407,7 +410,7 @@ export default function AdminVipSection({ admin }) {
                   )}
                   <div className="p-3">
                     <span className="text-[10px] font-medium text-teal-200">
-                      {item.item_type === 'boss' ? 'Boss' : 'Miniatura'} •{' '}
+                      {vipItemLabel(item)} •{' '}
                       {item.cycle_key || 'Sem ciclo'}
                     </span>
                     <h4
@@ -478,9 +481,7 @@ export default function AdminVipSection({ admin }) {
                     </div>
                     <div className="mt-1 text-[11px] text-slate-400">
                       {item.cycle_key || 'Sem ciclo'} •{' '}
-                      {String(item.item_type).toLowerCase() === 'boss'
-                        ? 'Boss'
-                        : 'Miniatura'}
+                      {vipItemLabel(item)}
                     </div>
                   </div>
                   <button
@@ -657,7 +658,7 @@ export default function AdminVipSection({ admin }) {
                       </div>
                       <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-3">
                         <div className="text-[11px] text-slate-500 uppercase tracking-wide">
-                          Boss
+                          Boss / Construção
                         </div>
                         <div className="mt-1 text-xl font-black text-white">
                           {vipSelectedSummary.boss}
@@ -793,6 +794,7 @@ export default function AdminVipSection({ admin }) {
                           ['selected', 'Selecionados'],
                           ['mini', 'Minis'],
                           ['boss', 'Bosses'],
+                          ['construction', 'Construções'],
                         ].map(([value, label]) => (
                           <button
                             key={value}
@@ -855,7 +857,7 @@ export default function AdminVipSection({ admin }) {
                                         : 'rounded-full px-2 py-0.5 text-[10px] bg-cyan-500/15 text-cyan-200 ring-1 ring-cyan-500/20'
                                     }
                                   >
-                                    {isBoss ? 'Boss' : 'Mini'}
+                                    {vipItemLabel(item)}
                                   </span>
                                   {selected ? (
                                     <span className="rounded-full px-2 py-0.5 text-[10px] bg-emerald-500/15 text-emerald-200 ring-1 ring-emerald-500/20">
@@ -951,7 +953,7 @@ export default function AdminVipSection({ admin }) {
                       </div>
                       <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/10 p-3">
                         <div className="text-[11px] text-slate-500 uppercase tracking-wide">
-                          Boss
+                          Boss / Construção
                         </div>
                         <div className="mt-1 text-xl font-black text-white">
                           {vipActiveCycle.boss_count}
@@ -1037,7 +1039,7 @@ export default function AdminVipSection({ admin }) {
                           </div>
                           <div className="mt-1 text-xs text-slate-400">
                             {cycle.miniatures_count} minis • {cycle.boss_count}{' '}
-                            boss • {cycle.total_items} itens
+                            boss/construção • {cycle.total_items} itens
                           </div>
                         </div>
                         {cycle.is_active ? (

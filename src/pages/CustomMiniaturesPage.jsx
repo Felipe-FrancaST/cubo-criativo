@@ -25,8 +25,8 @@ function customPrice(settings, kind, finish) {
 }
 const finishLabel = finish => finish === 'unpainted' ? 'Sem pintura' : 'Com pintura'
 const types = [
-  { id: 'miniatura', icon: 'smart_toy', name: 'Miniatura', subtitle: 'O personagem completo, da cabeça aos pés' },
-  { id: 'busto', icon: 'face_6', name: 'Busto', subtitle: 'Retrato tridimensional, com foco nos detalhes' },
+  { id: 'miniatura', icon: 'smart_toy', name: 'Miniatura', subtitle: 'De 32 mm a 50 mm · personagem completo' },
+  { id: 'busto', icon: 'face_6', name: 'Busto', subtitle: '10 cm · retrato tridimensional' },
 ]
 const statusNames = {
   draft: 'Rascunho', processing: 'Preparando pagamento', pending: 'Aguardando pagamento',
@@ -560,11 +560,11 @@ export default function CustomMiniaturesPage({ user, accessToken, onRequireLogin
             </section>
 
             <section className="cm-panel" ref={notesStepRef} id="cm-step-notes">
-              <StepHeading number={3} title="Conte sobre sua ideia" sub="Opcional, mas quanto mais detalhes você fornecer, melhor." />
+              <StepHeading number={3} title="Conte sobre sua ideia" sub={kind === 'miniatura' ? 'Informe o tamanho desejado, entre 32 mm e 50 mm, e os detalhes da peça.' : 'O busto tem 10 cm. Conte como você deseja personalizá-lo.'} />
               <label className="cm-form-label" htmlFor="custom-notes">Descrição e observações</label>
               <textarea id="custom-notes" rows={5} maxLength={2000} value={notes} onChange={event => setNotes(event.target.value)}
-                placeholder="Ex.: Guerreiro com espada longa, armadura escura, base rochosa, expressão determinada..." />
-              <div className="cm-field-footer"><span>Inclua pose, roupas, acessórios ou qualquer detalhe importante.</span><span>{notes.length}/2000</span></div>
+                placeholder={kind === 'miniatura' ? 'Ex.: Miniatura de 40 mm, guerreiro com espada longa, armadura escura e base rochosa...' : 'Ex.: Busto de 10 cm, armadura escura e expressão determinada...'} />
+              <div className="cm-field-footer"><span>{kind === 'miniatura' ? 'Descreva a altura desejada (32 mm a 50 mm), pose, roupas e acessórios.' : 'Inclua expressão, roupas, acessórios ou qualquer detalhe importante.'}</span><span>{notes.length}/2000</span></div>
               <button type="button" className="cm-mobile-next" onClick={() => scrollToStep(files.length ? checkoutStepRef : imagesStepRef)}>
                 <span className="material-icons" aria-hidden="true">{files.length ? 'receipt_long' : 'add_photo_alternate'}</span>
                 {files.length ? 'Revisar pedido e pagar' : 'Adicionar imagens para continuar'}
@@ -581,7 +581,7 @@ export default function CustomMiniaturesPage({ user, accessToken, onRequireLogin
               </div>
               <div className="cm-summary-product">
                 <div className="cm-summary-product-icon"><span className="material-icons">{kind === 'busto' ? 'face_6' : 'smart_toy'}</span></div>
-                <div><strong>{kind === 'busto' ? 'Busto personalizado' : 'Miniatura personalizada'}</strong><small>{finishLabel(finish)} · 1 peça personalizada · {files.length} {files.length === 1 ? 'imagem anexada' : 'imagens anexadas'}</small></div>
+                <div><strong>{kind === 'busto' ? 'Busto personalizado' : 'Miniatura personalizada'}</strong><small>{finishLabel(finish)} · {kind === 'busto' ? '10 cm' : '32 a 50 mm'} · 1 peça personalizada · {files.length} {files.length === 1 ? 'imagem anexada' : 'imagens anexadas'}</small></div>
               </div>
               <div className="cm-prices">
                 <div><span>Valor da personalização</span><span>{settings ? money(price) : 'Carregando…'}</span></div>

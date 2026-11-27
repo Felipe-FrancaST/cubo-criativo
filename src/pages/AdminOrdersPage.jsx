@@ -1,3 +1,4 @@
+import { vipItemCategory } from '../../shared/vipItemCategory.js'
 const AdminBannersSection = lazyWithReload(
   () => import('./admin/banners/AdminBannersSection.jsx')
 )
@@ -3681,11 +3682,12 @@ export default function AdminOrdersPage({
     )
     return (vipControl?.library || []).filter((item) => {
       const type =
-        String(item?.item_type || '').toLowerCase() === 'boss' ? 'boss' : 'mini'
+        vipItemCategory(item) === 'miniature' ? 'mini' : vipItemCategory(item)
       const selected = selectedSet.has(String(item?.id))
       if (vipLibraryFilter === 'selected' && !selected) return false
       if (vipLibraryFilter === 'mini' && type !== 'mini') return false
       if (vipLibraryFilter === 'boss' && type !== 'boss') return false
+      if (vipLibraryFilter === 'construction' && type !== 'construction') return false
       if (!query) return true
       const haystack = [item?.title, item?.description, item?.cycle_key, type]
         .filter(Boolean)

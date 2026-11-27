@@ -1,3 +1,4 @@
+import { vipItemCategory, vipItemLabel } from '../../shared/vipItemCategory.js'
 import React from 'react'
 import Modal from './Modal.jsx'
 import { PaymentChoice, PaymentActionButton } from './PaymentChoice.jsx'
@@ -414,10 +415,7 @@ export default function VipAreaModal({
     const query = normalize(optionSearch.trim())
     const selectedIds = isLevel3AutoMode ? level3EffectiveIds : displaySelected
     return options.filter((option) => {
-      const type =
-        String(option.item_type || 'miniature').toLowerCase() === 'boss'
-          ? 'boss'
-          : 'miniature'
+      const type = vipItemCategory(option)
       return (
         (optionFilter === 'all' || type === optionFilter) &&
         (!showOnlySelected || selectedIds.includes(option.id)) &&
@@ -668,7 +666,7 @@ export default function VipAreaModal({
     if (kind === 'mini') {
       text = `${base} Seu plano permite ${miniLimit} miniatura(s). Para escolher mais miniaturas, faça o upgrade.`
     } else if (kind === 'boss') {
-      text = `${base} Seu plano permite ${bossLimit} boss(es). Para escolher mais bosses, faça o upgrade.`
+      text = `${base} Seu plano permite ${bossLimit} boss(es) ou construção(ões). Para escolher mais bosses ou construções, faça o upgrade.`
     } else {
       text = `${base} Seu plano permite ${totalLimit} item(ns) por mês. Para escolher mais, faça o upgrade.`
     }
@@ -856,7 +854,7 @@ export default function VipAreaModal({
       const { data, error } = await supabase
         .from('vip_mini_options')
         .select(
-          'id,title,description,image_url,gallery_images,sort_order,active,item_type'
+          'id,title,description,image_url,gallery_images,sort_order,active,item_type,display_type'
         )
         .eq('id', opt.id)
         .maybeSingle()
@@ -1433,7 +1431,7 @@ export default function VipAreaModal({
       selectedCounts.total !== totalLimit
     ) {
       setMsg(
-        `Escolha exatamente ${totalLimit} item(ns) para o seu plano (${miniLimit} miniatura(s)${bossLimit ? ` + ${bossLimit} boss(es)` : ''}).`
+        `Escolha exatamente ${totalLimit} item(ns) para o seu plano (${miniLimit} miniatura(s)${bossLimit ? ` + ${bossLimit} boss(es) ou construção(ões)` : ''}).`
       )
       return
     }
@@ -1698,7 +1696,7 @@ export default function VipAreaModal({
                     [
                       'deployed_code',
                       'Escolhas mensais',
-                      'Selecione miniaturas e bosses do seu plano em um fluxo guiado.',
+                      'Selecione miniaturas, bosses e construções do seu plano em um fluxo guiado.',
                     ],
                     [
                       'local_shipping',
@@ -1785,7 +1783,7 @@ export default function VipAreaModal({
                       ? isLevel3AutoMode
                         ? 'Todos os itens incluídos no seu plano.'
                         : editing
-                          ? `Escolha ${miniLimit} miniaturas${bossLimit ? ` e ${bossLimit} bosses` : ''} para completar seu plano.`
+                          ? `Escolha ${miniLimit} miniaturas${bossLimit ? ` e ${bossLimit} boss(es) ou construção(ões)` : ''} para completar seu plano.`
                           : 'Sua seleção está salva. Consulte os detalhes ou revise enquanto estiver aberta.'
                       : tab === 'pedido'
                         ? 'Produção, envio e rastreio em um só lugar.'
@@ -2056,7 +2054,7 @@ export default function VipAreaModal({
                                   </div>
                                   <div className="mt-1 text-sm text-slate-300">
                                     {planMini} miniatura(s)
-                                    {planBoss ? ` + ${planBoss} boss` : ''}
+                                    {planBoss ? ` + ${planBoss} boss/construção` : ''}
                                   </div>
                                 </div>
                                 <div className="text-right">
@@ -2670,6 +2668,7 @@ export default function VipAreaModal({
                             <option value="all">Todos</option>
                             <option value="miniature">Miniaturas</option>
                             <option value="boss">Bosses</option>
+                            <option value="construction">Construções</option>
                           </select>
                         </label>
                       </div>
@@ -2779,7 +2778,7 @@ export default function VipAreaModal({
                                       <span
                                         className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] ring-1 ${kind === 'boss' ? 'bg-cyan-500/10 ring-amber-400/25 text-amber-100' : 'bg-emerald-500/10 ring-emerald-400/25 text-emerald-100'}`}
                                       >
-                                        {kind === 'boss' ? 'Boss' : 'Miniatura'}
+                                        {vipItemLabel(opt)}
                                       </span>
                                     </div>
                                     {/* descrição/carrossel carregam no preview (sob demanda) */}

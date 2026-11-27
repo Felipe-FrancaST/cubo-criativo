@@ -34,7 +34,7 @@ export default async function handleVipCycle(req, res) {
 
   let query = sb
     .from('vip_mini_options')
-    .select('id,title,description,image_url,gallery_images,sort_order,active,item_type,cycle_key')
+    .select('id,title,description,image_url,gallery_images,sort_order,active,item_type,display_type,cycle_key')
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });
 
@@ -52,7 +52,7 @@ export default async function handleVipCycle(req, res) {
     if (/cycle_key|column/i.test(msg)) {
       let fallbackQuery = sb
         .from('vip_mini_options')
-        .select('id,title,description,image_url,gallery_images,sort_order,active,item_type')
+        .select('id,title,description,image_url,gallery_images,sort_order,active,item_type,display_type')
         .order('sort_order', { ascending: true })
         .order('created_at', { ascending: true });
       if (requestedOptionIds.length) fallbackQuery = fallbackQuery.in('id', requestedOptionIds);

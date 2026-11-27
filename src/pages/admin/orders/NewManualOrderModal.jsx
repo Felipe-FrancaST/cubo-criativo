@@ -1,3 +1,4 @@
+import { vipItemLabel } from '../../../../shared/vipItemCategory.js'
 import React from 'react'
 import { supabase } from '../../../lib/supabaseClient.js'
 import { fetchAddressFromCep } from '../../../lib/cep.js'
@@ -581,7 +582,7 @@ export default function NewManualOrderModal({
         : counts.miniatures >= limits.miniatures)
     ) {
       setError(
-        `O limite deste plano é ${limits.miniatures} miniatura(s)${limits.bosses ? ` e ${limits.bosses} boss(es)` : ''}.`
+        `O limite deste plano é ${limits.miniatures} miniatura(s)${limits.bosses ? ` e ${limits.bosses} boss(es) ou construção(ões)` : ''}.`
       )
       return
     }
@@ -691,7 +692,7 @@ export default function NewManualOrderModal({
           counts.bosses !== limits.bosses
         ) {
           setError(
-            `Selecione ${limits.miniatures} miniatura(s) e ${limits.bosses} boss(es) para este plano.`
+            `Selecione ${limits.miniatures} miniatura(s) e ${limits.bosses} boss(es) ou construção(ões) para este plano.`
           )
           return false
         }
@@ -758,7 +759,7 @@ export default function NewManualOrderModal({
           counts.bosses !== limits.bosses
         ) {
           throw new Error(
-            `Selecione exatamente ${limits.miniatures} miniatura(s)${limits.bosses ? ` e ${limits.bosses} boss(es)` : ''} para este plano.`
+            `Selecione exatamente ${limits.miniatures} miniatura(s)${limits.bosses ? ` e ${limits.bosses} boss(es) ou construção(ões)` : ''} para este plano.`
           )
         }
       }
@@ -1618,7 +1619,7 @@ export default function NewManualOrderModal({
                                     <div className="text-xs text-slate-400">
                                       Selecione {limits.miniatures} miniatura(s)
                                       {limits.bosses
-                                        ? ` e ${limits.bosses} boss(es)`
+                                        ? ` e ${limits.bosses} boss(es) ou construção(ões)`
                                         : ''}
                                       .
                                     </div>
@@ -1629,7 +1630,7 @@ export default function NewManualOrderModal({
                                     {counts.total}/{limits.total} • Mini{' '}
                                     {counts.miniatures}/{limits.miniatures}
                                     {limits.bosses
-                                      ? ` • Boss ${counts.bosses}/${limits.bosses}`
+                                      ? ` • Boss/construção ${counts.bosses}/${limits.bosses}`
                                       : ''}
                                   </div>
                                 </div>
@@ -1637,7 +1638,7 @@ export default function NewManualOrderModal({
                                   <div className="mt-3 rounded-xl bg-violet-500/10 px-3 py-2 text-xs text-violet-100 ring-1 ring-violet-400/20">
                                     O Level 3 vem preenchido com a coleção
                                     ativa, mas você pode desmarcar itens e
-                                    substituí-los por miniaturas ou bosses de
+                                    substituí-los por miniaturas, bosses ou construções de
                                     ciclos anteriores.
                                   </div>
                                 ) : null}
@@ -1661,10 +1662,6 @@ export default function NewManualOrderModal({
                                       const selected = selectedIds.includes(
                                         String(option.id)
                                       )
-                                      const isBoss =
-                                        String(
-                                          option?.item_type || 'miniature'
-                                        ).toLowerCase() === 'boss'
                                       return (
                                         <button
                                           key={option.id}
@@ -1693,7 +1690,7 @@ export default function NewManualOrderModal({
                                               {option.title || 'Miniatura VIP'}
                                             </div>
                                             <div className="mt-1 text-[11px] uppercase tracking-wide text-slate-400">
-                                              {isBoss ? 'Boss' : 'Miniatura'}
+                                              {vipItemLabel(option)}
                                             </div>
                                           </div>
                                           <span
@@ -1757,10 +1754,6 @@ export default function NewManualOrderModal({
                                       </div>
                                       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                                         {selectedPastOptions.map((option) => {
-                                          const isBoss =
-                                            String(
-                                              option?.item_type || 'miniature'
-                                            ).toLowerCase() === 'boss'
                                           return (
                                             <button
                                               key={`selected-past-${option.id}`}
@@ -1794,9 +1787,7 @@ export default function NewManualOrderModal({
                                                     option.cycle_key
                                                   )}{' '}
                                                   •{' '}
-                                                  {isBoss
-                                                    ? 'Boss'
-                                                    : 'Miniatura'}
+                                                  {vipItemLabel(option)}
                                                 </div>
                                               </div>
                                               <span className="material-icons text-[20px] text-emerald-200">
@@ -1815,10 +1806,6 @@ export default function NewManualOrderModal({
                                         const selected = selectedIds.includes(
                                           String(option.id)
                                         )
-                                        const isBoss =
-                                          String(
-                                            option?.item_type || 'miniature'
-                                          ).toLowerCase() === 'boss'
                                         return (
                                           <button
                                             key={`past-${option.id}`}
@@ -1848,7 +1835,7 @@ export default function NewManualOrderModal({
                                                   'Miniatura VIP'}
                                               </div>
                                               <div className="mt-1 text-[11px] uppercase tracking-wide text-slate-400">
-                                                {isBoss ? 'Boss' : 'Miniatura'}
+                                                {vipItemLabel(option)}
                                                 {option?.active === false
                                                   ? ' • Arquivada'
                                                   : ''}
