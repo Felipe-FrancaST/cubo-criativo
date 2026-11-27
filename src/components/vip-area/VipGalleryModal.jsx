@@ -7,6 +7,7 @@ export default function VipGalleryModal({
   onItemChange,
   onClose,
   onImageError,
+  collectionPreview = false,
 }) {
   const [index, setIndex] = React.useState(0)
   const gesture = React.useRef(null)
@@ -42,11 +43,11 @@ export default function VipGalleryModal({
       open={Boolean(item)}
       onClose={onClose}
       title={item?.title || 'Miniatura'}
-      widthClass="w-[94vw] sm:w-[600px]"
-      maxWidth="max-w-[600px]"
+      widthClass={collectionPreview ? "w-[96vw] sm:w-[90vw]" : "w-[94vw] sm:w-[600px]"}
+      maxWidth={collectionPreview ? "max-w-[900px]" : "max-w-[600px]"}
       zIndexClass="z-[240]"
       bodyClassName="vip-gallery-body"
-      panelClassName="vip-gallery-panel"
+      panelClassName={`vip-gallery-panel${collectionPreview ? " vip-collection-preview" : ""}`}
       onKeyDown={(event) => {
         if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
           event.preventDefault()
@@ -140,6 +141,15 @@ export default function VipGalleryModal({
             </>
           )}
         </div>
+        {collectionPreview && images.length > 1 && (
+          <div className="vip-preview-thumbnails" aria-label="Fotos da peça">
+            {images.map((url, photoIndex) => (
+              <button type="button" key={url} onClick={() => setIndex(photoIndex)} aria-label={`Ver imagem ${photoIndex + 1}`} aria-pressed={selectedIndex === photoIndex}>
+                <img src={url} alt="" loading="lazy" draggable={false} />
+              </button>
+            ))}
+          </div>
+        )}
         {item?.description && (
           <p className="vip-gallery-description">{item.description}</p>
         )}

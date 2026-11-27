@@ -195,11 +195,10 @@ function VariantEditor({
     </section>
   )
 }
-function ProductImageEditor({
+export function ProductImageEditor({
   items,
   primaryKey,
   onSelectFiles,
-  onSetPrimary,
   onMove,
   onRemove,
   fileInputRef,
@@ -210,17 +209,36 @@ function ProductImageEditor({
   const dragRef = React.useRef(null)
   const [dragging, setDragging] = React.useState('')
   const [dropTarget, setDropTarget] = React.useState('')
-  function targetAt(event) {
-    return document.elementFromPoint(event.clientX, event.clientY)?.closest('[data-gallery-index]')?.dataset.galleryIndex
-  }
-  function endDrag(event, cancelled = false) {
-    const source = dragRef.current
-    if (!source) return
-    const target = cancelled ? null : rows[Number(targetAt(event))]?.key
+  const canReorder = !disabled && rows.length > 1
+  function clearDrag() {
     dragRef.current = null
     setDragging('')
     setDropTarget('')
-    if (target && target !== source) onMove(source, target)
+  }
+  function beginDrag(event, key) {
+    if (!canReorder) {
+      event.preventDefault()
+      return
+    }
+    dragRef.current = key
+    setDragging(key)
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', key)
+  }
+  function dropOn(event, key) {
+    const source = dragRef.current
+    if (!source) return
+    event.preventDefault()
+    clearDrag()
+    if (canReorder && source !== key) onMove(source, key)
+  }
+  function reorderWithKeyboard(event, index) {
+    if (!canReorder) return
+    const delta = { ArrowLeft: -1, ArrowUp: -1, ArrowRight: 1, ArrowDown: 1 }[event.key]
+    if (!delta) return
+    event.preventDefault()
+    const target = rows[index + delta]
+    if (target) onMove(rows[index].key, target.key)
   }
   return (
     <section className="rounded-2xl bg-black/20 p-3 ring-1 ring-white/10 sm:p-4">
@@ -230,7 +248,7 @@ function ProductImageEditor({
             Imagens do produto <span className="text-cyan-300">*</span>
           </div>
           <div className="mt-1 text-xs leading-relaxed text-slate-400">
-            Envie até {MAX_PRODUCT_IMAGES} imagens. Arraste pelo ícone de mover ou use as setas para ordenar. A primeira imagem será a capa do produto.
+            Envie até {MAX_PRODUCT_IMAGES} imagens. Clique e arraste a própria foto até a posição desejada. A primeira imagem será a capa do produto.
           </div>
         </div>
 
@@ -255,69 +273,62 @@ function ProductImageEditor({
 
       {rows.length ? (
         <>
-          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3" aria-label="Ordem das imagens">
             {rows.map((item, index) => {
               const isPrimary = item.key === primaryKey
+              const isDragging = dragging === item.key
+              const isTarget = dropTarget === item.key && !isDragging
               return (
                 <article
                   key={item.key}
-                  data-gallery-index={index}
-                  className={`overflow-hidden rounded-2xl bg-slate-950/50 ring-1 transition ${dragging === item.key ? "opacity-50" : ""} ${dropTarget === item.key ? "outline-2 outline-cyan-300" : ""} ${isPrimary ? 'ring-cyan-300/60' : 'ring-white/10'}`}
+                  data-gallery-key={item.key}
+                  onDragOver={(event) => {
+                    if (!canReorder || !dragRef.current) return
+                    event.preventDefault()
+                    event.dataTransfer.dropEffect = 'move'
+                    setDropTarget(item.key)
+                  }}
+                  onDragLeave={(event) => {
+                    if (!(event.relatedTarget instanceof Node) || !event.currentTarget.contains(event.relatedTarget)) {
+                      setDropTarget((current) => current === item.key ? '' : current)
+                    }
+                  }}
+                  onDrop={(event) => dropOn(event, item.key)}
+                  className={`min-w-0 overflow-hidden rounded-xl bg-slate-950/50 ring-1 transition-shadow ${isTarget ? 'ring-2 ring-cyan-300' : isPrimary ? 'ring-cyan-300/60' : 'ring-white/10'} ${isDragging ? 'opacity-40' : ''}`}
                 >
-                  <div className="relative aspect-square overflow-hidden bg-black/30">
+                  <div
+                    draggable={canReorder}
+                    onDragStart={(event) => beginDrag(event, item.key)}
+                    onDragEnd={clearDrag}
+                    onKeyDown={(event) => reorderWithKeyboard(event, index)}
+                    tabIndex={canReorder ? 0 : undefined}
+                    aria-label={`Imagem ${index + 1} de ${rows.length}${isPrimary ? ', capa' : ''}. Arraste ou use as setas do teclado para reordenar.`}
+                    className={`relative aspect-square select-none overflow-hidden bg-black/30 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-cyan-300 ${canReorder ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                  >
                     <img
                       src={item.url}
                       alt={`Imagem ${index + 1} do produto`}
                       draggable={false}
-                      className="h-full w-full object-contain"
+                      className="pointer-events-none h-full w-full object-contain"
                     />
-                    {isPrimary ? (
-                      <span className="absolute left-2 top-2 rounded-full bg-cyan-300 px-2 py-1 text-[10px] font-black text-slate-950 shadow-lg">
-                        PRINCIPAL
-                      </span>
-                    ) : null}
-                    {item.isNew ? (
-                      <span className="absolute right-2 top-2 rounded-full bg-emerald-400/90 px-2 py-1 text-[10px] font-black text-black">
-                        NOVA
-                      </span>
-                    ) : null}
+                    {isPrimary && (
+                      <span className="pointer-events-none absolute left-2 top-2 rounded-md bg-cyan-300 px-2 py-1 text-[10px] font-bold text-slate-950">CAPA</span>
+                    )}
+                    {isTarget && (
+                      <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-cyan-300/90 px-2 py-1 text-center text-[10px] font-bold text-slate-950">Solte aqui</span>
+                    )}
                   </div>
-
-                  <div className="flex items-center justify-between gap-1 px-2 pt-2">
-                    <span className="text-xs font-semibold text-slate-300">{index + 1} / {rows.length}</span>
-                    <button type="button" disabled={disabled || rows.length < 2} aria-label={`Arrastar imagem ${index + 1}`} title="Arraste para reordenar" className="touch-none select-none cursor-grab rounded-lg p-2 text-cyan-200 hover:bg-white/10 active:cursor-grabbing"
-                      onPointerDown={event => { if (event.button !== 0) return; event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); dragRef.current = item.key; setDragging(item.key); }}
-                      onPointerMove={event => { if (dragRef.current) setDropTarget(rows[Number(targetAt(event))]?.key || ''); }}
-                      onPointerUp={event => endDrag(event)} onPointerCancel={event => endDrag(event, true)} onLostPointerCapture={event => endDrag(event, true)}>
-                      <span className="material-icons align-middle text-[20px]">drag_indicator</span>
-                    </button>
-                    <div className="flex gap-1">
-                      <button type="button" disabled={disabled || index === 0} aria-label={`Mover imagem ${index + 1} para antes`} onClick={() => onMove(item.key, rows[index - 1]?.key)} className="rounded-lg p-2 text-slate-200 hover:bg-white/10 disabled:opacity-30"><span className="material-icons align-middle text-[16px]">arrow_back</span></button>
-                      <button type="button" disabled={disabled || index === rows.length - 1} aria-label={`Mover imagem ${index + 1} para depois`} onClick={() => onMove(item.key, rows[index + 1]?.key)} className="rounded-lg p-2 text-slate-200 hover:bg-white/10 disabled:opacity-30"><span className="material-icons align-middle text-[16px]">arrow_forward</span></button>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-[1fr_auto] gap-1.5 p-2">
-                    <button
-                      type="button"
-                      disabled={disabled || isPrimary}
-                      onClick={() => onSetPrimary(item.key)}
-                      className="min-w-0 rounded-lg px-2 py-2 text-[11px] font-semibold text-slate-200 ring-1 ring-white/10 hover:bg-white/[0.06] disabled:cursor-default disabled:text-cyan-200 disabled:opacity-80"
-                    >
-                      <span className="material-icons mr-1 align-middle text-[14px]">
-                        {isPrimary ? 'star' : 'star_border'}
-                      </span>
-                      {isPrimary ? 'Principal' : 'Tornar principal'}
-                    </button>
+                  <div className="flex min-w-0 items-center justify-between gap-2 px-2 py-1.5">
+                    <span className="min-w-0 truncate text-xs font-medium text-slate-400">{String(index + 1).padStart(2, '0')}{item.isNew ? ' · Nova' : ''}</span>
                     <button
                       type="button"
                       disabled={disabled}
                       onClick={() => onRemove(item)}
-                      className="rounded-lg px-2 py-2 text-rose-200 ring-1 ring-rose-300/20 hover:bg-rose-400/10 disabled:opacity-50"
+                      title="Excluir foto"
                       aria-label={`Remover imagem ${index + 1}`}
+                      className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-slate-400 transition hover:bg-rose-400/10 hover:text-rose-200 disabled:opacity-50"
                     >
-                      <span className="material-icons align-middle text-[16px]">
-                        delete
-                      </span>
+                      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5M14 11v5" /></svg>
                     </button>
                   </div>
                 </article>
@@ -756,9 +767,6 @@ export default function AdminProductsSection({ onNotify }) {
   function moveImage(from, to) {
     setGalleryOrder(moveGalleryKey(galleryItems.map(item => item.key), from, to))
   }
-  function setPrimaryImage(key) {
-    moveImage(key, galleryItems[0]?.key)
-  }
   function removeGalleryImage(item) {
     const remaining = galleryItems.filter(
       (candidate) => candidate.key !== item.key
@@ -1182,7 +1190,6 @@ export default function AdminProductsSection({ onNotify }) {
               items={galleryItems}
               primaryKey={primaryImageKey}
               onSelectFiles={handleFiles}
-              onSetPrimary={setPrimaryImage}
               onMove={moveImage}
               onRemove={removeGalleryImage}
               fileInputRef={fileInputRef}

@@ -527,6 +527,44 @@ export default function VipRpgPage({
             Loja
           </button>
         </header>
+        <section className="vip-current-collection" aria-labelledby="vip-collection-title">
+          <div className="vip-collection-heading">
+            <div>
+              <p className="customer-eyebrow">Coleção do ciclo{cycle ? ` · ${cycle.split('-').reverse().join('/')}` : ''}</p>
+              <h2 id="vip-collection-title">Conheça a coleção do ciclo</h2>
+              <p className="vip-collection-intro">Explore as miniaturas e toque em uma peça para ampliar as fotos.</p>
+            </div>
+            {!collectionLoading && !collectionError && collection.length > 0 && (
+              <span className="vip-collection-total">{plural(collection.length, 'peça')}</span>
+            )}
+          </div>
+          {collectionError ? (
+            <div className="customer-alert" role="alert">
+              <p>{collectionError}</p>
+              <button type="button" className="customer-secondary" onClick={loadCollection}>Atualizar coleção</button>
+            </div>
+          ) : collectionLoading ? (
+            <div className="vip-collection-grid" role="status" aria-label="Carregando coleção">
+              {[0, 1, 2, 3].map((index) => <div key={index} className="vip-collection-placeholder" aria-hidden="true" />)}
+            </div>
+          ) : collection.length ? (
+            <div className="vip-collection-grid">
+              {collection.map((item, index) => (
+                <button type="button" className="vip-collection-card" key={item.id} onClick={() => setPreview(item)} aria-label={`Ampliar ${item.title}`}>
+                  <div className="vip-collection-media">
+                    {item.image_url ? <img src={item.image_url} alt={item.title} loading={index < 4 ? 'eager' : 'lazy'} decoding="async" /> : <span className="vip-collection-no-photo">Sem foto</span>}
+                  </div>
+                  <div className="vip-collection-info">
+                    <small>{item.item_type === 'boss' ? 'Boss' : 'Miniatura'}</small>
+                    <span>{item.title}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="account-help">A coleção será exibida aqui assim que estiver disponível.</p>
+          )}
+        </section>
         <div className="vip-plan-highlights">
           <span>
             <span className="material-icons" aria-hidden="true">
@@ -784,57 +822,6 @@ export default function VipRpgPage({
           </aside>
         </div>
         <section
-          className="vip-current-collection"
-          aria-labelledby="vip-collection-title"
-        >
-          <div className="account-section-heading">
-            <div>
-              <h2 id="vip-collection-title">
-                Conheça a coleção do ciclo
-                {cycle ? ` · ${cycle.split('-').reverse().join('/')}` : ''}
-              </h2>
-              <p>Toque em uma peça para ver todos os detalhes.</p>
-            </div>
-          </div>
-          {collectionError ? (
-            <div className="customer-alert" role="alert">
-              <p>{collectionError}</p>
-              <button
-                type="button"
-                className="customer-secondary"
-                onClick={loadCollection}
-              >
-                Atualizar coleção
-              </button>
-            </div>
-          ) : collectionLoading ? (
-            <p role="status" className="account-help">
-              Carregando coleção…
-            </p>
-          ) : collection.length ? (
-            <div className="vip-collection-grid">
-              {collection.map((item) => (
-                <button
-                  type="button"
-                  key={item.id}
-                  onClick={() => setPreview(item)}
-                  aria-label={`Ampliar ${item.title}`}
-                >
-                  <img src={item.image_url} alt={item.title} loading="lazy" />
-                  <span>{item.title}</span>
-                  <small>
-                    {item.item_type === 'boss' ? 'Boss' : 'Miniatura'}
-                  </small>
-                </button>
-              ))}
-            </div>
-          ) : (
-            <p className="account-help">
-              A coleção será exibida aqui assim que estiver disponível.
-            </p>
-          )}
-        </section>
-        <section
           className="vip-plan-questions"
           aria-labelledby="vip-questions-title"
         >
@@ -864,6 +851,7 @@ export default function VipRpgPage({
         <VipGalleryModal
           item={preview}
           items={collection}
+          collectionPreview
           onItemChange={setPreview}
           onClose={() => setPreview(null)}
         />

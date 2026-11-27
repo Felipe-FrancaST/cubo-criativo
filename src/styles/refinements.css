@@ -198,3 +198,141 @@
 }
 .site-shell .compact-product-card .product-card-details { background:#07151ee8; border:1px solid #b8d4e62e; }
 .site-shell .compact-product-card .product-card-details::before { content:none; }
+
+/* Coleção pública: galeria antes dos planos, sem carrossel cortado no celular. */
+.vip-plans-page .vip-current-collection {
+  margin: 12px 0 32px;
+  padding: 0 0 28px;
+  border-bottom: 1px solid #aec7db24;
+}
+.vip-plans-page .vip-collection-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.vip-plans-page .vip-collection-heading h2 {
+  margin: 5px 0 6px;
+  font-size: clamp(21px, 3vw, 29px);
+  font-weight: 650;
+  line-height: 1.2;
+}
+.vip-plans-page .vip-collection-intro,
+.vip-plans-page .vip-collection-total {
+  color: #9eb2c5;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.vip-plans-page .vip-collection-total { flex-shrink: 0; }
+.vip-plans-page .vip-collection-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 22px 16px;
+  overflow: visible;
+  padding: 0;
+}
+.vip-plans-page .vip-collection-grid > .vip-collection-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  min-width: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  overflow: visible;
+  cursor: zoom-in;
+}
+.vip-plans-page .vip-collection-media {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  border-radius: 9px;
+  overflow: hidden;
+  background: #07121c;
+}
+.vip-plans-page .vip-collection-media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  aspect-ratio: auto;
+  object-fit: contain;
+  position: absolute;
+  inset: 0;
+  transition: filter 220ms ease;
+}
+.vip-plans-page .vip-collection-info { padding: 9px 2px 0; }
+.vip-plans-page .vip-collection-info small {
+  margin: 0 0 3px;
+  color: #8bb8c5;
+  font-size: 10px;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+.vip-plans-page .vip-collection-info span {
+  display: block;
+  margin: 0;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  font-weight: 550;
+  line-height: 1.35;
+}
+.vip-plans-page .vip-collection-no-photo { color: #9eb2c5; }
+.vip-plans-page .vip-collection-placeholder {
+  aspect-ratio: 4 / 5;
+  border-radius: 9px;
+  background: #aec7db10;
+}
+@media (hover: hover) and (pointer: fine) {
+  .vip-plans-page .vip-collection-card:hover .vip-collection-media img { filter: brightness(1.08); }
+}
+@media (max-width: 1099px) {
+  .vip-plans-page .vip-collection-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (max-width: 799px) {
+  .vip-plans-page .vip-collection-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 599px) {
+  .vip-plans-page .vip-current-collection { margin-bottom: 24px; padding-bottom: 22px; }
+  .vip-plans-page .vip-collection-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 10px; }
+  .vip-plans-page .vip-collection-heading { align-items: flex-start; margin-bottom: 14px; gap: 8px; }
+  .vip-plans-page .vip-collection-total { font-size: 11px; }
+  .vip-plans-page .vip-collection-info span { font-size: 13px; }
+}
+/* Ampliador da coleção pública, com miniaturas e navegação existente. */
+.vip-collection-preview .vip-gallery-stage {
+  height: min(59dvh, 620px);
+  max-height: none;
+  min-height: 120px;
+  border-radius: 8px;
+}
+.vip-collection-preview .vip-gallery-stage > img { max-height: 100%; }
+.vip-collection-preview :is(.vip-gallery-prev, .vip-gallery-next) {
+  border-radius: 50%;
+  background: #07161dc9;
+}
+.vip-collection-preview .vip-preview-thumbnails {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 10px 3px 4px;
+  scrollbar-width: thin;
+}
+.vip-collection-preview .vip-preview-thumbnails button {
+  flex: 0 0 64px;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border: 1px solid #aec7db26;
+  border-radius: 7px;
+  background: #07121c;
+}
+.vip-collection-preview .vip-preview-thumbnails button[aria-pressed='true'] { border-color: #77d8d3; box-shadow: 0 0 0 1px #77d8d3; }
+.vip-collection-preview .vip-preview-thumbnails img { width: 100%; height: 100%; object-fit: contain; }
+@media (max-width: 599px) {
+  .vip-collection-preview .vip-gallery-stage { height: min(58dvh, 520px); }
+  .vip-collection-preview .vip-preview-thumbnails button { flex-basis: 54px; }
+}

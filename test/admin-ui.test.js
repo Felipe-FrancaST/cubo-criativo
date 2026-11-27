@@ -11,6 +11,7 @@ let dom,
   cleanup,
   waitFor,
   NewOrder,
+  ProductImageEditor,
   AdminPage,
   Modal,
   AuthProvider
@@ -197,6 +198,7 @@ before(async () => {
   NewOrder = (await import('../src/pages/admin/orders/NewManualOrderModal.jsx'))
     .default
   AdminPage = (await import('../src/pages/AdminOrdersPage.jsx')).default
+  ;({ ProductImageEditor } = await import('../src/pages/admin/products/AdminProductsSection.jsx'))
   Modal = (await import('../src/components/Modal.jsx')).default
 })
 afterEach(() => {
@@ -494,4 +496,35 @@ test('gerente acessa banners, mantém imagens separadas e salva após confirmaç
       item.options.method === 'POST'
   )
   assert.ok(save)
+})
+
+
+test('ordena fotos arrastando diretamente a imagem, sem botões de posição', () => {
+  const initial = [{ key: 'existing:a', url: '/a.webp' }, { key: 'existing:b', url: '/b.webp' }, { key: 'new:c', url: '/c.webp', isNew: true }]
+  function Editor() {
+    const [items, setItems] = React.useState(initial)
+    return h(ProductImageEditor, { items, primaryKey: items[0].key, onSelectFiles() {}, onRemove() {}, fileInputRef: React.useRef(null), onMove(from, to) {
+      setItems(current => {
+        const next = [...current]
+        const source = next.findIndex(item => item.key === from)
+        const target = next.findIndex(item => item.key === to)
+        next.splice(target, 0, next.splice(source, 1)[0])
+        return next
+      })
+    } })
+  }
+  const view = render(h(Editor))
+  const tiles = () => Array.from(view.container.querySelectorAll('[data-gallery-key]'))
+  const keys = () => tiles().map(tile => tile.dataset.galleryKey)
+  const dataTransfer = { setData() {}, effectAllowed: '', dropEffect: '' }
+  const photo = tiles()[2].querySelector('[draggable="true"]')
+  fireEvent.dragStart(photo, { dataTransfer })
+  fireEvent.dragOver(tiles()[0], { dataTransfer })
+  fireEvent.drop(tiles()[0], { dataTransfer })
+  fireEvent.dragEnd(photo, { dataTransfer })
+  assert.deepEqual(keys(), ['new:c', 'existing:a', 'existing:b'])
+  assert.ok(tiles()[0].textContent.includes('CAPA'))
+  assert.equal(view.queryByRole('button', { name: /Mover imagem|Tornar principal|Arrastar imagem/ }), null)
+  fireEvent.keyDown(tiles()[0].querySelector('[draggable="true"]'), { key: 'ArrowRight' })
+  assert.deepEqual(keys(), ['existing:a', 'new:c', 'existing:b'])
 })

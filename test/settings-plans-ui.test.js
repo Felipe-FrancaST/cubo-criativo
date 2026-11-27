@@ -115,6 +115,7 @@ async function mockFetch(input, options = {}) {
           id: 'mini1',
           title: 'Dragão',
           image_url: '/dragon.webp',
+          gallery_images: ['/dragon-back.webp'],
           item_type: 'miniature',
         },
       ],
@@ -747,4 +748,17 @@ test('cache VIP antigo não redireciona uma conta sem assinatura ativa', async (
   })
   await readyPlans(view)
   assert.equal(opened, 0)
+})
+
+
+test('coleção aparece antes dos planos e abre a galeria com miniaturas selecionáveis', async () => {
+  const view = renderPlans({ user: null, accessToken: '' })
+  const tile = await view.findByRole('button', { name: 'Ampliar Dragão' })
+  const collection = view.container.querySelector('.vip-current-collection')
+  const plans = view.container.querySelector('.vip-subscription-layout')
+  assert.ok(collection.compareDocumentPosition(plans) & Node.DOCUMENT_POSITION_FOLLOWING)
+  fireEvent.click(tile)
+  assert.ok(view.getByRole('img', { name: 'Dragão, imagem 1 de 2' }))
+  fireEvent.click(view.getByRole('button', { name: 'Ver imagem 2' }))
+  assert.equal(view.getByRole('img', { name: 'Dragão, imagem 2 de 2' }).getAttribute('src'), '/dragon-back.webp')
 })
