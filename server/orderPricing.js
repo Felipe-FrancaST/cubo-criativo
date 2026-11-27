@@ -131,7 +131,7 @@ export async function resolveStoreItems(sb, rawItems = []) {
   const productIds = [...new Set(normalizedItems.map((item) => item.product_id))];
   const { data: rows, error } = await sb
     .from('products')
-    .select('id,name,category,price_cents,original_price_cents,promo,stock,active,image_url,images,variants,default_variant')
+    .select('id,name,category,price_cents,original_price_cents,promo,stock,status,active,image_url,images,variants,default_variant')
     .in('id', productIds);
 
   if (error) {
@@ -158,7 +158,7 @@ export async function resolveStoreItems(sb, rawItems = []) {
     }
 
     const totalRequestedQty = aggregatedQty.get(item.product_id) || 0;
-    if (row.stock !== null && row.stock !== undefined) {
+    if (row.status === 'estoque') {
       const stock = toPositiveInt(row.stock);
       if (stock < totalRequestedQty) {
         return {

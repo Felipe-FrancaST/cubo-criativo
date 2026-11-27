@@ -245,11 +245,11 @@ function mapProductRow(row) {
     // - null/undefined => sem controle de estoque (não bloquear compra)
     // - number        => controlar disponibilidade (0 => esgotado)
     stock:
-      row?.stock === null || row?.stock === undefined
+      row?.status !== 'estoque'
         ? null
         : (() => {
             const n = Number(row.stock)
-            return Number.isFinite(n) ? Math.trunc(n) : null
+            return Number.isFinite(n) ? Math.max(0, Math.trunc(n)) : 0
           })(),
     active: row?.active !== false,
     tags: normalizeTextArray(row?.tags),
@@ -1506,7 +1506,9 @@ export default function App() {
       cat.includes('action') ||
       tagBlob.includes('figure')
 
-    const typeLabel = cat === 'chaveiros' || cat === 'chaveiro'
+    const typeLabel = cat === 'brincos' || cat === 'brinco'
+      ? 'Brinco'
+      : cat === 'chaveiros' || cat === 'chaveiro'
       ? 'Chaveiro'
       : isRpg
       ? 'Miniatura RPG'

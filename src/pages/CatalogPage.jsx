@@ -20,6 +20,7 @@ function resolveCatalogType(product) {
   const category = normalizeText(product?.category)
   const typeLabel = normalizeText(product?._typeLabel)
   if (category === 'chaveiros' || category === 'chaveiro') return 'chaveiros'
+  if (category === 'brincos' || category === 'brinco') return 'brincos'
   if (category === 'rpg' || typeLabel.includes('rpg')) return 'rpg'
   if (['action figures', 'action figure', 'action'].includes(category) || typeLabel.includes('action')) return 'action'
   return 'outros'
@@ -27,7 +28,7 @@ function resolveCatalogType(product) {
 
 function isInternalTag(tag) {
   const s = normalizeText(tag)
-  return !s || ['rpg', 'action', 'action figure', 'action figures', 'figure action', 'chaveiro', 'chaveiros'].includes(s) ||
+  return !s || ['rpg', 'action', 'action figure', 'action figures', 'figure action', 'chaveiro', 'chaveiros', 'brinco', 'brincos'].includes(s) ||
     ['tipo:', 'classe:', 'raca:', 'prazo:'].some((prefix) => s.startsWith(prefix))
 }
 
@@ -36,6 +37,7 @@ const types = [
   { id: 'action', label: 'Action figures' },
   { id: 'rpg', label: 'Miniaturas RPG' },
   { id: 'chaveiros', label: 'Chaveiros' },
+  { id: 'brincos', label: 'Brincos' },
 ]
 
 function TypeFilters({ value, onChange, className = '' }) {

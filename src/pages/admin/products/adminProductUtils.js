@@ -9,7 +9,7 @@ export const EMPTY_PRODUCT_FORM = {
   featured: false,
   active: true,
   status: "catalogo",
-  stock: "999",
+  stock: "",
   category: "action figures",
   tags: "",
   sortOrder: "1000",
@@ -125,9 +125,9 @@ export function productRowToForm(row) {
     promoPrice: centsToInput(promoPriceCents),
     featured: Boolean(row?.featured),
     active: row?.active !== false,
-    status: String(row?.status || "catalogo"),
-    stock: String(Number.isFinite(Number(row?.stock)) ? Math.max(0, Math.trunc(Number(row.stock))) : 999),
-    category: String(row?.category || "action figures"),
+    status: row?.status === "estoque" ? "estoque" : "catalogo",
+    stock: row?.status === "estoque" && row?.stock != null ? String(Math.max(0, Math.trunc(Number(row.stock) || 0))) : "",
+    category: normalizeProductCategory(row?.category || "action figures"),
     tags: Array.isArray(row?.tags) ? row.tags.join(", ") : "",
     sortOrder: String(Number.isFinite(Number(row?.sort_order)) ? Math.trunc(Number(row.sort_order)) : 1000),
     imageUrl: existingImages[0] || "",
@@ -139,4 +139,41 @@ export function productRowToForm(row) {
 
 export function getNormalPriceCents(row) {
   return Number(row?.original_price_cents || row?.price_cents || 0);
+}
+
+// Preserve the stored category values used by the existing storefront and shipping.
+export function normalizeProductCategory(value) {
+  const category = String(value || '').trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  if (/^(chaveiro|chaveiros)$/.test(category)) return 'chaveiros';
+  if (/^(brinco|brincos)$/.test(category)) return 'brincos';
+  if (/^(action|action figures?|figure action)$/.test(category)) return 'action figures';
+  if (/^(rpg|miniaturas?( rpg)?)$/.test(category)) return 'rpg';
+  return 'outros';
+}
+
+export function moveGalleryKey(keys, from, to) {
+  const next = [...keys];
+  const source = next.indexOf(from), target = next.indexOf(to);
+  if (source < 0 || target < 0 || source === target) return next;
+  next.splice(source, 1);
+  next.splice(target, 0, from);
+  return next;
+}
+
+export function orderGalleryItems(items, keys) {
+  const byKey = new Map(items.map(item => [item.key, item]));
+  const ordered = [];
+  for (const key of keys) {
+    if (byKey.has(key)) { ordered.push(byKey.get(key)); byKey.delete(key); }
+  }
+  return [...ordered, ...byKey.values()];
+}
+
+export function parseProductStock(status, value) {
+  if (status !== 'estoque') return null;
+  const stock = Number(value);
+  if (String(value ?? '').trim() === '' || !Number.isSafeInteger(stock) || stock < 0 || stock > 2147483647) {
+    throw new Error('Informe uma quantidade inteira de estoque, igual ou maior que zero.');
+  }
+  return stock;
 }

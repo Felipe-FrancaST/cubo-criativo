@@ -80,6 +80,7 @@ async function fetchProducts() {
       "price_cents",
       "currency",
       "stock",
+      "status",
       "active",
       "image_url",
       "category",
@@ -111,6 +112,7 @@ async function fetchProducts() {
         "price_cents",
         "currency",
         "stock",
+      "status",
         "active",
         "image_url",
         "category",
@@ -131,7 +133,7 @@ async function fetchProducts() {
 
 function buildProductJsonLd({ origin, p, urlPath }) {
   const price = Number.isFinite(Number(p?.price_cents)) ? Number(p.price_cents) / 100 : 0;
-  const inStock = p?.stock === null || p?.stock === undefined ? true : Number(p.stock) > 0;
+  const inStock = p?.status !== 'estoque' || Number(p.stock) > 0;
   const imageRaw = p?.image_url ? String(p.image_url) : "";
   const image = imageRaw
     ? (/^https?:\/\//i.test(imageRaw) ? imageRaw : `${origin}${imageRaw.startsWith("/") ? imageRaw : `/${imageRaw}`}`)

@@ -5,7 +5,7 @@ function toPositiveInt(value) {
 }
 
 async function readProductStock(sb, productId) {
-  const { data, error } = await sb.from('products').select('id,stock').eq('id', productId).maybeSingle();
+  const { data, error } = await sb.from('products').select('id,stock,status').eq('id', productId).maybeSingle();
   if (error) throw error;
   return data || null;
 }
@@ -15,8 +15,9 @@ async function compareAndSetStock(sb, productId, expectedStock, nextStock) {
     .from('products')
     .update({ stock: nextStock })
     .eq('id', productId)
+    .eq('status', 'estoque')
     .eq('stock', expectedStock)
-    .select('id,stock')
+    .select('id,stock,status')
     .maybeSingle();
   if (error) throw error;
   return data || null;
@@ -28,7 +29,7 @@ export async function decrementStockAtomically(sb, productId, qty, maxAttempts =
 
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     const row = await readProductStock(sb, productId);
-    if (!row || row.stock === null || row.stock === undefined) return { ok: true, unmanaged: true };
+    if (!row || row.status !== 'estoque') return { ok: true, unmanaged: true };
 
     const current = toPositiveInt(row.stock);
     if (current < needed) {
@@ -48,7 +49,7 @@ export async function incrementStockAtomically(sb, productId, qty, maxAttempts =
 
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     const row = await readProductStock(sb, productId);
-    if (!row || row.stock === null || row.stock === undefined) return { ok: true, unmanaged: true };
+    if (!row || row.status !== 'estoque') return { ok: true, unmanaged: true };
 
     const current = toPositiveInt(row.stock);
     const updated = await compareAndSetStock(sb, productId, current, current + amount);

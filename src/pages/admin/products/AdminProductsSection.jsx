@@ -6,6 +6,10 @@ import {
   formatCents,
   getNormalPriceCents,
   normalizeProductImageUrls,
+  normalizeProductCategory,
+  moveGalleryKey,
+  orderGalleryItems,
+  parseProductStock,
   parseBrlToCents,
   productRowToForm,
   safeImageFileName,
@@ -196,12 +200,28 @@ function ProductImageEditor({
   primaryKey,
   onSelectFiles,
   onSetPrimary,
+  onMove,
   onRemove,
   fileInputRef,
   disabled,
 }) {
   const rows = Array.isArray(items) ? items : []
   const remaining = Math.max(0, MAX_PRODUCT_IMAGES - rows.length)
+  const dragRef = React.useRef(null)
+  const [dragging, setDragging] = React.useState('')
+  const [dropTarget, setDropTarget] = React.useState('')
+  function targetAt(event) {
+    return document.elementFromPoint(event.clientX, event.clientY)?.closest('[data-gallery-index]')?.dataset.galleryIndex
+  }
+  function endDrag(event, cancelled = false) {
+    const source = dragRef.current
+    if (!source) return
+    const target = cancelled ? null : rows[Number(targetAt(event))]?.key
+    dragRef.current = null
+    setDragging('')
+    setDropTarget('')
+    if (target && target !== source) onMove(source, target)
+  }
   return (
     <section className="rounded-2xl bg-black/20 p-3 ring-1 ring-white/10 sm:p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -210,9 +230,7 @@ function ProductImageEditor({
             Imagens do produto <span className="text-cyan-300">*</span>
           </div>
           <div className="mt-1 text-xs leading-relaxed text-slate-400">
-            Envie até {MAX_PRODUCT_IMAGES} imagens. A imagem principal aparece
-            nos cards; as demais ficam disponíveis na galeria da página do
-            produto.
+            Envie até {MAX_PRODUCT_IMAGES} imagens. Arraste pelo ícone de mover ou use as setas para ordenar. A primeira imagem será a capa do produto.
           </div>
         </div>
 
@@ -243,12 +261,14 @@ function ProductImageEditor({
               return (
                 <article
                   key={item.key}
-                  className={`overflow-hidden rounded-2xl bg-slate-950/50 ring-1 transition ${isPrimary ? 'ring-cyan-300/60' : 'ring-white/10'}`}
+                  data-gallery-index={index}
+                  className={`overflow-hidden rounded-2xl bg-slate-950/50 ring-1 transition ${dragging === item.key ? "opacity-50" : ""} ${dropTarget === item.key ? "outline-2 outline-cyan-300" : ""} ${isPrimary ? 'ring-cyan-300/60' : 'ring-white/10'}`}
                 >
                   <div className="relative aspect-square overflow-hidden bg-black/30">
                     <img
                       src={item.url}
                       alt={`Imagem ${index + 1} do produto`}
+                      draggable={false}
                       className="h-full w-full object-contain"
                     />
                     {isPrimary ? (
@@ -263,6 +283,19 @@ function ProductImageEditor({
                     ) : null}
                   </div>
 
+                  <div className="flex items-center justify-between gap-1 px-2 pt-2">
+                    <span className="text-xs font-semibold text-slate-300">{index + 1} / {rows.length}</span>
+                    <button type="button" disabled={disabled || rows.length < 2} aria-label={`Arrastar imagem ${index + 1}`} title="Arraste para reordenar" className="touch-none select-none cursor-grab rounded-lg p-2 text-cyan-200 hover:bg-white/10 active:cursor-grabbing"
+                      onPointerDown={event => { if (event.button !== 0) return; event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); dragRef.current = item.key; setDragging(item.key); }}
+                      onPointerMove={event => { if (dragRef.current) setDropTarget(rows[Number(targetAt(event))]?.key || ''); }}
+                      onPointerUp={event => endDrag(event)} onPointerCancel={event => endDrag(event, true)} onLostPointerCapture={event => endDrag(event, true)}>
+                      <span className="material-icons align-middle text-[20px]">drag_indicator</span>
+                    </button>
+                    <div className="flex gap-1">
+                      <button type="button" disabled={disabled || index === 0} aria-label={`Mover imagem ${index + 1} para antes`} onClick={() => onMove(item.key, rows[index - 1]?.key)} className="rounded-lg p-2 text-slate-200 hover:bg-white/10 disabled:opacity-30"><span className="material-icons align-middle text-[16px]">arrow_back</span></button>
+                      <button type="button" disabled={disabled || index === rows.length - 1} aria-label={`Mover imagem ${index + 1} para depois`} onClick={() => onMove(item.key, rows[index + 1]?.key)} className="rounded-lg p-2 text-slate-200 hover:bg-white/10 disabled:opacity-30"><span className="material-icons align-middle text-[16px]">arrow_forward</span></button>
+                    </div>
+                  </div>
                   <div className="grid grid-cols-[1fr_auto] gap-1.5 p-2">
                     <button
                       type="button"
@@ -411,7 +444,7 @@ function ProductCard({ product, onEdit, onToggleActive, busyId }) {
               {product.status === 'estoque' ? 'Pronta entrega' : 'Catálogo'}
             </span>
             <span className="rounded-full bg-white/[0.04] px-2 py-1 ring-1 ring-white/10">
-              Estoque: {Number(product.stock || 0)}
+              {product.status === 'estoque' ? `Estoque: ${Number(product.stock || 0)}` : 'Sem limite de estoque'}
             </span>
             <span className="rounded-full bg-white/[0.04] px-2 py-1 ring-1 ring-white/10">
               {imageCount} foto(s)
@@ -476,12 +509,13 @@ export default function AdminProductsSection({ onNotify }) {
   const [loadError, setLoadError] = React.useState('')
   const [form, setForm] = React.useState(() => createEmptyProductForm())
   const [newImages, setNewImages] = React.useState([])
-  const [primaryImageKey, setPrimaryImageKey] = React.useState('')
+  const [galleryOrder, setGalleryOrder] = React.useState([])
   const [formError, setFormError] = React.useState('')
   const [saving, setSaving] = React.useState(false)
   const [busyId, setBusyId] = React.useState('')
   const [search, setSearch] = React.useState('')
   const [filter, setFilter] = React.useState('all')
+  const [categoryFilter, setCategoryFilter] = React.useState('all')
   const [slugTouched, setSlugTouched] = React.useState(false)
   const [lastSaved, setLastSaved] = React.useState(null)
   const fileInputRef = React.useRef(null)
@@ -520,7 +554,7 @@ export default function AdminProductsSection({ onNotify }) {
     []
   )
   const galleryItems = React.useMemo(
-    () => [
+    () => orderGalleryItems([
       ...(Array.isArray(form.existingImages) ? form.existingImages : []).map(
         (url) => ({
           key: `existing:${url}`,
@@ -536,9 +570,10 @@ export default function AdminProductsSection({ onNotify }) {
         name: item.file?.name || 'Nova imagem',
         id: item.id,
       })),
-    ],
-    [form.existingImages, newImages]
+    ], galleryOrder),
+    [form.existingImages, newImages, galleryOrder]
   )
+  const primaryImageKey = galleryItems[0]?.key || ''
   function updateForm(field, value) {
     setForm((current) => ({
       ...current,
@@ -627,7 +662,7 @@ export default function AdminProductsSection({ onNotify }) {
   function resetForm() {
     clearNewImages()
     setForm(createEmptyProductForm())
-    setPrimaryImageKey('')
+    setGalleryOrder([])
     originalImagesRef.current = []
     setFormError('')
     setSlugTouched(false)
@@ -639,13 +674,7 @@ export default function AdminProductsSection({ onNotify }) {
     clearNewImages()
     setForm(nextForm)
     originalImagesRef.current = [...nextForm.existingImages]
-    setPrimaryImageKey(
-      nextForm.imageUrl
-        ? `existing:${nextForm.imageUrl}`
-        : nextForm.existingImages[0]
-          ? `existing:${nextForm.existingImages[0]}`
-          : ''
-    )
+    setGalleryOrder(nextForm.existingImages.map(url => `existing:${url}`))
     setFormError('')
     setSlugTouched(true)
     setLastSaved(null)
@@ -708,7 +737,7 @@ export default function AdminProductsSection({ onNotify }) {
     }
     if (additions.length) {
       setNewImages((current) => [...current, ...additions])
-      if (!primaryImageKey) setPrimaryImageKey(`new:${additions[0].id}`)
+      setGalleryOrder([...galleryItems.map(item => item.key), ...additions.map(item => `new:${item.id}`)])
     }
     if (rejected.includes('limite'))
       setFormError(
@@ -724,15 +753,11 @@ export default function AdminProductsSection({ onNotify }) {
       )
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
+  function moveImage(from, to) {
+    setGalleryOrder(moveGalleryKey(galleryItems.map(item => item.key), from, to))
+  }
   function setPrimaryImage(key) {
-    setPrimaryImageKey(key)
-    if (String(key).startsWith('existing:')) {
-      const url = String(key).slice('existing:'.length)
-      setForm((current) => ({
-        ...current,
-        imageUrl: url,
-      }))
-    }
+    moveImage(key, galleryItems[0]?.key)
   }
   function removeGalleryImage(item) {
     const remaining = galleryItems.filter(
@@ -755,16 +780,7 @@ export default function AdminProductsSection({ onNotify }) {
         imageUrl: current.imageUrl === item.url ? '' : current.imageUrl,
       }))
     }
-    if (primaryImageKey === item.key) {
-      const next = remaining[0]
-      setPrimaryImageKey(next?.key || '')
-      if (next && !next.isNew) {
-        setForm((current) => ({
-          ...current,
-          imageUrl: next.url,
-        }))
-      }
-    }
+    setGalleryOrder(remaining.map(candidate => candidate.key))
   }
   async function ensureUniqueSlug(rawSlug, editingId) {
     const base = slugifyProduct(rawSlug || form.name) || `produto-${Date.now()}`
@@ -825,7 +841,9 @@ export default function AdminProductsSection({ onNotify }) {
     const defaultVariant = normalizedVariants[defaultVariantIndex]?.label || ''
     let normalPriceCents = parseBrlToCents(form.normalPrice)
     const promoPriceCents = form.promo ? parseBrlToCents(form.promoPrice) : 0
-    const stock = Math.max(0, Math.trunc(Number(form.stock || 0)))
+    let stock
+    try { stock = parseProductStock(form.status, form.stock) }
+    catch (error) { return setFormError(error.message) }
     const sortOrder = Math.trunc(Number(form.sortOrder || 1000))
     if (name.length < 2) return setFormError('Informe o nome do produto.')
     if (description.length < 10)
@@ -874,31 +892,9 @@ export default function AdminProductsSection({ onNotify }) {
           key: `new:${item.id}`,
         })
       }
-      const finalImageEntries = [
-        ...(Array.isArray(form.existingImages) ? form.existingImages : []).map(
-          (url) => ({
-            key: `existing:${url}`,
-            url,
-          })
-        ),
-        ...uploadedResults.map((item) => ({
-          key: item.key,
-          url: item.url,
-        })),
-      ]
-      const selectedPrimary =
-        finalImageEntries.find((item) => item.key === primaryImageKey) ||
-        finalImageEntries[0]
-      if (!selectedPrimary?.url)
-        throw new Error(
-          'Não foi possível definir a imagem principal do produto.'
-        )
-      const finalImages = normalizeProductImageUrls(
-        finalImageEntries
-          .filter((item) => item.key !== selectedPrimary.key)
-          .map((item) => item.url),
-        selectedPrimary.url
-      ).slice(0, MAX_PRODUCT_IMAGES)
+      const uploadedByKey = new Map(uploadedResults.map(item => [item.key, item.url]))
+      const finalImages = galleryItems.map(item => item.isNew ? uploadedByKey.get(item.key) : item.url)
+      if (finalImages.some(url => !url) || !finalImages.length) throw new Error('Não foi possível salvar a galeria do produto.')
       const payload = {
         name,
         slug,
@@ -910,13 +906,13 @@ export default function AdminProductsSection({ onNotify }) {
         active: Boolean(form.active),
         featured: Boolean(form.featured),
         promo: Boolean(form.promo),
-        image_url: selectedPrimary.url,
+        image_url: finalImages[0],
         images: finalImages,
         status: form.status === 'estoque' ? 'estoque' : 'catalogo',
         tags: splitTags(form.tags),
         default_variant: defaultVariant || null,
         variants: normalizedVariants,
-        category: String(form.category || '').trim() || null,
+        category: normalizeProductCategory(form.category),
         sort_order: Number.isFinite(sortOrder) ? sortOrder : 1000,
       }
       let response
@@ -955,7 +951,7 @@ export default function AdminProductsSection({ onNotify }) {
       onNotify?.(
         form.id
           ? '✅ Produto atualizado com sucesso.'
-          : '✅ Produto cadastrado e publicado no site.'
+          : '✅ Produto cadastrado com sucesso.'
       )
       window.dispatchEvent(
         new CustomEvent('products:changed', {
@@ -967,7 +963,7 @@ export default function AdminProductsSection({ onNotify }) {
       clearNewImages()
       if (!form.id) {
         setForm(createEmptyProductForm())
-        setPrimaryImageKey('')
+        setGalleryOrder([])
         originalImagesRef.current = []
         setSlugTouched(false)
         if (fileInputRef.current) fileInputRef.current.value = ''
@@ -975,9 +971,7 @@ export default function AdminProductsSection({ onNotify }) {
         const savedForm = productRowToForm(saved)
         setForm(savedForm)
         originalImagesRef.current = [...savedForm.existingImages]
-        setPrimaryImageKey(
-          savedForm.imageUrl ? `existing:${savedForm.imageUrl}` : ''
-        )
+        setGalleryOrder(savedForm.existingImages.map(url => `existing:${url}`))
         setSlugTouched(true)
         if (fileInputRef.current) fileInputRef.current.value = ''
       }
@@ -1055,6 +1049,9 @@ export default function AdminProductsSection({ onNotify }) {
       .trim()
       .toLocaleLowerCase('pt-BR')
     return products.filter((product) => {
+      if (categoryFilter !== 'all' && normalizeProductCategory(product.category) !== categoryFilter) return false
+      if (filter === 'catalogo' && product.status === 'estoque') return false
+      if (filter === 'estoque' && product.status !== 'estoque') return false
       if (filter === 'active' && !product.active) return false
       if (filter === 'draft' && product.active) return false
       if (filter === 'promo' && !product.promo) return false
@@ -1072,7 +1069,7 @@ export default function AdminProductsSection({ onNotify }) {
         .toLocaleLowerCase('pt-BR')
       return haystack.includes(query)
     })
-  }, [filter, products, search])
+  }, [filter, categoryFilter, products, search])
   const editing = Boolean(form.id)
   return (
     <div className="space-y-4">
@@ -1186,6 +1183,7 @@ export default function AdminProductsSection({ onNotify }) {
               primaryKey={primaryImageKey}
               onSelectFiles={handleFiles}
               onSetPrimary={setPrimaryImage}
+              onMove={moveImage}
               onRemove={removeGalleryImage}
               fileInputRef={fileInputRef}
               disabled={saving}
@@ -1317,21 +1315,20 @@ export default function AdminProductsSection({ onNotify }) {
                 label="Produto em destaque"
                 hint="Pode aparecer na seção de destaques da página inicial."
               />
-              <Toggle
-                checked={form.active}
-                onChange={(checked) => updateForm('active', checked)}
-                label="Publicado no site"
-                hint="Desative para salvar como rascunho."
-              />
-              <Toggle
-                checked={form.status === 'estoque'}
-                onChange={(checked) =>
-                  updateForm('status', checked ? 'estoque' : 'catalogo')
-                }
-                label="Pronta entrega"
-                hint="Ative para exibir também na página Em estoque."
-              />
             </div>
+
+            <fieldset className="rounded-2xl bg-black/20 p-3 ring-1 ring-white/10 sm:p-4">
+              <legend className="px-1 text-sm font-semibold text-white">Modalidade de venda</legend>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {[['catalogo', 'Catálogo', 'Sob encomenda, sem limite de estoque.'], ['estoque', 'Pronta entrega', 'Disponível para envio, com estoque controlado.']].map(([value, label, hint]) => (
+                  <label key={value} className={`flex cursor-pointer items-start gap-3 rounded-xl p-3 ring-1 ${form.status === value ? 'bg-cyan-300/10 ring-cyan-300/50' : 'bg-white/[0.025] ring-white/10'}`}>
+                    <input type="radio" name="product-sale-mode" value={value} checked={form.status === value} onChange={() => updateForm('status', value)} className="mt-1 accent-cyan-300" />
+                    <span><span className="block text-sm font-semibold text-white">{label}</span><span className="mt-1 block text-xs text-slate-400">{hint}</span></span>
+                  </label>
+                ))}
+              </div>
+              <p className="mt-2 text-xs text-slate-500">A visibilidade do produto pode ser alterada na lista de produtos cadastrados.</p>
+            </fieldset>
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <label className="block">
@@ -1344,22 +1341,26 @@ export default function AdminProductsSection({ onNotify }) {
                   className="mt-2 w-full rounded-xl bg-[#07161d] px-3 py-3 text-white ring-1 ring-white/10 outline-none focus:ring-cyan-300/40"
                 >
                   <option value="action figures">Action figures</option>
-                  <option value="rpg">RPG</option>
+                  <option value="rpg">Miniaturas RPG</option>
                   <option value="chaveiros">Chaveiros</option>
+                  <option value="brincos">Brincos</option>
                   <option value="outros">Outros</option>
                 </select>
               </label>
-              <label className="block">
-                <FieldLabel>Estoque</FieldLabel>
+              {form.status === 'estoque' && <label className="block">
+                <FieldLabel required>Estoque</FieldLabel>
                 <input
                   type="number"
                   min="0"
                   step="1"
+                  required
+                  max="2147483647"
+                  placeholder="Ex.: 5"
                   value={form.stock}
                   onChange={(event) => updateForm('stock', event.target.value)}
                   className="mt-2 w-full rounded-xl bg-black/20 px-3 py-3 text-white ring-1 ring-white/10 outline-none focus:ring-cyan-300/40"
                 />
-              </label>
+              </label>}
             </div>
 
             <label className="block">
@@ -1420,7 +1421,7 @@ export default function AdminProductsSection({ onNotify }) {
                 Edite, abra a página ou altere a publicação sem sair do painel.
               </div>
             </div>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(220px,1fr)_170px] lg:w-[520px]">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:w-[570px]">
               <div className="relative">
                 <span className="material-icons pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-slate-500">
                   search
@@ -1432,12 +1433,22 @@ export default function AdminProductsSection({ onNotify }) {
                   className="w-full rounded-xl bg-black/20 py-2.5 pl-10 pr-3 text-sm text-white ring-1 ring-white/10 outline-none focus:ring-cyan-300/40"
                 />
               </div>
-              <select
+              <select aria-label="Filtrar por categoria" value={categoryFilter} onChange={event => setCategoryFilter(event.target.value)} className="rounded-xl bg-[#07161d] px-3 py-2.5 text-sm text-white ring-1 ring-white/10 outline-none">
+                <option value="all">Todas as categorias</option>
+                <option value="action figures">Action figures</option>
+                <option value="rpg">Miniaturas RPG</option>
+                <option value="chaveiros">Chaveiros</option>
+                <option value="brincos">Brincos</option>
+                <option value="outros">Outros</option>
+              </select>
+              <select aria-label="Filtrar por situação"
                 value={filter}
                 onChange={(event) => setFilter(event.target.value)}
                 className="rounded-xl bg-[#07161d] px-3 py-2.5 text-sm text-white ring-1 ring-white/10 outline-none"
               >
-                <option value="all">Todos</option>
+                <option value="all">Todas as situações</option>
+                <option value="catalogo">Catálogo</option>
+                <option value="estoque">Pronta entrega</option>
                 <option value="active">Publicados</option>
                 <option value="draft">Rascunhos</option>
                 <option value="promo">Em promoção</option>

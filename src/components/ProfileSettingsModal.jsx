@@ -584,11 +584,11 @@ export default function ProfileSettingsModal({
             priceCents: effectiveBasePriceCents,
             currency: row?.currency ? String(row.currency) : 'brl',
             stock:
-              row?.stock === null || row?.stock === undefined
+              row?.status !== 'estoque'
                 ? null
                 : (() => {
                     const n = Number(row.stock)
-                    return Number.isFinite(n) ? Math.trunc(n) : null
+                    return Number.isFinite(n) ? Math.max(0, Math.trunc(n)) : 0
                   })(),
             active: row?.active !== false,
             tags: Array.isArray(row?.tags)

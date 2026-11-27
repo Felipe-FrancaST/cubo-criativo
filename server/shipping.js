@@ -28,12 +28,12 @@ export const SHIPPING_PACKAGES = Object.freeze({
 });
 
 const roundMoney = value => Math.round((Number(value) + Number.EPSILON) * 100);
-const keychainCategory = value => /^(?:chaveiro|chaveiros)$/.test(String(value || '').trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase());
+const keychainCategory = value => /^(?:chaveiro|chaveiros|brinco|brincos)$/.test(String(value || '').trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase());
 function validateKeychainMiniBox(parcel) {
   const { length, width, height, weight } = parcel;
   if (![length, width, height, weight].every(v => Number.isFinite(Number(v)) && Number(v) > 0)
     || length < 13 || length > 24 || width < 8 || width > 16 || height < 1 || height > 4 || weight > 0.3) {
-    throw new Error('A embalagem dos chaveiros não atende ao Mini Envios (13–24 cm comprimento, 8–16 cm largura, 1–4 cm altura, até 300 g). Corrija em Administração → Frete SuperFrete.');
+    throw new Error('A embalagem dos chaveiros e brincos não atende ao Mini Envios (13–24 cm comprimento, 8–16 cm largura, 1–4 cm altura, até 300 g). Corrija em Administração → Frete SuperFrete.');
   }
 }
 
@@ -82,7 +82,7 @@ export function packShipment({ type, items = [], kind = '', plan = null, setting
     const qty = Number(item.qty);
     if (!Number.isSafeInteger(qty) || qty < 1 || qty > 100) throw new Error('Quantidade inválida para cotação.');
     // A categoria vem exclusivamente do cadastro no Supabase, nunca de um campo
-    // de tipo enviado pelo navegador. Agrupe todos os chaveiros do pedido.
+    // de tipo enviado pelo navegador. Agrupe chaveiros e brincos na mesma embalagem.
     if (keychainCategory(item.category)) {
       keychains += qty;
       continue;
@@ -183,11 +183,11 @@ export async function getShippingQuote(sb, { destinationZip, type, items, kind, 
   if (settings.enabled === false) throw new Error('O frete está temporariamente indisponível.');
   if (!/^\d{8}$/.test(normalizeZip(settings.origin_zip))) throw new Error('CEP de origem do frete inválido.');
   const packing = packShipment({ type, items, kind, plan, settings });
-  // Para pedidos compostos só por chaveiros, ofertar exclusivamente Mini Envios.
+  // Para pedidos compostos só por chaveiros e/ou brincos, ofertar exclusivamente Mini Envios.
   // Pedidos mistos mantêm a interseção de modalidades compatíveis com TODAS as caixas.
   const serviceIds = packing.keychainsOnly ? MINI_ENVIOS_SERVICE_ID : String(settings.services || '1,2,3,17,31');
   if (packing.keychainsOnly && !String(settings.services || '').split(',').includes(MINI_ENVIOS_SERVICE_ID)) {
-    throw new Error('Mini Envios está desativado na Administração → Frete SuperFrete. Ative a modalidade para vender chaveiros.');
+    throw new Error('Mini Envios está desativado na Administração → Frete SuperFrete. Ative a modalidade para vender chaveiros e brincos.');
   }
   const unique = new Map();
   for (const p of packing.parcels) {
